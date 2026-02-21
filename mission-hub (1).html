@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Jedi Command"/>
+<meta name="theme-color" content="#000005"/>
+<title>Jedi Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --space:#000005;--deep:#05050F;--hull:#0A0A1A;--panel:#0D0D20;--border:#1A1A3A;--border2:#252550;
+  --gold:#FFD700;--gold2:#B8860B;--gold-dim:#6B5800;
+  --saber-blue:#00BFFF;--saber-green:#39FF14;--saber-red:#FF2020;--saber-purple:#BF00FF;
+  --text:#C8C8E8;--text2:#8888AA;--text3:#555580;--text4:#333355;
+  --crawl:#FFE81F;
+  --font-hud:'Orbitron',monospace;
+  --font-data:'Share Tech Mono','Courier New',monospace;
+  --scanline: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,255,0.015) 2px,rgba(0,0,255,0.015) 4px);
+}
+
+/* STARFIELD */
+html,body{
+  height:100%;overflow:hidden;
+  background:var(--space);
+  color:var(--text);
+  font-family:var(--font-data);
+  font-size:13px;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%,#fff,transparent),
+    radial-gradient(1px 1px at 30% 5%,#fff,transparent),
+    radial-gradient(1px 1px at 55% 25%,rgba(255,255,255,0.7),transparent),
+    radial-gradient(1px 1px at 75% 10%,#fff,transparent),
+    radial-gradient(1px 1px at 90% 30%,rgba(255,255,255,0.5),transparent),
+    radial-gradient(1px 1px at 20% 45%,rgba(255,255,255,0.4),transparent),
+    radial-gradient(1px 1px at 65% 55%,rgba(255,255,255,0.6),transparent),
+    radial-gradient(1px 1px at 40% 70%,rgba(255,255,255,0.3),transparent),
+    radial-gradient(1px 1px at 85% 80%,rgba(255,255,255,0.5),transparent),
+    radial-gradient(1px 1px at 5% 90%,rgba(255,255,255,0.4),transparent),
+    radial-gradient(1px 1px at 50% 95%,rgba(255,255,255,0.3),transparent),
+    radial-gradient(2px 2px at 25% 60%,rgba(200,200,255,0.3),transparent),
+    radial-gradient(1.5px 1.5px at 70% 40%,rgba(200,220,255,0.4),transparent);
+  pointer-events:none;z-index:0;
+}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh;position:relative;z-index:1;}
+
+/* SCANLINES overlay */
+#app::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:var(--scanline);opacity:0.4;
+}
+
+/* HEADER */
+#header{
+  background:linear-gradient(180deg,rgba(0,0,10,0.98) 0%,rgba(5,5,20,0.95) 100%);
+  border-bottom:1px solid var(--gold2);
+  padding:0 14px;
+  padding-top:env(safe-area-inset-top);
+  min-height:62px;
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  box-shadow:0 2px 20px rgba(255,215,0,0.1);
+  position:relative;
+}
+#header::before{
+  content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--gold2),var(--gold),transparent);
+}
+#header-brand{display:flex;flex-direction:column;}
+#header-title{
+  font-family:var(--font-hud);font-size:15px;font-weight:900;
+  color:var(--gold);letter-spacing:3px;text-transform:uppercase;
+  text-shadow:0 0 10px rgba(255,215,0,0.5),0 0 20px rgba(255,215,0,0.2);
+}
+#header-sub{font-size:8px;color:var(--text3);letter-spacing:2px;margin-top:1px;font-family:var(--font-hud);}
+#header-stats{font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:0.5px;}
+#header-actions{display:flex;gap:5px;align-items:center;}
+
+.hbtn{
+  background:rgba(255,215,0,0.06);
+  border:1px solid var(--gold2);
+  color:var(--gold);
+  padding:5px 9px;border-radius:4px;cursor:pointer;
+  font-family:var(--font-hud);font-size:10px;font-weight:700;
+  letter-spacing:1px;white-space:nowrap;
+  transition:all 0.15s;outline:none;
+  text-shadow:0 0 6px rgba(255,215,0,0.3);
+}
+.hbtn:active{background:rgba(255,215,0,0.15);transform:scale(0.96);}
+.hbtn.primary{background:rgba(0,191,255,0.12);border-color:var(--saber-blue);color:var(--saber-blue);text-shadow:0 0 8px rgba(0,191,255,0.5);}
+.hbtn.engaged{background:rgba(57,255,20,0.1);border-color:var(--saber-green);color:var(--saber-green);text-shadow:0 0 8px rgba(57,255,20,0.5);}
+
+/* HOLONET SYNC BAR */
+#sync-bar{
+  background:rgba(0,0,15,0.9);
+  border-bottom:1px solid var(--border);
+  padding:3px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+#sync-dot{width:6px;height:6px;border-radius:50%;background:var(--saber-green);flex-shrink:0;
+  box-shadow:0 0 6px var(--saber-green);transition:all 0.3s;}
+#sync-dot.syncing{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:pulse 1s infinite;}
+#sync-dot.error{background:var(--saber-red);box-shadow:0 0 6px var(--saber-red);}
+#sync-dot.offline{background:var(--text4);box-shadow:none;}
+#sync-label{font-size:9px;color:var(--text3);letter-spacing:1px;font-family:var(--font-hud);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* TACTICAL FILTER BAR */
+#filter-bar{
+  background:rgba(5,5,20,0.95);
+  border-bottom:1px solid var(--border);
+  padding:7px 10px;display:flex;gap:4px;align-items:center;
+  overflow-x:auto;flex-shrink:0;scrollbar-width:none;
+}
+#filter-bar::-webkit-scrollbar{display:none;}
+.fbtn{
+  background:transparent;border:1px solid var(--border2);color:var(--text3);
+  padding:4px 9px;border-radius:2px;cursor:pointer;font-size:10px;
+  font-family:var(--font-hud);font-weight:700;letter-spacing:1px;
+  white-space:nowrap;transition:all 0.15s;outline:none;flex-shrink:0;
+  text-transform:uppercase;
+}
+.fbtn.active-work{background:rgba(0,191,255,0.1);border-color:var(--saber-blue);color:var(--saber-blue);text-shadow:0 0 6px rgba(0,191,255,0.4);}
+.fbtn.active-all{background:rgba(255,215,0,0.08);border-color:var(--gold2);color:var(--gold);}
+.fbtn.active-personal{background:rgba(57,255,20,0.08);border-color:var(--saber-green);color:var(--saber-green);text-shadow:0 0 6px rgba(57,255,20,0.3);}
+.fbtn.active-status{background:rgba(255,215,0,0.06);border-color:var(--gold2);color:var(--gold);}
+.fbtn.active-view{background:rgba(0,191,255,0.08);border-color:var(--saber-blue);color:var(--saber-blue);}
+.filter-sep{width:1px;height:18px;background:var(--border2);flex-shrink:0;margin:0 2px;}
+
+/* MAIN */
+#main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:10px;}
+#main::-webkit-scrollbar{width:2px;}
+#main::-webkit-scrollbar-thumb{background:var(--gold2);border-radius:1px;}
+
+/* SEARCH */
+#search-bar{background:rgba(5,5,20,0.95);border-bottom:1px solid var(--border);padding:7px 12px;flex-shrink:0;display:none;}
+#search-bar.visible{display:block;}
+#search-input{
+  background:rgba(0,0,20,0.8);border:1px solid var(--gold2);color:var(--gold);
+  padding:8px 12px;border-radius:3px;font-family:var(--font-hud);font-size:12px;
+  letter-spacing:1px;outline:none;width:100%;
+}
+#search-input::placeholder{color:var(--text3);}
+
+/* SQUADRON CARDS (projects) */
+.project-card{
+  background:linear-gradient(135deg,rgba(10,10,30,0.95) 0%,rgba(5,5,20,0.98) 100%);
+  border:1px solid var(--border2);
+  border-left:2px solid var(--gold2);
+  border-radius:3px;margin-bottom:10px;overflow:hidden;
+  box-shadow:inset 0 0 20px rgba(0,0,50,0.3);
+}
+.project-header{
+  display:flex;align-items:center;gap:10px;padding:11px 13px;
+  cursor:pointer;
+  background:linear-gradient(90deg,rgba(255,215,0,0.04) 0%,transparent 100%);
+  -webkit-user-select:none;user-select:none;
+  transition:background 0.15s;
+}
+.project-header:active{background:rgba(255,215,0,0.08);}
+.project-chevron{font-size:10px;flex-shrink:0;transition:transform 0.2s;color:var(--gold2);}
+.project-chevron.open{transform:rotate(0deg);}
+.project-chevron.closed{transform:rotate(-90deg);}
+.project-info{flex:1;min-width:0;}
+.project-name{font-family:var(--font-hud);font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;}
+.project-meta{display:flex;align-items:center;gap:6px;margin-top:4px;}
+.domain-pill{font-size:8px;padding:1px 6px;border-radius:2px;letter-spacing:1px;flex-shrink:0;font-family:var(--font-hud);font-weight:700;}
+.progress-bar-wrap{flex:1;height:2px;background:var(--border);border-radius:1px;}
+.progress-bar-fill{height:100%;border-radius:1px;transition:width 0.4s;}
+.progress-count{font-size:8px;color:var(--text3);flex-shrink:0;font-family:var(--font-hud);}
+.add-task-btn{
+  background:transparent;border:1px solid;padding:3px 8px;border-radius:2px;
+  cursor:pointer;font-size:9px;font-family:var(--font-hud);font-weight:700;letter-spacing:1px;
+  flex-shrink:0;transition:all 0.15s;outline:none;text-transform:uppercase;
+}
+.add-task-btn:active{opacity:0.7;}
+
+/* MISSION ROWS (tasks) */
+.task-list{padding:2px 0 5px;border-top:1px solid var(--border);}
+.task-row{
+  display:flex;align-items:flex-start;gap:8px;padding:8px 13px;
+  transition:background 0.1s;cursor:pointer;
+  border-bottom:1px solid rgba(26,26,58,0.5);
+}
+.task-row:last-child{border-bottom:none;}
+.task-row:active{background:rgba(255,215,0,0.04);}
+.task-row.done{opacity:0.35;}
+.status-icon{font-size:16px;flex-shrink:0;padding-top:1px;cursor:pointer;transition:transform 0.1s;line-height:1;}
+.status-icon:active{transform:scale(1.3);}
+.priority-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:6px;}
+.task-body{flex:1;min-width:0;}
+.task-title{font-size:12px;color:var(--text);line-height:1.4;word-break:break-word;letter-spacing:0.3px;}
+.task-title.done{text-decoration:line-through;color:var(--text3);}
+.task-meta{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;align-items:center;}
+.status-pill{font-size:8px;padding:1px 6px;border-radius:2px;white-space:nowrap;font-family:var(--font-hud);letter-spacing:0.5px;}
+.due-label{font-size:8px;color:var(--text3);}
+.due-label.overdue{color:var(--saber-red);text-shadow:0 0 4px rgba(255,32,32,0.4);}
+.empty{padding:10px 13px;font-size:11px;color:var(--text4);font-style:italic;letter-spacing:0.5px;}
+
+/* MISSION EXPAND */
+.task-expand{
+  margin:0 10px 8px 32px;
+  background:rgba(0,0,20,0.8);
+  border-radius:3px;padding:10px;
+  border:1px solid var(--border2);
+  border-left:1px solid var(--gold2);
+  animation:slideDown 0.18s ease;
+}
+@keyframes slideDown{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.expand-row{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;}
+.expand-sel{
+  background:rgba(0,0,20,0.9);border:1px solid var(--border2);color:var(--gold);
+  padding:5px 7px;border-radius:2px;font-family:var(--font-hud);font-size:10px;
+  letter-spacing:0.5px;outline:none;flex:1;min-width:80px;
+}
+.expand-sel:focus{border-color:var(--gold);}
+.expand-notes{
+  background:rgba(0,0,20,0.9);border:1px solid var(--border2);color:var(--text);
+  padding:7px;border-radius:2px;font-family:var(--font-data);font-size:12px;
+  width:100%;resize:none;outline:none;line-height:1.5;
+}
+.expand-notes:focus{border-color:var(--gold2);}
+
+/* BOTTOM COMMAND NAV */
+#bottom-nav{
+  background:linear-gradient(0deg,rgba(0,0,10,0.98) 0%,rgba(5,5,20,0.95) 100%);
+  border-top:1px solid var(--gold2);
+  display:flex;align-items:stretch;flex-shrink:0;
+  padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -2px 20px rgba(255,215,0,0.08);
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:7px 4px;cursor:pointer;border:none;background:transparent;color:var(--text3);
+  font-size:8px;font-family:var(--font-hud);font-weight:700;letter-spacing:1px;
+  gap:3px;transition:color 0.15s;outline:none;
+  -webkit-user-select:none;user-select:none;text-transform:uppercase;
+}
+.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.nav-btn.active{color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,0.4);}
+.nav-btn:active{opacity:0.7;}
+
+/* MODALS — HOLOGRAPHIC DISPLAY */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,10,0.85);
+  display:flex;align-items:flex-end;justify-content:center;z-index:200;
+  animation:fadeIn 0.15s ease;
+  backdrop-filter:blur(4px);
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-sheet{
+  background:linear-gradient(180deg,rgba(10,10,35,0.99) 0%,rgba(5,5,20,0.99) 100%);
+  border:1px solid var(--gold2);
+  border-bottom:none;
+  border-radius:6px 6px 0 0;
+  width:100%;max-width:600px;
+  padding:18px 18px 0;
+  padding-bottom:calc(18px + env(safe-area-inset-bottom));
+  max-height:88vh;overflow-y:auto;
+  animation:slideUp 0.2s ease;
+  box-shadow:0 -4px 40px rgba(255,215,0,0.1),inset 0 0 40px rgba(0,0,50,0.4);
+}
+.modal-sheet::before{
+  content:'';display:block;width:50px;height:3px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  margin:0 auto 16px;border-radius:2px;
+}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{
+  font-family:var(--font-hud);font-size:14px;font-weight:900;
+  color:var(--gold);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;
+  text-shadow:0 0 10px rgba(255,215,0,0.3);
+}
+.field-group{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+.field-input{
+  background:rgba(0,0,20,0.9);border:1px solid var(--border2);color:var(--text);
+  padding:10px 12px;border-radius:3px;font-family:var(--font-data);font-size:13px;
+  outline:none;width:100%;
+}
+.field-input:focus{border-color:var(--gold2);box-shadow:0 0 8px rgba(255,215,0,0.1);}
+.field-input::placeholder{color:var(--text3);}
+.field-row{display:flex;gap:7px;}
+.field-select{
+  background:rgba(0,0,20,0.9);border:1px solid var(--border2);color:var(--gold);
+  padding:10px 10px;border-radius:3px;font-family:var(--font-hud);font-size:11px;
+  letter-spacing:0.5px;outline:none;flex:1;
+}
+.field-select:focus{border-color:var(--gold2);}
+.field-select option{background:#0A0A20;}
+.modal-actions{display:flex;gap:7px;margin-bottom:14px;}
+.modal-btn{
+  flex:1;padding:11px;border-radius:3px;border:none;cursor:pointer;
+  font-family:var(--font-hud);font-size:12px;font-weight:700;letter-spacing:1.5px;
+  transition:all 0.15s;outline:none;text-transform:uppercase;
+}
+.modal-btn.confirm{
+  background:rgba(255,215,0,0.1);border:1px solid var(--gold);color:var(--gold);
+  text-shadow:0 0 8px rgba(255,215,0,0.4);
+  box-shadow:0 0 12px rgba(255,215,0,0.1);
+}
+.modal-btn.confirm:active{background:rgba(255,215,0,0.2);}
+.modal-btn.cancel{background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text3);}
+.modal-btn.danger{background:rgba(255,32,32,0.08);color:var(--saber-red);border:1px solid rgba(255,32,32,0.4);}
+
+/* BATTLE STATION (focus mode) */
+.focus-header{
+  font-family:var(--font-hud);font-size:11px;font-weight:900;
+  color:var(--gold);letter-spacing:3px;margin-bottom:12px;text-transform:uppercase;
+  text-shadow:0 0 8px rgba(255,215,0,0.3);
+}
+
+/* TARGETING COMPUTER (pomodoro) */
+.pomo-card{
+  background:linear-gradient(135deg,rgba(10,5,5,0.98) 0%,rgba(5,0,10,0.99) 100%);
+  border:1px solid rgba(255,32,32,0.3);
+  border-radius:4px;padding:14px;margin-bottom:12px;
+  box-shadow:0 0 20px rgba(255,32,32,0.05),inset 0 0 30px rgba(50,0,0,0.3);
+}
+.pomo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.pomo-title{font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--saber-red);letter-spacing:2px;text-shadow:0 0 8px rgba(255,32,32,0.5);}
+.pomo-mode-btns{display:flex;gap:4px;}
+.pomo-mbtn{
+  background:transparent;border:1px solid var(--border2);color:var(--text4);
+  padding:3px 7px;border-radius:2px;cursor:pointer;
+  font-size:9px;font-family:var(--font-hud);font-weight:700;letter-spacing:1px;outline:none;
+}
+.pomo-mbtn.active-work{border-color:var(--saber-red);color:var(--saber-red);background:rgba(255,32,32,0.08);text-shadow:0 0 6px rgba(255,32,32,0.4);}
+.pomo-mbtn.active-shortBreak{border-color:var(--saber-green);color:var(--saber-green);background:rgba(57,255,20,0.06);}
+.pomo-mbtn.active-longBreak{border-color:var(--saber-blue);color:var(--saber-blue);background:rgba(0,191,255,0.06);}
+.pomo-body{display:flex;align-items:center;gap:14px;}
+.pomo-ring-wrap{position:relative;flex-shrink:0;}
+.pomo-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.pomo-digits{font-family:var(--font-hud);font-size:22px;font-weight:900;letter-spacing:-1px;line-height:1;}
+.pomo-mode-lbl{font-size:7px;letter-spacing:2px;margin-top:3px;font-family:var(--font-hud);font-weight:700;}
+.pomo-controls{flex:1;}
+.pomo-dots{display:flex;gap:5px;margin-bottom:10px;align-items:center;}
+.pomo-dot{width:9px;height:9px;border-radius:50%;background:var(--border);border:1px solid var(--border2);transition:all 0.3s;}
+.pomo-dot.filled{background:var(--saber-red);border-color:var(--saber-red);box-shadow:0 0 6px rgba(255,32,32,0.5);}
+.pomo-sessions{font-size:9px;color:var(--text4);margin-left:2px;font-family:var(--font-hud);}
+.pomo-btns{display:flex;gap:5px;}
+.pomo-start{
+  border:none;border-radius:3px;cursor:pointer;
+  font-family:var(--font-hud);font-size:11px;font-weight:900;letter-spacing:2px;
+  padding:8px 14px;min-width:90px;transition:all 0.15s;outline:none;text-transform:uppercase;
+}
+.pomo-start:active{transform:scale(0.96);}
+.pomo-reset{
+  background:transparent;border:1px solid var(--border2);color:var(--text4);
+  padding:8px 10px;border-radius:3px;cursor:pointer;font-size:13px;outline:none;
+}
+.pomo-next{font-size:9px;color:var(--text4);margin-top:7px;font-family:var(--font-hud);letter-spacing:0.5px;}
+
+/* HIGH VALUE TARGETS (priority tasks in focus) */
+.focus-tasks-card{
+  background:linear-gradient(135deg,rgba(5,10,5,0.97) 0%,rgba(3,8,3,0.99) 100%);
+  border:1px solid rgba(57,255,20,0.2);border-radius:4px;padding:14px;
+  box-shadow:0 0 20px rgba(57,255,20,0.03),inset 0 0 30px rgba(0,30,0,0.3);
+}
+.focus-task-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.focus-task-row:last-child{border-bottom:none;}
+
+/* STAR MAP (calendar) */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cal-nav-btn{
+  background:rgba(255,215,0,0.06);border:1px solid var(--gold2);color:var(--gold);
+  padding:6px 14px;border-radius:3px;cursor:pointer;font-size:14px;outline:none;
+  font-family:var(--font-hud);
+}
+.cal-month{font-family:var(--font-hud);font-size:14px;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 10px rgba(255,215,0,0.3);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:12px;}
+.cal-day-hdr{text-align:center;font-size:8px;color:var(--text4);padding:2px 0;letter-spacing:1px;font-family:var(--font-hud);}
+.cal-cell{
+  background:rgba(5,5,20,0.8);border:1px solid var(--border);
+  border-radius:2px;min-height:52px;padding:3px;cursor:default;
+  transition:border-color 0.15s;
+}
+.cal-cell.has-tasks{cursor:pointer;background:rgba(10,10,30,0.9);}
+.cal-cell.today{border-color:var(--gold);background:rgba(255,215,0,0.05);box-shadow:0 0 8px rgba(255,215,0,0.1);}
+.cal-cell.overdue-day{border-color:rgba(255,32,32,0.4);}
+.cal-day-num{font-size:9px;text-align:right;margin-bottom:2px;font-family:var(--font-hud);}
+.cal-day-num.today{color:var(--gold);font-weight:900;text-shadow:0 0 6px rgba(255,215,0,0.5);}
+.cal-day-num.overdue{color:var(--saber-red);}
+.cal-day-num.normal{color:var(--text3);}
+.cal-chip{border-radius:2px;padding:1px 3px;margin-bottom:1px;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-more{font-size:7px;color:var(--text4);text-align:center;font-family:var(--font-hud);}
+.upcoming-card{
+  background:rgba(5,5,20,0.9);border:1px solid var(--border2);
+  border-left:2px solid var(--gold2);border-radius:3px;padding:12px;
+}
+.upcoming-title{font-family:var(--font-hud);font-size:9px;font-weight:900;color:var(--gold);letter-spacing:2px;margin-bottom:10px;}
+.upcoming-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.upcoming-row:last-child{border-bottom:none;}
+.due-badge{min-width:46px;text-align:center;padding:3px 0;border-radius:2px;}
+.due-badge-lbl{font-size:7px;letter-spacing:1px;font-family:var(--font-hud);font-weight:700;}
+.due-badge-date{font-size:10px;font-weight:500;font-family:var(--font-hud);}
+
+/* HOLONET STATUS (settings) */
+.section-title{
+  font-family:var(--font-hud);font-size:9px;font-weight:900;
+  color:var(--gold);letter-spacing:3px;margin-bottom:8px;text-transform:uppercase;
+  text-shadow:0 0 6px rgba(255,215,0,0.2);
+}
+.import-zone{
+  border:1px dashed var(--border2);border-radius:3px;padding:22px;
+  text-align:center;cursor:pointer;transition:border-color 0.15s;
+}
+.import-zone:active{border-color:var(--gold2);}
+.preview-summary{display:flex;gap:7px;margin-bottom:10px;}
+.preview-stat{flex:1;border-radius:3px;padding:8px;text-align:center;}
+.preview-stat-num{font-family:var(--font-hud);font-size:20px;font-weight:900;}
+.preview-stat-lbl{font-size:8px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;}
+.preview-task-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;}
+
+/* SWATCH */
+.swatch-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;}
+.swatch{width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color 0.15s;box-shadow:0 0 6px rgba(0,0,0,0.5);}
+.swatch.selected{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,0.3);}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:75px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(0,0,20,0.95);
+  border:1px solid var(--gold2);
+  color:var(--gold);
+  padding:7px 18px;border-radius:3px;font-size:11px;z-index:300;
+  opacity:0;transition:all 0.25s;pointer-events:none;white-space:nowrap;
+  font-family:var(--font-hud);letter-spacing:1px;
+  text-shadow:0 0 6px rgba(255,215,0,0.3);
+  box-shadow:0 0 20px rgba(255,215,0,0.1);
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* LOADING SCREEN — OPENING CRAWL STYLE */
+#loading{
+  position:fixed;inset:0;background:var(--space);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:400;gap:16px;
+  background-image:radial-gradient(ellipse at center,rgba(255,215,0,0.03) 0%,transparent 70%);
+}
+#loading-logo{
+  font-family:var(--font-hud);font-size:28px;font-weight:900;
+  color:var(--gold);letter-spacing:6px;text-align:center;
+  text-shadow:0 0 20px rgba(255,215,0,0.5),0 0 40px rgba(255,215,0,0.2);
+  animation:logoGlow 2s ease-in-out infinite alternate;
+}
+#loading-sub{font-family:var(--font-hud);font-size:9px;color:var(--gold2);letter-spacing:4px;margin-top:-8px;}
+#loading-msg{font-family:var(--font-hud);font-size:10px;color:var(--text3);letter-spacing:2px;}
+.loading-spinner{
+  width:36px;height:36px;
+  border:2px solid var(--border2);
+  border-top-color:var(--gold);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes logoGlow{from{text-shadow:0 0 20px rgba(255,215,0,0.3)}to{text-shadow:0 0 30px rgba(255,215,0,0.7),0 0 60px rgba(255,215,0,0.2)}}
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading">
+  <div id="loading-logo">⚔ JEDI COMMAND ⚔</div>
+  <div id="loading-sub">GALACTIC MISSION NETWORK</div>
+  <div class="loading-spinner"></div>
+  <div id="loading-msg">ESTABLISHING HOLONET LINK…</div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="header-brand">
+      <div id="header-title">⚔ JEDI COMMAND</div>
+      <div id="header-sub">GALACTIC MISSION NETWORK</div>
+      <div id="header-stats" class="stats"></div>
+    </div>
+    <div id="header-actions">
+      <button class="hbtn" id="btn-search" onclick="toggleSearch()">🔍</button>
+      <button class="hbtn" id="btn-focus" onclick="toggleFocus()">ENGAGE</button>
+      <button class="hbtn primary" onclick="openAddTask()">+ MISSION</button>
+    </div>
+  </div>
+
+  <!-- HOLONET SYNC BAR -->
+  <div id="sync-bar">
+    <div id="sync-dot"></div>
+    <div id="sync-label">HOLONET LINKED</div>
+    <div style="margin-left:auto;">
+      <button class="hbtn" style="padding:2px 8px;font-size:9px;" onclick="syncNow()">↻ SYNC</button>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div id="search-bar">
+    <input id="search-input" type="search" placeholder="SEARCH MISSION DATABASE…" oninput="renderAll()" autocomplete="off" autocorrect="off" spellcheck="false"/>
+  </div>
+
+  <!-- TACTICAL FILTER BAR -->
+  <div id="filter-bar">
+    <button class="fbtn active-all" id="f-all" onclick="setDomainFilter('all')">ALL</button>
+    <button class="fbtn" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
+    <button class="fbtn" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
+    <div class="filter-sep"></div>
+    <button class="fbtn active-status" id="fs-active" onclick="setStatusFilter('active')">ACTIVE</button>
+    <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL</button>
+    <button class="fbtn" id="fs-done" onclick="setStatusFilter('done')">COMPLETE</button>
+    <div class="filter-sep"></div>
+    <button class="fbtn active-view" id="fv-list" onclick="setView('list')">≡ LOG</button>
+    <button class="fbtn" id="fv-cal" onclick="setView('calendar')">★ MAP</button>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main"></div>
+
+  <!-- COMMAND NAV -->
+  <div id="bottom-nav">
+    <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
+      <span class="nav-icon">☰</span>MISSIONS
+    </button>
+    <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
+      <span class="nav-icon">🎯</span>BATTLE STA.
+    </button>
+    <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
+      <span class="nav-icon">★</span>STAR MAP
+    </button>
+    <button class="nav-btn" id="nav-add" onclick="openAddTask()">
+      <span class="nav-icon" style="color:var(--gold);font-size:26px;line-height:1;">⊕</span>
+      <span style="color:var(--gold);">NEW</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
+      <span class="nav-icon">⚙</span>HOLONET
+    </button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ADD/EDIT MISSION MODAL -->
+<div id="modal-task" class="modal-overlay" style="display:none;" onclick="closeModal('modal-task')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-task-title">⊕ NEW MISSION LOG</div>
+    <div class="field-group">
+      <input class="field-input" id="task-title-input" placeholder="DESCRIBE THE MISSION…" autocomplete="off"/>
+      <select class="field-select" id="task-project-input">
+        <option value="">SELECT SQUADRON…</option>
+      </select>
+      <div class="field-row">
+        <select class="field-select" id="task-priority-input">
+          <option value="high">🔴 CRITICAL</option>
+          <option value="medium" selected>🟡 STANDARD</option>
+          <option value="low">⚫ LOW</option>
+        </select>
+        <select class="field-select" id="task-status-input">
+          <option value="todo">○ PENDING</option>
+          <option value="inprogress">◑ ENGAGED</option>
+          <option value="blocked">⊘ BLOCKED</option>
+          <option value="done">● COMPLETE</option>
+        </select>
+      </div>
+      <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--gold);font-family:var(--font-hud);letter-spacing:1px;"/>
+      <textarea class="field-input" id="task-notes-input" placeholder="INTEL, CONTEXT, OBSTACLES…" rows="3" style="resize:none;line-height:1.5;"></textarea>
+      <div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
+        <div id="source-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">TRANSMIT</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-task')">ABORT</button>
+    </div>
+    <div id="task-delete-wrap" style="display:none;margin-bottom:16px;">
+      <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ PURGE MISSION</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SQUADRON MODAL -->
+<div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">⊕ NEW SQUADRON</div>
+    <div class="field-group">
+      <input class="field-input" id="proj-name-input" placeholder="SQUADRON DESIGNATION…" autocomplete="off" style="font-family:var(--font-hud);letter-spacing:1px;color:var(--gold);"/>
+      <select class="field-select" id="proj-domain-input">
+        <option value="work">⚡ REPUBLIC (Work)</option>
+        <option value="personal">🌿 PERSONAL</option>
+      </select>
+      <div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:7px;font-family:var(--font-hud);letter-spacing:1px;">SQUADRON COLOR CODE</div>
+        <div class="swatch-row" id="proj-color-swatches"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn confirm" onclick="saveProject()">COMMISSION</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-project')">STAND DOWN</button>
+    </div>
+  </div>
+</div>
+
+<!-- INTEL IMPORT MODAL -->
+<div id="modal-import" class="modal-overlay" style="display:none;" onclick="closeModal('modal-import')">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">⬆ INTEL UPLOAD</div>
+    <div id="import-body"></div>
+  </div>
+</div>
+
+<input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none;" onchange="handleCSV(event)"/>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONFIG — HOLONET LINK
+// ═══════════════════════════════════════════════════════════════
+const API_URL = "https://script.google.com/macros/s/AKfycbw6EET5ZIuUTne2Xh6CVDPDwN8gRqo6_NIBx1sxVyeMqY0fxMHiFSs5IHKx4ffr9rQ1lQ/exec";
+
+const SEED_PROJECTS = [
+  {id:"p1",name:"GES Integration",domain:"work",color:"#00BFFF",collapsed:"false"},
+  {id:"p2",name:"Network Management",domain:"work",color:"#BF00FF",collapsed:"false"},
+  {id:"p5",name:"Client Discussions",domain:"work",color:"#FFD700",collapsed:"false"},
+  {id:"p3",name:"Home",domain:"personal",color:"#39FF14",collapsed:"false"},
+  {id:"p4",name:"Family",domain:"personal",color:"#FF8C00",collapsed:"false"},
+];
+const SEED_TASKS = [
+  {id:"t1",projectId:"p1",title:"Review payer system specs",priority:"high",status:"inprogress",notes:"",dueDate:"",createdAt:"1708000000000"},
+  {id:"t2",projectId:"p3",title:"Board and batten materials list",priority:"medium",status:"todo",notes:"",dueDate:"",createdAt:"1708000000001"},
+  {id:"gt1",projectId:"p1",title:"First draft of board slides",priority:"high",status:"todo",notes:"",dueDate:"2026-02-16",createdAt:"1708000000002"},
+  {id:"gt2",projectId:"p1",title:"Exclusion comments disappearing when providers targeted",priority:"high",status:"todo",notes:"",dueDate:"",createdAt:"1708000000003"},
+  {id:"gt3",projectId:"p1",title:"Send Humana Notes",priority:"medium",status:"todo",notes:"",dueDate:"2026-02-11",createdAt:"1708000000004"},
+  {id:"cd1",projectId:"p5",title:"Enhancement Request 159853 – QES Adequacy: Volume Term/Target Report Page Data Addition",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000005"},
+  {id:"cd2",projectId:"p5",title:"HCSC – Request/Enhancement",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000006"},
+  {id:"cd3",projectId:"p5",title:"Enhancement Request 177901 – QES Adequacy: CMS Exception Request Form Updates – URGENT",priority:"high",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000007"},
+  {id:"cd4",projectId:"p5",title:"Enhancement Request 179686 – Can Exception/Review Statuses be customizable?",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000008"},
+  {id:"cd5",projectId:"p5",title:"Enhancement Request 180310 – QES Adequacy: New County Status or Service Area Flag",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000009"},
+  {id:"cd6",projectId:"p5",title:"Enhancement Request 180765 – Have ECD as the landing page when logging into QES",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000010"},
+  {id:"cd7",projectId:"p5",title:"Look at Humana enhancement item",priority:"medium",status:"todo",notes:"",dueDate:"",createdAt:"1708000000011"},
+  {id:"cd8",projectId:"p5",title:"Review and discuss United enhancement items",priority:"medium",status:"todo",notes:"",dueDate:"",createdAt:"1708000000012"},
+  {id:"cd9",projectId:"p5",title:"Send Melissa action items from Humana",priority:"high",status:"todo",notes:"Note",dueDate:"",createdAt:"1708000000013"},
+  {id:"cd10",projectId:"p5",title:"EXTERNAL – VRC starting information",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000014"},
+  {id:"cd11",projectId:"p5",title:"Volume Terminations Enhancement Request",priority:"medium",status:"todo",notes:"Message",dueDate:"",createdAt:"1708000000015"},
+  {id:"cd12",projectId:"p5",title:"Scenario modeling – volume reporting on projected timeslice",priority:"medium",status:"todo",notes:"",dueDate:"",createdAt:"1708000000016"},
+];
+
+// Star Wars themed labels
+const PRIORITY_COLOR = {high:"#FF2020",medium:"#FFD700",low:"#555580"};
+const PRIORITY_LABEL = {high:"CRITICAL",medium:"STANDARD",low:"LOW"};
+const STATUS_ICON    = {todo:"○",inprogress:"◑",blocked:"⊘",done:"●"};
+const STATUS_LABEL   = {todo:"PENDING",inprogress:"ENGAGED",blocked:"BLOCKED",done:"COMPLETE"};
+const STATUS_COLOR   = {todo:"#555580",inprogress:"#FFD700",blocked:"#FF2020",done:"#39FF14"};
+const PROJECT_COLORS = ["#00BFFF","#BF00FF","#FFD700","#39FF14","#FF8C00","#FF2020","#00FFFF","#FF69B4"];
+
+const SOURCE_OPTIONS = [
+  {val:'personal-email', label:'PERSONAL MAIL',  icon:'📩', color:'#39FF14'},
+  {val:'work-email',     label:'IMPERIAL COMM',  icon:'📨', color:'#00BFFF'},
+  {val:'slack',          label:'HOLONET SLACK',  icon:'💬', color:'#BF00FF'},
+  {val:'ridley',         label:'RIDLEY',         icon:'⚡',    color:'#FFD700'},
+  {val:'jenny',          label:'JENNY',          icon:'⚡',    color:'#FF69B4'},
+  {val:'connor',         label:'CONNOR',         icon:'⚡',    color:'#FF8C00'},
+  {val:'other',          label:'UNKNOWN SOURCE', icon:'❓',    color:'#888899'},
+];
+function sourceLabel(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s?s.icon+' '+s.label:''; }
+function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s?s.color:'#888899'; }
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let projects=[], tasks=[];
+let domainFilter="all", statusFilter="active", viewMode="list", activeNav="tasks";
+let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
+let calendarDate=new Date(), syncTimeout=null;
+let selectedProjColor=PROJECT_COLORS[0], importPreviewData=null;
+
+const genId=()=>Math.random().toString(36).substr(2,9);
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
+
+// ═══════════════════════════════════════════════════════════════
+// HOLONET API
+// ═══════════════════════════════════════════════════════════════
+function setSyncStatus(state,msg){
+  const dot=document.getElementById("sync-dot");
+  const lbl=document.getElementById("sync-label");
+  dot.className=state==="syncing"?"syncing":state==="error"?"error":state==="offline"?"offline":"";
+  lbl.textContent=msg;
+}
+
+async function apiCall(action,data={}){
+  setSyncStatus("syncing","TRANSMITTING…");
+  try{
+    const res=await fetch(`${API_URL}?action=${action}`,{method:"POST",body:JSON.stringify({action,...data})});
+    const json=await res.json();
+    if(json.error) throw new Error(json.error);
+    setSyncStatus("ok","HOLONET LINKED · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    return json;
+  }catch(e){
+    const offline=!navigator.onLine;
+    setSyncStatus(offline?"offline":"error",offline?"SIGNAL LOST":"TRANSMISSION ERROR — TAP ↻");
+    throw e;
+  }
+}
+
+async function loadAll(){
+  try{
+    const data=await apiCall("getAll");
+    const sheetProjects=(data.projects||[]).map(p=>({
+      ...p,collapsed:p.collapsed==="true"||p.collapsed===true
+    })).filter(p=>p.id&&p.name);
+    const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
+
+    if(sheetProjects.length===0&&sheetTasks.length===0){
+      const lp=localStorage.getItem("hub-projects");
+      const lt=localStorage.getItem("hub-tasks");
+      const localProjects=lp?JSON.parse(lp):[];
+      const localTasks=lt?JSON.parse(lt):[];
+      if(localProjects.length>0||localTasks.length>0){
+        projects=localProjects;tasks=localTasks;
+        showToast("HOLONET EMPTY — TRANSMITTING LOCAL ARCHIVES…");
+        await apiCall("saveAll",{projects,tasks});
+        showToast("✓ "+projects.length+" SQUADRONS + "+tasks.length+" MISSIONS TRANSMITTED");
+      }else{
+        projects=SEED_PROJECTS;tasks=SEED_TASKS;
+        showToast("FIRST LINK — UPLOADING MISSION DATABASE…");
+        await apiCall("saveAll",{projects,tasks});
+        showToast("✓ ALL MISSIONS TRANSMITTED TO HOLONET");
+      }
+    }else{
+      projects=sheetProjects;tasks=sheetTasks;
+    }
+  }catch(e){
+    const lp=localStorage.getItem("hub-projects");
+    const lt=localStorage.getItem("hub-tasks");
+    if(lp) try{projects=JSON.parse(lp);}catch(e2){}
+    if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
+    showToast("SIGNAL LOST — OPERATING ON LOCAL ARCHIVES");
+  }
+  if(projects.length>0) localStorage.setItem("hub-projects",JSON.stringify(projects));
+  if(tasks.length>0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
+}
+
+async function saveAllDebounced(){
+  localStorage.setItem("hub-projects",JSON.stringify(projects));
+  localStorage.setItem("hub-tasks",JSON.stringify(tasks));
+  clearTimeout(syncTimeout);
+  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks});}catch(e){}},800);
+}
+
+async function syncNow(){showToast("SYNCING WITH HOLONET…");await loadAll();renderAll();showToast("HOLONET SYNC COMPLETE ✓");}
+
+async function runDiagnostic(){
+  showToast("RUNNING DIAGNOSTIC SCAN…");
+  const lp=localStorage.getItem("hub-projects");
+  const lt=localStorage.getItem("hub-tasks");
+  const localP=lp?JSON.parse(lp):[];
+  const localT=lt?JSON.parse(lt):[];
+  let sheetP=0,sheetT=0,sheetErr="";
+  try{
+    const data=await apiCall("getAll");
+    sheetP=(data.projects||[]).filter(p=>p.id&&p.name).length;
+    sheetT=(data.tasks||[]).filter(t=>t.id&&t.title).length;
+  }catch(e){sheetErr=" (CANNOT REACH HOLONET)";}
+  const msg=[
+    "=== DIAGNOSTIC REPORT ===",
+    "LOCAL CACHE:",
+    "  Squadrons: "+localP.length,
+    "  Missions: "+localT.length,
+    "",
+    "GOOGLE SHEET"+sheetErr+":",
+    "  Squadrons: "+sheetP,
+    "  Missions: "+sheetT,
+    "",
+    "IN-MEMORY:",
+    "  Squadrons: "+projects.length,
+    "  Missions: "+tasks.length,
+  ].join("\n");
+  alert(msg);
+}
+
+async function forcePushToSheets(){
+  if(!confirm("OVERWRITE HOLONET DATABASE with local archives?")) return;
+  showToast("TRANSMITTING ALL DATA…");
+  try{await apiCall("saveAll",{projects,tasks});showToast(`✓ ${projects.length} SQUADRONS + ${tasks.length} MISSIONS TRANSMITTED`);}
+  catch(e){showToast("TRANSMISSION FAILED — CHECK SIGNAL");}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════════════════════
+function renderAll(){
+  updateStats();
+  const main=document.getElementById("main");
+  if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
+  if(activeNav==="cal"||viewMode==="calendar"){renderCalendar(main);return;}
+  if(activeNav==="settings"){renderSettings(main);return;}
+  renderTaskList(main);
+}
+
+function updateStats(){
+  const active=tasks.filter(t=>t.status!=="done").length;
+  const done=tasks.filter(t=>t.status==="done").length;
+  const blocked=tasks.filter(t=>t.status==="blocked").length;
+  document.getElementById("header-stats").textContent=`${active} ACTIVE · ${blocked} BLOCKED · ${done} COMPLETE`;
+}
+
+function getFilteredTasks(projectId){
+  const q=(document.getElementById("search-input")?.value||"").toLowerCase();
+  let f=tasks.filter(t=>t.projectId===projectId);
+  if(statusFilter==="active") f=f.filter(t=>t.status!=="done");
+  if(statusFilter==="done") f=f.filter(t=>t.status==="done");
+  if(q) f=f.filter(t=>t.title.toLowerCase().includes(q));
+  return f.sort((a,b)=>({high:0,medium:1,low:2}[a.priority]||1)-({high:0,medium:1,low:2}[b.priority]||1));
+}
+
+function renderTaskList(container){
+  const filtered=projects.filter(p=>domainFilter==="all"||p.domain===domainFilter);
+  let html="";
+  for(const proj of filtered){
+    const ptasks=getFilteredTasks(proj.id);
+    const allPT=tasks.filter(t=>t.projectId===proj.id);
+    const done=allPT.filter(t=>t.status==="done").length;
+    const pct=allPT.length>0?Math.round(done/allPT.length*100):0;
+    const domainStyle=proj.domain==="work"
+      ?`background:rgba(0,191,255,0.1);color:#00BFFF;border:1px solid rgba(0,191,255,0.3);`
+      :`background:rgba(57,255,20,0.08);color:#39FF14;border:1px solid rgba(57,255,20,0.2);`;
+
+    html+=`<div class="project-card" style="border-left-color:${proj.color||'#FFD700'};">
+      <div class="project-header" onclick="toggleProject('${proj.id}')">
+        <div class="project-chevron ${proj.collapsed===true?'closed':'open'}" id="chev-${proj.id}">▼</div>
+        <div class="project-info">
+          <div class="project-name" style="color:${proj.color||'#FFD700'};text-shadow:0 0 8px ${proj.color||'#FFD700'}44;">◈ ${esc(proj.name)}</div>
+          <div class="project-meta">
+            <span class="domain-pill" style="${domainStyle}">${proj.domain==="work"?"REPUBLIC":"PERSONAL"}</span>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%;background:${proj.color||'#FFD700'};box-shadow:0 0 4px ${proj.color||'#FFD700'}88;"></div></div>
+            <span class="progress-count">${done}/${allPT.length}</span>
+          </div>
+        </div>
+        <button class="add-task-btn" style="border-color:${proj.color||'#FFD700'};color:${proj.color||'#FFD700'};"
+          onclick="event.stopPropagation();openAddTask('${proj.id}')">+ MISSION</button>
+      </div>`;
+
+    if(proj.collapsed!==true){
+      html+=`<div class="task-list">`;
+      if(ptasks.length===0){
+        html+=`<div class="empty">${statusFilter==="done"?"— NO COMPLETED MISSIONS —":"— SECTOR CLEAR —"}</div>`;
+      }
+      for(const task of ptasks) html+=renderTaskRow(task,proj);
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  }
+  if(filtered.length===0){
+    html=`<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:12px;font-family:var(--font-hud);letter-spacing:1px;">NO SQUADRONS FOUND<br><br><button class="hbtn" onclick="openAddProject()" style="margin-top:8px;">+ COMMISSION SQUADRON</button></div>`;
+  }
+  container.innerHTML=html;
+}
+
+function renderTaskRow(task,proj){
+  const isExpanded=expandedTaskId===task.id;
+  const isDone=task.status==="done";
+  const todayStr=today();
+  const overdue=task.dueDate&&task.dueDate<todayStr&&!isDone;
+  const dueStr=task.dueDate?`<span class="due-label ${overdue?'overdue':''}">⏱ ${task.dueDate.slice(5)}</span>`:"";
+  const sc=STATUS_COLOR[task.status]||"#555580";
+  const sbg={todo:"rgba(50,50,80,0.3)",inprogress:"rgba(255,215,0,0.08)",blocked:"rgba(255,32,32,0.1)",done:"rgba(57,255,20,0.08)"}[task.status]||"rgba(50,50,80,0.3)";
+  const statusPill=`<span class="status-pill" style="background:${sbg};color:${sc};border:1px solid ${sc}44;">${STATUS_LABEL[task.status]||task.status}</span>`;
+
+  let expandHtml="";
+  if(isExpanded){
+    expandHtml=`<div class="task-expand">
+      <div class="expand-row">
+        <select class="expand-sel" onchange="updateTaskField('${task.id}','priority',this.value)">
+          <option value="high" ${task.priority==='high'?'selected':''}>🔴 CRITICAL</option>
+          <option value="medium" ${task.priority==='medium'?'selected':''}>🟡 STANDARD</option>
+          <option value="low" ${task.priority==='low'?'selected':''}>⚫ LOW</option>
+        </select>
+        <select class="expand-sel" onchange="updateTaskField('${task.id}','status',this.value)">
+          <option value="todo" ${task.status==='todo'?'selected':''}>○ PENDING</option>
+          <option value="inprogress" ${task.status==='inprogress'?'selected':''}>◑ ENGAGED</option>
+          <option value="blocked" ${task.status==='blocked'?'selected':''}>⊘ BLOCKED</option>
+          <option value="done" ${task.status==='done'?'selected':''}>● COMPLETE</option>
+        </select>
+        <input type="date" class="expand-sel" value="${task.dueDate||''}" style="color-scheme:dark;"
+          onchange="updateTaskField('${task.id}','dueDate',this.value)"/>
+      </div>
+      <textarea class="expand-notes" rows="3" placeholder="MISSION INTEL…"
+        onblur="updateTaskField('${task.id}','notes',this.value)">${esc(task.notes||'')}</textarea>
+      <div style="margin-top:6px;">
+        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${SOURCE_OPTIONS.map(s=>`<button onclick="event.stopPropagation();updateTaskSource('${task.id}','${s.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${task.source===s.val?s.color:'var(--border2)'};background:${task.source===s.val?s.color+'22':'transparent'};color:${task.source===s.val?s.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;">${s.icon} ${s.label}</button>`).join('')}</div>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:7px;">
+        <button class="modal-btn confirm" style="font-size:10px;padding:7px;letter-spacing:1px;" onclick="openEditTask('${task.id}')">✏ EDIT</button>
+        <button class="modal-btn danger" style="font-size:10px;padding:7px;flex:none;width:auto;letter-spacing:1px;" onclick="confirmDeleteTask('${task.id}')">☠ PURGE</button>
+      </div>
+    </div>`;
+  }
+
+  return `<div>
+    <div class="task-row ${isDone?'done':''}" onclick="toggleExpand('${task.id}')">
+      <span class="status-icon" style="color:${sc};text-shadow:0 0 6px ${sc}66;" onclick="event.stopPropagation();cycleStatus('${task.id}')">${STATUS_ICON[task.status]||"○"}</span>
+      <span class="priority-dot" style="background:${PRIORITY_COLOR[task.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[task.priority]||'#555580'};"></span>
+      <div class="task-body">
+        <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
+        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}</div>
+      </div>
+    </div>
+    ${expandHtml}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BATTLE STATION + TARGETING COMPUTER (focus + pomodoro)
+// ═══════════════════════════════════════════════════════════════
+let pomoState={mode:"work",timeLeft:25*60,running:false,sessions:0,customWork:25,interval:null};
+
+function renderFocusPanel(container){
+  const todayStr=today();
+  const mc=pomoState.mode==="work"?"#FF2020":pomoState.mode==="shortBreak"?"#39FF14":"#00BFFF";
+  const ml=pomoState.mode==="work"?"TARGETING":pomoState.mode==="shortBreak"?"RECHARGING":"DEEP REST";
+  const totalDur=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
+  const pct=1-(pomoState.timeLeft/totalDur);
+  const R=44;const circ=2*Math.PI*R;
+  const tipAngle=pct*2*Math.PI-Math.PI/2;
+  const tipX=52+R*Math.cos(tipAngle);const tipY=52+R*Math.sin(tipAngle);
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const dots=Array.from({length:4}).map((_,i)=>i<(pomoState.sessions%4));
+
+  // ── Selected mission display ──────────────────────────────────
+  const sel=selectedMissionId?tasks.find(t=>t.id===selectedMissionId):null;
+  const selProj=sel?projects.find(p=>p.id===sel.projectId):null;
+  const selHtml=sel
+    ?`<div style="background:rgba(255,32,32,0.06);border:1px solid rgba(255,32,32,0.25);border-radius:3px;padding:8px 11px;margin-top:8px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:9px;color:#FF2020;font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;">🎯 TARGET:</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sel.title)}</div>
+          ${selProj?`<div style="font-size:8px;color:${selProj.color};font-family:var(--font-hud);letter-spacing:1px;margin-top:1px;">◈ ${esc(selProj.name)}</div>`:""}
+        </div>
+        <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;padding:0 2px;">✕</button>
+      </div>`
+    :`<div style="margin-top:8px;font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;text-align:center;">↓ SELECT A MISSION BELOW TO TARGET</div>`;
+
+  // ── Today tasks — work first then personal ────────────────────
+  const workProjIds=new Set(projects.filter(p=>p.domain==="work").map(p=>p.id));
+  const persProjIds=new Set(projects.filter(p=>p.domain==="personal").map(p=>p.id));
+
+  const isToday=t=>t.dueDate===todayStr&&t.status!=="done";
+  const isOverdue=t=>t.dueDate&&t.dueDate<todayStr&&t.status!=="done";
+  const todayRelevant=t=>isToday(t)||isOverdue(t);
+
+  const workTasks=tasks.filter(t=>todayRelevant(t)&&workProjIds.has(t.projectId))
+    .sort((a,b)=>{
+      if(isOverdue(a)&&!isOverdue(b)) return -1;
+      if(!isOverdue(a)&&isOverdue(b)) return 1;
+      return ({high:0,medium:1,low:2}[a.priority]||1)-({high:0,medium:1,low:2}[b.priority]||1);
+    });
+  const persTasks=tasks.filter(t=>todayRelevant(t)&&persProjIds.has(t.projectId))
+    .sort((a,b)=>{
+      if(isOverdue(a)&&!isOverdue(b)) return -1;
+      if(!isOverdue(a)&&isOverdue(b)) return 1;
+      return ({high:0,medium:1,low:2}[a.priority]||1)-({high:0,medium:1,low:2}[b.priority]||1);
+    });
+
+  const totalToday=workTasks.length+persTasks.length;
+
+  function todayTaskRow(t){
+    const proj=projects.find(p=>p.id===t.projectId);
+    const sc=STATUS_COLOR[t.status]||"#555580";
+    const overdue=isOverdue(t);
+    const isSel=selectedMissionId===t.id;
+    const selStyle=isSel
+      ?`background:rgba(255,32,32,0.1);border-color:rgba(255,32,32,0.4);`
+      :`background:transparent;border-color:var(--border2);`;
+    const srcInfo=t.source?SOURCE_OPTIONS.find(s=>s.val===t.source):null;
+    const srcBadge=srcInfo?`<span style="font-size:7px;padding:1px 4px;border-radius:2px;border:1px solid ${srcInfo.color}44;background:${srcInfo.color}11;color:${srcInfo.color};font-family:var(--font-hud);">${srcInfo.icon}</span>`:"";
+    return `<div onclick="selectMission('${t.id}')" style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:3px;border:1px solid;margin-bottom:5px;cursor:pointer;transition:all 0.15s;${selStyle}">
+      <span onclick="event.stopPropagation();cycleStatus('${t.id}')" style="color:${sc};font-size:15px;flex-shrink:0;line-height:1.2;cursor:pointer;text-shadow:0 0 5px ${sc}66;">${STATUS_ICON[t.status]||"○"}</span>
+      <span style="width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:6px;background:${PRIORITY_COLOR[t.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[t.priority]||'#555580'};"></span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:${isSel?'#fff':'var(--text)'};line-height:1.3;">${esc(t.title)}</div>
+        <div style="display:flex;gap:4px;margin-top:3px;align-items:center;flex-wrap:wrap;">
+          ${overdue?`<span style="font-size:8px;color:#FF2020;background:rgba(255,32,32,0.12);border:1px solid rgba(255,32,32,0.3);padding:1px 5px;border-radius:2px;font-family:var(--font-hud);">⚠ OVERDUE ${t.dueDate.slice(5)}</span>`:`<span style="font-size:8px;color:#FFD700;font-family:var(--font-hud);">⏱ TODAY</span>`}
+          ${proj?`<span style="font-size:8px;color:${proj.color};font-family:var(--font-hud);">◈ ${esc(proj.name)}</span>`:""}
+          ${srcBadge}
+        </div>
+      </div>
+      ${isSel?`<span style="color:#FF2020;font-size:12px;flex-shrink:0;margin-top:2px;">🎯</span>`:""}
+    </div>`;
+  }
+
+  function todaySection(label, color, taskArr){
+    if(taskArr.length===0) return `<div style="font-size:10px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;padding:6px 2px;font-style:italic;">— SECTOR CLEAR —</div>`;
+    return taskArr.map(t=>todayTaskRow(t)).join("");
+  }
+
+  const workOverdueCount=workTasks.filter(t=>isOverdue(t)).length;
+  const persOverdueCount=persTasks.filter(t=>isOverdue(t)).length;
+
+  container.innerHTML=`<div>
+    <!-- TARGETING COMPUTER -->
+    <div class="pomo-card" style="border-color:${mc}44;">
+      <div class="pomo-header">
+        <div class="pomo-title">🎯 TARGETING COMPUTER</div>
+        <div class="pomo-mode-btns">
+          <button class="pomo-mbtn ${pomoState.mode==='work'?'active-work':''}" onclick="setPomoMode('work')">FOCUS</button>
+          <button class="pomo-mbtn ${pomoState.mode==='shortBreak'?'active-shortBreak':''}" onclick="setPomoMode('shortBreak')">SHORT</button>
+          <button class="pomo-mbtn ${pomoState.mode==='longBreak'?'active-longBreak':''}" onclick="setPomoMode('longBreak')">LONG</button>
+        </div>
+      </div>
+      <div class="pomo-body">
+        <div class="pomo-ring-wrap">
+          <svg width="104" height="104" viewBox="0 0 104 104">
+            <circle cx="52" cy="52" r="${R}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="5"/>
+            <circle cx="52" cy="52" r="${R-8}" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="3 5"/>
+            <circle cx="52" cy="52" r="${R}" fill="none" stroke="${mc}" stroke-width="5"
+              stroke-linecap="round" stroke-dasharray="${circ*pct} ${circ}"
+              transform="rotate(-90 52 52)" style="filter:drop-shadow(0 0 5px ${mc});"/>
+            ${pct>0.01&&pomoState.running?`<circle cx="${tipX}" cy="${tipY}" r="4" fill="${mc}" style="filter:drop-shadow(0 0 6px ${mc});"/>`:""}
+            <line x1="52" y1="8" x2="52" y2="96" stroke="${mc}22" stroke-width="0.5"/>
+            <line x1="8" y1="52" x2="96" y2="52" stroke="${mc}22" stroke-width="0.5"/>
+          </svg>
+          <div class="pomo-time">
+            <div class="pomo-digits" style="color:${mc};text-shadow:0 0 10px ${mc}99;">${fmt(pomoState.timeLeft)}</div>
+            <div class="pomo-mode-lbl" style="color:${mc};text-shadow:0 0 6px ${mc}66;">${ml}</div>
+          </div>
+        </div>
+        <div class="pomo-controls">
+          <div class="pomo-dots">
+            ${dots.map(f=>`<div class="pomo-dot ${f?'filled':''}"></div>`).join("")}
+            <span class="pomo-sessions">${pomoState.sessions} SORTIES</span>
+          </div>
+          <div class="pomo-btns">
+            <button class="pomo-start" id="pomo-start-btn"
+              style="background:${pomoState.running?'rgba(20,0,0,0.8)':`${mc}18`};border:1px solid ${mc};color:${mc};text-shadow:0 0 8px ${mc}99;box-shadow:${pomoState.running?'none':`0 0 14px ${mc}33`};"
+              onclick="togglePomo()">
+              ${pomoState.timeLeft===0?"↺ RESET":pomoState.running?"⏸ HOLD":"▶ ENGAGE"}
+            </button>
+            <button class="pomo-reset" onclick="resetPomo()">↺</button>
+          </div>
+          <div class="pomo-next">${pomoState.mode==="work"?`NEXT: ${pomoState.sessions%4===3?"LONG REST 🛋️":"SHORT REST ☕"}`:"NEXT: ENGAGE 🎯"}</div>
+        </div>
+      </div>
+      ${selHtml}
+    </div>
+
+    <!-- TODAY PANEL -->
+    <div style="background:linear-gradient(135deg,rgba(8,8,24,0.98),rgba(5,5,18,0.99));border:1px solid var(--border2);border-radius:4px;padding:14px;margin-top:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;text-shadow:0 0 8px rgba(255,215,0,0.3);">📋 TODAY'S MISSIONS</div>
+          <div style="font-size:9px;color:var(--text3);font-family:var(--font-hud);margin-top:2px;letter-spacing:1px;">TAP A MISSION TO TARGET IT</div>
+        </div>
+        <span style="background:${totalToday>0?'rgba(255,215,0,0.1)':'rgba(57,255,20,0.08)'};border:1px solid ${totalToday>0?'var(--gold2)':'rgba(57,255,20,0.3)'};color:${totalToday>0?'var(--gold)':'#39FF14'};font-family:var(--font-hud);font-size:12px;font-weight:900;padding:3px 12px;border-radius:2px;">${totalToday>0?totalToday+" LEFT":"ALL CLEAR ✓"}</span>
+      </div>
+
+      <!-- WORK -->
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(0,191,255,0.2);">
+          <span style="font-size:9px;font-family:var(--font-hud);font-weight:900;color:#00BFFF;letter-spacing:2px;">⚡ REPUBLIC</span>
+          ${workTasks.length>0?`<span style="font-size:9px;color:#00BFFF;font-family:var(--font-hud);">${workTasks.length} mission${workTasks.length>1?'s':''}</span>`:""}
+          ${workOverdueCount>0?`<span style="font-size:8px;color:#FF2020;background:rgba(255,32,32,0.12);border:1px solid rgba(255,32,32,0.3);padding:1px 6px;border-radius:2px;font-family:var(--font-hud);">${workOverdueCount} OVERDUE</span>`:""}
+        </div>
+        ${todaySection("REPUBLIC","#00BFFF",workTasks)}
+      </div>
+
+      <!-- PERSONAL -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(57,255,20,0.2);">
+          <span style="font-size:9px;font-family:var(--font-hud);font-weight:900;color:#39FF14;letter-spacing:2px;">🌿 PERSONAL</span>
+          ${persTasks.length>0?`<span style="font-size:9px;color:#39FF14;font-family:var(--font-hud);">${persTasks.length} mission${persTasks.length>1?'s':''}</span>`:""}
+          ${persOverdueCount>0?`<span style="font-size:8px;color:#FF2020;background:rgba(255,32,32,0.12);border:1px solid rgba(255,32,32,0.3);padding:1px 6px;border-radius:2px;font-family:var(--font-hud);">${persOverdueCount} OVERDUE</span>`:""}
+        </div>
+        ${todaySection("PERSONAL","#39FF14",persTasks)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function selectMission(id){
+  selectedMissionId=selectedMissionId===id?null:id;
+  renderAll();
+  showToast(selectedMissionId?"🎯 MISSION TARGETED":"TARGET CLEARED");
+}
+
+function setPomoMode(mode){
+  clearInterval(pomoState.interval);
+  pomoState.mode=mode;
+  pomoState.timeLeft=mode==="work"?pomoState.customWork*60:mode==="shortBreak"?300:900;
+  pomoState.running=false;renderAll();
+}
+
+function togglePomo(){
+  if(pomoState.timeLeft===0){resetPomo();return;}
+  pomoState.running=!pomoState.running;
+  if(pomoState.running){
+    pomoState.interval=setInterval(()=>{
+      pomoState.timeLeft--;
+      if(pomoState.timeLeft<=0){
+        clearInterval(pomoState.interval);pomoState.running=false;
+        playBeep();
+        if(pomoState.mode==="work"){
+          pomoState.sessions++;
+          const next=pomoState.sessions%4===0?"longBreak":"shortBreak";
+          pomoState.mode=next;pomoState.timeLeft=next==="shortBreak"?300:900;
+        }else{pomoState.mode="work";pomoState.timeLeft=pomoState.customWork*60;}
+      }
+      const d=document.querySelector(".pomo-digits");
+      const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+      if(d) d.textContent=fmt(pomoState.timeLeft);
+      else{clearInterval(pomoState.interval);renderAll();}
+    },1000);
+  }else{clearInterval(pomoState.interval);}
+  renderAll();
+}
+
+function resetPomo(){
+  clearInterval(pomoState.interval);pomoState.running=false;
+  pomoState.timeLeft=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
+  renderAll();
+}
+
+function playBeep(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    // Imperial march-ish fanfare
+    [{f:392,t:0},{f:392,t:0.18},{f:392,t:0.36},{f:311,t:0.54},{f:466,t:0.65}].forEach(({f,t})=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;o.type="square";
+      g.gain.setValueAtTime(0.08,ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.15);
+      o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.18);
+    });
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAR MAP (calendar)
+// ═══════════════════════════════════════════════════════════════
+function renderCalendar(container){
+  const y=calendarDate.getFullYear(),m=calendarDate.getMonth();
+  const firstDay=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const todayStr=today();
+  const MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+  const DAYS=["SU","MO","TU","WE","TH","FR","SA"];
+  const byDate={};
+  tasks.forEach(t=>{
+    if(!t.dueDate||t.status==="done") return;
+    const k=t.dueDate.slice(0,10);if(!byDate[k])byDate[k]=[];byDate[k].push(t);
+  });
+  let gridHtml=DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
+  for(let i=0;i<firstDay;i++) gridHtml+=`<div></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const dt=byDate[ds]||[];
+    const isToday=ds===todayStr;const isOverdue=ds<todayStr&&dt.length>0;
+    let cls="cal-cell";
+    if(dt.length>0) cls+=" has-tasks";
+    if(isToday) cls+=" today";
+    if(isOverdue) cls+=" overdue-day";
+    const numCls=isToday?"today":isOverdue?"overdue":"normal";
+    let chips=dt.slice(0,2).map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId);const c=proj?.color||"#FFD700";
+      return `<div class="cal-chip" style="background:${c}18;color:${c};border:1px solid ${c}33;">${esc(t.title)}</div>`;
+    }).join("");
+    if(dt.length>2) chips+=`<div class="cal-more">+${dt.length-2}</div>`;
+    gridHtml+=`<div class="${cls}" onclick="${dt.length>0?`calDayClick('${ds}')`:''}"}>
+      <div class="cal-day-num ${numCls}">${d}</div>${chips}</div>`;
+  }
+  const upcoming=tasks.filter(t=>t.dueDate&&t.status!=="done")
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,8);
+  const upcomingHtml=upcoming.length===0
+    ?`<div class="empty">— NO UPCOMING DEADLINES —</div>`
+    :upcoming.map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        const overdue=t.dueDate<todayStr;const isT=t.dueDate===todayStr;
+        const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
+        const bb=overdue?"rgba(255,32,32,0.15)":isT?"rgba(255,215,0,0.1)":"var(--border)";
+        const bc=overdue?"rgba(255,32,32,0.5)":isT?"var(--gold2)":"var(--border2)";
+        const lc=overdue?"#FF2020":isT?"#FFD700":"#555580";
+        const lbl=overdue?"⚠ OVERDUE":isT?"★ TODAY":`${daysUntil}d`;
+        return `<div class="upcoming-row" onclick="setNav('tasks');renderAll();">
+          <div class="due-badge" style="background:${bb};border:1px solid ${bc};">
+            <div class="due-badge-lbl" style="color:${lc};">${lbl}</div>
+            <div class="due-badge-date" style="color:${overdue?'#FF8080':isT?'#FFD700':'#888899'};">${t.dueDate.slice(5)}</div>
+          </div>
+          <span class="priority-dot" style="background:${PRIORITY_COLOR[t.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[t.priority]||'#555580'};margin-top:0;"></span>
+          <span style="flex:1;font-size:11px;color:var(--text);min-width:0;">${esc(t.title)}</span>
+          ${proj?`<span style="font-size:8px;color:${proj.color};flex-shrink:0;font-family:var(--font-hud);letter-spacing:0.5px;">◈ ${esc(proj.name)}</span>`:""}
+        </div>`;
+      }).join("");
+
+  container.innerHTML=`
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calPrev()">←</button>
+      <div class="cal-month">★ ${MONTHS[m]} ${y}</div>
+      <button class="cal-nav-btn" onclick="calNext()">→</button>
+    </div>
+    <div class="cal-grid">${gridHtml}</div>
+    <div class="upcoming-card">
+      <div class="upcoming-title">⏱ MISSION DEADLINES</div>
+      ${upcomingHtml}
+    </div>`;
+}
+
+function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);renderAll();}
+function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);renderAll();}
+function calDayClick(ds){setNav("tasks");renderAll();}
+
+// ═══════════════════════════════════════════════════════════════
+// HOLONET SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function renderSettings(container){
+  container.innerHTML=`
+    <div style="margin-bottom:16px;">
+      <div class="section-title">◈ SQUADRONS</div>
+      ${projects.map(p=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);">
+          <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
+          <span style="flex:1;font-size:11px;font-family:var(--font-hud);letter-spacing:1px;color:${p.color};">${esc(p.name)}</span>
+          <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);">${p.domain==="work"?"REPUBLIC":"PERSONAL"}</span>
+        </div>`).join("")}
+      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ COMMISSION SQUADRON</button>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="section-title">⬆ INTEL UPLOAD (CSV)</div>
+      <div class="import-zone" onclick="document.getElementById('csv-file-input').click()">
+        <div style="font-size:24px;margin-bottom:6px;">📡</div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--font-hud);letter-spacing:1px;">TAP TO UPLOAD MISSION DATA</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;">COLUMNS: title, project, domain, priority, status, dueDate, notes, source</div>
+      </div>
+      <div id="import-preview-area"></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div class="section-title">📡 HOLONET LINK</div>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH HOLONET</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#00BFFF;color:#00BFFF;" onclick="runDiagnostic()">🔬 DIAGNOSTIC SCAN</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--gold);color:var(--gold);" onclick="forcePushToSheets()">⬆ TRANSMIT ALL LOCAL DATA</button>
+      <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-hud);letter-spacing:0.5px;">
+        USE "TRANSMIT ALL" IF HOLONET DATABASE APPEARS EMPTY.
+        MISSIONS SYNC AUTOMATICALLY WITHIN ~1 STANDARD SECOND.
+      </div>
+    </div>
+    <div style="margin-bottom:32px;">
+      <div class="section-title">🎯 TARGETING COMPUTER CONFIG</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-hud);letter-spacing:0.5px;white-space:nowrap;">FOCUS TIME:</span>
+        <input type="range" min="5" max="60" value="${pomoState.customWork}"
+          style="flex:1;accent-color:var(--saber-red);"
+          oninput="pomoState.customWork=Number(this.value);document.getElementById('pomo-dur-lbl').textContent=this.value+'m'"/>
+        <span id="pomo-dur-lbl" style="font-size:11px;color:var(--gold);min-width:32px;font-family:var(--font-hud);">${pomoState.customWork}m</span>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MISSION ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function toggleExpand(id){expandedTaskId=expandedTaskId===id?null:id;renderAll();}
+
+function cycleStatus(id){
+  const order=["todo","inprogress","blocked","done"];
+  const t=tasks.find(t=>t.id===id);if(!t) return;
+  t.status=order[(order.indexOf(t.status)+1)%order.length];
+  saveAllDebounced();renderAll();
+  showToast(STATUS_LABEL[t.status]);
+}
+
+function updateTaskField(id,field,val){
+  const t=tasks.find(t=>t.id===id);if(!t) return;
+  t[field]=val;saveAllDebounced();
+}
+
+function toggleProject(id){
+  const p=projects.find(p=>p.id===id);if(!p) return;
+  p.collapsed=!p.collapsed;saveAllDebounced();renderAll();
+}
+
+function openAddTask(projectId=""){
+  editingTaskId=null;
+  document.getElementById("modal-task-title").textContent="⊕ NEW MISSION LOG";
+  document.getElementById("task-title-input").value="";
+  document.getElementById("task-priority-input").value="medium";
+  document.getElementById("task-status-input").value="todo";
+  document.getElementById("task-due-input").value="";
+  document.getElementById("task-notes-input").value="";
+  window._editingSource="";
+  renderSourceChips("");
+  document.getElementById("task-delete-wrap").style.display="none";
+  document.getElementById("task-save-btn").textContent="TRANSMIT";
+  const sel=document.getElementById("task-project-input");
+  sel.innerHTML=`<option value="">SELECT SQUADRON…</option>`+
+    projects.map(p=>`<option value="${p.id}" ${p.id===projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  openModal("modal-task");
+  setTimeout(()=>document.getElementById("task-title-input").focus(),300);
+}
+
+function openEditTask(id){
+  const t=tasks.find(t=>t.id===id);if(!t) return;
+  editingTaskId=id;
+  document.getElementById("modal-task-title").textContent="✏ EDIT MISSION";
+  document.getElementById("task-title-input").value=t.title;
+  document.getElementById("task-priority-input").value=t.priority;
+  document.getElementById("task-status-input").value=t.status;
+  document.getElementById("task-due-input").value=t.dueDate||"";
+  document.getElementById("task-notes-input").value=t.notes||"";
+  window._editingSource=t.source||"";
+  renderSourceChips(t.source||"");
+  document.getElementById("task-delete-wrap").style.display="block";
+  document.getElementById("task-save-btn").textContent="UPDATE";
+  const sel=document.getElementById("task-project-input");
+  sel.innerHTML=`<option value="">SELECT SQUADRON…</option>`+
+    projects.map(p=>`<option value="${p.id}" ${p.id===t.projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  openModal("modal-task");
+}
+
+function saveTask(){
+  const title=document.getElementById("task-title-input").value.trim();
+  const projectId=document.getElementById("task-project-input").value;
+  if(!title){showToast("MISSION TITLE REQUIRED");return;}
+  if(!projectId){showToast("ASSIGN TO A SQUADRON");return;}
+  if(editingTaskId){
+    const t=tasks.find(t=>t.id===editingTaskId);if(!t) return;
+    t.title=title;t.projectId=projectId;
+    t.priority=document.getElementById("task-priority-input").value;
+    t.status=document.getElementById("task-status-input").value;
+    t.dueDate=document.getElementById("task-due-input").value;
+    t.notes=document.getElementById("task-notes-input").value;
+    t.source=window._editingSource||"";
+    showToast("MISSION UPDATED ✓");
+  }else{
+    tasks.push({id:genId(),title,projectId,
+      priority:document.getElementById("task-priority-input").value,
+      status:document.getElementById("task-status-input").value,
+      dueDate:document.getElementById("task-due-input").value,
+      notes:document.getElementById("task-notes-input").value,
+      source:window._editingSource||"",
+      createdAt:Date.now()});
+    showToast("MISSION LOGGED ✓");
+  }
+  saveAllDebounced();closeModal("modal-task");renderAll();
+}
+
+function renderSourceChips(selected){
+  const wrap=document.getElementById("source-chips");if(!wrap) return;
+  window._editingSource=selected;
+  wrap.innerHTML=SOURCE_OPTIONS.map(s=>{
+    const active=s.val===selected;
+    return `<button onclick="renderSourceChips('${s.val}')" style="padding:4px 9px;border-radius:2px;border:1px solid ${active?s.color:'var(--border2)'};background:${active?s.color+'22':'transparent'};color:${active?s.color:'var(--text3)'};font-size:10px;font-family:var(--font-hud);letter-spacing:0.5px;cursor:pointer;transition:all 0.15s;">${s.icon} ${s.label}</button>`;
+  }).join('');
+}
+function updateTaskSource(id,val){
+  const t=tasks.find(t=>t.id===id);if(!t) return;
+  t.source=val;saveAllDebounced();renderAll();
+}
+function confirmDeleteTask(id){
+  if(confirm("PURGE THIS MISSION FROM THE DATABASE?")){ 
+    tasks=tasks.filter(t=>t.id!==id);
+    expandedTaskId=null;saveAllDebounced();closeModal("modal-task");renderAll();
+    showToast("MISSION PURGED");
+  }
+}
+function deleteCurrentTask(){if(editingTaskId) confirmDeleteTask(editingTaskId);}
+
+// ═══════════════════════════════════════════════════════════════
+// SQUADRON ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function openAddProject(){
+  selectedProjColor=PROJECT_COLORS[0];
+  document.getElementById("proj-name-input").value="";
+  document.getElementById("proj-domain-input").value="work";
+  renderSwatches();openModal("modal-project");
+  setTimeout(()=>document.getElementById("proj-name-input").focus(),300);
+}
+
+function renderSwatches(){
+  const wrap=document.getElementById("proj-color-swatches");if(!wrap) return;
+  wrap.innerHTML=PROJECT_COLORS.map(c=>
+    `<div class="swatch ${c===selectedProjColor?'selected':''}" style="background:${c};box-shadow:0 0 8px ${c}66;"
+      onclick="selectColor('${c}')"></div>`
+  ).join("");
+}
+
+function selectColor(c){selectedProjColor=c;renderSwatches();}
+
+function saveProject(){
+  const name=document.getElementById("proj-name-input").value.trim();
+  if(!name){showToast("SQUADRON NAME REQUIRED");return;}
+  projects.push({id:genId(),name,domain:document.getElementById("proj-domain-input").value,color:selectedProjColor,collapsed:false});
+  saveAllDebounced();closeModal("modal-project");renderAll();showToast("SQUADRON COMMISSIONED ✓");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CSV INTEL IMPORT
+// ═══════════════════════════════════════════════════════════════
+function handleCSV(e){
+  const file=e.target.files[0];if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{importPreviewData=parseCSV(ev.target.result);renderImportPreview();};
+  reader.readAsText(file);e.target.value="";
+}
+
+function parseCSV(text){
+  const lines=text.trim().split(/\r?\n/);
+  if(lines.length<2) return{error:"CSV MUST HAVE HEADER AND DATA ROWS."};
+  const rawH=lines[0].split(",").map(h=>h.trim().toLowerCase().replace(/[^a-z0-9]/g,""));
+  const alias={
+    title:["title","task","name"],project:["project","projectname","section","group","category"],
+    domain:["domain","type","area"],priority:["priority","prio"],status:["status","state"],
+    dueDate:["duedate","due","deadline"],notes:["notes","note","description"],
+  };
+  const ci={};
+  for(const[f,alts]of Object.entries(alias)) ci[f]=rawH.findIndex(h=>alts.includes(h));
+  if(ci.title===-1) return{error:"CSV REQUIRES A 'title' COLUMN."};
+  if(ci.project===-1) return{error:"CSV REQUIRES A 'project' COLUMN."};
+  const splitRow=row=>{const c=[];let cur="",inQ=false;for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='"'){inQ=!inQ;continue;}if(ch===","&&!inQ){c.push(cur.trim());cur="";continue;}cur+=ch;}c.push(cur.trim());return c;};
+  const newProjMap={};const newTasks=[];const errors=[];
+  for(let i=1;i<lines.length;i++){
+    const raw=lines[i].trim();if(!raw) continue;
+    const cells=splitRow(raw);
+    const get=idx=>(idx>=0&&idx<cells.length)?cells[idx].trim():"";
+    const title=get(ci.title);if(!title){errors.push(`ROW ${i+1}: MISSING TITLE`);continue;}
+    const projName=get(ci.project)||"UNASSIGNED";
+    const domain=get(ci.domain).toLowerCase()==="personal"?"personal":"work";
+    const existing=projects.find(p=>p.name.toLowerCase()===projName.toLowerCase());
+    let projectId;
+    if(existing){projectId=existing.id;}
+    else{
+      const k=projName.toLowerCase();
+      if(!newProjMap[k]) newProjMap[k]={id:genId(),name:projName,domain,color:PROJECT_COLORS[Object.keys(newProjMap).length%PROJECT_COLORS.length],collapsed:false};
+      projectId=newProjMap[k].id;
+    }
+    const pr=get(ci.priority).toLowerCase();
+    const priority=["high","medium","low"].includes(pr)?pr:"medium";
+    const sr=get(ci.status).toLowerCase().replace(/\s/g,"");
+    const statusMap={todo:"todo",inprogress:"inprogress","in-progress":"inprogress",blocked:"blocked",done:"done",complete:"done",completed:"done"};
+    newTasks.push({id:genId(),projectId,title,priority,status:statusMap[sr]||"todo",notes:get(ci.notes),dueDate:get(ci.dueDate),createdAt:Date.now()});
+  }
+  return{newProjects:Object.values(newProjMap),newTasks,errors};
+}
+
+function renderImportPreview(){
+  const area=document.getElementById("import-preview-area");if(!area) return;
+  const d=importPreviewData;
+  if(d.error){area.innerHTML=`<div style="color:var(--saber-red);font-size:11px;padding:10px 0;font-family:var(--font-hud);letter-spacing:1px;">⚠ ${esc(d.error)}</div>`;return;}
+  area.innerHTML=`
+    <div class="preview-summary" style="margin-top:10px;">
+      <div class="preview-stat" style="background:rgba(57,255,20,0.06);border:1px solid rgba(57,255,20,0.2);">
+        <div class="preview-stat-num" style="color:var(--saber-green);">${d.newTasks.length}</div>
+        <div class="preview-stat-lbl">MISSIONS</div>
+      </div>
+      <div class="preview-stat" style="background:rgba(0,191,255,0.06);border:1px solid rgba(0,191,255,0.2);">
+        <div class="preview-stat-num" style="color:var(--saber-blue);">${d.newProjects.length}</div>
+        <div class="preview-stat-lbl">SQUADRONS</div>
+      </div>
+    </div>
+    ${d.newTasks.slice(0,4).map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId)||d.newProjects.find(p=>p.id===t.projectId);
+      return `<div class="preview-task-row">
+        <span style="width:5px;height:5px;border-radius:50%;background:${PRIORITY_COLOR[t.priority]};flex-shrink:0;box-shadow:0 0 4px ${PRIORITY_COLOR[t.priority]};"></span>
+        <span style="flex:1;color:var(--text);">${esc(t.title)}</span>
+        ${proj?`<span style="color:${proj.color};font-size:9px;font-family:var(--font-hud);">◈ ${esc(proj.name)}</span>`:""}
+      </div>`;
+    }).join("")}
+    ${d.newTasks.length>4?`<div style="font-size:10px;color:var(--text3);padding:4px 0;font-family:var(--font-hud);">…AND ${d.newTasks.length-4} MORE MISSIONS</div>`:""}
+    <button class="modal-btn confirm" style="width:100%;margin-top:10px;" onclick="confirmImport()">
+      ✓ UPLOAD ${d.newTasks.length} MISSIONS
+    </button>`;
+}
+
+function confirmImport(){
+  if(!importPreviewData||importPreviewData.error) return;
+  projects=[...projects,...importPreviewData.newProjects];
+  tasks=[...tasks,...importPreviewData.newTasks];
+  saveAllDebounced();importPreviewData=null;
+  const area=document.getElementById("import-preview-area");
+  if(area) area.innerHTML=`<div style="color:var(--saber-green);font-size:11px;padding:10px 0;font-family:var(--font-hud);letter-spacing:1px;">✓ INTEL UPLOAD COMPLETE</div>`;
+  renderAll();showToast("INTEL UPLOADED ✓");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAV + FILTERS
+// ═══════════════════════════════════════════════════════════════
+function setNav(nav){
+  activeNav=nav;focusOn=nav==="focus";
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  const btn=document.getElementById(`nav-${nav}`);if(btn) btn.classList.add("active");
+  if(nav==="cal") viewMode="calendar";
+  else if(nav==="tasks") viewMode="list";
+  // Update focus button label
+  const fb=document.getElementById("btn-focus");
+  if(fb) fb.textContent=focusOn?"⚡ BATTLE STA.":"ENGAGE";
+  if(focusOn) fb.classList.add("engaged"); else fb.classList.remove("engaged");
+  renderAll();
+}
+
+function toggleFocus(){if(activeNav==="focus") setNav("tasks"); else setNav("focus");}
+
+function setDomainFilter(f){
+  domainFilter=f;
+  ["all","work","personal"].forEach(v=>{
+    const b=document.getElementById(`f-${v}`);if(!b) return;
+    b.className="fbtn";
+    if(v===f) b.className+=v==="work"?" active-work":v==="personal"?" active-personal":" active-all";
+  });renderAll();
+}
+
+function setStatusFilter(f){
+  statusFilter=f;
+  ["active","all","done"].forEach(v=>{
+    const b=document.getElementById(`fs-${v}`);if(!b) return;
+    b.className="fbtn"+(v===f?" active-status":"");
+  });renderAll();
+}
+
+function setView(v){
+  viewMode=v;if(v==="calendar") activeNav="cal"; else activeNav="tasks";
+  ["list","cal"].forEach(vv=>{
+    const b=document.getElementById(`fv-${vv}`);if(!b) return;
+    b.className="fbtn"+(vv===v?" active-view":"");
+  });renderAll();
+}
+
+function toggleSearch(){
+  const bar=document.getElementById("search-bar");
+  const visible=bar.classList.toggle("visible");
+  if(visible) setTimeout(()=>document.getElementById("search-input").focus(),100);
+  else{document.getElementById("search-input").value="";renderAll();}
+}
+
+function openModal(id){document.getElementById(id).style.display="flex";}
+function closeModal(id){document.getElementById(id).style.display="none";}
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),2400);
+}
+
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZE — POWER ON SEQUENCE
+// ═══════════════════════════════════════════════════════════════
+async function init(){
+  // Load local cache for instant paint
+  const lp=localStorage.getItem("hub-projects");
+  const lt=localStorage.getItem("hub-tasks");
+  if(lp) projects=JSON.parse(lp);
+  if(lt) tasks=JSON.parse(lt);
+
+  await loadAll();
+
+  document.getElementById("loading").style.display="none";
+  document.getElementById("app").style.display="flex";
+  renderAll();
+}
+
+window.addEventListener("online",()=>{showToast("HOLONET SIGNAL RESTORED — SYNCING…");syncNow();});
+window.addEventListener("offline",()=>{setSyncStatus("offline","SIGNAL LOST");showToast("SIGNAL LOST — OPERATING ON LOCAL ARCHIVES");});
+
+init();
+</script>
+</body>
+</html>
