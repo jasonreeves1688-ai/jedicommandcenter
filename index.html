@@ -28,7 +28,7 @@ html,body{
   background:var(--space);
   color:var(--text);
   font-family:var(--font-data);
-  font-size:13px;
+  font-size:16px;
 }
 body::before{
   content:'';position:fixed;inset:0;
@@ -73,12 +73,12 @@ body::before{
 }
 #header-brand{display:flex;flex-direction:column;}
 #header-title{
-  font-family:var(--font-hud);font-size:15px;font-weight:900;
+  font-family:var(--font-hud);font-size:18px;font-weight:900;
   color:var(--gold);letter-spacing:3px;text-transform:uppercase;
   text-shadow:0 0 10px rgba(255,215,0,0.5),0 0 20px rgba(255,215,0,0.2);
 }
-#header-sub{font-size:8px;color:var(--text3);letter-spacing:2px;margin-top:1px;font-family:var(--font-hud);}
-#header-stats{font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:0.5px;}
+#header-sub{font-size:10px;color:var(--text3);letter-spacing:2px;margin-top:1px;font-family:var(--font-hud);}
+#header-stats{font-size:11px;color:var(--text3);margin-top:2px;letter-spacing:0.5px;}
 #header-actions{display:flex;gap:5px;align-items:center;}
 
 .hbtn{
@@ -86,7 +86,7 @@ body::before{
   border:1px solid var(--gold2);
   color:var(--gold);
   padding:5px 9px;border-radius:4px;cursor:pointer;
-  font-family:var(--font-hud);font-size:10px;font-weight:700;
+  font-family:var(--font-hud);font-size:12px;font-weight:700;
   letter-spacing:1px;white-space:nowrap;
   transition:all 0.15s;outline:none;
   text-shadow:0 0 6px rgba(255,215,0,0.3);
@@ -106,7 +106,7 @@ body::before{
 #sync-dot.syncing{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:pulse 1s infinite;}
 #sync-dot.error{background:var(--saber-red);box-shadow:0 0 6px var(--saber-red);}
 #sync-dot.offline{background:var(--text4);box-shadow:none;}
-#sync-label{font-size:9px;color:var(--text3);letter-spacing:1px;font-family:var(--font-hud);}
+#sync-label{font-size:11px;color:var(--text3);letter-spacing:1px;font-family:var(--font-hud);}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
 /* TACTICAL FILTER BAR */
@@ -166,12 +166,12 @@ body::before{
 .project-chevron.open{transform:rotate(0deg);}
 .project-chevron.closed{transform:rotate(-90deg);}
 .project-info{flex:1;min-width:0;}
-.project-name{font-family:var(--font-hud);font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;}
+.project-name{font-family:var(--font-hud);font-weight:700;font-size:14px;letter-spacing:1.5px;text-transform:uppercase;}
 .project-meta{display:flex;align-items:center;gap:6px;margin-top:4px;}
-.domain-pill{font-size:8px;padding:1px 6px;border-radius:2px;letter-spacing:1px;flex-shrink:0;font-family:var(--font-hud);font-weight:700;}
+.domain-pill{font-size:10px;padding:2px 7px;border-radius:2px;letter-spacing:1px;flex-shrink:0;font-family:var(--font-hud);font-weight:700;}
 .progress-bar-wrap{flex:1;height:2px;background:var(--border);border-radius:1px;}
 .progress-bar-fill{height:100%;border-radius:1px;transition:width 0.4s;}
-.progress-count{font-size:8px;color:var(--text3);flex-shrink:0;font-family:var(--font-hud);}
+.progress-count{font-size:10px;color:var(--text3);flex-shrink:0;font-family:var(--font-hud);}
 .add-task-btn{
   background:transparent;border:1px solid;padding:3px 8px;border-radius:2px;
   cursor:pointer;font-size:9px;font-family:var(--font-hud);font-weight:700;letter-spacing:1px;
@@ -193,13 +193,13 @@ body::before{
 .status-icon:active{transform:scale(1.3);}
 .priority-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:6px;}
 .task-body{flex:1;min-width:0;}
-.task-title{font-size:12px;color:var(--text);line-height:1.4;word-break:break-word;letter-spacing:0.3px;}
+.task-title{font-size:15px;color:var(--text);line-height:1.5;word-break:break-word;letter-spacing:0.3px;}
 .task-title.done{text-decoration:line-through;color:var(--text3);}
 .task-meta{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;align-items:center;}
-.status-pill{font-size:8px;padding:1px 6px;border-radius:2px;white-space:nowrap;font-family:var(--font-hud);letter-spacing:0.5px;}
-.due-label{font-size:8px;color:var(--text3);}
+.status-pill{font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap;font-family:var(--font-hud);letter-spacing:0.5px;}
+.due-label{font-size:10px;color:var(--text3);}
 .due-label.overdue{color:var(--saber-red);text-shadow:0 0 4px rgba(255,32,32,0.4);}
-.empty{padding:10px 13px;font-size:11px;color:var(--text4);font-style:italic;letter-spacing:0.5px;}
+.empty{padding:10px 13px;font-size:13px;color:var(--text4);font-style:italic;letter-spacing:0.5px;}
 
 /* MISSION EXPAND */
 .task-expand{
@@ -240,7 +240,7 @@ body::before{
   gap:3px;transition:color 0.15s;outline:none;
   -webkit-user-select:none;user-select:none;text-transform:uppercase;
 }
-.nav-btn .nav-icon{font-size:18px;line-height:1;}
+.nav-btn .nav-icon{font-size:20px;line-height:1;}
 .nav-btn.active{color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,0.4);}
 .nav-btn:active{opacity:0.7;}
 
@@ -322,7 +322,7 @@ body::before{
   box-shadow:0 0 20px rgba(255,32,32,0.05),inset 0 0 30px rgba(50,0,0,0.3);
 }
 .pomo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.pomo-title{font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--saber-red);letter-spacing:2px;text-shadow:0 0 8px rgba(255,32,32,0.5);}
+.pomo-title{font-family:var(--font-hud);font-size:13px;font-weight:900;color:var(--saber-red);letter-spacing:2px;text-shadow:0 0 8px rgba(255,32,32,0.5);}
 .pomo-mode-btns{display:flex;gap:4px;}
 .pomo-mbtn{
   background:transparent;border:1px solid var(--border2);color:var(--text4);
@@ -335,13 +335,13 @@ body::before{
 .pomo-body{display:flex;align-items:center;gap:14px;}
 .pomo-ring-wrap{position:relative;flex-shrink:0;}
 .pomo-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.pomo-digits{font-family:var(--font-hud);font-size:22px;font-weight:900;letter-spacing:-1px;line-height:1;}
-.pomo-mode-lbl{font-size:7px;letter-spacing:2px;margin-top:3px;font-family:var(--font-hud);font-weight:700;}
+.pomo-digits{font-family:var(--font-hud);font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1;}
+.pomo-mode-lbl{font-size:9px;letter-spacing:2px;margin-top:3px;font-family:var(--font-hud);font-weight:700;}
 .pomo-controls{flex:1;}
 .pomo-dots{display:flex;gap:5px;margin-bottom:10px;align-items:center;}
 .pomo-dot{width:9px;height:9px;border-radius:50%;background:var(--border);border:1px solid var(--border2);transition:all 0.3s;}
 .pomo-dot.filled{background:var(--saber-red);border-color:var(--saber-red);box-shadow:0 0 6px rgba(255,32,32,0.5);}
-.pomo-sessions{font-size:9px;color:var(--text4);margin-left:2px;font-family:var(--font-hud);}
+.pomo-sessions{font-size:11px;color:var(--text4);margin-left:2px;font-family:var(--font-hud);}
 .pomo-btns{display:flex;gap:5px;}
 .pomo-start{
   border:none;border-radius:3px;cursor:pointer;
@@ -449,7 +449,7 @@ body::before{
   animation:logoGlow 2s ease-in-out infinite alternate;
 }
 #loading-sub{font-family:var(--font-hud);font-size:9px;color:var(--gold2);letter-spacing:4px;margin-top:-8px;}
-#loading-msg{font-family:var(--font-hud);font-size:10px;color:var(--text3);letter-spacing:2px;}
+#loading-msg{font-family:var(--font-hud);font-size:12px;color:var(--text3);letter-spacing:2px;}
 .loading-spinner{
   width:36px;height:36px;
   border:2px solid var(--border2);
@@ -464,6 +464,22 @@ body::before{
 <body>
 
 <!-- LOADING SCREEN -->
+<div id="gate" style="position:fixed;inset:0;background:#000005;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:20px;background-image:radial-gradient(ellipse at center,rgba(255,215,0,0.04) 0%,transparent 70%);">
+  <div style="font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:#FFD700;letter-spacing:6px;text-align:center;text-shadow:0 0 20px rgba(255,215,0,0.5),0 0 40px rgba(255,215,0,0.2);">⚔ JEDI COMMAND ⚔</div>
+  <div style="font-family:'Orbitron',monospace;font-size:9px;color:#6B5800;letter-spacing:4px;">GALACTIC MISSION NETWORK</div>
+  <div style="font-family:'Orbitron',monospace;font-size:10px;color:#555580;letter-spacing:2px;margin-top:4px;">IDENTITY VERIFICATION REQUIRED</div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:280px;">
+    <input id="gate-input" type="password" placeholder="ENTER ACCESS CODE…"
+      style="background:rgba(0,0,20,0.9);border:1px solid #B8860B;color:#FFD700;padding:12px 16px;border-radius:3px;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;outline:none;width:100%;text-align:center;"
+      onkeydown="if(event.key==='Enter')checkPassword()"/>
+    <button onclick="checkPassword()"
+      style="background:rgba(255,215,0,0.1);border:1px solid #FFD700;color:#FFD700;padding:10px 28px;border-radius:3px;font-family:'Orbitron',monospace;font-size:11px;font-weight:900;letter-spacing:3px;cursor:pointer;width:100%;text-shadow:0 0 8px rgba(255,215,0,0.4);">
+      ▶ AUTHENTICATE
+    </button>
+    <div id="gate-error" style="font-family:'Orbitron',monospace;font-size:9px;color:#FF2020;letter-spacing:2px;display:none;text-shadow:0 0 6px rgba(255,32,32,0.4);">⚠ ACCESS DENIED — INVALID CODE</div>
+  </div>
+  <div style="font-family:'Orbitron',monospace;font-size:8px;color:#1A1A3A;letter-spacing:2px;margin-top:20px;">ACCESS EXPIRES AFTER 60 STANDARD MINUTES</div>
+</div>
 <div id="loading">
   <div id="loading-logo">⚔ JEDI COMMAND ⚔</div>
   <div id="loading-sub">GALACTIC MISSION NETWORK</div>
@@ -1187,7 +1203,7 @@ function renderCalendar(container){
             <div class="due-badge-date" style="color:${overdue?'#FF8080':isT?'#FFD700':'#888899'};">${t.dueDate.slice(5)}</div>
           </div>
           <span class="priority-dot" style="background:${PRIORITY_COLOR[t.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[t.priority]||'#555580'};margin-top:0;"></span>
-          <span style="flex:1;font-size:11px;color:var(--text);min-width:0;">${esc(t.title)}</span>
+          <span style="flex:1;font-size:13px;color:var(--text);min-width:0;">${esc(t.title)}</span>
           ${proj?`<span style="font-size:8px;color:${proj.color};flex-shrink:0;font-family:var(--font-hud);letter-spacing:0.5px;">◈ ${esc(proj.name)}</span>`:""}
         </div>`;
       }).join("");
@@ -1546,18 +1562,56 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZE — POWER ON SEQUENCE
 // ═══════════════════════════════════════════════════════════════
-async function init(){
-  // Load local cache for instant paint
+const GATE_PASSWORD="opencommand";
+const GATE_DURATION=60*60*1000; // 60 minutes in ms
+
+function checkPassword(){
+  const input=document.getElementById("gate-input");
+  const err=document.getElementById("gate-error");
+  if(input.value===GATE_PASSWORD){
+    localStorage.setItem("hub-auth",Date.now().toString());
+    document.getElementById("gate").style.display="none";
+    bootApp();
+  } else {
+    err.style.display="block";
+    input.value="";
+    input.style.borderColor="#FF2020";
+    input.style.boxShadow="0 0 8px rgba(255,32,32,0.3)";
+    setTimeout(()=>{
+      err.style.display="none";
+      input.style.borderColor="#B8860B";
+      input.style.boxShadow="none";
+    },2000);
+    input.focus();
+  }
+}
+
+async function bootApp(){
+  document.getElementById("loading").style.display="flex";
   const lp=localStorage.getItem("hub-projects");
   const lt=localStorage.getItem("hub-tasks");
   if(lp) projects=JSON.parse(lp);
   if(lt) tasks=JSON.parse(lt);
-
   await loadAll();
-
   document.getElementById("loading").style.display="none";
   document.getElementById("app").style.display="flex";
   renderAll();
+}
+
+async function init(){
+  const authTime=localStorage.getItem("hub-auth");
+  const now=Date.now();
+  if(authTime&&(now-parseInt(authTime))<GATE_DURATION){
+    // Still within 60 min window — skip gate
+    document.getElementById("gate").style.display="none";
+    await bootApp();
+  } else {
+    // Show gate
+    localStorage.removeItem("hub-auth");
+    document.getElementById("gate").style.display="flex";
+    document.getElementById("loading").style.display="none";
+    setTimeout(()=>document.getElementById("gate-input").focus(),300);
+  }
 }
 
 window.addEventListener("online",()=>{showToast("HOLONET SIGNAL RESTORED — SYNCING…");syncNow();});
