@@ -8,18 +8,123 @@
 <meta name="apple-mobile-web-app-title" content="Jedi Command"/>
 <meta name="theme-color" content="#000005"/>
 <title>Jedi Command</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&family=IM+Fell+English&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
-  --space:#000005;--deep:#05050F;--hull:#0A0A1A;--panel:#0D0D20;--border:#1A1A3A;--border2:#252550;
-  --gold:#FFD700;--gold2:#B8860B;--gold-dim:#6B5800;
-  --saber-blue:#00BFFF;--saber-green:#39FF14;--saber-red:#FF2020;--saber-purple:#BF00FF;
-  --text:#C8C8E8;--text2:#8888AA;--text3:#555580;--text4:#333355;
-  --crawl:#FFE81F;
-  --font-hud:'Orbitron',monospace;
-  --font-data:'Share Tech Mono','Courier New',monospace;
-  --scanline: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,255,0.015) 2px,rgba(0,0,255,0.015) 4px);
+  --space:#110C07;--deep:#1A1008;--hull:#241608;--panel:#2C1C0F;--border:#3E2A18;--border2:#503620;
+  --gold:#D4A017;--gold2:#8B6914;--gold-dim:#5C4510;
+  --saber-blue:#4A90D9;--saber-green:#5C8A3C;--saber-red:#8B2020;--saber-purple:#6B3FA0;
+  --text:#E8D5B0;--text2:#B89A6A;--text3:#7A6040;--text4:#4A3828;
+  --crawl:#D4A017;
+  --font-hud:'Cinzel',serif;
+  --font-data:'IM Fell English','Georgia',serif;
+  --scanline: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(80,50,20,0.04) 3px,rgba(80,50,20,0.04) 6px);
+}
+
+/* STARFIELD */
+html,body{
+  height:100%;overflow:hidden;
+  background:var(--space);
+  color:var(--text);
+  font-family:var(--font-data);
+  font-size:16px;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(212,160,23,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(139,105,20,0.04) 0%, transparent 50%),
+    repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(74,55,40,0.03) 40px, rgba(74,55,40,0.03) 41px),
+    repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(74,55,40,0.02) 40px, rgba(74,55,40,0.02) 41px);
+  pointer-events:none;
+  z-index:0;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(ellipse at 15% 85%, rgba(107,63,160,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 15%, rgba(139,32,32,0.10) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(212,160,23,0.05) 0%, transparent 60%);
+}
+</style>
+<style>
+/* DUNGEON AMBIANCE — rune glow orbs, animated torch flicker */
+@keyframes torchFlicker{
+  0%,100%{opacity:1;}
+  20%{opacity:0.85;}
+  40%{opacity:0.95;}
+  60%{opacity:0.80;}
+  80%{opacity:0.92;}
+}
+@keyframes runeGlow{
+  0%,100%{opacity:0.18;transform:scale(1);}
+  50%{opacity:0.32;transform:scale(1.08);}
+}
+@keyframes smokeRise{
+  0%{transform:translateY(0) scaleX(1);opacity:0.06;}
+  100%{transform:translateY(-120px) scaleX(1.6);opacity:0;}
+}
+#dungeon-bg{
+  position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;
+}
+/* Torch glow spots — corners */
+#dungeon-bg .torch{
+  position:absolute;width:180px;height:260px;border-radius:50%;
+  animation:torchFlicker 3s ease-in-out infinite;
+}
+#dungeon-bg .torch-tl{top:-60px;left:-60px;background:radial-gradient(ellipse,rgba(255,140,20,0.22) 0%,rgba(212,90,10,0.08) 45%,transparent 70%);animation-delay:0s;}
+#dungeon-bg .torch-tr{top:-60px;right:-60px;background:radial-gradient(ellipse,rgba(255,140,20,0.18) 0%,rgba(212,90,10,0.06) 45%,transparent 70%);animation-delay:0.7s;}
+#dungeon-bg .torch-bl{bottom:-40px;left:-40px;background:radial-gradient(ellipse,rgba(200,100,20,0.14) 0%,transparent 65%);animation-delay:1.3s;}
+#dungeon-bg .torch-br{bottom:-40px;right:-40px;background:radial-gradient(ellipse,rgba(200,100,20,0.12) 0%,transparent 65%);animation-delay:1.9s;}
+/* Arcane rune glows */
+#dungeon-bg .rune{
+  position:absolute;border-radius:50%;
+  animation:runeGlow 6s ease-in-out infinite;
+}
+#dungeon-bg .rune-1{width:300px;height:300px;top:20%;left:-80px;background:radial-gradient(ellipse,rgba(107,63,160,0.14) 0%,transparent 65%);animation-delay:0s;}
+#dungeon-bg .rune-2{width:250px;height:250px;bottom:30%;right:-60px;background:radial-gradient(ellipse,rgba(74,144,217,0.10) 0%,transparent 65%);animation-delay:2s;}
+#dungeon-bg .rune-3{width:200px;height:200px;top:55%;left:40%;background:radial-gradient(ellipse,rgba(107,63,160,0.08) 0%,transparent 65%);animation-delay:4s;}
+/* Stone vignette — darken edges */
+#dungeon-bg .vignette{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(10,6,3,0.55) 100%);
+}
+/* Crack texture overlay — subtle diagonal lines */
+#dungeon-bg .cracks{
+  position:absolute;inset:0;opacity:0.06;
+  background-image:
+    repeating-linear-gradient(17deg, transparent, transparent 28px, rgba(212,160,23,0.6) 28px, rgba(212,160,23,0.6) 29px),
+    repeating-linear-gradient(-23deg, transparent, transparent 44px, rgba(180,130,40,0.4) 44px, rgba(180,130,40,0.4) 45px),
+    repeating-linear-gradient(73deg, transparent, transparent 60px, rgba(160,110,30,0.3) 60px, rgba(160,110,30,0.3) 61px);
+}
+/* Ambient mid-screen glow */
+#dungeon-bg .midglow{
+  position:absolute;width:100%;height:50%;top:25%;
+  background:radial-gradient(ellipse at 50% 50%, rgba(212,160,23,0.04) 0%, transparent 70%);
+  animation:torchFlicker 5s ease-in-out infinite;animation-delay:2.5s;
+}
+</style>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Jedi Command"/>
+<meta name="theme-color" content="#000005"/>
+<title>Jedi Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&family=IM+Fell+English&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --space:#110C07;--deep:#1A1008;--hull:#241608;--panel:#2C1C0F;--border:#3E2A18;--border2:#503620;
+  --gold:#D4A017;--gold2:#8B6914;--gold-dim:#5C4510;
+  --saber-blue:#4A90D9;--saber-green:#5C8A3C;--saber-red:#8B2020;--saber-purple:#6B3FA0;
+  --text:#E8D5B0;--text2:#B89A6A;--text3:#7A6040;--text4:#4A3828;
+  --crawl:#D4A017;
+  --font-hud:'Cinzel',serif;
+  --font-data:'IM Fell English','Georgia',serif;
+  --scanline: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(80,50,20,0.04) 3px,rgba(80,50,20,0.04) 6px);
 }
 
 /* STARFIELD */
@@ -58,7 +163,8 @@ body::before{
 
 /* HEADER */
 #header{
-  background:linear-gradient(180deg,rgba(0,0,10,0.98) 0%,rgba(5,5,20,0.95) 100%);
+  background:linear-gradient(180deg,rgba(20,12,6,0.99) 0%,rgba(30,18,8,0.97) 100%);
+  box-shadow:0 2px 20px rgba(0,0,0,0.5),0 1px 0 rgba(212,160,23,0.15);
   border-bottom:1px solid var(--gold2);
   padding:0 14px;
   padding-top:env(safe-area-inset-top);
@@ -75,7 +181,7 @@ body::before{
 #header-title{
   font-family:var(--font-hud);font-size:18px;font-weight:900;
   color:var(--gold);letter-spacing:3px;text-transform:uppercase;
-  text-shadow:0 0 10px rgba(255,215,0,0.5),0 0 20px rgba(255,215,0,0.2);
+  text-shadow:0 0 8px rgba(255,140,20,0.8),0 0 20px rgba(212,160,23,0.5),0 0 40px rgba(180,100,10,0.3);
 }
 #header-sub{font-size:10px;color:var(--text3);letter-spacing:2px;margin-top:1px;font-family:var(--font-hud);}
 #header-stats{font-size:11px;color:var(--text3);margin-top:2px;letter-spacing:0.5px;}
@@ -92,17 +198,17 @@ body::before{
   text-shadow:0 0 6px rgba(255,215,0,0.3);
 }
 .hbtn:active{background:rgba(255,215,0,0.15);transform:scale(0.96);}
-.hbtn.primary{background:rgba(0,191,255,0.12);border-color:var(--saber-blue);color:var(--saber-blue);text-shadow:0 0 8px rgba(0,191,255,0.5);}
-.hbtn.engaged{background:rgba(57,255,20,0.1);border-color:var(--saber-green);color:var(--saber-green);text-shadow:0 0 8px rgba(57,255,20,0.5);}
+.hbtn.primary{background:rgba(212,160,23,0.12);border-color:var(--gold);color:var(--gold);text-shadow:0 0 8px rgba(212,160,23,0.5);}
+.hbtn.engaged{background:rgba(92,138,60,0.1);border-color:var(--saber-green);color:var(--saber-green);text-shadow:0 0 8px rgba(92,138,60,0.5);}
 
-/* HOLONET SYNC BAR */
+/* GUILD ARCHIVE SYNC BAR */
 #sync-bar{
   background:rgba(0,0,15,0.9);
   border-bottom:1px solid var(--border);
   padding:3px 14px;display:flex;align-items:center;gap:6px;flex-shrink:0;
 }
-#sync-dot{width:6px;height:6px;border-radius:50%;background:var(--saber-green);flex-shrink:0;
-  box-shadow:0 0 6px var(--saber-green);transition:all 0.3s;}
+#sync-dot{width:6px;height:6px;border-radius:50%;background:#C87820;flex-shrink:0;
+  box-shadow:0 0 8px #C87820,0 0 14px rgba(200,120,32,0.4);transition:all 0.3s;}
 #sync-dot.syncing{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:pulse 1s infinite;}
 #sync-dot.error{background:var(--saber-red);box-shadow:0 0 6px var(--saber-red);}
 #sync-dot.offline{background:var(--text4);box-shadow:none;}
@@ -146,11 +252,12 @@ body::before{
 }
 #search-input::placeholder{color:var(--text3);}
 
-/* SQUADRON CARDS (projects) */
+/* PARTY CARDS (projects) */
 .project-card{
-  background:linear-gradient(135deg,rgba(10,10,30,0.95) 0%,rgba(5,5,20,0.98) 100%);
+  background:linear-gradient(135deg,rgba(36,22,8,0.97) 0%,rgba(26,15,8,0.99) 100%);
   border:1px solid var(--border2);
-  border-left:2px solid var(--gold2);
+  border-left:3px solid var(--gold2);
+  box-shadow:inset 0 0 30px rgba(212,160,23,0.04),0 2px 8px rgba(0,0,0,0.4);
   border-radius:3px;margin-bottom:10px;overflow:hidden;
   box-shadow:inset 0 0 20px rgba(0,0,50,0.3);
 }
@@ -179,7 +286,7 @@ body::before{
 }
 .add-task-btn:active{opacity:0.7;}
 
-/* MISSION ROWS (tasks) */
+/* QUEST ROWS (tasks) */
 .task-list{padding:2px 0 5px;border-top:1px solid var(--border);}
 .task-row{
   display:flex;align-items:flex-start;gap:8px;padding:8px 13px;
@@ -201,7 +308,7 @@ body::before{
 .due-label.overdue{color:var(--saber-red);text-shadow:0 0 4px rgba(255,32,32,0.4);}
 .empty{padding:10px 13px;font-size:13px;color:var(--text4);font-style:italic;letter-spacing:0.5px;}
 
-/* MISSION EXPAND */
+/* QUEST EXPAND */
 .task-expand{
   margin:0 10px 8px 32px;
   background:rgba(0,0,20,0.8);
@@ -227,11 +334,11 @@ body::before{
 
 /* BOTTOM COMMAND NAV */
 #bottom-nav{
-  background:linear-gradient(0deg,rgba(0,0,10,0.98) 0%,rgba(5,5,20,0.95) 100%);
-  border-top:1px solid var(--gold2);
+  background:linear-gradient(0deg,rgba(12,8,4,0.99) 0%,rgba(26,16,8,0.97) 100%);
+  border-top:1px solid rgba(212,160,23,0.35);
   display:flex;align-items:stretch;flex-shrink:0;
   padding-bottom:env(safe-area-inset-bottom);
-  box-shadow:0 -2px 20px rgba(255,215,0,0.08);
+  box-shadow:0 -2px 25px rgba(0,0,0,0.6),0 -1px 8px rgba(212,160,23,0.08);
 }
 .nav-btn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -241,7 +348,7 @@ body::before{
   -webkit-user-select:none;user-select:none;text-transform:uppercase;
 }
 .nav-btn .nav-icon{font-size:20px;line-height:1;}
-.nav-btn.active{color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,0.4);}
+.nav-btn.active{color:var(--gold);text-shadow:0 0 8px rgba(255,140,20,0.7),0 0 16px rgba(212,160,23,0.4);}
 .nav-btn:active{opacity:0.7;}
 
 /* MODALS — HOLOGRAPHIC DISPLAY */
@@ -254,8 +361,8 @@ body::before{
 }
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal-sheet{
-  background:linear-gradient(180deg,rgba(10,10,35,0.99) 0%,rgba(5,5,20,0.99) 100%);
-  border:1px solid var(--gold2);
+  background:linear-gradient(180deg,rgba(32,20,10,0.99) 0%,rgba(17,12,7,0.99) 100%);
+  border:1px solid rgba(212,160,23,0.4);
   border-bottom:none;
   border-radius:6px 6px 0 0;
   width:100%;max-width:600px;
@@ -263,7 +370,7 @@ body::before{
   padding-bottom:calc(18px + env(safe-area-inset-bottom));
   max-height:88vh;overflow-y:auto;
   animation:slideUp 0.2s ease;
-  box-shadow:0 -4px 40px rgba(255,215,0,0.1),inset 0 0 40px rgba(0,0,50,0.4);
+  box-shadow:0 -4px 40px rgba(0,0,0,0.7),inset 0 0 60px rgba(212,160,23,0.04),0 -1px 0 rgba(212,160,23,0.2);
 }
 .modal-sheet::before{
   content:'';display:block;width:50px;height:3px;
@@ -307,14 +414,14 @@ body::before{
 .modal-btn.cancel{background:rgba(255,255,255,0.04);border:1px solid var(--border2);color:var(--text3);}
 .modal-btn.danger{background:rgba(255,32,32,0.08);color:var(--saber-red);border:1px solid rgba(255,32,32,0.4);}
 
-/* BATTLE STATION (focus mode) */
+/* WAR ROOM (focus mode) */
 .focus-header{
   font-family:var(--font-hud);font-size:11px;font-weight:900;
   color:var(--gold);letter-spacing:3px;margin-bottom:12px;text-transform:uppercase;
   text-shadow:0 0 8px rgba(255,215,0,0.3);
 }
 
-/* TARGETING COMPUTER (pomodoro) */
+/* BATTLE PLANNER (pomodoro) */
 .pomo-card{
   background:linear-gradient(135deg,rgba(10,5,5,0.98) 0%,rgba(5,0,10,0.99) 100%);
   border:1px solid rgba(255,32,32,0.3);
@@ -364,7 +471,7 @@ body::before{
 .focus-task-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
 .focus-task-row:last-child{border-bottom:none;}
 
-/* STAR MAP (calendar) */
+/* REALM MAP (calendar) */
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .cal-nav-btn{
   background:rgba(255,215,0,0.06);border:1px solid var(--gold2);color:var(--gold);
@@ -399,7 +506,7 @@ body::before{
 .due-badge-lbl{font-size:7px;letter-spacing:1px;font-family:var(--font-hud);font-weight:700;}
 .due-badge-date{font-size:10px;font-weight:500;font-family:var(--font-hud);}
 
-/* HOLONET STATUS (settings) */
+/* GUILD HALL (settings) */
 .section-title{
   font-family:var(--font-hud);font-size:9px;font-weight:900;
   color:var(--gold);letter-spacing:3px;margin-bottom:8px;text-transform:uppercase;
@@ -453,15 +560,15 @@ body::before{
 }
 .drag-handle:active{cursor:grabbing;color:var(--gold2);}
 
-/* EFFORT CHIPS */
+/* DIFFICULTY CHIPS */
 .effort-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
 .effort-chip{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:5px 10px;border-radius:2px;cursor:pointer;font-size:11px;font-family:var(--font-hud);letter-spacing:0.5px;transition:all 0.15s;outline:none;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:60px;}
 .effort-chip .ec-icon{font-size:13px;letter-spacing:-1px;}
 .effort-chip .ec-lbl{font-size:8px;letter-spacing:1px;}
-.effort-chip.active-youngling{background:rgba(57,255,20,0.1);border-color:#39FF14;color:#39FF14;}
-.effort-chip.active-padawan{background:rgba(0,191,255,0.1);border-color:#00BFFF;color:#00BFFF;}
-.effort-chip.active-knight{background:rgba(255,215,0,0.1);border-color:#FFD700;color:#FFD700;}
-.effort-chip.active-master{background:rgba(255,32,32,0.1);border-color:#FF2020;color:#FF2020;}
+.effort-chip.active-peasant{background:rgba(139,154,106,0.1);border-color:#8B9A6A;color:#8B9A6A;}
+.effort-chip.active-squire{background:rgba(74,144,217,0.1);border-color:#4A90D9;color:#4A90D9;}
+.effort-chip.active-knight{background:rgba(212,160,23,0.1);border-color:#D4A017;color:#D4A017;}
+.effort-chip.active-champion{background:rgba(139,32,32,0.1);border-color:#8B2020;color:#8B2020;}
 .effort-badge{display:inline-flex;align-items:center;gap:2px;font-size:9px;padding:1px 6px;border-radius:2px;font-family:var(--font-hud);letter-spacing:0.5px;white-space:nowrap;border:1px solid;}
 
 /* RECURRENCE CHIPS */
@@ -513,7 +620,7 @@ body::before{
   position:fixed;inset:0;background:var(--space);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   z-index:400;gap:16px;
-  background-image:radial-gradient(ellipse at center,rgba(255,215,0,0.03) 0%,transparent 70%);
+  background-image:radial-gradient(ellipse at 30% 30%,rgba(255,140,20,0.12) 0%,transparent 45%),radial-gradient(ellipse at 70% 70%,rgba(107,63,160,0.10) 0%,transparent 45%),radial-gradient(ellipse at center,rgba(212,160,23,0.05) 0%,transparent 65%);
 }
 #loading-logo{
   font-family:var(--font-hud);font-size:28px;font-weight:900;
@@ -537,49 +644,63 @@ body::before{
 <body>
 
 <!-- LOADING SCREEN -->
-<div id="gate" style="position:fixed;inset:0;background:#000005;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:20px;background-image:radial-gradient(ellipse at center,rgba(255,215,0,0.04) 0%,transparent 70%);">
-  <div style="font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:#FFD700;letter-spacing:6px;text-align:center;text-shadow:0 0 20px rgba(255,215,0,0.5),0 0 40px rgba(255,215,0,0.2);">⚔ JEDI COMMAND ⚔</div>
-  <div style="font-family:'Orbitron',monospace;font-size:9px;color:#6B5800;letter-spacing:4px;">GALACTIC MISSION NETWORK</div>
-  <div style="font-family:'Orbitron',monospace;font-size:10px;color:#555580;letter-spacing:2px;margin-top:4px;">IDENTITY VERIFICATION REQUIRED</div>
+<div id="gate" style="position:fixed;inset:0;background:#110C07;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:20px;background-image:radial-gradient(ellipse at 30% 30%,rgba(255,140,20,0.12) 0%,transparent 45%),radial-gradient(ellipse at 70% 70%,rgba(107,63,160,0.10) 0%,transparent 45%),radial-gradient(ellipse at center,rgba(212,160,23,0.06) 0%,transparent 65%);">
+  <div style="font-family:'Orbitron',monospace;font-size:26px;font-weight:900;color:#FFD700;letter-spacing:6px;text-align:center;text-shadow:0 0 20px rgba(255,215,0,0.5),0 0 40px rgba(255,215,0,0.2);">⚔ QUEST BOARD ⚔</div>
+  <div style="font-family:'Orbitron',monospace;font-size:9px;color:#6B5800;letter-spacing:4px;">GUILD HEADQUARTERS</div>
+  <div style="font-family:'Orbitron',monospace;font-size:10px;color:#555580;letter-spacing:2px;margin-top:4px;">SPEAK FRIEND AND ENTER</div>
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:280px;">
-    <input id="gate-input" type="password" placeholder="ENTER ACCESS CODE…"
+    <input id="gate-input" type="password" placeholder="SPEAK THE PASSWORD…"
       style="background:rgba(0,0,20,0.9);border:1px solid #B8860B;color:#FFD700;padding:12px 16px;border-radius:3px;font-family:'Orbitron',monospace;font-size:13px;letter-spacing:2px;outline:none;width:100%;text-align:center;"
       onkeydown="if(event.key==='Enter')checkPassword()"/>
     <button onclick="checkPassword()"
       style="background:rgba(255,215,0,0.1);border:1px solid #FFD700;color:#FFD700;padding:10px 28px;border-radius:3px;font-family:'Orbitron',monospace;font-size:11px;font-weight:900;letter-spacing:3px;cursor:pointer;width:100%;text-shadow:0 0 8px rgba(255,215,0,0.4);">
-      ▶ AUTHENTICATE
+      ▶ ENTER
     </button>
-    <div id="gate-error" style="font-family:'Orbitron',monospace;font-size:9px;color:#FF2020;letter-spacing:2px;display:none;text-shadow:0 0 6px rgba(255,32,32,0.4);">⚠ ACCESS DENIED — INVALID CODE</div>
+    <div id="gate-error" style="font-family:'Orbitron',monospace;font-size:9px;color:#FF2020;letter-spacing:2px;display:none;text-shadow:0 0 6px rgba(255,32,32,0.4);">⚠ THE PASSWORD IS WRONG</div>
   </div>
-  <div style="font-family:'Orbitron',monospace;font-size:8px;color:#1A1A3A;letter-spacing:2px;margin-top:20px;">ACCESS EXPIRES AFTER 60 STANDARD MINUTES</div>
+  <div style="font-family:'Orbitron',monospace;font-size:8px;color:#1A1A3A;letter-spacing:2px;margin-top:20px;">ACCESS EXPIRES AFTER 60 MINUTES</div>
 </div>
 <div id="loading">
-  <div id="loading-logo">⚔ JEDI COMMAND ⚔</div>
-  <div id="loading-sub">GALACTIC MISSION NETWORK</div>
+  <div id="loading-logo">⚔ QUEST BOARD ⚔</div>
+  <div id="loading-sub">GUILD HEADQUARTERS</div>
   <div class="loading-spinner"></div>
-  <div id="loading-msg">ESTABLISHING HOLONET LINK…</div>
+  <div id="loading-msg">CONSULTING THE GUILD ARCHIVES…</div>
 </div>
 
 <div id="app" style="display:none;">
 
+<!-- DUNGEON ATMOSPHERE -->
+<div id="dungeon-bg">
+  <div class="torch torch-tl"></div>
+  <div class="torch torch-tr"></div>
+  <div class="torch torch-bl"></div>
+  <div class="torch torch-br"></div>
+  <div class="rune rune-1"></div>
+  <div class="rune rune-2"></div>
+  <div class="rune rune-3"></div>
+  <div class="cracks"></div>
+  <div class="midglow"></div>
+  <div class="vignette"></div>
+</div>
+
   <!-- HEADER -->
   <div id="header">
     <div id="header-brand">
-      <div id="header-title">⚔ JEDI COMMAND</div>
-      <div id="header-sub">GALACTIC MISSION NETWORK</div>
+      <div id="header-title">⚔ QUEST BOARD</div>
+      <div id="header-sub">GUILD HEADQUARTERS</div>
       <div id="header-stats" class="stats"></div>
     </div>
     <div id="header-actions">
       <button class="hbtn" id="btn-search" onclick="toggleSearch()">🔍</button>
-      <button class="hbtn" id="btn-focus" onclick="toggleFocus()">ENGAGE</button>
-      <button class="hbtn primary" onclick="openAddTask()">+ MISSION</button>
+      <button class="hbtn" id="btn-focus" onclick="toggleFocus()">ADVENTURE</button>
+      <button class="hbtn primary" onclick="openAddTask()">+ QUEST</button>
     </div>
   </div>
 
-  <!-- HOLONET SYNC BAR -->
+  <!-- GUILD ARCHIVE SYNC BAR -->
   <div id="sync-bar">
     <div id="sync-dot"></div>
-    <div id="sync-label">HOLONET LINKED</div>
+    <div id="sync-label">GUILD ARCHIVES LINKED</div>
     <div style="margin-left:auto;">
       <button class="hbtn" style="padding:2px 8px;font-size:9px;" onclick="syncNow()">↻ SYNC</button>
     </div>
@@ -587,14 +708,14 @@ body::before{
 
   <!-- SEARCH -->
   <div id="search-bar">
-    <input id="search-input" type="search" placeholder="SEARCH MISSION DATABASE…" oninput="renderAll()" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <input id="search-input" type="search" placeholder="SEARCH QUEST BOARD…" oninput="renderAll()" autocomplete="off" autocorrect="off" spellcheck="false"/>
   </div>
 
   <!-- TACTICAL FILTER BAR -->
   <div id="filter-bar">
     <button class="fbtn active-all" id="f-all" onclick="setDomainFilter('all')">ALL</button>
-    <button class="fbtn" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
-    <button class="fbtn" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
+    <button class="fbtn" id="f-work" onclick="setDomainFilter('work')">⚔ KINGDOM</button>
+    <button class="fbtn" id="f-personal" onclick="setDomainFilter('personal')">🏡 HOMESTEAD</button>
     <div class="filter-sep"></div>
     <button class="fbtn active-status" id="fs-active" onclick="setStatusFilter('active')">ACTIVE</button>
     <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL</button>
@@ -610,13 +731,13 @@ body::before{
   <!-- COMMAND NAV -->
   <div id="bottom-nav">
     <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
-      <span class="nav-icon">☰</span>MISSIONS
+      <span class="nav-icon">☰</span>QUESTS
     </button>
     <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
       <span class="nav-icon">🎯</span>BATTLE STA.
     </button>
     <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
-      <span class="nav-icon">★</span>STAR MAP
+      <span class="nav-icon">★</span>REALM MAP
     </button>
     <button class="nav-btn" id="nav-add" onclick="openAddTask()">
       <span class="nav-icon" style="color:var(--gold);font-size:26px;line-height:1;">⊕</span>
@@ -626,31 +747,31 @@ body::before{
       <span class="nav-icon">📊</span>INTEL
     </button>
     <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
-      <span class="nav-icon">⚙</span>HOLONET
+      <span class="nav-icon">⚙</span>GUILD ARCHIVES
     </button>
   </div>
 </div>
 
 <div id="toast"></div>
 
-<!-- ADD/EDIT MISSION MODAL -->
+<!-- ADD/EDIT QUEST MODAL -->
 <div id="modal-task" class="modal-overlay" style="display:none;" onclick="closeModal('modal-task')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title" id="modal-task-title">⊕ NEW MISSION LOG</div>
+    <div class="modal-title" id="modal-task-title">⊕ NEW QUEST</div>
     <div class="field-group">
-      <input class="field-input" id="task-title-input" placeholder="DESCRIBE THE MISSION…" autocomplete="off"/>
+      <input class="field-input" id="task-title-input" placeholder="DESCRIBE THE QUEST…" autocomplete="off"/>
       <select class="field-select" id="task-project-input">
-        <option value="">SELECT SQUADRON…</option>
+        <option value="">SELECT PARTY…</option>
       </select>
       <div class="field-row">
         <select class="field-select" id="task-priority-input">
-          <option value="high">🔴 CRITICAL</option>
-          <option value="medium" selected>🟡 STANDARD</option>
-          <option value="low">⚫ LOW</option>
+          <option value="high">🐉 DRAGON</option>
+          <option value="medium" selected>👹 ORC</option>
+          <option value="low">👺 GOBLIN</option>
         </select>
         <select class="field-select" id="task-status-input">
           <option value="todo">○ PENDING</option>
-          <option value="inprogress">◑ ENGAGED</option>
+          <option value="inprogress">◑ ADVENTURED</option>
           <option value="blocked">⊘ BLOCKED</option>
           <option value="done">● COMPLETE</option>
         </select>
@@ -667,49 +788,49 @@ body::before{
           <div class="ntb-sep"></div>
           <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
         </div>
-        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="INTEL, CONTEXT, OBSTACLES…" spellcheck="false"></div>
+        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="LORE, CONTEXT, OBSTACLES…" spellcheck="false"></div>
       </div>
       <div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">📜 QUEST GIVER</div>
         <div id="source-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
       </div>
       <div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING MISSION</div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING QUEST</div>
         <div class="recur-chips" id="recur-chips"></div>
       </div>
       <div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">⚡ MISSION SIZE (EFFORT)</div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">⚔ QUEST DIFFICULTY</div>
         <div class="effort-chips" id="effort-chips"></div>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">TRANSMIT</button>
-      <button class="modal-btn cancel" onclick="closeModal('modal-task')">ABORT</button>
+      <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">INSCRIBE</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-task')">RETREAT</button>
     </div>
     <div id="task-delete-wrap" style="display:none;margin-bottom:16px;">
-      <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ PURGE MISSION</button>
+      <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ ABANDON QUEST</button>
     </div>
   </div>
 </div>
 
-<!-- ADD SQUADRON MODAL -->
+<!-- ADD PARTY MODAL -->
 <div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title">⊕ NEW SQUADRON</div>
+    <div class="modal-title">⊕ NEW PARTY</div>
     <div class="field-group">
-      <input class="field-input" id="proj-name-input" placeholder="SQUADRON DESIGNATION…" autocomplete="off" style="font-family:var(--font-hud);letter-spacing:1px;color:var(--gold);"/>
+      <input class="field-input" id="proj-name-input" placeholder="PARTY NAME…" autocomplete="off" style="font-family:var(--font-hud);letter-spacing:1px;color:var(--gold);"/>
       <select class="field-select" id="proj-domain-input">
-        <option value="work">⚡ REPUBLIC (Work)</option>
-        <option value="personal">🌿 PERSONAL</option>
+        <option value="work">⚔ KINGDOM (Work)</option>
+        <option value="personal">🏡 HOMESTEAD</option>
       </select>
       <div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:7px;font-family:var(--font-hud);letter-spacing:1px;">SQUADRON COLOR CODE</div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:7px;font-family:var(--font-hud);letter-spacing:1px;">PARTY BANNER COLOR</div>
         <div class="swatch-row" id="proj-color-swatches"></div>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn confirm" onclick="saveProject()">COMMISSION</button>
-      <button class="modal-btn cancel" onclick="closeModal('modal-project')">STAND DOWN</button>
+      <button class="modal-btn confirm" onclick="saveProject()">CHARTER</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-project')">RETREAT</button>
     </div>
   </div>
 </div>
@@ -726,7 +847,7 @@ body::before{
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// CONFIG — HOLONET LINK
+// CONFIG — GUILD ARCHIVES LINK
 // ═══════════════════════════════════════════════════════════════
 const API_URL = "https://script.google.com/macros/s/AKfycbw6EET5ZIuUTne2Xh6CVDPDwN8gRqo6_NIBx1sxVyeMqY0fxMHiFSs5IHKx4ffr9rQ1lQ/exec";
 
@@ -758,30 +879,30 @@ const SEED_TASKS = [
 ];
 
 // Star Wars themed labels
-const PRIORITY_COLOR = {high:"#FF2020",medium:"#FFD700",low:"#555580"};
+const PRIORITY_COLOR = {high:"#8B2020",medium:"#D4A017",low:"#5C5C40"};
 const PRIORITY_LABEL = {high:"CRITICAL",medium:"STANDARD",low:"LOW"};
-const STATUS_ICON    = {todo:"○",inprogress:"◑",blocked:"⊘",done:"●"};
-const STATUS_LABEL   = {todo:"PENDING",inprogress:"ENGAGED",blocked:"BLOCKED",done:"COMPLETE"};
-const STATUS_COLOR   = {todo:"#555580",inprogress:"#FFD700",blocked:"#FF2020",done:"#39FF14"};
+const STATUS_ICON    = {todo:"○",inprogress:"⚔",blocked:"💀",done:"✓"};
+const STATUS_LABEL   = {todo:"OPEN",inprogress:"ACTIVE",blocked:"CURSED",done:"COMPLETE"};
+const STATUS_COLOR   = {todo:"#7A6040",inprogress:"#D4A017",blocked:"#8B2020",done:"#5C8A3C"};
 const PROJECT_COLORS = ["#00BFFF","#BF00FF","#FFD700","#39FF14","#FF8C00","#FF2020","#00FFFF","#FF69B4"];
 
 const SOURCE_OPTIONS = [
   {val:'personal-email', label:'PERSONAL MAIL',  icon:'📩', color:'#39FF14'},
   {val:'work-email',     label:'IMPERIAL COMM',  icon:'📨', color:'#00BFFF'},
-  {val:'slack',          label:'HOLONET SLACK',  icon:'💬', color:'#BF00FF'},
+  {val:'slack',          label:'GUILD CHAT',  icon:'💬', color:'#BF00FF'},
   {val:'ridley',         label:'RIDLEY',         icon:'⚡',    color:'#FFD700'},
   {val:'jenny',          label:'JENNY',          icon:'⚡',    color:'#FF69B4'},
   {val:'connor',         label:'CONNOR',         icon:'⚡',    color:'#FF8C00'},
   {val:'other',          label:'UNKNOWN SOURCE', icon:'❓',    color:'#888899'},
 ];
-const EFFORT_LEVELS = [
-  {val:"youngling", label:"YOUNGLING", icon:"✦",  color:"#39FF14", desc:"Quick task — minutes"},
-  {val:"padawan",   label:"PADAWAN",   icon:"✦✦", color:"#00BFFF", desc:"Small effort — an hour or two"},
-  {val:"knight",    label:"KNIGHT",    icon:"✦✦✦",color:"#FFD700", desc:"Significant effort — half day+"},
-  {val:"master",    label:"MASTER",    icon:"✦✦✦✦",color:"#FF2020", desc:"Major undertaking — days"},
+const DIFFICULTY_LEVELS = [
+  {val:"peasant",  label:"PEASANT",  icon:"🌾", color:"#8B9A6A", desc:"Quick task — minutes"},
+  {val:"squire",   label:"SQUIRE",   icon:"🛡", color:"#4A90D9", desc:"Small effort — an hour or two"},
+  {val:"knight",   label:"KNIGHT",   icon:"⚔", color:"#D4A017", desc:"Significant effort — half day+"},
+  {val:"champion", label:"CHAMPION", icon:"👑", color:"#8B2020", desc:"Major undertaking — days"},
 ];
-function effortLabel(val){ const e=EFFORT_LEVELS.find(x=>x.val===val); return e?e.icon+' '+e.label:''; }
-function effortColor(val){ const e=EFFORT_LEVELS.find(x=>x.val===val); return e?e.color:'#555580'; }
+function effortLabel(val){ const e=DIFFICULTY_LEVELS.find(x=>x.val===val); return e?e.icon+' '+e.label:''; }
+function effortColor(val){ const e=DIFFICULTY_LEVELS.find(x=>x.val===val); return e?e.color:'#555580'; }
 
 function sourceLabel(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s?s.icon+' '+s.label:''; }
 function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s?s.color:'#888899'; }
@@ -800,7 +921,7 @@ const genId=()=>Math.random().toString(36).substr(2,9);
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
 
 // ═══════════════════════════════════════════════════════════════
-// HOLONET API
+// GUILD ARCHIVES API
 // ═══════════════════════════════════════════════════════════════
 function setSyncStatus(state,msg){
   const dot=document.getElementById("sync-dot");
@@ -810,16 +931,16 @@ function setSyncStatus(state,msg){
 }
 
 async function apiCall(action,data={}){
-  setSyncStatus("syncing","TRANSMITTING…");
+  setSyncStatus("syncing","SENDING RAVEN…");
   try{
     const res=await fetch(`${API_URL}?action=${action}`,{method:"POST",body:JSON.stringify({action,...data})});
     const json=await res.json();
     if(json.error) throw new Error(json.error);
-    setSyncStatus("ok","HOLONET LINKED · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    setSyncStatus("ok","GUILD ARCHIVES LINKED · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
     return json;
   }catch(e){
     const offline=!navigator.onLine;
-    setSyncStatus(offline?"offline":"error",offline?"SIGNAL LOST":"TRANSMISSION ERROR — TAP ↻");
+    setSyncStatus(offline?"offline":"error",offline?"SIGNAL LOST":"RAVEN LOST — TAP ↻");
     throw e;
   }
 }
@@ -839,14 +960,14 @@ async function loadAll(){
       const localTasks=lt?JSON.parse(lt):[];
       if(localProjects.length>0||localTasks.length>0){
         projects=localProjects;tasks=localTasks;
-        showToast("HOLONET EMPTY — TRANSMITTING LOCAL ARCHIVES…");
+        showToast("GUILD ARCHIVES EMPTY — UPLOADING LOCAL TOMES…");
         await apiCall("saveAll",{projects,tasks});
-        showToast("✓ "+projects.length+" SQUADRONS + "+tasks.length+" MISSIONS TRANSMITTED");
+        showToast("✓ "+projects.length+" PARTIES + "+tasks.length+" QUESTS SENT");
       }else{
         projects=SEED_PROJECTS;tasks=SEED_TASKS;
-        showToast("FIRST LINK — UPLOADING MISSION DATABASE…");
+        showToast("FIRST VISIT — UPLOADING TO GUILD ARCHIVES…");
         await apiCall("saveAll",{projects,tasks});
-        showToast("✓ ALL MISSIONS TRANSMITTED TO HOLONET");
+        showToast("✓ ALL QUESTS SENT TO GUILD ARCHIVES");
       }
     }else{
       projects=sheetProjects;tasks=sheetTasks;
@@ -856,7 +977,7 @@ async function loadAll(){
     const lt=localStorage.getItem("hub-tasks");
     if(lp) try{projects=JSON.parse(lp);}catch(e2){}
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
-    showToast("SIGNAL LOST — OPERATING ON LOCAL ARCHIVES");
+    showToast("SIGNAL LOST — USING LOCAL TOMES");
   }
   if(projects.length>0) localStorage.setItem("hub-projects",JSON.stringify(projects));
   if(tasks.length>0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
@@ -869,10 +990,10 @@ async function saveAllDebounced(){
   syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks});}catch(e){}},800);
 }
 
-async function syncNow(){showToast("SYNCING WITH HOLONET…");await loadAll();renderAll();showToast("HOLONET SYNC COMPLETE ✓");}
+async function syncNow(){showToast("CONSULTING GUILD ARCHIVES…");await loadAll();renderAll();showToast("GUILD ARCHIVES SYNCED ✓");}
 
 async function runDiagnostic(){
-  showToast("RUNNING DIAGNOSTIC SCAN…");
+  showToast("RUNNING DIVINE ARCHIVES…");
   const lp=localStorage.getItem("hub-projects");
   const lt=localStorage.getItem("hub-tasks");
   const localP=lp?JSON.parse(lp):[];
@@ -882,29 +1003,29 @@ async function runDiagnostic(){
     const data=await apiCall("getAll");
     sheetP=(data.projects||[]).filter(p=>p.id&&p.name).length;
     sheetT=(data.tasks||[]).filter(t=>t.id&&t.title).length;
-  }catch(e){sheetErr=" (CANNOT REACH HOLONET)";}
+  }catch(e){sheetErr=" (CANNOT REACH GUILD ARCHIVES)";}
   const msg=[
-    "=== DIAGNOSTIC REPORT ===",
-    "LOCAL CACHE:",
-    "  Squadrons: "+localP.length,
-    "  Missions: "+localT.length,
+    "=== DIVINATION REPORT ===",
+    "LOCAL TOMES:",
+    "  Parties: "+localP.length,
+    "  Quests: "+localT.length,
     "",
-    "GOOGLE SHEET"+sheetErr+":",
-    "  Squadrons: "+sheetP,
-    "  Missions: "+sheetT,
+    "GUILD SCROLL"+sheetErr+":",
+    "  Parties: "+sheetP,
+    "  Quests: "+sheetT,
     "",
-    "IN-MEMORY:",
-    "  Squadrons: "+projects.length,
-    "  Missions: "+tasks.length,
+    "IN MEMORY:",
+    "  Parties: "+projects.length,
+    "  Quests: "+tasks.length,
   ].join("\n");
   alert(msg);
 }
 
 async function forcePushToSheets(){
-  if(!confirm("OVERWRITE HOLONET DATABASE with local archives?")) return;
-  showToast("TRANSMITTING ALL DATA…");
-  try{await apiCall("saveAll",{projects,tasks});showToast(`✓ ${projects.length} SQUADRONS + ${tasks.length} MISSIONS TRANSMITTED`);}
-  catch(e){showToast("TRANSMISSION FAILED — CHECK SIGNAL");}
+  if(!confirm("OVERWRITE GUILD ARCHIVES with local tomes?")) return;
+  showToast("UPLOADING ALL DATA…");
+  try{await apiCall("saveAll",{projects,tasks});showToast(`✓ ${projects.length} PARTIES + ${tasks.length} QUESTS SENT`);}
+  catch(e){showToast("TRANSQUEST FAILED — CHECK SIGNAL");}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -977,7 +1098,7 @@ function buildMetrics(taskArr){
     <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
       <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;margin-right:2px;">STATUS</span>
       ${pill("PENDING",pending,"#555580","rgba(85,85,128,0.15)")}
-      ${pill("ENGAGED",engaged,"#FFD700","rgba(255,215,0,0.08)")}
+      ${pill("ADVENTURED",engaged,"#FFD700","rgba(255,215,0,0.08)")}
       ${pill("BLOCKED",blocked,"#FF2020","rgba(255,32,32,0.1)")}
       ${pill("COMPLETE",done,"#39FF14","rgba(57,255,20,0.08)")}
       ${overdue>0?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,32,32,0.15);border:1px solid rgba(255,32,32,0.5);color:#FF2020;font-family:var(--font-hud);font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap;font-weight:900;">⚠ ${overdue} OVERDUE</span>`:""}
@@ -986,9 +1107,9 @@ function buildMetrics(taskArr){
     <!-- Row 2: Priority -->
     <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
       <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;margin-right:2px;">PRIORITY</span>
-      ${pill("CRITICAL",high,"#FF2020","rgba(255,32,32,0.1)")}
-      ${pill("STANDARD",medium,"#FFD700","rgba(255,215,0,0.08)")}
-      ${pill("LOW",low,"#555580","rgba(85,85,128,0.1)")}
+      ${pill("DRAGON",high,"#8B2020","rgba(139,32,32,0.1)")}
+      ${pill("ORC",medium,"#D4A017","rgba(212,160,23,0.08)")}
+      ${pill("GOBLIN",low,"#5C5C40","rgba(92,92,64,0.1)")}
     </div>
     <!-- Row 3: Intel Source -->
     ${srcPills||noSource?`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
@@ -1025,7 +1146,7 @@ function renderTaskList(container){
 
   let html=globalMetrics
     ?`<div style="background:linear-gradient(135deg,rgba(8,8,24,0.98),rgba(5,5,18,0.99));border:1px solid var(--border2);border-radius:4px;margin-bottom:10px;overflow:hidden;">
-        <div style="padding:8px 13px 4px;font-family:var(--font-hud);font-size:10px;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 6px rgba(255,215,0,0.2);">◈ MISSION OVERVIEW</div>
+        <div style="padding:8px 13px 4px;font-family:var(--font-hud);font-size:10px;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 6px rgba(255,215,0,0.2);">◈ QUEST OVERVIEW</div>
         ${globalMetrics}
       </div>`
     :"";
@@ -1053,13 +1174,13 @@ function renderTaskList(container){
         <div class="project-info">
           <div class="project-name" style="color:${proj.color||'#FFD700'};text-shadow:0 0 8px ${proj.color||'#FFD700'}44;">◈ ${esc(proj.name)}</div>
           <div class="project-meta">
-            <span class="domain-pill" style="${domainStyle}">${proj.domain==="work"?"REPUBLIC":"PERSONAL"}</span>
+            <span class="domain-pill" style="${domainStyle}">${proj.domain==="work"?"KINGDOM":"HOMESTEAD"}</span>
             <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%;background:${proj.color||'#FFD700'};box-shadow:0 0 4px ${proj.color||'#FFD700'}88;"></div></div>
             <span class="progress-count">${done}/${allPT.length}</span>
           </div>
         </div>
         <button class="add-task-btn" style="border-color:${proj.color||'#FFD700'};color:${proj.color||'#FFD700'};"
-          onclick="event.stopPropagation();openAddTask('${proj.id}')">+ MISSION</button>
+          onclick="event.stopPropagation();openAddTask('${proj.id}')">+ QUEST</button>
       </div>`;
 
     // Per-project metrics (all tasks in this project, not filtered by status/search)
@@ -1070,7 +1191,7 @@ function renderTaskList(container){
     if(proj.collapsed!==true){
       html+=`<div class="task-list">`;
       if(ptasks.length===0){
-        html+=`<div class="empty">${statusFilter==="done"?"— NO COMPLETED MISSIONS —":"— SECTOR CLEAR —"}</div>`;
+        html+=`<div class="empty">${statusFilter==="done"?"— NO COMPLETED QUESTS —":"— QUEST BOARD CLEAR —"}</div>`;
       }
       for(const task of ptasks) html+=renderTaskRow(task,proj);
       html+=`</div>`;
@@ -1078,7 +1199,7 @@ function renderTaskList(container){
     html+=`</div>`;
   }
   if(filtered.length===0){
-    html=`<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:12px;font-family:var(--font-hud);letter-spacing:1px;">NO SQUADRONS FOUND<br><br><button class="hbtn" onclick="openAddProject()" style="margin-top:8px;">+ COMMISSION SQUADRON</button></div>`;
+    html=`<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:12px;font-family:var(--font-hud);letter-spacing:1px;">NO PARTIES FOUND<br><br><button class="hbtn" onclick="openAddProject()" style="margin-top:8px;">+ CHARTER PARTY</button></div>`;
   }
   container.innerHTML=html;
 }
@@ -1098,13 +1219,13 @@ function renderTaskRow(task,proj){
     expandHtml=`<div class="task-expand">
       <div class="expand-row">
         <select class="expand-sel" onchange="updateTaskField('${task.id}','priority',this.value)">
-          <option value="high" ${task.priority==='high'?'selected':''}>🔴 CRITICAL</option>
-          <option value="medium" ${task.priority==='medium'?'selected':''}>🟡 STANDARD</option>
-          <option value="low" ${task.priority==='low'?'selected':''}>⚫ LOW</option>
+          <option value="high" ${task.priority==='high'?'selected':''}>🐉 DRAGON</option>
+          <option value="medium" ${task.priority==='medium'?'selected':''}>👹 ORC</option>
+          <option value="low" ${task.priority==='low'?'selected':''}>👺 GOBLIN</option>
         </select>
         <select class="expand-sel" onchange="updateTaskField('${task.id}','status',this.value)">
           <option value="todo" ${task.status==='todo'?'selected':''}>○ PENDING</option>
-          <option value="inprogress" ${task.status==='inprogress'?'selected':''}>◑ ENGAGED</option>
+          <option value="inprogress" ${task.status==='inprogress'?'selected':''}>◑ ADVENTURED</option>
           <option value="blocked" ${task.status==='blocked'?'selected':''}>⊘ BLOCKED</option>
           <option value="done" ${task.status==='done'?'selected':''}>● COMPLETE</option>
         </select>
@@ -1119,11 +1240,11 @@ function renderTaskRow(task,proj){
         <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
         <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
       </div>
-      <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="MISSION INTEL…"
+      <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="QUEST INTEL…"
         onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
         spellcheck="false">${task.notes||''}</div>
       <div style="margin-top:6px;">
-        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
+        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">📜 QUEST GIVER</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${SOURCE_OPTIONS.map(s=>`<button onclick="event.stopPropagation();updateTaskSource('${task.id}','${s.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${task.source===s.val?s.color:'var(--border2)'};background:${task.source===s.val?s.color+'22':'transparent'};color:${task.source===s.val?s.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;">${s.icon} ${s.label}</button>`).join('')}</div>
       </div>
       <div style="margin-top:6px;">
@@ -1131,12 +1252,12 @@ function renderTaskRow(task,proj){
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${['none','daily','weekly','biweekly','monthly'].map(r=>{const lbl={none:'OFF',daily:'DAILY',weekly:'WEEKLY',biweekly:'BI-WEEKLY',monthly:'MONTHLY'}[r];const active=(task.recur||'none')===r;return `<button onclick="event.stopPropagation();updateTaskField('${task.id}','recur','${r}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${active?'#BF00FF':'var(--border2)'};background:${active?'rgba(191,0,255,0.12)':'transparent'};color:${active?'#BF00FF':'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;letter-spacing:0.5px;">${lbl}</button>`;}).join('')}</div>
       </div>
       <div style="margin-top:6px;">
-        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">⚡ MISSION SIZE</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;">${EFFORT_LEVELS.map(e=>{const active=(task.effort||'')===e.val;return `<button onclick="event.stopPropagation();updateTaskField('${task.id}','effort','${e.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${active?e.color:'var(--border2)'};background:${active?e.color+'18':'transparent'};color:${active?e.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;letter-spacing:0.5px;">${e.icon} ${e.label}</button>`;}).join('')}</div>
+        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">⚔ QUEST DIFFICULTY</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${DIFFICULTY_LEVELS.map(e=>{const active=(task.effort||'')===e.val;return `<button onclick="event.stopPropagation();updateTaskField('${task.id}','effort','${e.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${active?e.color:'var(--border2)'};background:${active?e.color+'18':'transparent'};color:${active?e.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;letter-spacing:0.5px;">${e.icon} ${e.label}</button>`;}).join('')}</div>
       </div>
       <div style="display:flex;gap:5px;margin-top:7px;">
         <button class="modal-btn confirm" style="font-size:10px;padding:7px;letter-spacing:1px;" onclick="openEditTask('${task.id}')">✏ EDIT</button>
-        <button class="modal-btn danger" style="font-size:10px;padding:7px;flex:none;width:auto;letter-spacing:1px;" onclick="confirmDeleteTask('${task.id}')">☠ PURGE</button>
+        <button class="modal-btn danger" style="font-size:10px;padding:7px;flex:none;width:auto;letter-spacing:1px;" onclick="confirmDeleteTask('${task.id}')">☠ ABANDON</button>
       </div>
     </div>`;
   }
@@ -1147,7 +1268,7 @@ function renderTaskRow(task,proj){
       <span class="priority-dot" style="background:${PRIORITY_COLOR[task.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[task.priority]||'#555580'};"></span>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}${task.recur&&task.recur!=="none"?`<span class="recur-badge">🔁 ${({daily:"DAILY",weekly:"WEEKLY",biweekly:"BI-WK",monthly:"MONTHLY"})[task.recur]||""}</span>`:""}${task.effort?`<span class="effort-badge" style="color:${effortColor(task.effort)};border-color:${effortColor(task.effort)}44;background:${effortColor(task.effort)}11;">${EFFORT_LEVELS.find(e=>e.val===task.effort)?.icon||""} ${task.effort.toUpperCase()}</span>`:""}</div>
+        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}${task.recur&&task.recur!=="none"?`<span class="recur-badge">🔁 ${({daily:"DAILY",weekly:"WEEKLY",biweekly:"BI-WK",monthly:"MONTHLY"})[task.recur]||""}</span>`:""}${task.effort?`<span class="effort-badge" style="color:${effortColor(task.effort)};border-color:${effortColor(task.effort)}44;background:${effortColor(task.effort)}11;">${DIFFICULTY_LEVELS.find(e=>e.val===task.effort)?.icon||""} ${task.effort.toUpperCase()}</span>`:""}</div>
         ${task.notes?`<div class="notes-rendered">${task.notes}</div>`:""}
       </div>
     </div>
@@ -1156,7 +1277,7 @@ function renderTaskRow(task,proj){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BATTLE STATION + TARGETING COMPUTER (focus + pomodoro)
+// WAR ROOM + BATTLE PLANNER (focus + pomodoro)
 // ═══════════════════════════════════════════════════════════════
 let pomoState={mode:"work",timeLeft:25*60,running:false,sessions:0,customWork:25,interval:null};
 
@@ -1184,7 +1305,7 @@ function renderFocusPanel(container){
         </div>
         <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;padding:0 2px;">✕</button>
       </div>`
-    :`<div style="margin-top:8px;font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;text-align:center;">↓ SELECT A MISSION BELOW TO TARGET</div>`;
+    :`<div style="margin-top:8px;font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;text-align:center;">↓ SELECT A QUEST BELOW</div>`;
 
   // ── Today tasks — work first then personal ────────────────────
   const workProjIds=new Set(projects.filter(p=>p.domain==="work").map(p=>p.id));
@@ -1235,7 +1356,7 @@ function renderFocusPanel(container){
   }
 
   function todaySection(label, color, taskArr){
-    if(taskArr.length===0) return `<div style="font-size:10px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;padding:6px 2px;font-style:italic;">— SECTOR CLEAR —</div>`;
+    if(taskArr.length===0) return `<div style="font-size:10px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;padding:6px 2px;font-style:italic;">— QUEST BOARD CLEAR —</div>`;
     return taskArr.map(t=>todayTaskRow(t)).join("");
   }
 
@@ -1243,10 +1364,10 @@ function renderFocusPanel(container){
   const persOverdueCount=persTasks.filter(t=>isOverdue(t)).length;
 
   container.innerHTML=`<div>
-    <!-- TARGETING COMPUTER -->
+    <!-- BATTLE PLANNER -->
     <div class="pomo-card" style="border-color:${mc}44;">
       <div class="pomo-header">
-        <div class="pomo-title">🎯 TARGETING COMPUTER</div>
+        <div class="pomo-title">🎯 BATTLE PLANNER</div>
         <div class="pomo-mode-btns">
           <button class="pomo-mbtn ${pomoState.mode==='work'?'active-work':''}" onclick="setPomoMode('work')">FOCUS</button>
           <button class="pomo-mbtn ${pomoState.mode==='shortBreak'?'active-shortBreak':''}" onclick="setPomoMode('shortBreak')">SHORT</button>
@@ -1279,11 +1400,11 @@ function renderFocusPanel(container){
             <button class="pomo-start" id="pomo-start-btn"
               style="background:${pomoState.running?'rgba(20,0,0,0.8)':`${mc}18`};border:1px solid ${mc};color:${mc};text-shadow:0 0 8px ${mc}99;box-shadow:${pomoState.running?'none':`0 0 14px ${mc}33`};"
               onclick="togglePomo()">
-              ${pomoState.timeLeft===0?"↺ RESET":pomoState.running?"⏸ HOLD":"▶ ENGAGE"}
+              ${pomoState.timeLeft===0?"↺ RESET":pomoState.running?"⏸ HOLD":"▶ ADVENTURE"}
             </button>
             <button class="pomo-reset" onclick="resetPomo()">↺</button>
           </div>
-          <div class="pomo-next">${pomoState.mode==="work"?`NEXT: ${pomoState.sessions%4===3?"LONG REST 🛋️":"SHORT REST ☕"}`:"NEXT: ENGAGE 🎯"}</div>
+          <div class="pomo-next">${pomoState.mode==="work"?`NEXT: ${pomoState.sessions%4===3?"LONG REST 🛋️":"SHORT REST ☕"}`:"NEXT: ADVENTURE 🎯"}</div>
         </div>
       </div>
       ${selHtml}
@@ -1293,10 +1414,10 @@ function renderFocusPanel(container){
     <div style="background:linear-gradient(135deg,rgba(8,8,24,0.98),rgba(5,5,18,0.99));border:1px solid var(--border2);border-radius:4px;padding:14px;margin-top:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div>
-          <div style="font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;text-shadow:0 0 8px rgba(255,215,0,0.3);">📋 TODAY'S MISSIONS</div>
-          <div style="font-size:9px;color:var(--text3);font-family:var(--font-hud);margin-top:2px;letter-spacing:1px;">TAP A MISSION TO TARGET IT</div>
+          <div style="font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;text-shadow:0 0 8px rgba(255,215,0,0.3);">📋 TODAY'S QUESTS</div>
+          <div style="font-size:9px;color:var(--text3);font-family:var(--font-hud);margin-top:2px;letter-spacing:1px;">TAP A QUEST TO TARGET IT</div>
         </div>
-        <span style="background:${totalToday>0?'rgba(255,215,0,0.1)':'rgba(57,255,20,0.08)'};border:1px solid ${totalToday>0?'var(--gold2)':'rgba(57,255,20,0.3)'};color:${totalToday>0?'var(--gold)':'#39FF14'};font-family:var(--font-hud);font-size:12px;font-weight:900;padding:3px 12px;border-radius:2px;">${totalToday>0?totalToday+" LEFT":"ALL CLEAR ✓"}</span>
+        <span style="background:${totalToday>0?'rgba(255,215,0,0.1)':'rgba(57,255,20,0.08)'};border:1px solid ${totalToday>0?'var(--gold2)':'rgba(57,255,20,0.3)'};color:${totalToday>0?'var(--gold)':'#39FF14'};font-family:var(--font-hud);font-size:12px;font-weight:900;padding:3px 12px;border-radius:2px;">${totalToday>0?totalToday+" LEFT":"BOARD CLEAR ✓"}</span>
       </div>
 
       <!-- WORK -->
@@ -1306,7 +1427,7 @@ function renderFocusPanel(container){
           ${workTasks.length>0?`<span style="font-size:9px;color:#00BFFF;font-family:var(--font-hud);">${workTasks.length} mission${workTasks.length>1?'s':''}</span>`:""}
           ${workOverdueCount>0?`<span style="font-size:8px;color:#FF2020;background:rgba(255,32,32,0.12);border:1px solid rgba(255,32,32,0.3);padding:1px 6px;border-radius:2px;font-family:var(--font-hud);">${workOverdueCount} OVERDUE</span>`:""}
         </div>
-        ${todaySection("REPUBLIC","#00BFFF",workTasks)}
+        ${todaySection("KINGDOM","#00BFFF",workTasks)}
       </div>
 
       <!-- PERSONAL -->
@@ -1316,7 +1437,7 @@ function renderFocusPanel(container){
           ${persTasks.length>0?`<span style="font-size:9px;color:#39FF14;font-family:var(--font-hud);">${persTasks.length} mission${persTasks.length>1?'s':''}</span>`:""}
           ${persOverdueCount>0?`<span style="font-size:8px;color:#FF2020;background:rgba(255,32,32,0.12);border:1px solid rgba(255,32,32,0.3);padding:1px 6px;border-radius:2px;font-family:var(--font-hud);">${persOverdueCount} OVERDUE</span>`:""}
         </div>
-        ${todaySection("PERSONAL","#39FF14",persTasks)}
+        ${todaySection("HOMESTEAD","#39FF14",persTasks)}
       </div>
     </div>
   </div>`;
@@ -1325,7 +1446,7 @@ function renderFocusPanel(container){
 function selectMission(id){
   selectedMissionId=selectedMissionId===id?null:id;
   renderAll();
-  showToast(selectedMissionId?"🎯 MISSION TARGETED":"TARGET CLEARED");
+  showToast(selectedMissionId?"🎯 QUEST TARGETED":"QUEST UNSELECTED");
 }
 
 function setPomoMode(mode){
@@ -1381,7 +1502,7 @@ function playBeep(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// STAR MAP (calendar)
+// REALM MAP (calendar)
 // ═══════════════════════════════════════════════════════════════
 function renderCalendar(container){
   const y=calendarDate.getFullYear(),m=calendarDate.getMonth();
@@ -1445,7 +1566,7 @@ function renderCalendar(container){
     </div>
     <div class="cal-grid">${gridHtml}</div>
     <div class="upcoming-card">
-      <div class="upcoming-title">⏱ MISSION DEADLINES</div>
+      <div class="upcoming-title">⏱ QUEST DEADLINES</div>
       ${upcomingHtml}
     </div>`;
 }
@@ -1455,7 +1576,7 @@ function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate
 function calDayClick(ds){setNav("tasks");renderAll();}
 
 // ═══════════════════════════════════════════════════════════════
-// HOLONET SETTINGS
+// GUILD HALL SETTINGS
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 // INTEL ANALYTICS (CHARTS)
@@ -1565,7 +1686,7 @@ function renderCharts(container){
   // ── Status donut
   const statusSlices=[
     {label:"PENDING", val:tasks.filter(t=>t.status==="todo").length,    color:"#555580"},
-    {label:"ENGAGED", val:tasks.filter(t=>t.status==="inprogress").length, color:"#FFD700"},
+    {label:"ADVENTURED", val:tasks.filter(t=>t.status==="inprogress").length, color:"#FFD700"},
     {label:"BLOCKED", val:tasks.filter(t=>t.status==="blocked").length,  color:"#FF2020"},
     {label:"COMPLETE",val:totalDone, color:"#39FF14"},
   ];
@@ -1582,9 +1703,9 @@ function renderCharts(container){
   // ── Priority donut (active tasks only)
   const activeTasks=tasks.filter(t=>t.status!=="done");
   const prioSlices=[
-    {label:"CRITICAL", val:activeTasks.filter(t=>t.priority==="high").length,   color:"#FF2020"},
-    {label:"STANDARD", val:activeTasks.filter(t=>t.priority==="medium").length,  color:"#FFD700"},
-    {label:"LOW",      val:activeTasks.filter(t=>t.priority==="low").length,     color:"#555580"},
+    {label:"DRAGON",   val:activeTasks.filter(t=>t.priority==="high").length,   color:"#8B2020"},
+    {label:"ORC",      val:activeTasks.filter(t=>t.priority==="medium").length,  color:"#D4A017"},
+    {label:"GOBLIN",   val:activeTasks.filter(t=>t.priority==="low").length,     color:"#5C5C40"},
   ];
   const prioDonut=`<div class="donut-wrap">
     <svg width="140" height="140" style="flex-shrink:0;">${donut(prioSlices)}</svg>
@@ -1617,7 +1738,7 @@ function renderCharts(container){
 
   // ── By intel source bars
   function effortBars(){
-    const effortData=EFFORT_LEVELS.map(e=>{
+    const effortData=DIFFICULTY_LEVELS.map(e=>{
       const all=tasks.filter(t=>t.effort===e.val);
       const done=all.filter(t=>t.status==="done").length;
       return {label:e.icon+' '+e.label,color:e.color,total:all.length,done};
@@ -1636,7 +1757,7 @@ function renderCharts(container){
   }
 
   // Effort donut (all tasks)
-  const effortSlices=EFFORT_LEVELS.map(e=>({
+  const effortSlices=DIFFICULTY_LEVELS.map(e=>({
     label:e.label, val:tasks.filter(t=>t.effort===e.val).length, color:e.color
   }));
   const effortDonut=`<div class="donut-wrap">
@@ -1673,19 +1794,19 @@ function renderCharts(container){
 
   container.innerHTML=`<div class="charts-screen">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
-      <div style="font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;">📊 MISSION INTEL</div>
+      <div style="font-family:var(--font-hud);font-size:11px;font-weight:900;color:var(--gold);letter-spacing:3px;">📜 CHRONICLES</div>
       <div class="chart-range-bar">${rangeBtns}</div>
     </div>
 
     <!-- Summary stats -->
     <div class="chart-card">
-      <div class="chart-card-title">◈ COMMAND OVERVIEW</div>
+      <div class="chart-card-title">◈ GUILD OVERVIEW</div>
       ${statsHtml}
     </div>
 
     <!-- Completed over time -->
     <div class="chart-card">
-      <div class="chart-card-title">◈ MISSIONS COMPLETED — LAST ${rangeLabels[String(chartRange)]} (BY WEEK)</div>
+      <div class="chart-card-title">◈ QUESTS COMPLETED — LAST ${rangeLabels[String(chartRange)]} (BY WEEK)</div>
       ${weeklyBars()}
     </div>
 
@@ -1703,27 +1824,27 @@ function renderCharts(container){
 
     <!-- By squadron -->
     <div class="chart-card">
-      <div class="chart-card-title">◈ BY SQUADRON <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
+      <div class="chart-card-title">◈ BY PARTY <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
       ${squadronBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-hud);">NO DATA</div>'}
     </div>
 
     <!-- Effort donut + effort bars -->
     <div style="display:flex;gap:10px;">
       <div class="chart-card" style="flex:1;min-width:0;">
-        <div class="chart-card-title">◈ BY MISSION SIZE</div>
+        <div class="chart-card-title">◈ BY QUEST DIFFICULTY</div>
         ${effortDonut}
       </div>
     </div>
 
     <!-- Effort bars breakdown -->
     <div class="chart-card">
-      <div class="chart-card-title">◈ EFFORT BREAKDOWN <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
-      ${effortBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-hud);">NO DATA — SET MISSION SIZE ON YOUR TASKS</div>'}
+      <div class="chart-card-title">◈ DIFFICULTY BREAKDOWN <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
+      ${effortBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-hud);">NO DATA — SET QUEST SIZE ON YOUR TASKS</div>'}
     </div>
 
     <!-- By intel source -->
     <div class="chart-card" style="margin-bottom:20px;">
-      <div class="chart-card-title">◈ BY INTEL SOURCE <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
+      <div class="chart-card-title">◈ BY QUEST GIVER <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
       ${sourceBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-hud);">NO DATA</div>'}
     </div>
   </div>`;
@@ -1738,36 +1859,36 @@ function setChartRange(days){
 function renderSettings(container){
   container.innerHTML=`
     <div style="margin-bottom:16px;">
-      <div class="section-title">◈ SQUADRONS</div>
+      <div class="section-title">◈ PARTIES</div>
       ${projects.map(p=>`
         <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);">
           <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
           <span style="flex:1;font-size:11px;font-family:var(--font-hud);letter-spacing:1px;color:${p.color};">${esc(p.name)}</span>
-          <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);">${p.domain==="work"?"REPUBLIC":"PERSONAL"}</span>
+          <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);">${p.domain==="work"?"KINGDOM":"HOMESTEAD"}</span>
         </div>`).join("")}
-      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ COMMISSION SQUADRON</button>
+      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ CHARTER PARTY</button>
     </div>
     <div style="margin-bottom:16px;">
-      <div class="section-title">⬆ INTEL UPLOAD (CSV)</div>
+      <div class="section-title">⬆ TOME IMPORT (CSV)</div>
       <div class="import-zone" onclick="document.getElementById('csv-file-input').click()">
         <div style="font-size:24px;margin-bottom:6px;">📡</div>
-        <div style="font-size:11px;color:var(--text2);font-family:var(--font-hud);letter-spacing:1px;">TAP TO UPLOAD MISSION DATA</div>
+        <div style="font-size:11px;color:var(--text2);font-family:var(--font-hud);letter-spacing:1px;">TAP TO IMPORT TOME DATA</div>
         <div style="font-size:10px;color:var(--text3);margin-top:3px;">COLUMNS: title, project, domain, priority, status, dueDate, notes, source</div>
       </div>
       <div id="import-preview-area"></div>
     </div>
     <div style="margin-bottom:16px;">
-      <div class="section-title">📡 HOLONET LINK</div>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH HOLONET</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#00BFFF;color:#00BFFF;" onclick="runDiagnostic()">🔬 DIAGNOSTIC SCAN</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--gold);color:var(--gold);" onclick="forcePushToSheets()">⬆ TRANSMIT ALL LOCAL DATA</button>
+      <div class="section-title">📡 GUILD ARCHIVES LINK</div>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH ARCHIVES</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#00BFFF;color:#00BFFF;" onclick="runDiagnostic()">🔬 DIVINE ARCHIVES</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--gold);color:var(--gold);" onclick="forcePushToSheets()">⬆ INSCRIBE ALL LOCAL DATA</button>
       <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-hud);letter-spacing:0.5px;">
-        USE "TRANSMIT ALL" IF HOLONET DATABASE APPEARS EMPTY.
-        MISSIONS SYNC AUTOMATICALLY WITHIN ~1 STANDARD SECOND.
+        USE "INSCRIBE ALL" IF GUILD ARCHIVES APPEAR EMPTY.
+        QUESTS SYNC AUTOMATICALLY WITHIN ~1 SECOND.
       </div>
     </div>
     <div style="margin-bottom:32px;">
-      <div class="section-title">🎯 TARGETING COMPUTER CONFIG</div>
+      <div class="section-title">🎯 BATTLE PLANNER CONFIG</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:10px;color:var(--text3);font-family:var(--font-hud);letter-spacing:0.5px;white-space:nowrap;">FOCUS TIME:</span>
         <input type="range" min="5" max="60" value="${pomoState.customWork}"
@@ -1779,7 +1900,7 @@ function renderSettings(container){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MISSION ACTIONS
+// QUEST ACTIONS
 // ═══════════════════════════════════════════════════════════════
 function toggleExpand(id){expandedTaskId=expandedTaskId===id?null:id;renderAll();}
 
@@ -1802,7 +1923,7 @@ function spawnRecurringCopy(t){
   tasks.push({id:genId(),projectId:t.projectId,title:t.title,priority:t.priority,
     status:"todo",notes:t.notes||"",dueDate:nextDue,source:t.source||"",
     recur:t.recur,effort:t.effort||"",createdAt:Date.now()});
-  showToast("🔁 NEXT MISSION SCHEDULED: "+nextDue.slice(5));
+  showToast("🔁 NEXT QUEST SCHEDULED: "+nextDue.slice(5));
 }
 
 function calcNextDue(fromDate,recur){
@@ -1884,7 +2005,7 @@ function toggleProject(id){
 
 function openAddTask(projectId=""){
   editingTaskId=null;
-  document.getElementById("modal-task-title").textContent="⊕ NEW MISSION LOG";
+  document.getElementById("modal-task-title").textContent="⊕ NEW QUEST";
   document.getElementById("task-title-input").value="";
   document.getElementById("task-priority-input").value="medium";
   document.getElementById("task-status-input").value="todo";
@@ -1893,9 +2014,9 @@ function openAddTask(projectId=""){
   window._editingSource="";window._editingRecur="none";window._editingEffort="";
   renderSourceChips("");renderRecurChips("none");renderEffortChips("");
   document.getElementById("task-delete-wrap").style.display="none";
-  document.getElementById("task-save-btn").textContent="TRANSMIT";
+  document.getElementById("task-save-btn").textContent="INSCRIBE";
   const sel=document.getElementById("task-project-input");
-  sel.innerHTML=`<option value="">SELECT SQUADRON…</option>`+
+  sel.innerHTML=`<option value="">SELECT PARTY…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===projectId?"selected":""}>${esc(p.name)}</option>`).join("");
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
@@ -1904,7 +2025,7 @@ function openAddTask(projectId=""){
 function openEditTask(id){
   const t=tasks.find(t=>t.id===id);if(!t) return;
   editingTaskId=id;
-  document.getElementById("modal-task-title").textContent="✏ EDIT MISSION";
+  document.getElementById("modal-task-title").textContent="✏ EDIT QUEST";
   document.getElementById("task-title-input").value=t.title;
   document.getElementById("task-priority-input").value=t.priority;
   document.getElementById("task-status-input").value=t.status;
@@ -1915,7 +2036,7 @@ function openEditTask(id){
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
   const sel=document.getElementById("task-project-input");
-  sel.innerHTML=`<option value="">SELECT SQUADRON…</option>`+
+  sel.innerHTML=`<option value="">SELECT PARTY…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===t.projectId?"selected":""}>${esc(p.name)}</option>`).join("");
   openModal("modal-task");
 }
@@ -1923,8 +2044,8 @@ function openEditTask(id){
 function saveTask(){
   const title=document.getElementById("task-title-input").value.trim();
   const projectId=document.getElementById("task-project-input").value;
-  if(!title){showToast("MISSION TITLE REQUIRED");return;}
-  if(!projectId){showToast("ASSIGN TO A SQUADRON");return;}
+  if(!title){showToast("QUEST TITLE REQUIRED");return;}
+  if(!projectId){showToast("ASSIGN TO A PARTY");return;}
   if(editingTaskId){
     const t=tasks.find(t=>t.id===editingTaskId);if(!t) return;
     t.title=title;t.projectId=projectId;
@@ -1935,7 +2056,7 @@ function saveTask(){
     t.source=window._editingSource||"";
     t.recur=window._editingRecur||"none";
     t.effort=window._editingEffort||"";
-    showToast("MISSION UPDATED ✓");
+    showToast("QUEST UPDATED ✓");
   }else{
     tasks.push({id:genId(),title,projectId,
       priority:document.getElementById("task-priority-input").value,
@@ -1946,7 +2067,7 @@ function saveTask(){
       recur:window._editingRecur||"none",
       effort:window._editingEffort||"",
       createdAt:Date.now()});
-    showToast("MISSION LOGGED ✓");
+    showToast("QUEST LOGGED ✓");
   }
   saveAllDebounced();closeModal("modal-task");renderAll();
 }
@@ -1954,7 +2075,7 @@ function saveTask(){
 function renderEffortChips(selected){
   const wrap=document.getElementById("effort-chips");if(!wrap) return;
   window._editingEffort=selected||"";
-  wrap.innerHTML=EFFORT_LEVELS.map(e=>{
+  wrap.innerHTML=DIFFICULTY_LEVELS.map(e=>{
     const active=e.val===(selected||"");
     return `<button class="effort-chip${active?' active-'+e.val:''}" onclick="renderEffortChips('${e.val}')">
       <span class="ec-icon">${e.icon}</span>
@@ -1992,16 +2113,16 @@ function updateTaskSource(id,val){
   t.source=val;saveAllDebounced();renderAll();
 }
 function confirmDeleteTask(id){
-  if(confirm("PURGE THIS MISSION FROM THE DATABASE?")){ 
+  if(confirm("ABANDON THIS QUEST?")){ 
     tasks=tasks.filter(t=>t.id!==id);
     expandedTaskId=null;saveAllDebounced();closeModal("modal-task");renderAll();
-    showToast("MISSION PURGED");
+    showToast("QUEST REMOVED");
   }
 }
 function deleteCurrentTask(){if(editingTaskId) confirmDeleteTask(editingTaskId);}
 
 // ═══════════════════════════════════════════════════════════════
-// SQUADRON ACTIONS
+// PARTY ACTIONS
 // ═══════════════════════════════════════════════════════════════
 function openAddProject(){
   selectedProjColor=PROJECT_COLORS[0];
@@ -2023,9 +2144,9 @@ function selectColor(c){selectedProjColor=c;renderSwatches();}
 
 function saveProject(){
   const name=document.getElementById("proj-name-input").value.trim();
-  if(!name){showToast("SQUADRON NAME REQUIRED");return;}
+  if(!name){showToast("PARTY NAME REQUIRED");return;}
   projects.push({id:genId(),name,domain:document.getElementById("proj-domain-input").value,color:selectedProjColor,collapsed:false});
-  saveAllDebounced();closeModal("modal-project");renderAll();showToast("SQUADRON COMMISSIONED ✓");
+  saveAllDebounced();closeModal("modal-project");renderAll();showToast("PARTY CHARTERED ✓");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2085,11 +2206,11 @@ function renderImportPreview(){
     <div class="preview-summary" style="margin-top:10px;">
       <div class="preview-stat" style="background:rgba(57,255,20,0.06);border:1px solid rgba(57,255,20,0.2);">
         <div class="preview-stat-num" style="color:var(--saber-green);">${d.newTasks.length}</div>
-        <div class="preview-stat-lbl">MISSIONS</div>
+        <div class="preview-stat-lbl">QUESTS</div>
       </div>
       <div class="preview-stat" style="background:rgba(0,191,255,0.06);border:1px solid rgba(0,191,255,0.2);">
         <div class="preview-stat-num" style="color:var(--saber-blue);">${d.newProjects.length}</div>
-        <div class="preview-stat-lbl">SQUADRONS</div>
+        <div class="preview-stat-lbl">PARTYS</div>
       </div>
     </div>
     ${d.newTasks.slice(0,4).map(t=>{
@@ -2100,9 +2221,9 @@ function renderImportPreview(){
         ${proj?`<span style="color:${proj.color};font-size:9px;font-family:var(--font-hud);">◈ ${esc(proj.name)}</span>`:""}
       </div>`;
     }).join("")}
-    ${d.newTasks.length>4?`<div style="font-size:10px;color:var(--text3);padding:4px 0;font-family:var(--font-hud);">…AND ${d.newTasks.length-4} MORE MISSIONS</div>`:""}
+    ${d.newTasks.length>4?`<div style="font-size:10px;color:var(--text3);padding:4px 0;font-family:var(--font-hud);">…AND ${d.newTasks.length-4} MORE QUESTS</div>`:""}
     <button class="modal-btn confirm" style="width:100%;margin-top:10px;" onclick="confirmImport()">
-      ✓ UPLOAD ${d.newTasks.length} MISSIONS
+      ✓ UPLOAD ${d.newTasks.length} QUESTS
     </button>`;
 }
 
@@ -2127,7 +2248,7 @@ function setNav(nav){
   else if(nav==="tasks") viewMode="list";
   // Update focus button label
   const fb=document.getElementById("btn-focus");
-  if(fb) fb.textContent=focusOn?"⚡ BATTLE STA.":"ENGAGE";
+  if(fb) fb.textContent=focusOn?"⚔ WAR ROOM":"ADVENTURE";
   if(focusOn) fb.classList.add("engaged"); else fb.classList.remove("engaged");
   renderAll();
 }
@@ -2234,8 +2355,8 @@ async function init(){
   }
 }
 
-window.addEventListener("online",()=>{showToast("HOLONET SIGNAL RESTORED — SYNCING…");syncNow();});
-window.addEventListener("offline",()=>{setSyncStatus("offline","SIGNAL LOST");showToast("SIGNAL LOST — OPERATING ON LOCAL ARCHIVES");});
+window.addEventListener("online",()=>{showToast("GUILD ARCHIVES RESTORED — SYNCING…");syncNow();});
+window.addEventListener("offline",()=>{setSyncStatus("offline","SIGNAL LOST");showToast("SIGNAL LOST — USING LOCAL TOMES");});
 
 init();
 </script>
