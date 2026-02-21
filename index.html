@@ -814,10 +814,81 @@ function renderAll(){
 }
 
 function updateStats(){
+  // Keep a simple total count in the header
   const active=tasks.filter(t=>t.status!=="done").length;
   const done=tasks.filter(t=>t.status==="done").length;
-  const blocked=tasks.filter(t=>t.status==="blocked").length;
-  document.getElementById("header-stats").textContent=`${active} ACTIVE · ${blocked} BLOCKED · ${done} COMPLETE`;
+  document.getElementById("header-stats").textContent=`${tasks.length} TOTAL · ${active} ACTIVE · ${done} COMPLETE`;
+}
+
+// ── METRICS PANEL ──────────────────────────────────────────────
+function buildMetrics(taskArr){
+  const todayStr=today();
+  const weekMs=7*24*60*60*1000;
+  const weekDate=new Date(Date.now()+weekMs);
+  const weekStr=`${weekDate.getFullYear()}-${String(weekDate.getMonth()+1).padStart(2,"0")}-${String(weekDate.getDate()).padStart(2,"0")}`;
+
+  // Status counts
+  const pending=taskArr.filter(t=>t.status==="todo").length;
+  const engaged=taskArr.filter(t=>t.status==="inprogress").length;
+  const blocked=taskArr.filter(t=>t.status==="blocked").length;
+  const done=taskArr.filter(t=>t.status==="done").length;
+
+  // Due this week (not done, due date exists and <= 7 days from now, >= today)
+  const dueWeek=taskArr.filter(t=>t.status!=="done"&&t.dueDate&&t.dueDate>=todayStr&&t.dueDate<=weekStr).length;
+  const overdue=taskArr.filter(t=>t.status!=="done"&&t.dueDate&&t.dueDate<todayStr).length;
+
+  // Priority
+  const high=taskArr.filter(t=>t.priority==="high"&&t.status!=="done").length;
+  const medium=taskArr.filter(t=>t.priority==="medium"&&t.status!=="done").length;
+  const low=taskArr.filter(t=>t.priority==="low"&&t.status!=="done").length;
+
+  // Intel source (active tasks only)
+  const activeTasks=taskArr.filter(t=>t.status!=="done");
+  const srcCounts={};
+  activeTasks.forEach(t=>{
+    const k=t.source||"none";
+    srcCounts[k]=(srcCounts[k]||0)+1;
+  });
+
+  if(taskArr.length===0) return "";
+
+  const pill=(label,val,color,bg)=>val>0
+    ?`<span style="display:inline-flex;align-items:center;gap:3px;background:${bg};border:1px solid ${color}44;color:${color};font-family:var(--font-hud);font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap;"><span style="font-weight:900;">${val}</span> ${label}</span>`
+    :"";
+
+  const srcPills=SOURCE_OPTIONS
+    .filter(s=>srcCounts[s.val]>0)
+    .map(s=>pill(s.icon+" "+s.label, srcCounts[s.val], s.color, s.color+"12"))
+    .join("");
+
+  const noSource=srcCounts["none"]>0
+    ?pill("NO SOURCE",srcCounts["none"],"#555580","rgba(85,85,128,0.1)")
+    :"";
+
+  return `<div style="background:rgba(0,0,15,0.7);border-top:1px solid var(--border);padding:8px 13px;display:flex;flex-direction:column;gap:6px;">
+    <!-- Row 1: Status + Due -->
+    <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+      <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;margin-right:2px;">STATUS</span>
+      ${pill("PENDING",pending,"#555580","rgba(85,85,128,0.15)")}
+      ${pill("ENGAGED",engaged,"#FFD700","rgba(255,215,0,0.08)")}
+      ${pill("BLOCKED",blocked,"#FF2020","rgba(255,32,32,0.1)")}
+      ${pill("COMPLETE",done,"#39FF14","rgba(57,255,20,0.08)")}
+      ${overdue>0?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,32,32,0.15);border:1px solid rgba(255,32,32,0.5);color:#FF2020;font-family:var(--font-hud);font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap;font-weight:900;">⚠ ${overdue} OVERDUE</span>`:""}
+      ${dueWeek>0?`<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.35);color:#FFD700;font-family:var(--font-hud);font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap;">⏱ ${dueWeek} THIS WEEK</span>`:""}
+    </div>
+    <!-- Row 2: Priority -->
+    <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+      <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;margin-right:2px;">PRIORITY</span>
+      ${pill("CRITICAL",high,"#FF2020","rgba(255,32,32,0.1)")}
+      ${pill("STANDARD",medium,"#FFD700","rgba(255,215,0,0.08)")}
+      ${pill("LOW",low,"#555580","rgba(85,85,128,0.1)")}
+    </div>
+    <!-- Row 3: Intel Source -->
+    ${srcPills||noSource?`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+      <span style="font-size:9px;color:var(--text3);font-family:var(--font-hud);letter-spacing:1px;flex-shrink:0;margin-right:2px;">SOURCE</span>
+      ${srcPills}${noSource}
+    </div>`:""}
+  </div>`;
 }
 
 function getFilteredTasks(projectId){
@@ -831,7 +902,27 @@ function getFilteredTasks(projectId){
 
 function renderTaskList(container){
   const filtered=projects.filter(p=>domainFilter==="all"||p.domain===domainFilter);
-  let html="";
+
+  // Build global metrics from all tasks visible under current filters
+  const globalTaskPool=tasks.filter(t=>{
+    const proj=projects.find(p=>p.id===t.projectId);
+    if(!proj) return false;
+    if(domainFilter!=="all"&&proj.domain!==domainFilter) return false;
+    if(statusFilter==="active"&&t.status==="done") return false;
+    if(statusFilter==="done"&&t.status!=="done") return false;
+    const q=(document.getElementById("search-input")?.value||"").toLowerCase();
+    if(q&&!t.title.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const globalMetrics=buildMetrics(globalTaskPool);
+
+  let html=globalMetrics
+    ?`<div style="background:linear-gradient(135deg,rgba(8,8,24,0.98),rgba(5,5,18,0.99));border:1px solid var(--border2);border-radius:4px;margin-bottom:10px;overflow:hidden;">
+        <div style="padding:8px 13px 4px;font-family:var(--font-hud);font-size:10px;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 6px rgba(255,215,0,0.2);">◈ MISSION OVERVIEW</div>
+        ${globalMetrics}
+      </div>`
+    :"";
+
   for(const proj of filtered){
     const ptasks=getFilteredTasks(proj.id);
     const allPT=tasks.filter(t=>t.projectId===proj.id);
@@ -855,6 +946,11 @@ function renderTaskList(container){
         <button class="add-task-btn" style="border-color:${proj.color||'#FFD700'};color:${proj.color||'#FFD700'};"
           onclick="event.stopPropagation();openAddTask('${proj.id}')">+ MISSION</button>
       </div>`;
+
+    // Per-project metrics (all tasks in this project, not filtered by status/search)
+    const projAllTasks=tasks.filter(t=>t.projectId===proj.id);
+    const projMetrics=buildMetrics(projAllTasks);
+    if(projMetrics) html+=projMetrics;
 
     if(proj.collapsed!==true){
       html+=`<div class="task-list">`;
