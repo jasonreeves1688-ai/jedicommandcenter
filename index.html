@@ -460,23 +460,6 @@ body::before{
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes logoGlow{from{text-shadow:0 0 20px rgba(255,215,0,0.3)}to{text-shadow:0 0 30px rgba(255,215,0,0.7),0 0 60px rgba(255,215,0,0.2)}}
 
-/* DOMAIN TABS */
-#domain-tabs{
-  display:flex;background:rgba(0,0,10,0.95);
-  border-bottom:1px solid var(--border2);
-  flex-shrink:0;
-}
-.dtab{
-  flex:1;padding:10px 6px;border:none;background:transparent;
-  font-family:var(--font-hud);font-size:12px;font-weight:700;letter-spacing:1.5px;
-  cursor:pointer;transition:all 0.15s;outline:none;
-  color:var(--text3);border-bottom:2px solid transparent;
-  text-transform:uppercase;
-}
-.dtab.active-all{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,215,0,0.04);}
-.dtab.active-work{color:#00BFFF;border-bottom-color:#00BFFF;background:rgba(0,191,255,0.04);}
-.dtab.active-personal{color:#39FF14;border-bottom-color:#39FF14;background:rgba(57,255,20,0.04);}
-
 /* DRAG AND DROP */
 .project-card{transition:opacity 0.15s,transform 0.15s;}
 .project-card.dragging{opacity:0.35;transform:scale(0.98);}
@@ -576,17 +559,14 @@ body::before{
     <input id="search-input" type="search" placeholder="SEARCH MISSION DATABASE…" oninput="renderAll()" autocomplete="off" autocorrect="off" spellcheck="false"/>
   </div>
 
-  <!-- DOMAIN TABS -->
-  <div id="domain-tabs">
-    <button class="dtab active-all" id="f-all" onclick="setDomainFilter('all')">⬡ ALL</button>
-    <button class="dtab" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
-    <button class="dtab" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
-  </div>
-
-  <!-- SECONDARY FILTER BAR -->
+  <!-- TACTICAL FILTER BAR -->
   <div id="filter-bar">
+    <button class="fbtn active-all" id="f-all" onclick="setDomainFilter('all')">ALL</button>
+    <button class="fbtn" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
+    <button class="fbtn" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
+    <div class="filter-sep"></div>
     <button class="fbtn active-status" id="fs-active" onclick="setStatusFilter('active')">ACTIVE</button>
-    <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL STATUS</button>
+    <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL</button>
     <button class="fbtn" id="fs-done" onclick="setStatusFilter('done')">COMPLETE</button>
     <div class="filter-sep"></div>
     <button class="fbtn active-view" id="fv-list" onclick="setView('list')">≡ LOG</button>
@@ -1004,38 +984,7 @@ function renderTaskList(container){
       </div>`
     :"";
 
-  // Ensure every project has a domain (default to work if missing)
-  filtered.forEach(p=>{ if(!p.domain) p.domain="work"; });
-
-  // When showing all, insert section dividers between work and personal
-  const workProjs=filtered.filter(p=>p.domain==="work");
-  const persProjs=filtered.filter(p=>p.domain==="personal");
-  // orderedFiltered: work first, then personal — preserves manual order within each group
-  const orderedFiltered=domainFilter==="all"?[...workProjs,...persProjs]:filtered;
-
-  let shownWork=false,shownPersonal=false;
-
-  for(const proj of orderedFiltered){
-    // Section header dividers when in ALL tab
-    if(domainFilter==="all"){
-      if(proj.domain==="work"&&!shownWork){
-        shownWork=true;
-        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:4px;">
-          <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(0,191,255,0.5),transparent);"></div>
-          <span style="font-family:var(--font-hud);font-size:10px;font-weight:900;color:#00BFFF;letter-spacing:3px;white-space:nowrap;">⚡ REPUBLIC</span>
-          <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(0,191,255,0.5));"></div>
-        </div>`;
-      }
-      if(proj.domain==="personal"&&!shownPersonal){
-        shownPersonal=true;
-        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:12px;">
-          <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(57,255,20,0.5),transparent);"></div>
-          <span style="font-family:var(--font-hud);font-size:10px;font-weight:900;color:#39FF14;letter-spacing:3px;white-space:nowrap;">🌿 PERSONAL</span>
-          <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(57,255,20,0.5));"></div>
-        </div>`;
-      }
-    }
-
+  for(const proj of filtered){
     const ptasks=getFilteredTasks(proj.id);
     const allPT=tasks.filter(t=>t.projectId===proj.id);
     const done=allPT.filter(t=>t.status==="done").length;
@@ -1082,7 +1031,7 @@ function renderTaskList(container){
     }
     html+=`</div>`;
   }
-  if(orderedFiltered.length===0){
+  if(filtered.length===0){
     html=`<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:12px;font-family:var(--font-hud);letter-spacing:1px;">NO SQUADRONS FOUND<br><br><button class="hbtn" onclick="openAddProject()" style="margin-top:8px;">+ COMMISSION SQUADRON</button></div>`;
   }
   container.innerHTML=html;
@@ -1798,7 +1747,7 @@ function setDomainFilter(f){
   domainFilter=f;
   ["all","work","personal"].forEach(v=>{
     const b=document.getElementById(`f-${v}`);if(!b) return;
-    b.className="dtab";
+    b.className="fbtn";
     if(v===f) b.className+=v==="work"?" active-work":v==="personal"?" active-personal":" active-all";
   });renderAll();
 }
