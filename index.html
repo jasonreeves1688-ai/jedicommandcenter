@@ -431,6 +431,12 @@ body::before{
 }
 .drag-handle:active{cursor:grabbing;color:var(--gold2);}
 
+/* RECURRENCE CHIPS */
+.recur-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+.recur-chip{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:4px 10px;border-radius:2px;cursor:pointer;font-size:11px;font-family:var(--font-hud);letter-spacing:0.5px;transition:all 0.15s;outline:none;}
+.recur-chip.active{background:rgba(191,0,255,0.12);border-color:#BF00FF;color:#BF00FF;text-shadow:0 0 6px rgba(191,0,255,0.4);}
+.recur-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border-radius:2px;border:1px solid rgba(191,0,255,0.4);background:rgba(191,0,255,0.1);color:#BF00FF;font-family:var(--font-hud);letter-spacing:0.5px;white-space:nowrap;}
+
 /* RICH NOTES EDITOR */
 .notes-toolbar{display:flex;gap:3px;padding:5px 7px;background:rgba(0,0,20,0.95);border:1px solid var(--border2);border-bottom:none;border-radius:3px 3px 0 0;flex-wrap:wrap;}
 .ntb{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:3px 8px;border-radius:2px;cursor:pointer;font-size:12px;font-family:var(--font-data);transition:all 0.15s;outline:none;line-height:1.2;}
@@ -630,6 +636,10 @@ body::before{
       <div>
         <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
         <div id="source-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING MISSION</div>
+        <div class="recur-chips" id="recur-chips"></div>
       </div>
     </div>
     <div class="modal-actions">
@@ -1066,6 +1076,10 @@ function renderTaskRow(task,proj){
         <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${SOURCE_OPTIONS.map(s=>`<button onclick="event.stopPropagation();updateTaskSource('${task.id}','${s.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${task.source===s.val?s.color:'var(--border2)'};background:${task.source===s.val?s.color+'22':'transparent'};color:${task.source===s.val?s.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;">${s.icon} ${s.label}</button>`).join('')}</div>
       </div>
+      <div style="margin-top:6px;">
+        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${['none','daily','weekly','biweekly','monthly'].map(r=>{const lbl={none:'OFF',daily:'DAILY',weekly:'WEEKLY',biweekly:'BI-WEEKLY',monthly:'MONTHLY'}[r];const active=(task.recur||'none')===r;return `<button onclick="event.stopPropagation();updateTaskField('${task.id}','recur','${r}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${active?'#BF00FF':'var(--border2)'};background:${active?'rgba(191,0,255,0.12)':'transparent'};color:${active?'#BF00FF':'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;letter-spacing:0.5px;">${lbl}</button>`;}).join('')}</div>
+      </div>
       <div style="display:flex;gap:5px;margin-top:7px;">
         <button class="modal-btn confirm" style="font-size:10px;padding:7px;letter-spacing:1px;" onclick="openEditTask('${task.id}')">✏ EDIT</button>
         <button class="modal-btn danger" style="font-size:10px;padding:7px;flex:none;width:auto;letter-spacing:1px;" onclick="confirmDeleteTask('${task.id}')">☠ PURGE</button>
@@ -1079,7 +1093,7 @@ function renderTaskRow(task,proj){
       <span class="priority-dot" style="background:${PRIORITY_COLOR[task.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[task.priority]||'#555580'};"></span>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}</div>
+        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}${task.recur&&task.recur!=="none"?`<span class="recur-badge">🔁 ${({daily:"DAILY",weekly:"WEEKLY",biweekly:"BI-WK",monthly:"MONTHLY"})[task.recur]||""}</span>`:""}</div>
         ${task.notes?`<div class="notes-rendered">${task.notes}</div>`:""}
       </div>
     </div>
@@ -1440,9 +1454,28 @@ function toggleExpand(id){expandedTaskId=expandedTaskId===id?null:id;renderAll()
 function cycleStatus(id){
   const order=["todo","inprogress","blocked","done"];
   const t=tasks.find(t=>t.id===id);if(!t) return;
+  const prev=t.status;
   t.status=order[(order.indexOf(t.status)+1)%order.length];
+  if(t.status==="done"&&prev!=="done"&&t.recur&&t.recur!=="none") spawnRecurringCopy(t);
   saveAllDebounced();renderAll();
   showToast(STATUS_LABEL[t.status]);
+}
+
+function spawnRecurringCopy(t){
+  const nextDue=calcNextDue(t.dueDate||today(),t.recur);
+  tasks.push({id:genId(),projectId:t.projectId,title:t.title,priority:t.priority,
+    status:"todo",notes:t.notes||"",dueDate:nextDue,source:t.source||"",
+    recur:t.recur,createdAt:Date.now()});
+  showToast("🔁 NEXT MISSION SCHEDULED: "+nextDue.slice(5));
+}
+
+function calcNextDue(fromDate,recur){
+  const d=new Date(fromDate+"T00:00:00");
+  if(recur==="daily")    d.setDate(d.getDate()+1);
+  if(recur==="weekly")   d.setDate(d.getDate()+7);
+  if(recur==="biweekly") d.setDate(d.getDate()+14);
+  if(recur==="monthly")  d.setMonth(d.getMonth()+1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function updateTaskField(id,field,val){
@@ -1517,8 +1550,8 @@ function openAddTask(projectId=""){
   document.getElementById("task-status-input").value="todo";
   document.getElementById("task-due-input").value="";
   document.getElementById("task-notes-input").innerHTML="";
-  window._editingSource="";
-  renderSourceChips("");
+  window._editingSource="";window._editingRecur="none";
+  renderSourceChips("");renderRecurChips("none");
   document.getElementById("task-delete-wrap").style.display="none";
   document.getElementById("task-save-btn").textContent="TRANSMIT";
   const sel=document.getElementById("task-project-input");
@@ -1537,8 +1570,8 @@ function openEditTask(id){
   document.getElementById("task-status-input").value=t.status;
   document.getElementById("task-due-input").value=t.dueDate||"";
   document.getElementById("task-notes-input").innerHTML=t.notes||"";
-  window._editingSource=t.source||"";
-  renderSourceChips(t.source||"");
+  window._editingSource=t.source||"";window._editingRecur=t.recur||"none";
+  renderSourceChips(t.source||"");renderRecurChips(t.recur||"none");
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
   const sel=document.getElementById("task-project-input");
@@ -1560,6 +1593,7 @@ function saveTask(){
     t.dueDate=document.getElementById("task-due-input").value;
     t.notes=document.getElementById("task-notes-input").innerHTML;
     t.source=window._editingSource||"";
+    t.recur=window._editingRecur||"none";
     showToast("MISSION UPDATED ✓");
   }else{
     tasks.push({id:genId(),title,projectId,
@@ -1568,10 +1602,27 @@ function saveTask(){
       dueDate:document.getElementById("task-due-input").value,
       notes:document.getElementById("task-notes-input").innerHTML,
       source:window._editingSource||"",
+      recur:window._editingRecur||"none",
       createdAt:Date.now()});
     showToast("MISSION LOGGED ✓");
   }
   saveAllDebounced();closeModal("modal-task");renderAll();
+}
+
+function renderRecurChips(selected){
+  const wrap=document.getElementById("recur-chips");if(!wrap) return;
+  window._editingRecur=selected||"none";
+  const opts=[
+    {val:"none",   label:"OFF"},
+    {val:"daily",  label:"🔁 DAILY"},
+    {val:"weekly", label:"🔁 WEEKLY"},
+    {val:"biweekly",label:"🔁 BI-WEEKLY"},
+    {val:"monthly",label:"🔁 MONTHLY"},
+  ];
+  wrap.innerHTML=opts.map(o=>{
+    const active=o.val===(selected||"none");
+    return `<button class="recur-chip${active?' active':''}" onclick="renderRecurChips('${o.val}')">${o.label}</button>`;
+  }).join('');
 }
 
 function renderSourceChips(selected){
