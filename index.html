@@ -813,6 +813,23 @@ async function loadAll(){
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
     showToast("SIGNAL LOST — OPERATING ON LOCAL ARCHIVES");
   }
+  // Normalize all data — fill in any missing fields so nothing breaks rendering
+  projects=projects.map(p=>({
+    ...p,
+    domain: p.domain==="personal"?"personal":"work",
+    color: p.color||"#FFD700",
+    collapsed: p.collapsed===true||p.collapsed==="true"
+  }));
+  tasks=tasks.map(t=>({
+    ...t,
+    status: ["todo","inprogress","blocked","done"].includes(t.status)?t.status:"todo",
+    priority: ["high","medium","low"].includes(t.priority)?t.priority:"medium",
+    notes: t.notes||"",
+    source: t.source||"",
+    recur: t.recur||"none",
+    dueDate: t.dueDate||""
+  }));
+
   if(projects.length>0) localStorage.setItem("hub-projects",JSON.stringify(projects));
   if(tasks.length>0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
 }
@@ -962,13 +979,13 @@ function getFilteredTasks(projectId){
 }
 
 function renderTaskList(container){
-  const filtered=projects.filter(p=>domainFilter==="all"||p.domain===domainFilter);
+  const filtered=projects.filter(p=>domainFilter==="all"||(p.domain||"work")===domainFilter);
 
   // Build global metrics from all tasks visible under current filters
   const globalTaskPool=tasks.filter(t=>{
     const proj=projects.find(p=>p.id===t.projectId);
     if(!proj) return false;
-    if(domainFilter!=="all"&&proj.domain!==domainFilter) return false;
+    if(domainFilter!=="all"&&(proj.domain||"work")!==domainFilter) return false;
     if(statusFilter==="active"&&t.status==="done") return false;
     if(statusFilter==="done"&&t.status!=="done") return false;
     const q=(document.getElementById("search-input")?.value||"").toLowerCase();
