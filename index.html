@@ -801,7 +801,9 @@ async function loadAll(){
   try{
     const data=await apiCall("getAll");
     const sheetProjects=(data.projects||[]).map(p=>({
-      ...p,collapsed:p.collapsed==="true"||p.collapsed===true
+      ...p,
+      collapsed:p.collapsed==="true"||p.collapsed===true,
+      domain:p.domain==="personal"?"personal":"work"
     })).filter(p=>p.id&&p.name);
     const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
 
@@ -1002,9 +1004,13 @@ function renderTaskList(container){
       </div>`
     :"";
 
+  // Ensure every project has a domain (default to work if missing)
+  filtered.forEach(p=>{ if(!p.domain) p.domain="work"; });
+
   // When showing all, insert section dividers between work and personal
   const workProjs=filtered.filter(p=>p.domain==="work");
   const persProjs=filtered.filter(p=>p.domain==="personal");
+  // orderedFiltered: work first, then personal — preserves manual order within each group
   const orderedFiltered=domainFilter==="all"?[...workProjs,...persProjs]:filtered;
 
   let shownWork=false,shownPersonal=false;
