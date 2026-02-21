@@ -459,6 +459,65 @@ body::before{
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes logoGlow{from{text-shadow:0 0 20px rgba(255,215,0,0.3)}to{text-shadow:0 0 30px rgba(255,215,0,0.7),0 0 60px rgba(255,215,0,0.2)}}
+
+/* DOMAIN TABS */
+#domain-tabs{
+  display:flex;background:rgba(0,0,10,0.95);
+  border-bottom:1px solid var(--border2);
+  flex-shrink:0;
+}
+.dtab{
+  flex:1;padding:10px 6px;border:none;background:transparent;
+  font-family:var(--font-hud);font-size:12px;font-weight:700;letter-spacing:1.5px;
+  cursor:pointer;transition:all 0.15s;outline:none;
+  color:var(--text3);border-bottom:2px solid transparent;
+  text-transform:uppercase;
+}
+.dtab.active-all{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,215,0,0.04);}
+.dtab.active-work{color:#00BFFF;border-bottom-color:#00BFFF;background:rgba(0,191,255,0.04);}
+.dtab.active-personal{color:#39FF14;border-bottom-color:#39FF14;background:rgba(57,255,20,0.04);}
+
+/* DRAG AND DROP */
+.project-card{transition:opacity 0.15s,transform 0.15s;}
+.project-card.dragging{opacity:0.35;transform:scale(0.98);}
+.project-card.drag-over{border-top:2px solid var(--gold);margin-top:-1px;}
+.drag-handle{
+  cursor:grab;color:var(--text4);font-size:16px;padding:0 4px 0 0;
+  flex-shrink:0;touch-action:none;user-select:none;line-height:1;
+}
+.drag-handle:active{cursor:grabbing;color:var(--gold2);}
+
+/* RECURRENCE CHIPS */
+.recur-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+.recur-chip{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:4px 10px;border-radius:2px;cursor:pointer;font-size:11px;font-family:var(--font-hud);letter-spacing:0.5px;transition:all 0.15s;outline:none;}
+.recur-chip.active{background:rgba(191,0,255,0.12);border-color:#BF00FF;color:#BF00FF;text-shadow:0 0 6px rgba(191,0,255,0.4);}
+.recur-badge{display:inline-flex;align-items:center;gap:3px;font-size:9px;padding:1px 6px;border-radius:2px;border:1px solid rgba(191,0,255,0.4);background:rgba(191,0,255,0.1);color:#BF00FF;font-family:var(--font-hud);letter-spacing:0.5px;white-space:nowrap;}
+
+/* RICH NOTES EDITOR */
+.notes-toolbar{display:flex;gap:3px;padding:5px 7px;background:rgba(0,0,20,0.95);border:1px solid var(--border2);border-bottom:none;border-radius:3px 3px 0 0;flex-wrap:wrap;}
+.ntb{background:transparent;border:1px solid var(--border2);color:var(--text2);padding:3px 8px;border-radius:2px;cursor:pointer;font-size:12px;font-family:var(--font-data);transition:all 0.15s;outline:none;line-height:1.2;}
+.ntb:active,.ntb.active{background:rgba(255,215,0,0.12);border-color:var(--gold2);color:var(--gold);}
+.ntb-sep{width:1px;background:var(--border2);margin:2px 3px;flex-shrink:0;}
+.notes-editor{background:rgba(0,0,20,0.9);border:1px solid var(--border2);color:var(--text);padding:10px 12px;border-radius:0 0 3px 3px;font-family:var(--font-data);font-size:16px;min-height:90px;outline:none;line-height:1.6;word-break:break-word;}
+.notes-editor:focus{border-color:var(--gold2);box-shadow:0 0 8px rgba(255,215,0,0.08);}
+.notes-editor:empty:before{content:attr(data-placeholder);color:var(--text3);pointer-events:none;}
+.notes-editor ul{padding-left:18px;margin:4px 0;}
+.notes-editor li{margin:2px 0;}
+.notes-editor b,.notes-editor strong{color:#fff;}
+.notes-editor i,.notes-editor em{color:var(--text2);}
+.notes-editor u{text-decoration-color:var(--gold2);}
+/* Checkbox items */
+.notes-editor .task-check{display:flex;align-items:flex-start;gap:7px;margin:3px 0;cursor:pointer;}
+.notes-editor .task-check input[type=checkbox]{accent-color:var(--gold);width:15px;height:15px;flex-shrink:0;margin-top:3px;cursor:pointer;}
+.notes-editor .task-check span.checked{text-decoration:line-through;color:var(--text3);}
+/* Rendered notes in task rows */
+.notes-rendered{font-size:12px;color:var(--text3);margin-top:4px;line-height:1.6;word-break:break-word;}
+.notes-rendered ul{padding-left:16px;margin:2px 0;}
+.notes-rendered li{margin:1px 0;}
+.notes-rendered b,.notes-rendered strong{color:var(--text2);}
+.notes-rendered .task-check{display:flex;align-items:flex-start;gap:6px;margin:2px 0;}
+.notes-rendered .task-check input[type=checkbox]{accent-color:var(--gold);width:13px;height:13px;flex-shrink:0;margin-top:2px;}
+.notes-rendered .task-check span.checked{text-decoration:line-through;color:var(--text3);}
 </style>
 </head>
 <body>
@@ -517,14 +576,17 @@ body::before{
     <input id="search-input" type="search" placeholder="SEARCH MISSION DATABASE…" oninput="renderAll()" autocomplete="off" autocorrect="off" spellcheck="false"/>
   </div>
 
-  <!-- TACTICAL FILTER BAR -->
+  <!-- DOMAIN TABS -->
+  <div id="domain-tabs">
+    <button class="dtab active-all" id="f-all" onclick="setDomainFilter('all')">⬡ ALL</button>
+    <button class="dtab" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
+    <button class="dtab" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
+  </div>
+
+  <!-- SECONDARY FILTER BAR -->
   <div id="filter-bar">
-    <button class="fbtn active-all" id="f-all" onclick="setDomainFilter('all')">ALL</button>
-    <button class="fbtn" id="f-work" onclick="setDomainFilter('work')">⚡ REPUBLIC</button>
-    <button class="fbtn" id="f-personal" onclick="setDomainFilter('personal')">🌿 PERSONAL</button>
-    <div class="filter-sep"></div>
     <button class="fbtn active-status" id="fs-active" onclick="setStatusFilter('active')">ACTIVE</button>
-    <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL</button>
+    <button class="fbtn" id="fs-all" onclick="setStatusFilter('all')">ALL STATUS</button>
     <button class="fbtn" id="fs-done" onclick="setStatusFilter('done')">COMPLETE</button>
     <div class="filter-sep"></div>
     <button class="fbtn active-view" id="fv-list" onclick="setView('list')">≡ LOG</button>
@@ -580,10 +642,26 @@ body::before{
         </select>
       </div>
       <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--gold);font-family:var(--font-hud);letter-spacing:1px;"/>
-      <textarea class="field-input" id="task-notes-input" placeholder="INTEL, CONTEXT, OBSTACLES…" rows="3" style="resize:none;line-height:1.5;"></textarea>
+      <div>
+        <div class="notes-toolbar" id="notes-toolbar">
+          <button class="ntb" title="Bold" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
+          <button class="ntb" title="Italic" onmousedown="event.preventDefault();noteCmd('italic')"><i>I</i></button>
+          <button class="ntb" title="Underline" onmousedown="event.preventDefault();noteCmd('underline')"><u>U</u></button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" title="Bullet List" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
+          <button class="ntb" title="Add Checkbox" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" title="Clear Formatting" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
+        </div>
+        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="INTEL, CONTEXT, OBSTACLES…" spellcheck="false"></div>
+      </div>
       <div>
         <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
         <div id="source-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:5px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING MISSION</div>
+        <div class="recur-chips" id="recur-chips"></div>
       </div>
     </div>
     <div class="modal-actions">
@@ -687,6 +765,7 @@ function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s
 let projects=[], tasks=[];
 let domainFilter="all", statusFilter="active", viewMode="list", activeNav="tasks";
 let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
+let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null;
 let selectedProjColor=PROJECT_COLORS[0], importPreviewData=null;
 
@@ -923,7 +1002,34 @@ function renderTaskList(container){
       </div>`
     :"";
 
-  for(const proj of filtered){
+  // When showing all, insert section dividers between work and personal
+  const workProjs=filtered.filter(p=>p.domain==="work");
+  const persProjs=filtered.filter(p=>p.domain==="personal");
+  const orderedFiltered=domainFilter==="all"?[...workProjs,...persProjs]:filtered;
+
+  let shownWork=false,shownPersonal=false;
+
+  for(const proj of orderedFiltered){
+    // Section header dividers when in ALL tab
+    if(domainFilter==="all"){
+      if(proj.domain==="work"&&!shownWork){
+        shownWork=true;
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:4px;">
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(0,191,255,0.5),transparent);"></div>
+          <span style="font-family:var(--font-hud);font-size:10px;font-weight:900;color:#00BFFF;letter-spacing:3px;white-space:nowrap;">⚡ REPUBLIC</span>
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(0,191,255,0.5));"></div>
+        </div>`;
+      }
+      if(proj.domain==="personal"&&!shownPersonal){
+        shownPersonal=true;
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;margin-top:12px;">
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(57,255,20,0.5),transparent);"></div>
+          <span style="font-family:var(--font-hud);font-size:10px;font-weight:900;color:#39FF14;letter-spacing:3px;white-space:nowrap;">🌿 PERSONAL</span>
+          <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(57,255,20,0.5));"></div>
+        </div>`;
+      }
+    }
+
     const ptasks=getFilteredTasks(proj.id);
     const allPT=tasks.filter(t=>t.projectId===proj.id);
     const done=allPT.filter(t=>t.status==="done").length;
@@ -932,8 +1038,16 @@ function renderTaskList(container){
       ?`background:rgba(0,191,255,0.1);color:#00BFFF;border:1px solid rgba(0,191,255,0.3);`
       :`background:rgba(57,255,20,0.08);color:#39FF14;border:1px solid rgba(57,255,20,0.2);`;
 
-    html+=`<div class="project-card" style="border-left-color:${proj.color||'#FFD700'};">
+    html+=`<div class="project-card" id="pcard-${proj.id}"
+      style="border-left-color:${proj.color||'#FFD700'};"
+      draggable="true"
+      ondragstart="onProjDragStart(event,'${proj.id}')"
+      ondragover="onProjDragOver(event,'${proj.id}')"
+      ondragleave="onProjDragLeave(event,'${proj.id}')"
+      ondrop="onProjDrop(event,'${proj.id}')"
+      ondragend="onProjDragEnd()">
       <div class="project-header" onclick="toggleProject('${proj.id}')">
+        <span class="drag-handle" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>
         <div class="project-chevron ${proj.collapsed===true?'closed':'open'}" id="chev-${proj.id}">▼</div>
         <div class="project-info">
           <div class="project-name" style="color:${proj.color||'#FFD700'};text-shadow:0 0 8px ${proj.color||'#FFD700'}44;">◈ ${esc(proj.name)}</div>
@@ -962,7 +1076,7 @@ function renderTaskList(container){
     }
     html+=`</div>`;
   }
-  if(filtered.length===0){
+  if(orderedFiltered.length===0){
     html=`<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:12px;font-family:var(--font-hud);letter-spacing:1px;">NO SQUADRONS FOUND<br><br><button class="hbtn" onclick="openAddProject()" style="margin-top:8px;">+ COMMISSION SQUADRON</button></div>`;
   }
   container.innerHTML=html;
@@ -996,11 +1110,24 @@ function renderTaskRow(task,proj){
         <input type="date" class="expand-sel" value="${task.dueDate||''}" style="color-scheme:dark;"
           onchange="updateTaskField('${task.id}','dueDate',this.value)"/>
       </div>
-      <textarea class="expand-notes" rows="3" placeholder="MISSION INTEL…"
-        onblur="updateTaskField('${task.id}','notes',this.value)">${esc(task.notes||'')}</textarea>
+      <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
+        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
+        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
+        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
+        <div class="ntb-sep"></div>
+        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
+        <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
+      </div>
+      <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="MISSION INTEL…"
+        onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
+        spellcheck="false">${task.notes||''}</div>
       <div style="margin-top:6px;">
         <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">📡 INTEL SOURCE</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;">${SOURCE_OPTIONS.map(s=>`<button onclick="event.stopPropagation();updateTaskSource('${task.id}','${s.val}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${task.source===s.val?s.color:'var(--border2)'};background:${task.source===s.val?s.color+'22':'transparent'};color:${task.source===s.val?s.color:'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;">${s.icon} ${s.label}</button>`).join('')}</div>
+      </div>
+      <div style="margin-top:6px;">
+        <div style="font-size:8px;color:var(--text3);margin-bottom:4px;font-family:var(--font-hud);letter-spacing:1px;">🔁 RECURRING</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${['none','daily','weekly','biweekly','monthly'].map(r=>{const labels={none:'OFF',daily:'DAILY',weekly:'WEEKLY',biweekly:'BI-WEEKLY',monthly:'MONTHLY'};const active=(task.recur||'none')===r;return `<button onclick="event.stopPropagation();updateTaskField('${task.id}','recur','${r}')" style="padding:3px 8px;border-radius:2px;border:1px solid ${active?'#BF00FF':'var(--border2)'};background:${active?'rgba(191,0,255,0.12)':'transparent'};color:${active?'#BF00FF':'var(--text3)'};font-size:9px;font-family:var(--font-hud);cursor:pointer;letter-spacing:0.5px;">${labels[r]}</button>`;}).join('')}</div>
       </div>
       <div style="display:flex;gap:5px;margin-top:7px;">
         <button class="modal-btn confirm" style="font-size:10px;padding:7px;letter-spacing:1px;" onclick="openEditTask('${task.id}')">✏ EDIT</button>
@@ -1015,7 +1142,8 @@ function renderTaskRow(task,proj){
       <span class="priority-dot" style="background:${PRIORITY_COLOR[task.priority]||'#555580'};box-shadow:0 0 4px ${PRIORITY_COLOR[task.priority]||'#555580'};"></span>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}</div>
+        <div class="task-meta">${statusPill}${dueStr}${task.source?`<span style="font-size:8px;padding:1px 6px;border-radius:2px;border:1px solid ${sourceColor(task.source)}44;background:${sourceColor(task.source)}11;color:${sourceColor(task.source)};font-family:var(--font-hud);">${sourceLabel(task.source)}</span>`:""}${recurBadge}</div>
+        ${task.notes?`<div class="notes-rendered">${task.notes}</div>`:""}
       </div>
     </div>
     ${expandHtml}
@@ -1341,7 +1469,7 @@ function renderSettings(container){
       <div class="import-zone" onclick="document.getElementById('csv-file-input').click()">
         <div style="font-size:24px;margin-bottom:6px;">📡</div>
         <div style="font-size:11px;color:var(--text2);font-family:var(--font-hud);letter-spacing:1px;">TAP TO UPLOAD MISSION DATA</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px;">COLUMNS: title, project, domain, priority, status, dueDate, notes, source</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;">COLUMNS: title, project, domain, priority, status, dueDate, notes, source, recur</div>
       </div>
       <div id="import-preview-area"></div>
     </div>
@@ -1375,9 +1503,41 @@ function toggleExpand(id){expandedTaskId=expandedTaskId===id?null:id;renderAll()
 function cycleStatus(id){
   const order=["todo","inprogress","blocked","done"];
   const t=tasks.find(t=>t.id===id);if(!t) return;
+  const prevStatus=t.status;
   t.status=order[(order.indexOf(t.status)+1)%order.length];
+  // If just completed and task is recurring, spawn next copy
+  if(t.status==="done"&&prevStatus!=="done"&&t.recur&&t.recur!=="none"){
+    spawnRecurringCopy(t);
+  }
   saveAllDebounced();renderAll();
   showToast(STATUS_LABEL[t.status]);
+}
+
+function spawnRecurringCopy(t){
+  const nextDue=calcNextDue(t.dueDate||today(),t.recur);
+  const copy={
+    id:genId(),
+    projectId:t.projectId,
+    title:t.title,
+    priority:t.priority,
+    status:"todo",
+    notes:t.notes||"",
+    dueDate:nextDue,
+    source:t.source||"",
+    recur:t.recur,
+    createdAt:Date.now()
+  };
+  tasks.push(copy);
+  showToast("🔁 NEXT MISSION SCHEDULED: "+nextDue.slice(5));
+}
+
+function calcNextDue(fromDate,recur){
+  const d=new Date(fromDate+"T00:00:00");
+  if(recur==="daily")   d.setDate(d.getDate()+1);
+  if(recur==="weekly")  d.setDate(d.getDate()+7);
+  if(recur==="biweekly")d.setDate(d.getDate()+14);
+  if(recur==="monthly") d.setMonth(d.getMonth()+1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function updateTaskField(id,field,val){
@@ -1397,9 +1557,9 @@ function openAddTask(projectId=""){
   document.getElementById("task-priority-input").value="medium";
   document.getElementById("task-status-input").value="todo";
   document.getElementById("task-due-input").value="";
-  document.getElementById("task-notes-input").value="";
-  window._editingSource="";
-  renderSourceChips("");
+  document.getElementById("task-notes-input").innerHTML="";
+  window._editingSource="";window._editingRecur="none";
+  renderSourceChips("");renderRecurChips("none");
   document.getElementById("task-delete-wrap").style.display="none";
   document.getElementById("task-save-btn").textContent="TRANSMIT";
   const sel=document.getElementById("task-project-input");
@@ -1417,9 +1577,9 @@ function openEditTask(id){
   document.getElementById("task-priority-input").value=t.priority;
   document.getElementById("task-status-input").value=t.status;
   document.getElementById("task-due-input").value=t.dueDate||"";
-  document.getElementById("task-notes-input").value=t.notes||"";
-  window._editingSource=t.source||"";
-  renderSourceChips(t.source||"");
+  document.getElementById("task-notes-input").innerHTML=t.notes||"";
+  window._editingSource=t.source||"";window._editingRecur=t.recur||"none";
+  renderSourceChips(t.source||"");renderRecurChips(t.recur||"none");
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
   const sel=document.getElementById("task-project-input");
@@ -1439,20 +1599,38 @@ function saveTask(){
     t.priority=document.getElementById("task-priority-input").value;
     t.status=document.getElementById("task-status-input").value;
     t.dueDate=document.getElementById("task-due-input").value;
-    t.notes=document.getElementById("task-notes-input").value;
+    t.notes=document.getElementById("task-notes-input").innerHTML;
     t.source=window._editingSource||"";
+    t.recur=window._editingRecur||"none";
     showToast("MISSION UPDATED ✓");
   }else{
     tasks.push({id:genId(),title,projectId,
       priority:document.getElementById("task-priority-input").value,
       status:document.getElementById("task-status-input").value,
       dueDate:document.getElementById("task-due-input").value,
-      notes:document.getElementById("task-notes-input").value,
+      notes:document.getElementById("task-notes-input").innerHTML,
       source:window._editingSource||"",
+      recur:window._editingRecur||"none",
       createdAt:Date.now()});
     showToast("MISSION LOGGED ✓");
   }
   saveAllDebounced();closeModal("modal-task");renderAll();
+}
+
+function renderRecurChips(selected){
+  const wrap=document.getElementById("recur-chips");if(!wrap) return;
+  window._editingRecur=selected||"none";
+  const opts=[
+    {val:"none",  label:"OFF"},
+    {val:"daily",    label:"🔁 DAILY"},
+    {val:"weekly",   label:"🔁 WEEKLY"},
+    {val:"biweekly", label:"🔁 BI-WEEKLY"},
+    {val:"monthly",  label:"🔁 MONTHLY"},
+  ];
+  wrap.innerHTML=opts.map(o=>{
+    const active=o.val===(selected||"none");
+    return `<button class="recur-chip ${active?'active':''}" onclick="renderRecurChips('${o.val}')">${o.label}</button>`;
+  }).join('');
 }
 
 function renderSourceChips(selected){
@@ -1614,7 +1792,7 @@ function setDomainFilter(f){
   domainFilter=f;
   ["all","work","personal"].forEach(v=>{
     const b=document.getElementById(`f-${v}`);if(!b) return;
-    b.className="fbtn";
+    b.className="dtab";
     if(v===f) b.className+=v==="work"?" active-work":v==="personal"?" active-personal":" active-all";
   });renderAll();
 }
@@ -1654,6 +1832,108 @@ function showToast(msg){
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAG-AND-DROP PROJECT REORDERING
+// ═══════════════════════════════════════════════════════════════
+function onProjDragStart(e, id){
+  dragSrcId=id;
+  e.dataTransfer.effectAllowed="move";
+  setTimeout(()=>{
+    const el=document.getElementById("pcard-"+id);
+    if(el) el.classList.add("dragging");
+  },0);
+}
+
+function onProjDragOver(e, id){
+  e.preventDefault();
+  e.dataTransfer.dropEffect="move";
+  if(id===dragSrcId) return;
+  document.querySelectorAll(".project-card").forEach(c=>c.classList.remove("drag-over"));
+  const el=document.getElementById("pcard-"+id);
+  if(el) el.classList.add("drag-over");
+}
+
+function onProjDragLeave(e, id){
+  const el=document.getElementById("pcard-"+id);
+  if(el) el.classList.remove("drag-over");
+}
+
+function onProjDrop(e, targetId){
+  e.preventDefault();
+  if(!dragSrcId||dragSrcId===targetId) return;
+  // Only reorder within same domain group
+  const src=projects.find(p=>p.id===dragSrcId);
+  const tgt=projects.find(p=>p.id===targetId);
+  if(!src||!tgt) return;
+  const srcIdx=projects.indexOf(src);
+  const tgtIdx=projects.indexOf(tgt);
+  projects.splice(srcIdx,1);
+  const newTgt=projects.indexOf(tgt);
+  projects.splice(newTgt,0,src);
+  saveAllDebounced();
+  dragSrcId=null;
+  renderAll();
+}
+
+function onProjDragEnd(){
+  dragSrcId=null;
+  document.querySelectorAll(".project-card").forEach(c=>{
+    c.classList.remove("dragging","drag-over");
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RICH NOTES EDITOR
+// ═══════════════════════════════════════════════════════════════
+function noteCmd(cmd){
+  document.getElementById("task-notes-input").focus();
+  document.execCommand(cmd,false,null);
+}
+
+function insertCheckbox(){
+  const editor=document.getElementById("task-notes-input");
+  editor.focus();
+  const id="chk-"+Math.random().toString(36).substr(2,6);
+  const html=`<div class="task-check" contenteditable="false"><input type="checkbox" id="${id}" onchange="this.nextElementSibling.className=this.checked?'checked':''"><span contenteditable="true"> New item</span></div><br>`;
+  document.execCommand("insertHTML",false,html);
+}
+
+function insertExpandCheckbox(taskId){
+  const editor=document.getElementById("enotes-"+taskId);
+  if(!editor) return;
+  editor.focus();
+  const id="chk-"+Math.random().toString(36).substr(2,6);
+  const html=`<div class="task-check" contenteditable="false"><input type="checkbox" id="${id}" onchange="this.nextElementSibling.className=this.checked?'checked':''"><span contenteditable="true"> New item</span></div><br>`;
+  document.execCommand("insertHTML",false,html);
+}
+
+function expandNoteCmd(taskId,cmd){
+  const editor=document.getElementById("enotes-"+taskId);
+  if(!editor) return;
+  editor.focus();
+  document.execCommand(cmd,false,null);
+}
+
+// Restore checkbox states after rendering (checked items)
+function restoreCheckboxes(){
+  document.querySelectorAll(".notes-rendered input[type=checkbox],.notes-editor input[type=checkbox]").forEach(cb=>{
+    cb.addEventListener("change",function(){
+      const span=this.nextElementSibling;
+      if(span) span.className=this.checked?"checked":"";
+      // Save state back to task if we can find the task id
+      const row=this.closest("[data-taskid]");
+      if(row){
+        const id=row.getAttribute("data-taskid");
+        const t=tasks.find(t=>t.id===id);
+        if(t){
+          t.notes=row.querySelector(".notes-rendered").innerHTML;
+          saveAllDebounced();
+        }
+      }
+    });
+  });
+}
 
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZE — POWER ON SEQUENCE
