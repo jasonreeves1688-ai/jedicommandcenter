@@ -830,6 +830,12 @@ body::before{
       </button>
       <div class="fdd-panel" id="fdd-priority-panel" style="display:none;"></div>
     </div>
+    <div class="fdd-wrap" id="fdd-due-wrap">
+      <button class="fdd-btn" id="fdd-due-btn" onclick="toggleFdd('due')">
+        <span>📅 DUE</span><span class="fdd-caret">▼</span>
+      </button>
+      <div class="fdd-panel" id="fdd-due-panel" style="display:none;"></div>
+    </div>
     <div id="view-toggle">
       <button class="vbtn active" id="fv-list" onclick="setView('list')" title="Log view">≡</button>
       <button class="vbtn" id="fv-cal" onclick="setView('calendar')" title="Realm map">★</button>
@@ -1065,6 +1071,7 @@ let filterRealm=new Set();       // "work"|"personal"
 let filterStatus=new Set(["todo","inprogress","blocked"]); // default: active
 let filterParty=new Set();       // project IDs
 let filterPriority=new Set();    // "high"|"medium"|"low"
+let filterDue=new Set();         // "overdue"|"today"|"week"|"month"|"none"
 let viewMode="list", activeNav="tasks";
 
 // Derived helpers
@@ -1072,6 +1079,7 @@ const realmActive=()=>filterRealm.size>0;
 const statusActive=()=>filterStatus.size>0&&!(filterStatus.has("todo")&&filterStatus.has("inprogress")&&filterStatus.has("blocked")&&filterStatus.has("done"));
 const partyActive=()=>filterParty.size>0;
 const priorityActive=()=>filterPriority.size>0;
+const dueActive=()=>filterDue.size>0;
 let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
 let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null;
@@ -1344,6 +1352,23 @@ function renderTaskList(container){
     if(partyActive()&&!filterParty.has(t.projectId)) return false;
     if(filterStatus.size>0&&!filterStatus.has(t.status)) return false;
     if(priorityActive()&&!filterPriority.has(t.priority)) return false;
+    if(dueActive()){
+      const td=today();
+      const weekEnd=new Date(); weekEnd.setDate(weekEnd.getDate()+7);
+      const weekStr=weekEnd.toISOString().slice(0,10);
+      const monthEnd=new Date(); monthEnd.setDate(monthEnd.getDate()+30);
+      const monthStr=monthEnd.toISOString().slice(0,10);
+      const dd=t.dueDate;
+      const matches=[...filterDue].some(f=>{
+        if(f==="overdue") return dd&&dd<td&&t.status!=="done";
+        if(f==="today")   return dd&&dd===td;
+        if(f==="week")    return dd&&dd>=td&&dd<=weekStr;
+        if(f==="month")   return dd&&dd>=td&&dd<=monthStr;
+        if(f==="none")    return !dd;
+        return false;
+      });
+      if(!matches) return false;
+    }
     if(q&&!t.title.toLowerCase().includes(q)&&!proj.name.toLowerCase().includes(q)) return false;
     return true;
   }).sort((a,b)=>{
@@ -2786,6 +2811,14 @@ function renderFddPanel(name){
       {val:"medium",label:"🟠 High",  color:"#D4A017",set:filterPriority},
       {val:"low",   label:"🟡 Normal",color:"#5C5C40",set:filterPriority},
     ];
+  } else if(name==="due"){
+    items=[
+      {val:"overdue",label:"⚠ Overdue",    color:"#8B1010",set:filterDue},
+      {val:"today",  label:"☀ Due Today",   color:"#7A1818",set:filterDue},
+      {val:"week",   label:"⏱ This Week",   color:"#7A4A00",set:filterDue},
+      {val:"month",  label:"📆 This Month", color:"#4A6A20",set:filterDue},
+      {val:"none",   label:"○ No Due Date", color:"#6A5030",set:filterDue},
+    ];
   }
 
   panel.innerHTML=items.map(it=>{
@@ -2802,7 +2835,7 @@ function renderFddPanel(name){
 
 function toggleFddItem(name,val,e){
   e.stopPropagation();
-  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority};
+  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue};
   const s=setMap[name];
   if(!s) return;
   if(s.has(val)) s.delete(val); else s.add(val);
@@ -2823,7 +2856,7 @@ function toggleFddItem(name,val,e){
 
 function clearFdd(name,e){
   e.stopPropagation();
-  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority};
+  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue};
   if(setMap[name]) setMap[name].clear();
   if(name==="realm"){filterParty.clear();updateFddBtn("party");}
   updateFddBtn(name);
@@ -2832,11 +2865,11 @@ function clearFdd(name,e){
 }
 
 function updateFddBtn(name){
-  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority};
+  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue};
   const s=setMap[name];
   const btn=document.getElementById(`fdd-${name}-btn`);
   if(!btn||!s) return;
-  const labels={realm:"🗺 REALM",status:"◉ STATUS",party:"◈ PARTY",priority:"● PRIORITY"};
+  const labels={realm:"🗺 REALM",status:"◉ STATUS",party:"◈ PARTY",priority:"● PRIORITY",due:"📅 DUE"};
   const count=s.size;
   const hasFilter=count>0;
   btn.className="fdd-btn"+(hasFilter?" has-filter":"")+(btn.classList.contains("open")?" open":"");
@@ -2845,7 +2878,7 @@ function updateFddBtn(name){
 }
 
 function updateAllFddBtns(){
-  ["realm","status","party","priority"].forEach(updateFddBtn);
+  ["realm","status","party","priority","due"].forEach(updateFddBtn);
 }
 
 function setView(v){
