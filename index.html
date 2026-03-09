@@ -3121,15 +3121,29 @@ function toggleTodayPin(taskId){
   renderAll();
 }
 
+let _focusNowOn=false;
 function activateFocusNow(){
-  filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear();
-  filterStatus=new Set(["todo","inprogress","blocked"]);
-  filterPriority.add("high");
-  filterDue.add("overdue"); filterDue.add("today"); filterDue.add("week");
-  setNav("tasks");
-  updateAllFddBtns();
-  renderAll();
-  showToast("⚡ Showing urgent tasks");
+  const btn=document.getElementById("focus-now-btn");
+  if(_focusNowOn){
+    _focusNowOn=false;
+    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear();
+    filterStatus=new Set(["todo","inprogress","blocked","done"]);
+    if(btn){btn.classList.remove("active");btn.textContent="⚡ Focus Now";}
+    updateAllFddBtns();
+    renderAll();
+    showToast("Showing all tasks");
+  } else {
+    _focusNowOn=true;
+    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear();
+    filterStatus=new Set(["todo","inprogress","blocked"]);
+    filterPriority.add("high");
+    filterDue.add("overdue"); filterDue.add("today"); filterDue.add("week");
+    setNav("tasks");
+    if(btn){btn.classList.add("active");btn.textContent="✕ Clear Focus";}
+    updateAllFddBtns();
+    renderAll();
+    showToast("⚡ Showing urgent tasks");
+  }
 }
 
 // ── Multi-select dropdown system ─────────────────────────────────
@@ -3224,6 +3238,8 @@ function renderFddPanel(name){
 
 function toggleFddItem(name,val,e){
   e.stopPropagation();
+  // If user manually changes filters, exit focus mode
+  if(_focusNowOn){ _focusNowOn=false; const b=document.getElementById("focus-now-btn"); if(b){b.classList.remove("active");b.textContent="⚡ Focus Now";} }
   const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue};
   const s=setMap[name];
   if(!s) return;
