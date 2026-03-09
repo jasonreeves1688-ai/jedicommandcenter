@@ -1572,7 +1572,7 @@ function renderTaskList(container){
     return;
   }
 
-  // Group tasks by project, preserving project order then unassigned last
+  // Group by domain section (Work alpha, Personal alpha), unassigned last
   const grouped=new Map();
   for(const t of visibleTasks){
     const key=t.projectId||"__none__";
@@ -1580,40 +1580,61 @@ function renderTaskList(container){
     grouped.get(key).tasks.push(t);
   }
 
-  const orderedKeys=[...projects.map(p=>p.id).filter(id=>grouped.has(id))];
-  if(grouped.has("__none__")) orderedKeys.push("__none__");
+  const byDomain=(domain)=>projects
+    .filter(p=>(p.domain||"work")===domain && grouped.has(p.id))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  const workProjs=byDomain("work");
+  const persProjs=byDomain("personal");
 
-  for(const key of orderedKeys){
+  function renderProjGroup(key){
     const {proj,tasks:grpTasks}=grouped.get(key);
     const isCollapsed=proj?(proj.collapsed===true||proj.collapsed==="true")
       :(localStorage.getItem("hub-unassigned-collapsed")==="true");
     const projColor=proj?.color||"var(--text3)";
     const projName=proj?esc(proj.name):"No Assigned Project";
-    const domain=proj?(proj.domain==="work"?"Work":"Personal"):"";
     const count=grpTasks.length;
     const doneCount=grpTasks.filter(t=>t.status==="done").length;
     const collapseCall=proj?`toggleProjectCollapse('${proj.id}')`:"toggleProjectCollapse('__none__')";
-
-    html+=`<div class="proj-group">
+    let g=`<div class="proj-group">
       <div class="proj-group-header" onclick="${collapseCall}">
         <span class="proj-group-chevron ${isCollapsed?"":"open"}">▶</span>
         <span class="proj-group-dot" style="background:${projColor};box-shadow:0 0 5px ${proj?projColor:"transparent"};"></span>
         <span class="proj-group-name" style="color:${projColor};">${projName}</span>
-        ${domain?`<span class="proj-group-domain">${domain}</span>`:""}
         <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
       </div>`;
-
     if(!isCollapsed){
-      html+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
-      for(const task of grpTasks){
-        html+=renderTaskRow(task,proj);
-      }
-      html+=`</div></div>`;
+      g+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
+      for(const task of grpTasks) g+=renderTaskRow(task,proj);
+      g+=`</div></div>`;
     }
-    html+=`</div>`;
+    return g+`</div>`;
   }
 
+  function renderDomainSection(label,icon,projList){
+    if(!projList.length) return "";
+    const storeKey="hub-tasklist-"+label+"-collapsed";
+    const isCollapsed=localStorage.getItem(storeKey)==="true";
+    let s=`<div style="margin-bottom:2px;">
+      <div onclick="toggleTasklistDomain('${label}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);margin-bottom:4px;">
+        <span style="font-size:10px;color:var(--text4);display:inline-block;transform:rotate(${isCollapsed?"0deg":"90deg"});transition:transform 0.15s;">▶</span>
+        <span style="font-size:10px;font-family:var(--font-ui);font-weight:700;letter-spacing:1px;color:var(--text3);">${icon} ${label.toUpperCase()}</span>
+        <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${projList.length} project${projList.length!==1?"s":""}</span>
+      </div>`;
+    if(!isCollapsed) s+=projList.map(p=>renderProjGroup(p.id)).join("");
+    return s+"</div>";
+  }
+
+  html+=renderDomainSection("work","⚔",workProjs);
+  html+=renderDomainSection("personal","🏡",persProjs);
+  if(grouped.has("__none__")) html+=renderProjGroup("__none__");
   container.innerHTML=html;
+}
+
+function toggleTasklistDomain(label){
+  const key='hub-tasklist-'+label+'-collapsed';
+  const cur=localStorage.getItem(key)==='true';
+  localStorage.setItem(key,String(!cur));
+  renderAll();
 }
 
 function toggleProjectCollapse(projId){
@@ -2882,8 +2903,7 @@ function openAddTask(projectId=""){
   document.getElementById("task-delete-wrap").style.display="none";
   document.getElementById("task-save-btn").textContent="Save";
   const sel=document.getElementById("task-project-input");
-  sel.innerHTML=`<option value="">SELECT Project…</option>`+
-    projects.map(p=>`<option value="${p.id}" ${p.id===projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  sel.innerHTML=buildProjectOptions(projectId);
   _modalSubtasks = [];
   renderModalSubtaskList();
   openModal("modal-task");
@@ -2905,8 +2925,7 @@ function openEditTask(id){
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
   const sel=document.getElementById("task-project-input");
-  sel.innerHTML=`<option value="">SELECT Project…</option>`+
-    projects.map(p=>`<option value="${p.id}" ${p.id===t.projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  sel.innerHTML=buildProjectOptions(t.projectId);
   _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
   renderModalSubtaskList();
   openModal("modal-task");
@@ -2976,7 +2995,6 @@ function saveTask(){
   const title=document.getElementById("task-title-input").value.trim();
   const projectId=document.getElementById("task-project-input").value;
   if(!title){showToast("Task name REQUIRED");return;}
-  if(!projectId){showToast("ASSIGN TO A Project");return;}
   if(editingTaskId){
     const t=tasks.find(t=>t.id===editingTaskId);if(!t) return;
     t.title=title;t.projectId=projectId;
@@ -3823,15 +3841,15 @@ function renderFddPanel(name){
   let items=[];
   if(name==="realm"){
     items=[
-      {val:"work",  label:"⚔ Kingdom",   color:"#1A4A8A", set:filterRealm},
-      {val:"personal",label:"🏡 Homestead",color:"#1A5C28", set:filterRealm},
+      {val:"work",   label:"⚔ Work",      color:"#5B8FD4", set:filterRealm},
+      {val:"personal",label:"🏡 Personal", color:"#5BC47A", set:filterRealm},
     ];
   } else if(name==="status"){
     items=[
-      {val:"todo",      label:"○ Open",     color:"#6A5030", set:filterStatus},
-      {val:"inprogress",label:"⚔ Active",   color:"#7A4A10", set:filterStatus},
-      {val:"blocked",   label:"💀 Blocked", color:"#7A1818", set:filterStatus},
-      {val:"done",      label:"✓ Complete", color:"#1A5C28", set:filterStatus},
+      {val:"todo",      label:"○ Open",     color:"var(--text2)", set:filterStatus},
+      {val:"inprogress",label:"⚔ Active",   color:"#E8A838",      set:filterStatus},
+      {val:"blocked",   label:"⊘ Blocked",  color:"#E57373",      set:filterStatus},
+      {val:"done",      label:"✓ Complete", color:"#66BB6A",       set:filterStatus},
     ];
   } else if(name==="party"){
     const visProj=projects.filter(p=>!realmActive()||filterRealm.has(p.domain));
@@ -3839,17 +3857,17 @@ function renderFddPanel(name){
     if(!items.length){panel.innerHTML=`<div class="fdd-item" style="color:var(--text3);font-style:italic;">No projects</div>`;return;}
   } else if(name==="priority"){
     items=[
-      {val:"high",  label:"🔴 Urgent",color:"#8B2020",set:filterPriority},
-      {val:"medium",label:"🟠 High",  color:"var(--accent)",set:filterPriority},
-      {val:"low",   label:"🟡 Normal",color:"#5C5C40",set:filterPriority},
+      {val:"high",  label:"🔴 Urgent",color:"#EF5350",set:filterPriority},
+      {val:"medium",label:"🟠 High",  color:"#E8A838",set:filterPriority},
+      {val:"low",   label:"🟡 Normal",color:"#BDBDBD",set:filterPriority},
     ];
   } else if(name==="due"){
     items=[
-      {val:"overdue",label:"⚠ Overdue",   color:"#8B1010",set:filterDue},
-      {val:"today",  label:"☀ Due Today",  color:"#7A1818",set:filterDue},
-      {val:"week",   label:"⏱ This Week",  color:"#7A4A00",set:filterDue},
-      {val:"month",  label:"📆 This Month",color:"#4A6A20",set:filterDue},
-      {val:"none",   label:"○ No Due Date",color:"#6A5030",set:filterDue},
+      {val:"overdue",label:"⚠ Overdue",   color:"#EF5350",      set:filterDue},
+      {val:"today",  label:"☀ Due Today",  color:"#E8A838",      set:filterDue},
+      {val:"week",   label:"⏱ This Week",  color:"#64B5F6",      set:filterDue},
+      {val:"month",  label:"📆 This Month",color:"#81C784",       set:filterDue},
+      {val:"none",   label:"○ No Due Date",color:"var(--text3)", set:filterDue},
     ];
   }
 
@@ -3926,8 +3944,7 @@ function setView(v){
 function openQuickCapture(){
   const sel=document.getElementById("qc-project");
   if(sel){
-    sel.innerHTML=`<option value="">Party (optional)…</option>`+
-      projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
+    sel.innerHTML=buildProjectOptions();
   }
   document.getElementById("qc-title").value="";
   document.getElementById("qc-priority").value="medium";
@@ -3966,6 +3983,23 @@ function showToast(msg){
   t.textContent=msg;t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>t.classList.remove("show"),2400);
+}
+
+function buildProjectOptions(selectedId=''){
+  const sorted=p=>([...projects].filter(x=>x.domain===p).sort((a,b)=>a.name.localeCompare(b.name)));
+  const work=sorted('work'), personal=sorted('personal');
+  let html=`<option value="">— No Project —</option>`;
+  if(work.length){
+    html+=`<optgroup label="⚔ Work">`;
+    html+=work.map(p=>`<option value="${p.id}"${p.id===selectedId?' selected':''}>${esc(p.name)}</option>`).join('');
+    html+=`</optgroup>`;
+  }
+  if(personal.length){
+    html+=`<optgroup label="🏡 Personal">`;
+    html+=personal.map(p=>`<option value="${p.id}"${p.id===selectedId?' selected':''}>${esc(p.name)}</option>`).join('');
+    html+=`</optgroup>`;
+  }
+  return html;
 }
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
