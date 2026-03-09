@@ -649,18 +649,20 @@ html,body{
 .slot-empty{flex:1;font-size:13px;color:var(--text4);font-family:var(--font-ui);letter-spacing:0.3px;}
 .slot-done-btn{
   flex-shrink:0;width:28px;height:28px;border-radius:50%;
-  border:2px solid var(--border2);background:transparent;
-  color:transparent;font-size:14px;cursor:pointer;
+  border:2px solid var(--text3);background:transparent;
+  color:var(--text4);font-size:14px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   transition:all 0.12s;outline:none;
 }
+.slot-done-btn:hover{border-color:var(--green);background:rgba(61,184,122,0.12);color:var(--green);}
 .slot-done-btn.done{background:var(--green);border-color:var(--green);color:#fff;}
 .slot-assign-btn{
-  flex-shrink:0;padding:5px 10px;border-radius:5px;
-  border:1px dashed var(--border2);background:transparent;
-  color:var(--text3);font-size:11px;font-family:var(--font-ui);font-weight:600;
-  cursor:pointer;white-space:nowrap;
+  flex-shrink:0;padding:5px 12px;border-radius:5px;
+  border:1px dashed var(--accent);background:transparent;
+  color:var(--accent);font-size:11px;font-family:var(--font-ui);font-weight:700;
+  cursor:pointer;white-space:nowrap;letter-spacing:0.3px;
 }
+.slot-assign-btn:hover{background:var(--accent-soft);}
 .slot-assign-btn:active{background:var(--surface2);}
 .slot-unassign-btn{
   flex-shrink:0;padding:4px 7px;border-radius:4px;
@@ -2959,9 +2961,9 @@ function renderTodayView(container){
   html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
     <div>
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">${greeting}</div>
-      ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Assign your 3s below</div>'}
+      ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Tap <strong style="color:var(--accent);">+ ADD</strong> on any slot to assign a task</div>'}
     </div>
-    <button onclick="openModal('modal-reset')" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
+    <button onclick="openReset()" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
   </div>`;
 
   // Brain dump bar
@@ -3040,15 +3042,15 @@ function renderDomain(title, slots){
     html+=`<div class="three-slot">
       <span class="slot-label">${label}</span>`;
     if(text){
-      html+=`<div class="slot-task" style="${done?'opacity:0.5;text-decoration:line-through;':''}">
+      html+=`<div class="slot-task" style="${done?'opacity:0.5;text-decoration:line-through;':''}" onclick="openSlotAssign('${slotId}','${label}')" title="Tap to reassign">
         <div class="slot-task-title">${esc(text)}</div>
         ${proj?`<div class="slot-task-proj">◈ ${esc(proj.name)}</div>`:''}
       </div>
-      <button class="slot-done-btn ${done?'done':''}" onclick="toggleSlotDone('${slotId}')">${done?'✓':''}</button>
+      <button class="slot-done-btn ${done?'done':''}" onclick="toggleSlotDone('${slotId}')" title="${done?'Mark incomplete':'Mark complete'}">✓</button>
       <button class="slot-unassign-btn" onclick="unassignSlot('${slotId}')" title="Remove from slot">✕</button>`;
     } else {
-      html+=`<div class="slot-empty">— empty —</div>
-      <button class="slot-assign-btn" onclick="openSlotAssign('${slotId}','${label}')">+ ASSIGN</button>`;
+      html+=`<div class="slot-empty" onclick="openSlotAssign('${slotId}','${label}')" style="cursor:pointer;" title="Tap to assign a task">tap to assign a task</div>
+      <button class="slot-assign-btn" onclick="openSlotAssign('${slotId}','${label}')">+ ADD</button>`;
     }
     html+=`</div>`;
   }
