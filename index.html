@@ -695,6 +695,19 @@ html,body{
   cursor:pointer;white-space:nowrap;
 }
 .brain-dump-btn:active{background:var(--surface3);}
+.mic-btn{
+  flex-shrink:0;width:32px;height:32px;border-radius:50%;
+  border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text3);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;outline:none;
+}
+.mic-btn:hover{border-color:var(--accent);color:var(--accent);}
+.mic-btn.listening{
+  border-color:#E05252;background:rgba(224,82,82,0.12);color:#E05252;
+  animation:mic-pulse 1s ease-in-out infinite;
+}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,82,82,0.4);}50%{box-shadow:0 0 0 6px rgba(224,82,82,0);}}
 
 /* Sunday Reset */
 .reset-step{display:none;}
@@ -744,6 +757,43 @@ html,body{
 .chip-btn.active-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-soft);}
 .chip-btn.active-red{border-color:var(--red);color:var(--red);background:var(--red-soft);}
 .chip-desc{font-size:11px;color:var(--text4);font-family:var(--font-ui);margin-top:3px;}
+
+/* Subtasks */
+.subtask-section{margin-top:4px;}
+.subtask-progress{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.subtask-bar-track{flex:1;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;}
+.subtask-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.2s;}
+.subtask-count{font-size:10px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;}
+.subtask-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.subtask-row{display:flex;align-items:center;gap:8px;padding:5px 0;}
+.subtask-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--text3);
+  background:transparent;flex-shrink:0;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:11px;color:transparent;transition:all 0.12s;outline:none;}
+.subtask-check:hover{border-color:var(--green);color:rgba(61,184,122,0.5);}
+.subtask-check.done{background:var(--green);border-color:var(--green);color:#fff;}
+.subtask-text{flex:1;font-size:13px;font-family:var(--font-body);color:var(--text2);
+  outline:none;background:transparent;border:none;padding:0;cursor:text;
+  transition:color 0.12s;}
+.subtask-text.done{text-decoration:line-through;color:var(--text4);}
+.subtask-del{flex-shrink:0;width:20px;height:20px;border:none;background:transparent;
+  color:var(--text4);font-size:14px;cursor:pointer;opacity:0;transition:opacity 0.12s;
+  display:flex;align-items:center;justify-content:center;padding:0;}
+.subtask-row:hover .subtask-del{opacity:1;}
+.subtask-add-row{display:flex;align-items:center;gap:8px;}
+.subtask-add-input{flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:5px;padding:6px 10px;font-size:13px;font-family:var(--font-body);
+  color:var(--text);outline:none;}
+.subtask-add-input:focus{border-color:var(--accent);}
+.subtask-add-input::placeholder{color:var(--text4);}
+.subtask-add-btn{flex-shrink:0;padding:6px 12px;border-radius:5px;
+  border:1px solid var(--accent);background:var(--accent-soft);
+  color:var(--accent);font-size:11px;font-family:var(--font-ui);font-weight:700;cursor:pointer;}
+/* Subtask progress pill on task row */
+.subtask-pill{display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-family:var(--font-ui);color:var(--text3);
+  padding:1px 6px;border-radius:3px;background:var(--surface2);
+  border:1px solid var(--border);margin-left:4px;}
+.subtask-pill.complete{color:var(--green);border-color:var(--green);background:var(--green-soft);}
 
 /* legacy aliases */
 .ec-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);font-size:12px;font-family:var(--font-ui);font-weight:600;color:var(--text2);transition:all 0.1s;}
@@ -938,9 +988,14 @@ html,body{
           <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
           <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
           <div class="ntb-sep"></div>
+          <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
+          <div class="ntb-sep"></div>
           <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
         </div>
-        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"></div>
+        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
+          style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
+          onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
+          onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
       </div>
       <div>
         <div class="chip-label">Source</div>
@@ -953,6 +1008,15 @@ html,body{
       <div>
         <div class="chip-label">Size</div>
         <div class="chip-group" id="effort-chips"></div>
+      </div>
+      <div class="subtask-section">
+        <div class="chip-label">Subtasks</div>
+        <div id="modal-subtask-list" class="subtask-list"></div>
+        <div class="subtask-add-row">
+          <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
+          <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+        </div>
       </div>
     </div>
     <div class="modal-actions">
@@ -970,8 +1034,11 @@ html,body{
   <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
     <div class="modal-title" style="font-size:14px;">⚡ QUICK CAPTURE</div>
     <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:10px;letter-spacing:0.5px;">Just the idea — fill in details later</div>
-    <input class="field-input" id="qc-title" placeholder="What needs doing…" autocomplete="off" autocorrect="off"
-      onkeydown="if(event.key==='Enter')quickCaptureSave()"/>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input class="field-input" id="qc-title" placeholder="What needs doing…" autocomplete="off" autocorrect="off" style="flex:1;"
+        onkeydown="if(event.key==='Enter')quickCaptureSave()"/>
+      <button class="mic-btn" id="mic-btn-qc" onclick="toggleVoice('qc-title','mic-btn-qc')" title="Voice input">🎙</button>
+    </div>
     <div class="field-row" style="margin-top:8px;">
       <select class="field-select" id="qc-project" style="flex:1;">
         <option value="">Party (optional)…</option>
@@ -1546,27 +1613,63 @@ function renderTaskRow(task,proj){
   // Party chip
   const projChip=proj?`<span class="row-chip" style="color:${proj.color};border-color:${proj.color}55;background:${proj.color}14;">◈ ${esc(proj.name)}</span>`:"";
 
+  // Subtask pill
+  const subs = task.subtasks||[];
+  const subDone = subs.filter(s=>s.done).length;
+  const subTotal = subs.length;
+  const subPill = subTotal>0 ? `<span class="subtask-pill ${subDone===subTotal?'complete':''}" onclick="event.stopPropagation();toggleExpand('${task.id}')" title="Subtasks">☑ ${subDone}/${subTotal}</span>` : '';
+
   // Notes toggle
   const hasNotes=task.notes&&task.notes.replace(/<[^>]*>/g,"").trim().length>0;
   const notesToggle=`<div class="task-notes-toggle" onclick="event.stopPropagation();toggleExpand('${task.id}')">
-    ${isExpanded?'▾ HIDE NOTES':'▸ '+(hasNotes?'NOTES':'ADD NOTES')}
+    ${isExpanded?'▾ HIDE':'▸ '+(hasNotes?'NOTES':subTotal>0?'SUBTASKS':'ADD NOTES')}
   </div>`;
 
   // Notes expand area (only collapsible section)
   let notesHtml="";
   if(isExpanded){
-    notesHtml=`<div class="task-expand">
-      <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
-        <div class="ntb-sep"></div>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
-        <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
+    // Build inline subtask list
+    const subListHtml = subs.map(s=>`
+      <div class="subtask-row" id="subrow-${s.id}">
+        <button class="subtask-check ${s.done?'done':''}" onclick="toggleRowSubtask('${task.id}','${s.id}')">✓</button>
+        <span class="subtask-text ${s.done?'done':''}">${esc(s.text)}</span>
+        <button class="subtask-del" onclick="deleteRowSubtask('${task.id}','${s.id}')" title="Remove">✕</button>
+      </div>`).join('');
+    notesHtml=`<div class="task-expand open" style="padding:8px 10px 10px;">
+      ${subTotal>0?`
+        <div class="subtask-progress">
+          <div class="subtask-bar-track"><div class="subtask-bar-fill" style="width:${subTotal?Math.round(subDone/subTotal*100):0}%;"></div></div>
+          <span class="subtask-count">${subDone}/${subTotal}</span>
+        </div>`:''}
+      <div class="subtask-list" id="rowsubs-${task.id}">${subListHtml}</div>
+      <div class="subtask-add-row">
+        <input class="subtask-add-input" id="rowsub-input-${task.id}" placeholder="Add a subtask…"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addRowSubtask('${task.id}');}"/>
+        <button class="subtask-add-btn" onclick="addRowSubtask('${task.id}')">+ ADD</button>
       </div>
-      <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Task INTEL…"
-        onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
-        spellcheck="false">${task.notes||''}</div>
+      ${task.notes?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
+        </div>
+        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Task INTEL…"
+          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
+          spellcheck="false">${task.notes||''}</div>
+      </div>`:`
+        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;margin-top:10px;border-top:1px solid var(--border);">
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
+          <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
+        </div>
+        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Notes…"
+          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
+          spellcheck="false">${task.notes||''}</div>`}
     </div>`;
   }
 
@@ -1580,12 +1683,13 @@ function renderTaskRow(task,proj){
       <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${dueStr}${projChip}</div>
+        <div class="task-meta">${dueStr}${projChip}${subPill}</div>
       </div>
     </div>
     <div class="task-controls">
       ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
       <span class="tctl-spacer"></span>
+      <button class="tctl-btn" onclick="event.stopPropagation();openEditTask('${task.id}')" title="Edit task" style="color:var(--text2);">✏ EDIT</button>
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
@@ -2672,6 +2776,8 @@ function openAddTask(projectId=""){
   const sel=document.getElementById("task-project-input");
   sel.innerHTML=`<option value="">SELECT Project…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  _modalSubtasks = [];
+  renderModalSubtaskList();
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
@@ -2693,8 +2799,70 @@ function openEditTask(id){
   const sel=document.getElementById("task-project-input");
   sel.innerHTML=`<option value="">SELECT Project…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===t.projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
+  renderModalSubtaskList();
   openModal("modal-task");
 }
+let _modalSubtasks = [];
+
+function renderModalSubtaskList(){
+  const wrap = document.getElementById('modal-subtask-list');
+  if(!wrap) return;
+  if(_modalSubtasks.length === 0){
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:4px 0;">No subtasks yet</div>`;
+    return;
+  }
+  wrap.innerHTML = _modalSubtasks.map((s,i) => `
+    <div class="subtask-row">
+      <button class="subtask-check ${s.done?'done':''}" onclick="_modalSubtasks[${i}].done=!_modalSubtasks[${i}].done;renderModalSubtaskList()">✓</button>
+      <input class="subtask-text ${s.done?'done':''}" value="${esc(s.text)}"
+        onchange="_modalSubtasks[${i}].text=this.value"
+        style="background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font-body);color:${s.done?'var(--text4)':'var(--text2)'};${s.done?'text-decoration:line-through;':''};flex:1;cursor:text;"/>
+      <button class="subtask-del" onclick="_modalSubtasks.splice(${i},1);renderModalSubtaskList()" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function addModalSubtask(){
+  const input = document.getElementById('modal-subtask-input');
+  const text = input?.value.trim();
+  if(!text) return;
+  _modalSubtasks.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,5), text, done:false});
+  input.value = '';
+  input.focus();
+  renderModalSubtaskList();
+}
+
+// Inline row subtask functions
+function addRowSubtask(taskId){
+  const input = document.getElementById('rowsub-input-'+taskId);
+  const text = input?.value.trim();
+  if(!text) return;
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  if(!task.subtasks) task.subtasks = [];
+  task.subtasks.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,5), text, done:false});
+  saveAllDebounced();
+  input.value = '';
+  renderAll();
+}
+
+function toggleRowSubtask(taskId, subId){
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task || !task.subtasks) return;
+  const sub = task.subtasks.find(s=>s.id===subId);
+  if(sub) sub.done = !sub.done;
+  saveAllDebounced();
+  renderAll();
+}
+
+function deleteRowSubtask(taskId, subId){
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task || !task.subtasks) return;
+  task.subtasks = task.subtasks.filter(s=>s.id!==subId);
+  saveAllDebounced();
+  renderAll();
+}
+// ──────────────────────────────────────────────────────────────────
 
 function saveTask(){
   const title=document.getElementById("task-title-input").value.trim();
@@ -2712,6 +2880,7 @@ function saveTask(){
     t.recur=window._editingRecur||"none";
     t.effort=window._editingEffort||"";
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
+    t.subtasks=_modalSubtasks;
     showToast("Task UPDATED ✓");
   }else{
     tasks.push({id:genId(),title,projectId,
@@ -2723,6 +2892,7 @@ function saveTask(){
       recur:window._editingRecur||"none",
       effort:window._editingEffort||"",
       estimate:document.getElementById("task-estimate-input")?.value||"",
+      subtasks:_modalSubtasks,
       createdAt:Date.now()});
     showToast("Task LOGGED ✓");
   }
@@ -3052,6 +3222,96 @@ function getParkingLot(){
   return tasks.filter(t=>t.status!=='done'&&!assignedIds.has(t.id));
 }
 
+// ── Voice Input ───────────────────────────────────────────────────
+let _voiceRecognition = null;
+let _voiceActive = false;
+let _voiceBtnId = null;
+let _voiceTargetId = null;
+
+function toggleVoice(inputId, btnId){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    showToast('Voice not supported in this browser. Try Chrome or Safari.');
+    return;
+  }
+  if(_voiceActive){
+    stopVoice();
+    return;
+  }
+  _voiceTargetId = inputId;
+  _voiceBtnId = btnId;
+  _voiceActive = true;
+
+  const btn = document.getElementById(btnId);
+  if(btn) btn.classList.add('listening');
+
+  _voiceRecognition = new SpeechRecognition();
+  _voiceRecognition.lang = 'en-US';
+  _voiceRecognition.continuous = false;
+  _voiceRecognition.interimResults = true;
+
+  const el = document.getElementById(inputId);
+  const isContentEditable = el && el.contentEditable === 'true';
+
+  // For regular inputs: save placeholder and show listening hint
+  if(el && !isContentEditable){
+    el._origPlaceholder = el.placeholder;
+    el.placeholder = '🎙 Listening…';
+  }
+
+  // Track what was there before so we only append new voice text
+  const existingText = isContentEditable
+    ? (el ? el.innerText.trim() : '')
+    : (el ? el.value : '');
+
+  _voiceRecognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(r => r[0].transcript).join('');
+    if(!el) return;
+    if(isContentEditable){
+      // Show interim result as a preview, will be finalised on end
+      el.dataset.voicePreview = transcript;
+      const base = existingText ? existingText + '\n' : '';
+      el.innerText = base + transcript;
+    } else {
+      el.value = existingText ? existingText + ' ' + transcript : transcript;
+    }
+  };
+
+  _voiceRecognition.onend = () => {
+    stopVoice();
+    if(el && !isContentEditable && el._origPlaceholder){
+      el.placeholder = el._origPlaceholder;
+      delete el._origPlaceholder;
+    }
+    const hasContent = isContentEditable ? el?.innerText.trim() : el?.value.trim();
+    if(hasContent) showToast('🎙 Got it — review and save');
+  };
+
+  _voiceRecognition.onerror = (event) => {
+    stopVoice();
+    if(el && !isContentEditable && el._origPlaceholder){
+      el.placeholder = el._origPlaceholder;
+      delete el._origPlaceholder;
+    }
+    if(event.error === 'not-allowed') showToast('Microphone permission denied');
+    else if(event.error !== 'no-speech') showToast('Voice error: ' + event.error);
+  };
+
+  _voiceRecognition.start();
+}
+
+function stopVoice(){
+  _voiceActive = false;
+  if(_voiceRecognition){ try{ _voiceRecognition.stop(); }catch(e){} _voiceRecognition = null; }
+  if(_voiceBtnId){
+    const btn = document.getElementById(_voiceBtnId);
+    if(btn) btn.classList.remove('listening');
+    _voiceBtnId = null;
+  }
+}
+// ──────────────────────────────────────────────────────────────────
+
 function brainDump(text){
   if(!text||!text.trim()) return;
   const pid=(projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
@@ -3088,6 +3348,7 @@ function renderTodayView(container){
   html+=`<div class="brain-dump-bar">
     <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought… (goes straight to Parking Lot)"
       onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
   </div>`;
 
