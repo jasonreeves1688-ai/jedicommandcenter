@@ -1325,8 +1325,8 @@ async function loadAll(){
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
     showToast("Offline — Using local data");
   }
-  if(projects.length>0) localStorage.setItem("hub-projects",JSON.stringify(projects));
-  if(tasks.length>0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
+  if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
+  if(tasks.length>=0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
   // Load XP total — if none stored yet, seed from existing completed tasks
   const storedXP=localStorage.getItem("hub-totalXP");
   if(storedXP!==null){ totalXP=parseInt(storedXP)||0; }
@@ -1345,7 +1345,16 @@ async function saveAllDebounced(){
   syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks});}catch(e){}},800);
 }
 
-async function syncNow(){showToast("Syncing…");await loadAll();renderAll();showToast("Synced ✓");}
+async function syncNow(){
+  showToast("Syncing…");
+  // Push local state to cloud first, then confirm
+  try{
+    await apiCall("saveAll",{projects,tasks});
+    showToast("Synced ✓");
+  }catch(e){
+    showToast("Sync failed — offline?");
+  }
+}
 
 async function runDiagnostic(){
   showToast("RUNNING 🔮 Diagnose…");
@@ -2581,7 +2590,7 @@ function renderSettings(container){
     <div style="margin-bottom:16px;">
       <div class="section-title">Projects</div>
       ${['work','personal'].map(domain=>{
-        const domainProjs=projects.filter(p=>(p.domain||'work')===domain);
+        const domainProjs=projects.filter(p=>(p.domain||'work')===domain).sort((a,b)=>a.name.localeCompare(b.name));
         if(domainProjs.length===0) return '';
         const key='hub-settings-proj-'+domain+'-collapsed';
         const isCollapsed=localStorage.getItem(key)==='true';
@@ -3120,7 +3129,13 @@ function deleteProject(){
     if(!confirm(`"${p?.name}" has ${taskCount} task${taskCount>1?'s':''} assigned. Delete project anyway? Tasks will remain but become unassigned.`)) return;
   }
   projects=projects.filter(p=>p.id!==editingProjectId);
-  saveAllDebounced();closeModal("modal-project");renderAll();
+  // Unassign tasks that belonged to this project
+  tasks.forEach(t=>{ if(t.projectId===editingProjectId) t.projectId=''; });
+  // Save locally immediately, then push to cloud right away (not debounced)
+  localStorage.setItem("hub-projects",JSON.stringify(projects));
+  localStorage.setItem("hub-tasks",JSON.stringify(tasks));
+  apiCall("saveAll",{projects,tasks}).catch(()=>{});
+  closeModal("modal-project");renderAll();
   showToast("Project deleted");
 }
 
