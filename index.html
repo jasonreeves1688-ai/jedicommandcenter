@@ -1604,8 +1604,9 @@ function renderTaskRow(task,proj){
 
   // Due date input — always visible
   const dueDateBtn=`<input type="date" class="tctl-date" value="${task.dueDate||''}" title="Set due date"
+    style="color-scheme:dark;"
     onclick="event.stopPropagation()"
-    onchange="event.stopPropagation();updateTaskField('${task.id}','dueDate',this.value)"/>`;
+    onchange="event.stopPropagation();saveTaskDueDate('${task.id}',this.value)"/>`;
 
   // Pin button
   const pinBtn=`<button class="tctl-btn ${isPinned?'pinned':''}" onclick="event.stopPropagation();toggleTodayPin('${task.id}')" title="${isPinned?'Unpin from Today':'Pin to Today'}">${isPinned?'📌 PINNED':'📌 PIN'}</button>`;
@@ -1677,13 +1678,13 @@ function renderTaskRow(task,proj){
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  return `<div class="task-row ${isDone?'done':''}" style="${pBg?"background:"+pBg+";":""}">
+  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":""}">
     <div class="task-row-top">
       <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
       <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${dueStr}${projChip}${subPill}</div>
+        <div class="task-meta">${projChip}${subPill}</div>
       </div>
     </div>
     <div class="task-controls">
@@ -2677,6 +2678,14 @@ function cycleTaskStatus(id){
   const t=tasks.find(t=>t.id===id);if(!t) return;
   const cycle={todo:"inprogress",inprogress:"blocked",blocked:"done",done:"todo"};
   updateTaskField(id,"status",cycle[t.status]||"todo");
+}
+
+function saveTaskDueDate(id, val){
+  const t = tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.dueDate = val;
+  saveAllDebounced();
+  renderAll();
 }
 
 function updateTaskField(id,field,val){
