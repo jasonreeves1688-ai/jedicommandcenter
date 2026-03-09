@@ -256,6 +256,20 @@ html,body{
 #main::-webkit-scrollbar-track{background:transparent;}
 #main::-webkit-scrollbar-thumb{background:var(--border);}
 .task-list{padding:6px;}
+/* Project group headers */
+.proj-group{margin-bottom:6px;}
+.proj-group-header{display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:5px;cursor:pointer;user-select:none;
+  background:var(--surface2);border:1px solid var(--border);
+  transition:background 0.1s;}
+.proj-group-header:hover{background:var(--surface3);}
+.proj-group-chevron{font-size:10px;color:var(--text3);flex-shrink:0;transition:transform 0.15s;width:12px;text-align:center;}
+.proj-group-chevron.open{transform:rotate(90deg);}
+.proj-group-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.proj-group-name{flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;}
+.proj-group-count{font-size:10px;color:var(--text4);font-family:var(--font-ui);}
+.proj-group-domain{font-size:9px;color:var(--text4);font-family:var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);}
+.proj-group-tasks{padding:2px 0 2px 4px;}
 .task-section-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 10px 4px;
@@ -934,8 +948,8 @@ html,body{
       <span class="nav-icon" style="color:var(--accent);font-size:26px;line-height:1;">+</span>
       <span style="color:var(--accent);">Add</span>
     </button>
-    <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
-      <span class="nav-icon">📊</span>Insights
+    <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
+      <span class="nav-icon">📅</span>Calendar
     </button>
     <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
       <span class="nav-icon">⚙</span>Settings
@@ -1132,7 +1146,7 @@ html,body{
 
 <div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title">New Project</div>
+    <div class="modal-title" id="modal-project-title">New Project</div>
     <div class="field-group">
       <input class="field-input" id="proj-name-input" placeholder="Project NAME…" autocomplete="off" style="font-family:var(--font-ui);letter-spacing:0.5px;color:var(--accent);"/>
       <select class="field-select" id="proj-domain-input">
@@ -1145,8 +1159,11 @@ html,body{
       </div>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn confirm" onclick="saveProject()">Save</button>
+      <button class="modal-btn confirm" id="proj-save-btn" onclick="saveProject()">Save</button>
       <button class="modal-btn cancel" onclick="closeModal('modal-project')">Cancel</button>
+    </div>
+    <div id="proj-delete-wrap" style="display:none;margin-bottom:16px;">
+      <button class="modal-btn danger" style="width:100%;" onclick="deleteProject()">☠ Delete Project</button>
     </div>
   </div>
 </div>
@@ -1502,15 +1519,11 @@ function getFilteredTasks(projectId){
 
 function renderTaskList(container){
   const q=(document.getElementById("search-input")?.value||"").toLowerCase();
-
-  // Sync dropdown button badges
   updateAllFddBtns();
 
-  // Build flat filtered+sorted task list
   const visibleTasks=tasks.filter(t=>{
     const proj=projects.find(p=>p.id===t.projectId);
-    if(!proj) return false;
-    if(realmActive()&&!filterRealm.has(proj.domain)) return false;
+    if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
     if(partyActive()&&!filterParty.has(t.projectId)) return false;
     if(filterStatus.size>0&&!filterStatus.has(t.status)) return false;
     if(priorityActive()&&!filterPriority.has(t.priority)) return false;
@@ -1531,10 +1544,9 @@ function renderTaskList(container){
       });
       if(!matches) return false;
     }
-    if(q&&!t.title.toLowerCase().includes(q)&&!proj.name.toLowerCase().includes(q)) return false;
+    if(q&&!t.title.toLowerCase().includes(q)&&!(proj?.name.toLowerCase().includes(q))) return false;
     return true;
   }).sort((a,b)=>{
-    // Sort: overdue first, then by priority, then by due date
     const todayStr=today();
     const aOver=a.dueDate&&a.dueDate<todayStr&&a.status!=="done";
     const bOver=b.dueDate&&b.dueDate<todayStr&&b.status!=="done";
@@ -1556,15 +1568,63 @@ function renderTaskList(container){
 
   if(visibleTasks.length===0){
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-family:var(--font-ui);letter-spacing:0.5px;font-style:italic;">— Focus Hub CLEAR —</div>`;
-  } else {
-    html+=`<div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
-    for(const task of visibleTasks){
-      const proj=projects.find(p=>p.id===task.projectId)||null;
-      html+=renderTaskRow(task,proj);
+    container.innerHTML=html;
+    return;
+  }
+
+  // Group tasks by project, preserving project order then unassigned last
+  const grouped=new Map();
+  for(const t of visibleTasks){
+    const key=t.projectId||"__none__";
+    if(!grouped.has(key)) grouped.set(key,{proj:projects.find(p=>p.id===t.projectId)||null,tasks:[]});
+    grouped.get(key).tasks.push(t);
+  }
+
+  const orderedKeys=[...projects.map(p=>p.id).filter(id=>grouped.has(id))];
+  if(grouped.has("__none__")) orderedKeys.push("__none__");
+
+  for(const key of orderedKeys){
+    const {proj,tasks:grpTasks}=grouped.get(key);
+    const isCollapsed=proj?(proj.collapsed===true||proj.collapsed==="true")
+      :(localStorage.getItem("hub-unassigned-collapsed")==="true");
+    const projColor=proj?.color||"var(--text3)";
+    const projName=proj?esc(proj.name):"No Assigned Project";
+    const domain=proj?(proj.domain==="work"?"Work":"Personal"):"";
+    const count=grpTasks.length;
+    const doneCount=grpTasks.filter(t=>t.status==="done").length;
+    const collapseCall=proj?`toggleProjectCollapse('${proj.id}')`:"toggleProjectCollapse('__none__')";
+
+    html+=`<div class="proj-group">
+      <div class="proj-group-header" onclick="${collapseCall}">
+        <span class="proj-group-chevron ${isCollapsed?"":"open"}">▶</span>
+        <span class="proj-group-dot" style="background:${projColor};box-shadow:0 0 5px ${proj?projColor:"transparent"};"></span>
+        <span class="proj-group-name" style="color:${projColor};">${projName}</span>
+        ${domain?`<span class="proj-group-domain">${domain}</span>`:""}
+        <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
+      </div>`;
+
+    if(!isCollapsed){
+      html+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
+      for(const task of grpTasks){
+        html+=renderTaskRow(task,proj);
+      }
+      html+=`</div></div>`;
     }
     html+=`</div>`;
   }
+
   container.innerHTML=html;
+}
+
+function toggleProjectCollapse(projId){
+  if(projId==="__none__"){
+    const cur=localStorage.getItem("hub-unassigned-collapsed")==="true";
+    localStorage.setItem("hub-unassigned-collapsed",String(!cur));
+  } else {
+    const p=projects.find(p=>p.id===projId);
+    if(p){ p.collapsed=!(p.collapsed===true||p.collapsed==="true"); saveAllDebounced(); }
+  }
+  renderAll();
 }
 
 // renderPartyChips removed — now handled by renderFddPanel("party")
@@ -2468,6 +2528,9 @@ function journalLineToTask(idx, field, line){
 
 function renderSettings(container){
   container.innerHTML=`
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+      <button onclick="setNav('charts')" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">📊 VIEW INSIGHTS</button>
+    </div>
     <div style="margin-bottom:20px;">
       <div class="section-title">📓 Weekly Journal <span style="font-size:10px;color:var(--text4);font-weight:400;">(last 4 resets)</span></div>
       ${renderJournalSection()}
@@ -2479,6 +2542,7 @@ function renderSettings(container){
           <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
           <span style="flex:1;font-size:11px;font-family:var(--font-ui);letter-spacing:0.5px;color:${p.color};">${esc(p.name)}</span>
           <span style="font-size:9px;color:var(--text3);font-family:var(--font-ui);">${p.domain==="work"?"Work":"Personal"}</span>
+          <button onclick="openEditProject('${p.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✏ EDIT</button>
         </div>`).join("")}
       <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Save Project</button>
     </div>
@@ -2968,12 +3032,43 @@ function deleteCurrentTask(){if(editingTaskId) confirmDeleteTask(editingTaskId);
 // ═══════════════════════════════════════════════════════════════
 // Project ACTIONS
 // ═══════════════════════════════════════════════════════════════
+let editingProjectId = null;
+
 function openAddProject(){
+  editingProjectId = null;
   selectedProjColor=PROJECT_COLORS[0];
   document.getElementById("proj-name-input").value="";
   document.getElementById("proj-domain-input").value="work";
+  document.getElementById("modal-project-title").textContent="New Project";
+  document.getElementById("proj-save-btn").textContent="Save";
+  document.getElementById("proj-delete-wrap").style.display="none";
   renderSwatches();openModal("modal-project");
   setTimeout(()=>document.getElementById("proj-name-input").focus(),300);
+}
+
+function openEditProject(id){
+  const p=projects.find(p=>p.id===id);if(!p) return;
+  editingProjectId=id;
+  selectedProjColor=p.color||PROJECT_COLORS[0];
+  document.getElementById("proj-name-input").value=p.name;
+  document.getElementById("proj-domain-input").value=p.domain||"work";
+  document.getElementById("modal-project-title").textContent="✏ Edit Project";
+  document.getElementById("proj-save-btn").textContent="UPDATE";
+  document.getElementById("proj-delete-wrap").style.display="block";
+  renderSwatches();openModal("modal-project");
+  setTimeout(()=>document.getElementById("proj-name-input").focus(),300);
+}
+
+function deleteProject(){
+  if(!editingProjectId) return;
+  const p=projects.find(p=>p.id===editingProjectId);
+  const taskCount=tasks.filter(t=>t.projectId===editingProjectId).length;
+  if(taskCount>0){
+    if(!confirm(`"${p?.name}" has ${taskCount} task${taskCount>1?'s':''} assigned. Delete project anyway? Tasks will remain but become unassigned.`)) return;
+  }
+  projects=projects.filter(p=>p.id!==editingProjectId);
+  saveAllDebounced();closeModal("modal-project");renderAll();
+  showToast("Project deleted");
 }
 
 function renderSwatches(){
@@ -2989,8 +3084,16 @@ function selectColor(c){selectedProjColor=c;renderSwatches();}
 function saveProject(){
   const name=document.getElementById("proj-name-input").value.trim();
   if(!name){showToast("Project NAME REQUIRED");return;}
-  projects.push({id:genId(),name,domain:document.getElementById("proj-domain-input").value,color:selectedProjColor,collapsed:false});
-  saveAllDebounced();closeModal("modal-project");renderAll();showToast("Project SaveED ✓");
+  const domain=document.getElementById("proj-domain-input").value;
+  if(editingProjectId){
+    const p=projects.find(p=>p.id===editingProjectId);if(!p) return;
+    p.name=name;p.domain=domain;p.color=selectedProjColor;
+    showToast("Project UPDATED ✓");
+  }else{
+    projects.push({id:genId(),name,domain,color:selectedProjColor,collapsed:false});
+    showToast("Project SAVED ✓");
+  }
+  saveAllDebounced();closeModal("modal-project");renderAll();
 }
 
 // ═══════════════════════════════════════════════════════════════
