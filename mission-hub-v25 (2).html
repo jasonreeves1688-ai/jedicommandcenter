@@ -256,6 +256,20 @@ html,body{
 #main::-webkit-scrollbar-track{background:transparent;}
 #main::-webkit-scrollbar-thumb{background:var(--border);}
 .task-list{padding:6px;}
+/* Project group headers */
+.proj-group{margin-bottom:6px;}
+.proj-group-header{display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:5px;cursor:pointer;user-select:none;
+  background:var(--surface2);border:1px solid var(--border);
+  transition:background 0.1s;}
+.proj-group-header:hover{background:var(--surface3);}
+.proj-group-chevron{font-size:10px;color:var(--text3);flex-shrink:0;transition:transform 0.15s;width:12px;text-align:center;}
+.proj-group-chevron.open{transform:rotate(90deg);}
+.proj-group-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.proj-group-name{flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;}
+.proj-group-count{font-size:10px;color:var(--text4);font-family:var(--font-ui);}
+.proj-group-domain{font-size:9px;color:var(--text4);font-family:var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);}
+.proj-group-tasks{padding:2px 0 2px 4px;}
 .task-section-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 10px 4px;
@@ -649,18 +663,20 @@ html,body{
 .slot-empty{flex:1;font-size:13px;color:var(--text4);font-family:var(--font-ui);letter-spacing:0.3px;}
 .slot-done-btn{
   flex-shrink:0;width:28px;height:28px;border-radius:50%;
-  border:2px solid var(--border2);background:transparent;
-  color:transparent;font-size:14px;cursor:pointer;
+  border:2px solid var(--text3);background:transparent;
+  color:var(--text4);font-size:14px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   transition:all 0.12s;outline:none;
 }
+.slot-done-btn:hover{border-color:var(--green);background:rgba(61,184,122,0.12);color:var(--green);}
 .slot-done-btn.done{background:var(--green);border-color:var(--green);color:#fff;}
 .slot-assign-btn{
-  flex-shrink:0;padding:5px 10px;border-radius:5px;
-  border:1px dashed var(--border2);background:transparent;
-  color:var(--text3);font-size:11px;font-family:var(--font-ui);font-weight:600;
-  cursor:pointer;white-space:nowrap;
+  flex-shrink:0;padding:5px 12px;border-radius:5px;
+  border:1px dashed var(--accent);background:transparent;
+  color:var(--accent);font-size:11px;font-family:var(--font-ui);font-weight:700;
+  cursor:pointer;white-space:nowrap;letter-spacing:0.3px;
 }
+.slot-assign-btn:hover{background:var(--accent-soft);}
 .slot-assign-btn:active{background:var(--surface2);}
 .slot-unassign-btn{
   flex-shrink:0;padding:4px 7px;border-radius:4px;
@@ -693,6 +709,19 @@ html,body{
   cursor:pointer;white-space:nowrap;
 }
 .brain-dump-btn:active{background:var(--surface3);}
+.mic-btn{
+  flex-shrink:0;width:32px;height:32px;border-radius:50%;
+  border:1px solid var(--border2);background:var(--surface2);
+  color:var(--text3);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;outline:none;
+}
+.mic-btn:hover{border-color:var(--accent);color:var(--accent);}
+.mic-btn.listening{
+  border-color:#E05252;background:rgba(224,82,82,0.12);color:#E05252;
+  animation:mic-pulse 1s ease-in-out infinite;
+}
+@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,82,82,0.4);}50%{box-shadow:0 0 0 6px rgba(224,82,82,0);}}
 
 /* Sunday Reset */
 .reset-step{display:none;}
@@ -711,6 +740,13 @@ html,body{
 .reset-dot{width:8px;height:8px;border-radius:50%;background:var(--surface3);transition:background 0.2s;}
 .reset-dot.done{background:var(--green);}
 .reset-dot.active{background:var(--accent);}
+.reset-slot-picker{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;margin-bottom:6px;border-radius:6px;
+  border:1px solid var(--border2);background:var(--surface2);
+  cursor:pointer;transition:border-color 0.15s;min-height:38px;
+}
+.reset-slot-picker:hover{border-color:var(--accent);background:var(--surface3);}
 
 /* chip buttons — source, recur, effort */
 .chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
@@ -735,6 +771,43 @@ html,body{
 .chip-btn.active-orange{border-color:var(--orange);color:var(--orange);background:var(--orange-soft);}
 .chip-btn.active-red{border-color:var(--red);color:var(--red);background:var(--red-soft);}
 .chip-desc{font-size:11px;color:var(--text4);font-family:var(--font-ui);margin-top:3px;}
+
+/* Subtasks */
+.subtask-section{margin-top:4px;}
+.subtask-progress{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.subtask-bar-track{flex:1;height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;}
+.subtask-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.2s;}
+.subtask-count{font-size:10px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;}
+.subtask-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.subtask-row{display:flex;align-items:center;gap:8px;padding:5px 0;}
+.subtask-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--text3);
+  background:transparent;flex-shrink:0;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:11px;color:transparent;transition:all 0.12s;outline:none;}
+.subtask-check:hover{border-color:var(--green);color:rgba(61,184,122,0.5);}
+.subtask-check.done{background:var(--green);border-color:var(--green);color:#fff;}
+.subtask-text{flex:1;font-size:13px;font-family:var(--font-body);color:var(--text2);
+  outline:none;background:transparent;border:none;padding:0;cursor:text;
+  transition:color 0.12s;}
+.subtask-text.done{text-decoration:line-through;color:var(--text4);}
+.subtask-del{flex-shrink:0;width:20px;height:20px;border:none;background:transparent;
+  color:var(--text4);font-size:14px;cursor:pointer;opacity:0;transition:opacity 0.12s;
+  display:flex;align-items:center;justify-content:center;padding:0;}
+.subtask-row:hover .subtask-del{opacity:1;}
+.subtask-add-row{display:flex;align-items:center;gap:8px;}
+.subtask-add-input{flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:5px;padding:6px 10px;font-size:13px;font-family:var(--font-body);
+  color:var(--text);outline:none;}
+.subtask-add-input:focus{border-color:var(--accent);}
+.subtask-add-input::placeholder{color:var(--text4);}
+.subtask-add-btn{flex-shrink:0;padding:6px 12px;border-radius:5px;
+  border:1px solid var(--accent);background:var(--accent-soft);
+  color:var(--accent);font-size:11px;font-family:var(--font-ui);font-weight:700;cursor:pointer;}
+/* Subtask progress pill on task row */
+.subtask-pill{display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-family:var(--font-ui);color:var(--text3);
+  padding:1px 6px;border-radius:3px;background:var(--surface2);
+  border:1px solid var(--border);margin-left:4px;}
+.subtask-pill.complete{color:var(--green);border-color:var(--green);background:var(--green-soft);}
 
 /* legacy aliases */
 .ec-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);font-size:12px;font-family:var(--font-ui);font-weight:600;color:var(--text2);transition:all 0.1s;}
@@ -875,8 +948,8 @@ html,body{
       <span class="nav-icon" style="color:var(--accent);font-size:26px;line-height:1;">+</span>
       <span style="color:var(--accent);">Add</span>
     </button>
-    <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
-      <span class="nav-icon">📊</span>Insights
+    <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
+      <span class="nav-icon">📅</span>Calendar
     </button>
     <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
       <span class="nav-icon">⚙</span>Settings
@@ -929,9 +1002,14 @@ html,body{
           <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
           <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
           <div class="ntb-sep"></div>
+          <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
+          <div class="ntb-sep"></div>
           <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
         </div>
-        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"></div>
+        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
+          style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
+          onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
+          onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
       </div>
       <div>
         <div class="chip-label">Source</div>
@@ -944,6 +1022,15 @@ html,body{
       <div>
         <div class="chip-label">Size</div>
         <div class="chip-group" id="effort-chips"></div>
+      </div>
+      <div class="subtask-section">
+        <div class="chip-label">Subtasks</div>
+        <div id="modal-subtask-list" class="subtask-list"></div>
+        <div class="subtask-add-row">
+          <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
+          <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+        </div>
       </div>
     </div>
     <div class="modal-actions">
@@ -961,8 +1048,11 @@ html,body{
   <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
     <div class="modal-title" style="font-size:14px;">⚡ QUICK CAPTURE</div>
     <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:10px;letter-spacing:0.5px;">Just the idea — fill in details later</div>
-    <input class="field-input" id="qc-title" placeholder="What needs doing…" autocomplete="off" autocorrect="off"
-      onkeydown="if(event.key==='Enter')quickCaptureSave()"/>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input class="field-input" id="qc-title" placeholder="What needs doing…" autocomplete="off" autocorrect="off" style="flex:1;"
+        onkeydown="if(event.key==='Enter')quickCaptureSave()"/>
+      <button class="mic-btn" id="mic-btn-qc" onclick="toggleVoice('qc-title','mic-btn-qc')" title="Voice input">🎙</button>
+    </div>
     <div class="field-row" style="margin-top:8px;">
       <select class="field-select" id="qc-project" style="flex:1;">
         <option value="">Party (optional)…</option>
@@ -981,8 +1071,6 @@ html,body{
 </div>
 
 <!-- ADD Project MODAL -->
-<div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
-
 <!-- SUNDAY RESET MODAL -->
 <div id="modal-reset" class="modal-overlay" style="display:none;" onclick="closeModal('modal-reset')">
   <div class="modal-sheet" onclick="event.stopPropagation()" style="max-width:400px;">
@@ -1009,17 +1097,17 @@ html,body{
     <div id="reset-step-4" class="reset-step">
       <div class="reset-step-num">STEP 4 OF 5 · 5 MIN</div>
       <div class="reset-step-title">⚔ Pick Your 3s</div>
-      <div class="reset-step-desc">Using what you just wrote, assign this week's slots. Everything else goes to the Parking Lot.</div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">This week's 3 Work things:</div>
-      <input class="field-input" id="reset-w1" placeholder="⚔ Strategic thing…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-w2" placeholder="🤝 Team thing…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-w3" placeholder="📣 Commitment thing…" style="margin-bottom:10px;font-size:13px;"/>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">Home (1 thing):</div>
-      <input class="field-input" id="reset-h1" placeholder="🏡 One home thing this week…" style="margin-bottom:10px;font-size:13px;"/>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">Family (3 things):</div>
-      <input class="field-input" id="reset-f1" placeholder="👨‍👧 Presence moment…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-f2" placeholder="💑 Partner connection…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-f3" placeholder="📋 Logistics item…" style="margin-bottom:6px;font-size:13px;"/>
+      <div class="reset-step-desc">Tap each slot to search and assign a task. These will appear on your Today tab.</div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">💼 WORK — 3 things</div>
+      <div id="reset-slot-w1" class="reset-slot-picker" data-slot="w1" data-label="Strategic" onclick="openResetSlotPicker('w1','Strategic')"></div>
+      <div id="reset-slot-w2" class="reset-slot-picker" data-slot="w2" data-label="Team" onclick="openResetSlotPicker('w2','Team')"></div>
+      <div id="reset-slot-w3" class="reset-slot-picker" data-slot="w3" data-label="Commitment" onclick="openResetSlotPicker('w3','Commitment')"></div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin:10px 0 6px;">🏡 HOME — 1 thing</div>
+      <div id="reset-slot-h1" class="reset-slot-picker" data-slot="h1" data-label="Home" onclick="openResetSlotPicker('h1','Home')"></div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin:10px 0 6px;">👨‍👧 FAMILY — 3 things</div>
+      <div id="reset-slot-f1" class="reset-slot-picker" data-slot="f1" data-label="Presence" onclick="openResetSlotPicker('f1','Presence')"></div>
+      <div id="reset-slot-f2" class="reset-slot-picker" data-slot="f2" data-label="Partner" onclick="openResetSlotPicker('f2','Partner')"></div>
+      <div id="reset-slot-f3" class="reset-slot-picker" data-slot="f3" data-label="Logistics" onclick="openResetSlotPicker('f3','Logistics')"></div>
     </div>
     <div id="reset-step-5" class="reset-step">
       <div class="reset-step-num">STEP 5 OF 5 · 2 MIN</div>
@@ -1058,7 +1146,7 @@ html,body{
 
 <div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title">New Project</div>
+    <div class="modal-title" id="modal-project-title">New Project</div>
     <div class="field-group">
       <input class="field-input" id="proj-name-input" placeholder="Project NAME…" autocomplete="off" style="font-family:var(--font-ui);letter-spacing:0.5px;color:var(--accent);"/>
       <select class="field-select" id="proj-domain-input">
@@ -1071,8 +1159,11 @@ html,body{
       </div>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn confirm" onclick="saveProject()">Save</button>
+      <button class="modal-btn confirm" id="proj-save-btn" onclick="saveProject()">Save</button>
       <button class="modal-btn cancel" onclick="closeModal('modal-project')">Cancel</button>
+    </div>
+    <div id="proj-delete-wrap" style="display:none;margin-bottom:16px;">
+      <button class="modal-btn danger" style="width:100%;" onclick="deleteProject()">☠ Delete Project</button>
     </div>
   </div>
 </div>
@@ -1428,15 +1519,11 @@ function getFilteredTasks(projectId){
 
 function renderTaskList(container){
   const q=(document.getElementById("search-input")?.value||"").toLowerCase();
-
-  // Sync dropdown button badges
   updateAllFddBtns();
 
-  // Build flat filtered+sorted task list
   const visibleTasks=tasks.filter(t=>{
     const proj=projects.find(p=>p.id===t.projectId);
-    if(!proj) return false;
-    if(realmActive()&&!filterRealm.has(proj.domain)) return false;
+    if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
     if(partyActive()&&!filterParty.has(t.projectId)) return false;
     if(filterStatus.size>0&&!filterStatus.has(t.status)) return false;
     if(priorityActive()&&!filterPriority.has(t.priority)) return false;
@@ -1457,10 +1544,9 @@ function renderTaskList(container){
       });
       if(!matches) return false;
     }
-    if(q&&!t.title.toLowerCase().includes(q)&&!proj.name.toLowerCase().includes(q)) return false;
+    if(q&&!t.title.toLowerCase().includes(q)&&!(proj?.name.toLowerCase().includes(q))) return false;
     return true;
   }).sort((a,b)=>{
-    // Sort: overdue first, then by priority, then by due date
     const todayStr=today();
     const aOver=a.dueDate&&a.dueDate<todayStr&&a.status!=="done";
     const bOver=b.dueDate&&b.dueDate<todayStr&&b.status!=="done";
@@ -1482,15 +1568,63 @@ function renderTaskList(container){
 
   if(visibleTasks.length===0){
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-family:var(--font-ui);letter-spacing:0.5px;font-style:italic;">— Focus Hub CLEAR —</div>`;
-  } else {
-    html+=`<div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
-    for(const task of visibleTasks){
-      const proj=projects.find(p=>p.id===task.projectId)||null;
-      html+=renderTaskRow(task,proj);
+    container.innerHTML=html;
+    return;
+  }
+
+  // Group tasks by project, preserving project order then unassigned last
+  const grouped=new Map();
+  for(const t of visibleTasks){
+    const key=t.projectId||"__none__";
+    if(!grouped.has(key)) grouped.set(key,{proj:projects.find(p=>p.id===t.projectId)||null,tasks:[]});
+    grouped.get(key).tasks.push(t);
+  }
+
+  const orderedKeys=[...projects.map(p=>p.id).filter(id=>grouped.has(id))];
+  if(grouped.has("__none__")) orderedKeys.push("__none__");
+
+  for(const key of orderedKeys){
+    const {proj,tasks:grpTasks}=grouped.get(key);
+    const isCollapsed=proj?(proj.collapsed===true||proj.collapsed==="true")
+      :(localStorage.getItem("hub-unassigned-collapsed")==="true");
+    const projColor=proj?.color||"var(--text3)";
+    const projName=proj?esc(proj.name):"No Assigned Project";
+    const domain=proj?(proj.domain==="work"?"Work":"Personal"):"";
+    const count=grpTasks.length;
+    const doneCount=grpTasks.filter(t=>t.status==="done").length;
+    const collapseCall=proj?`toggleProjectCollapse('${proj.id}')`:"toggleProjectCollapse('__none__')";
+
+    html+=`<div class="proj-group">
+      <div class="proj-group-header" onclick="${collapseCall}">
+        <span class="proj-group-chevron ${isCollapsed?"":"open"}">▶</span>
+        <span class="proj-group-dot" style="background:${projColor};box-shadow:0 0 5px ${proj?projColor:"transparent"};"></span>
+        <span class="proj-group-name" style="color:${projColor};">${projName}</span>
+        ${domain?`<span class="proj-group-domain">${domain}</span>`:""}
+        <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
+      </div>`;
+
+    if(!isCollapsed){
+      html+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
+      for(const task of grpTasks){
+        html+=renderTaskRow(task,proj);
+      }
+      html+=`</div></div>`;
     }
     html+=`</div>`;
   }
+
   container.innerHTML=html;
+}
+
+function toggleProjectCollapse(projId){
+  if(projId==="__none__"){
+    const cur=localStorage.getItem("hub-unassigned-collapsed")==="true";
+    localStorage.setItem("hub-unassigned-collapsed",String(!cur));
+  } else {
+    const p=projects.find(p=>p.id===projId);
+    if(p){ p.collapsed=!(p.collapsed===true||p.collapsed==="true"); saveAllDebounced(); }
+  }
+  renderAll();
 }
 
 // renderPartyChips removed — now handled by renderFddPanel("party")
@@ -1530,8 +1664,9 @@ function renderTaskRow(task,proj){
 
   // Due date input — always visible
   const dueDateBtn=`<input type="date" class="tctl-date" value="${task.dueDate||''}" title="Set due date"
+    style="color-scheme:dark;"
     onclick="event.stopPropagation()"
-    onchange="event.stopPropagation();updateTaskField('${task.id}','dueDate',this.value)"/>`;
+    onchange="event.stopPropagation();saveTaskDueDate('${task.id}',this.value)"/>`;
 
   // Pin button
   const pinBtn=`<button class="tctl-btn ${isPinned?'pinned':''}" onclick="event.stopPropagation();toggleTodayPin('${task.id}')" title="${isPinned?'Unpin from Today':'Pin to Today'}">${isPinned?'📌 PINNED':'📌 PIN'}</button>`;
@@ -1539,27 +1674,63 @@ function renderTaskRow(task,proj){
   // Party chip
   const projChip=proj?`<span class="row-chip" style="color:${proj.color};border-color:${proj.color}55;background:${proj.color}14;">◈ ${esc(proj.name)}</span>`:"";
 
+  // Subtask pill
+  const subs = task.subtasks||[];
+  const subDone = subs.filter(s=>s.done).length;
+  const subTotal = subs.length;
+  const subPill = subTotal>0 ? `<span class="subtask-pill ${subDone===subTotal?'complete':''}" onclick="event.stopPropagation();toggleExpand('${task.id}')" title="Subtasks">☑ ${subDone}/${subTotal}</span>` : '';
+
   // Notes toggle
   const hasNotes=task.notes&&task.notes.replace(/<[^>]*>/g,"").trim().length>0;
   const notesToggle=`<div class="task-notes-toggle" onclick="event.stopPropagation();toggleExpand('${task.id}')">
-    ${isExpanded?'▾ HIDE NOTES':'▸ '+(hasNotes?'NOTES':'ADD NOTES')}
+    ${isExpanded?'▾ HIDE':'▸ '+(hasNotes?'NOTES':subTotal>0?'SUBTASKS':'ADD NOTES')}
   </div>`;
 
   // Notes expand area (only collapsible section)
   let notesHtml="";
   if(isExpanded){
-    notesHtml=`<div class="task-expand">
-      <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
-        <div class="ntb-sep"></div>
-        <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
-        <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
+    // Build inline subtask list
+    const subListHtml = subs.map(s=>`
+      <div class="subtask-row" id="subrow-${s.id}">
+        <button class="subtask-check ${s.done?'done':''}" onclick="toggleRowSubtask('${task.id}','${s.id}')">✓</button>
+        <span class="subtask-text ${s.done?'done':''}">${esc(s.text)}</span>
+        <button class="subtask-del" onclick="deleteRowSubtask('${task.id}','${s.id}')" title="Remove">✕</button>
+      </div>`).join('');
+    notesHtml=`<div class="task-expand open" style="padding:8px 10px 10px;">
+      ${subTotal>0?`
+        <div class="subtask-progress">
+          <div class="subtask-bar-track"><div class="subtask-bar-fill" style="width:${subTotal?Math.round(subDone/subTotal*100):0}%;"></div></div>
+          <span class="subtask-count">${subDone}/${subTotal}</span>
+        </div>`:''}
+      <div class="subtask-list" id="rowsubs-${task.id}">${subListHtml}</div>
+      <div class="subtask-add-row">
+        <input class="subtask-add-input" id="rowsub-input-${task.id}" placeholder="Add a subtask…"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addRowSubtask('${task.id}');}"/>
+        <button class="subtask-add-btn" onclick="addRowSubtask('${task.id}')">+ ADD</button>
       </div>
-      <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Task INTEL…"
-        onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
-        spellcheck="false">${task.notes||''}</div>
+      ${task.notes?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
+        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
+        </div>
+        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Task INTEL…"
+          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
+          spellcheck="false">${task.notes||''}</div>
+      </div>`:`
+        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;margin-top:10px;border-top:1px solid var(--border);">
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
+          <div class="ntb-sep"></div>
+          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
+          <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
+        </div>
+        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Notes…"
+          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
+          spellcheck="false">${task.notes||''}</div>`}
     </div>`;
   }
 
@@ -1567,18 +1738,19 @@ function renderTaskRow(task,proj){
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  return `<div class="task-row ${isDone?'done':''}" style="${pBg?"background:"+pBg+";":""}">
+  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":""}">
     <div class="task-row-top">
       <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
       <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${dueStr}${projChip}</div>
+        <div class="task-meta">${projChip}${subPill}</div>
       </div>
     </div>
     <div class="task-controls">
       ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
       <span class="tctl-spacer"></span>
+      <button class="tctl-btn" onclick="event.stopPropagation();openEditTask('${task.id}')" title="Edit task" style="color:var(--text2);">✏ EDIT</button>
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
@@ -1675,10 +1847,13 @@ function renderFocusPanel(container){
   const workOverdueCount=workTasks.filter(t=>isOverdue(t)).length;
   const persOverdueCount=persTasks.filter(t=>isOverdue(t)).length;
 
-  // ── NEXT Task: pick best available task (overdue first, then priority, then due soonest)
+  // ── NEXT Task: pinned first, then overdue, then priority, then due soonest
   const allActive=tasks.filter(t=>t.status!=="done"&&t.status!=="blocked");
   const todayStrFocus=todayStr;
   allActive.sort((a,b)=>{
+    const aPinned=todayPinned.has(a.id)?1:0;
+    const bPinned=todayPinned.has(b.id)?1:0;
+    if(aPinned!==bPinned) return bPinned-aPinned;
     const aOver=a.dueDate&&a.dueDate<todayStrFocus?1:0;
     const bOver=b.dueDate&&b.dueDate<todayStrFocus?1:0;
     if(aOver!==bOver) return bOver-aOver;
@@ -1690,9 +1865,25 @@ function renderFocusPanel(container){
     if(b.dueDate) return 1;
     return 0;
   });
+
+  // ── Blocked tasks warning section
+  const blockedTasks=tasks.filter(t=>t.status==="blocked");
+  const blockedHtml=blockedTasks.length>0?`
+    <div style="background:rgba(122,24,24,0.08);border:1px solid rgba(122,24,24,0.35);border-radius:4px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font-size:10px;font-family:var(--font-ui);font-weight:700;color:#C0392B;letter-spacing:0.5px;margin-bottom:6px;">⊘ BLOCKED — ${blockedTasks.length} task${blockedTasks.length!==1?"s":""} need attention</div>
+      ${blockedTasks.map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(122,24,24,0.15);" onclick="openEditTask('${t.id}')">
+          <span style="font-size:10px;color:#C0392B;flex-shrink:0;">⊘</span>
+          <span style="flex:1;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">${esc(t.title)}</span>
+          ${proj?`<span style="font-size:9px;color:${proj.color};font-family:var(--font-ui);flex-shrink:0;">◈ ${esc(proj.name)}</span>`:""}
+        </div>`;
+      }).join("")}
+    </div>`
+  :"";
   const nextQ=allActive[0]||null;
   const nextQProj=nextQ?projects.find(p=>p.id===nextQ.projectId):null;
-  const nextQDue=nextQ?relativeDue(nextQ.dueDate,false):"";
+  const nextQDue=nextQ?.dueDate?nextQ.dueDate:"";
   const isNextSelected=nextQ&&selectedMissionId===nextQ.id;
   const nextPriorityColor={high:"#8B1818",medium:"#7A4A00",low:"#5C5C40"}[nextQ?.priority]||"var(--gold)";
   const nextQuestHtml=nextQ
@@ -1704,7 +1895,7 @@ function renderFocusPanel(container){
             <div style="display:flex;gap:6px;margin-top:5px;align-items:center;flex-wrap:wrap;">
               <span style="font-size:12px;font-family:var(--font-ui);font-weight:700;color:${nextPriorityColor};">${PRIORITY_LABEL[nextQ.priority]||""}</span>
               ${nextQProj?`<span style="font-size:12px;color:${nextQProj.color};font-family:var(--font-ui);">◈ ${esc(nextQProj.name)}</span>`:""}
-              ${nextQDue?`<span style="font-size:12px;">${nextQDue}</span>`:""}
+              ${nextQDue?`<span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">📅 ${nextQDue}</span>`:""}
               ${nextQ.estimate?`<span style="font-size:12px;color:var(--text2);font-family:var(--font-ui);">⏳ ${nextQ.estimate}</span>`:""}
             </div>
           </div>
@@ -1770,6 +1961,9 @@ function renderFocusPanel(container){
 
     <!-- NEXT Task RECOMMENDATION -->
     ${nextQuestHtml}
+
+    <!-- BLOCKED WARNING -->
+    ${blockedHtml}
 
     <!-- TODAY PANEL -->
     <div style="background:var(--surface);border:1px solid rgba(58,68,104,0.4);border-radius:4px;padding:14px;margin-top:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
@@ -2269,17 +2463,123 @@ async function sendTestRaven(){
   }
 }
 
+function renderJournalSection(){
+  const journal = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  if(journal.length === 0)
+    return `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:10px 0;font-style:italic;">No entries yet — complete a Weekly Reset to create your first journal entry.</div>`;
+
+  return journal.map((e,i) => {
+    const renderField = (icon, label, fieldKey) => {
+      const val = e[fieldKey]||'';
+      const lines = val.split('\n').map(l=>l.trim()).filter(Boolean);
+      const linesHtml = lines.map(line => `
+        <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;">
+          <div style="flex:1;font-size:13px;color:var(--text2);line-height:1.5;">${esc(line)}</div>
+          <button onclick="journalLineToTask(${i},'${fieldKey}',${JSON.stringify(line)})"
+            style="flex-shrink:0;font-size:10px;font-family:var(--font-ui);font-weight:700;
+            padding:2px 7px;border-radius:3px;border:1px solid var(--border2);
+            background:transparent;color:var(--text3);cursor:pointer;white-space:nowrap;
+            transition:all 0.12s;" 
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">
+            + task
+          </button>
+        </div>`).join('');
+      return `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:5px;">${icon} ${label}</div>
+          ${linesHtml}
+          <textarea id="journal-${i}-${fieldKey}"
+            style="width:100%;margin-top:6px;min-height:60px;background:var(--surface2);
+            border:1px solid var(--border);border-radius:5px;padding:7px 9px;
+            font-size:12px;font-family:var(--font-body);color:var(--text2);
+            resize:none;outline:none;line-height:1.5;"
+            placeholder="Edit ${label.toLowerCase()}…"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'"
+          >${esc(val)}</textarea>
+        </div>`;
+    };
+    return `
+      <details style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;" ${i===0?'open':''}>
+        <summary style="font-size:12px;font-family:var(--font-ui);font-weight:700;color:var(--accent);
+          cursor:pointer;padding:10px 12px;background:var(--surface2);letter-spacing:0.3px;
+          display:flex;justify-content:space-between;align-items:center;list-style:none;">
+          <span>${e.weekLabel}</span>
+          <span style="color:var(--text4);font-weight:400;font-size:10px;">${e.date}</span>
+        </summary>
+        <div style="padding:12px;">
+          ${renderField('🧠','Brain Dump','dump')}
+          ${renderField('📖','Last Week','close')}
+          ${renderField('📅','Look Ahead','ahead')}
+          <button onclick="saveJournalEntry(${i})"
+            style="width:100%;padding:8px;border-radius:5px;border:1px solid var(--accent);
+            background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);
+            font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.5px;margin-top:4px;">
+            💾 SAVE EDITS
+          </button>
+        </div>
+      </details>`;
+  }).join('');
+}
+
+function saveJournalEntry(idx){
+  const journal = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  if(!journal[idx]) return;
+  ['dump','close','ahead'].forEach(field => {
+    const el = document.getElementById(`journal-${idx}-${field}`);
+    if(el) journal[idx][field] = el.value.trim();
+  });
+  localStorage.setItem('hub-journal', JSON.stringify(journal));
+  showToast('📓 Journal entry saved');
+}
+
+function journalLineToTask(idx, field, line){
+  if(!line.trim()) return;
+  const pid = (projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
+  const newTask = {
+    id: genId(), title: line.trim(), projectId: pid,
+    priority: 'medium', status: 'todo', notes: `From weekly journal (${field})`,
+    dueDate: '', source: 'self', recur: 'none', effort: '', estimate: '',
+    createdAt: Date.now()
+  };
+  tasks.push(newTask);
+  saveAllDebounced();
+  showToast('✓ Added to tasks: ' + line.trim().slice(0,40));
+}
+
 function renderSettings(container){
   container.innerHTML=`
+    <div style="margin-bottom:16px;display:flex;gap:8px;">
+      <button onclick="setNav('charts')" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">📊 VIEW INSIGHTS</button>
+    </div>
+    <div style="margin-bottom:20px;">
+      <div class="section-title">📓 Weekly Journal <span style="font-size:10px;color:var(--text4);font-weight:400;">(last 4 resets)</span></div>
+      ${renderJournalSection()}
+    </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">Projects</div>
-      ${projects.map(p=>`
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);">
-          <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
-          <span style="flex:1;font-size:11px;font-family:var(--font-ui);letter-spacing:0.5px;color:${p.color};">${esc(p.name)}</span>
-          <span style="font-size:9px;color:var(--text3);font-family:var(--font-ui);">${p.domain==="work"?"Work":"Personal"}</span>
-        </div>`).join("")}
-      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Save Project</button>
+      ${['work','personal'].map(domain=>{
+        const domainProjs=projects.filter(p=>(p.domain||'work')===domain);
+        if(domainProjs.length===0) return '';
+        const key='hub-settings-proj-'+domain+'-collapsed';
+        const isCollapsed=localStorage.getItem(key)==='true';
+        const label=domain==='work'?'⚔ Work':'🏡 Personal';
+        return `<div style="margin-bottom:4px;">
+          <div onclick="toggleSettingsProjGroup('${domain}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;user-select:none;margin-bottom:2px;">
+            <span style="font-size:10px;color:var(--text3);transition:transform 0.15s;display:inline-block;transform:rotate(${isCollapsed?'0':'90'}deg);">▶</span>
+            <span style="flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;color:var(--text2);">${label}</span>
+            <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${domainProjs.length} project${domainProjs.length!==1?'s':''}</span>
+          </div>
+          ${isCollapsed?'':domainProjs.map(p=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 10px 8px 24px;border-bottom:1px solid var(--border);">
+              <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
+              <span style="flex:1;font-size:11px;font-family:var(--font-ui);letter-spacing:0.5px;color:${p.color};">${esc(p.name)}</span>
+              <button onclick="openEditProject('${p.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✏ EDIT</button>
+            </div>`).join('')}
+        </div>`;
+      }).join('')}
+      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Add Project</button>
     </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">⬆ Import (CSV)</div>
@@ -2479,6 +2779,14 @@ function cycleTaskStatus(id){
   updateTaskField(id,"status",cycle[t.status]||"todo");
 }
 
+function saveTaskDueDate(id, val){
+  const t = tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.dueDate = val;
+  saveAllDebounced();
+  renderAll();
+}
+
 function updateTaskField(id,field,val){
   const t=tasks.find(t=>t.id===id);if(!t) return;
   if(field==="status"){
@@ -2576,6 +2884,8 @@ function openAddTask(projectId=""){
   const sel=document.getElementById("task-project-input");
   sel.innerHTML=`<option value="">SELECT Project…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  _modalSubtasks = [];
+  renderModalSubtaskList();
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
@@ -2597,8 +2907,70 @@ function openEditTask(id){
   const sel=document.getElementById("task-project-input");
   sel.innerHTML=`<option value="">SELECT Project…</option>`+
     projects.map(p=>`<option value="${p.id}" ${p.id===t.projectId?"selected":""}>${esc(p.name)}</option>`).join("");
+  _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
+  renderModalSubtaskList();
   openModal("modal-task");
 }
+let _modalSubtasks = [];
+
+function renderModalSubtaskList(){
+  const wrap = document.getElementById('modal-subtask-list');
+  if(!wrap) return;
+  if(_modalSubtasks.length === 0){
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:4px 0;">No subtasks yet</div>`;
+    return;
+  }
+  wrap.innerHTML = _modalSubtasks.map((s,i) => `
+    <div class="subtask-row">
+      <button class="subtask-check ${s.done?'done':''}" onclick="_modalSubtasks[${i}].done=!_modalSubtasks[${i}].done;renderModalSubtaskList()">✓</button>
+      <input class="subtask-text ${s.done?'done':''}" value="${esc(s.text)}"
+        onchange="_modalSubtasks[${i}].text=this.value"
+        style="background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font-body);color:${s.done?'var(--text4)':'var(--text2)'};${s.done?'text-decoration:line-through;':''};flex:1;cursor:text;"/>
+      <button class="subtask-del" onclick="_modalSubtasks.splice(${i},1);renderModalSubtaskList()" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+function addModalSubtask(){
+  const input = document.getElementById('modal-subtask-input');
+  const text = input?.value.trim();
+  if(!text) return;
+  _modalSubtasks.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,5), text, done:false});
+  input.value = '';
+  input.focus();
+  renderModalSubtaskList();
+}
+
+// Inline row subtask functions
+function addRowSubtask(taskId){
+  const input = document.getElementById('rowsub-input-'+taskId);
+  const text = input?.value.trim();
+  if(!text) return;
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  if(!task.subtasks) task.subtasks = [];
+  task.subtasks.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,5), text, done:false});
+  saveAllDebounced();
+  input.value = '';
+  renderAll();
+}
+
+function toggleRowSubtask(taskId, subId){
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task || !task.subtasks) return;
+  const sub = task.subtasks.find(s=>s.id===subId);
+  if(sub) sub.done = !sub.done;
+  saveAllDebounced();
+  renderAll();
+}
+
+function deleteRowSubtask(taskId, subId){
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task || !task.subtasks) return;
+  task.subtasks = task.subtasks.filter(s=>s.id!==subId);
+  saveAllDebounced();
+  renderAll();
+}
+// ──────────────────────────────────────────────────────────────────
 
 function saveTask(){
   const title=document.getElementById("task-title-input").value.trim();
@@ -2616,6 +2988,7 @@ function saveTask(){
     t.recur=window._editingRecur||"none";
     t.effort=window._editingEffort||"";
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
+    t.subtasks=_modalSubtasks;
     showToast("Task UPDATED ✓");
   }else{
     tasks.push({id:genId(),title,projectId,
@@ -2627,6 +3000,7 @@ function saveTask(){
       recur:window._editingRecur||"none",
       effort:window._editingEffort||"",
       estimate:document.getElementById("task-estimate-input")?.value||"",
+      subtasks:_modalSubtasks,
       createdAt:Date.now()});
     showToast("Task LOGGED ✓");
   }
@@ -2693,29 +3067,109 @@ function deleteCurrentTask(){if(editingTaskId) confirmDeleteTask(editingTaskId);
 // ═══════════════════════════════════════════════════════════════
 // Project ACTIONS
 // ═══════════════════════════════════════════════════════════════
+let editingProjectId = null;
+
 function openAddProject(){
+  editingProjectId = null;
   selectedProjColor=PROJECT_COLORS[0];
   document.getElementById("proj-name-input").value="";
   document.getElementById("proj-domain-input").value="work";
+  document.getElementById("modal-project-title").textContent="New Project";
+  document.getElementById("proj-save-btn").textContent="Save";
+  document.getElementById("proj-delete-wrap").style.display="none";
   renderSwatches();openModal("modal-project");
   setTimeout(()=>document.getElementById("proj-name-input").focus(),300);
 }
 
-function renderSwatches(){
-  const wrap=document.getElementById("proj-color-swatches");if(!wrap) return;
-  wrap.innerHTML=PROJECT_COLORS.map(c=>
-    `<div class="swatch ${c===selectedProjColor?'selected':''}" style="background:${c};box-shadow:0 0 8px ${c}66;"
-      onclick="selectColor('${c}')"></div>`
-  ).join("");
+function openEditProject(id){
+  const p=projects.find(p=>p.id===id);if(!p) return;
+  editingProjectId=id;
+  selectedProjColor=p.color||PROJECT_COLORS[0];
+  document.getElementById("proj-name-input").value=p.name;
+  document.getElementById("proj-domain-input").value=p.domain||"work";
+  document.getElementById("modal-project-title").textContent="✏ Edit Project";
+  document.getElementById("proj-save-btn").textContent="UPDATE";
+  document.getElementById("proj-delete-wrap").style.display="block";
+  renderSwatches();openModal("modal-project");
+  setTimeout(()=>document.getElementById("proj-name-input").focus(),300);
 }
 
-function selectColor(c){selectedProjColor=c;renderSwatches();}
+function deleteProject(){
+  if(!editingProjectId) return;
+  const p=projects.find(p=>p.id===editingProjectId);
+  const taskCount=tasks.filter(t=>t.projectId===editingProjectId).length;
+  if(taskCount>0){
+    if(!confirm(`"${p?.name}" has ${taskCount} task${taskCount>1?'s':''} assigned. Delete project anyway? Tasks will remain but become unassigned.`)) return;
+  }
+  projects=projects.filter(p=>p.id!==editingProjectId);
+  saveAllDebounced();closeModal("modal-project");renderAll();
+  showToast("Project deleted");
+}
+
+function toggleSettingsProjGroup(domain){
+  const key='hub-settings-proj-'+domain+'-collapsed';
+  const cur=localStorage.getItem(key)==='true';
+  localStorage.setItem(key,String(!cur));
+  renderAll();
+}
+
+function renderSwatches(){
+  const wrap=document.getElementById('proj-color-swatches');if(!wrap) return;
+  const palette=[
+    '#1A4A8A','#2878A0','#1565C0','#0D47A1','#00BCD4','#006064',
+    '#4A2878','#7A3060','#6A1B9A','#4A148C','#AD1457','#880E4F',
+    '#1A5C28','#2E7D32','#33691E','#004D40','#00695C','#1B5E20',
+    '#7A1818','#8B5C1A','#7A4A10','#BF360C','#E65100','#F57F17',
+    '#37474F','#455A64','#546E7A','#4E342E','#5D4037','#6D4C41',
+  ];
+  wrap.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+      ${palette.map(c=>`<div class="swatch ${c.toLowerCase()===selectedProjColor.toLowerCase()?'selected':''}"
+        style="background:${c};box-shadow:0 0 6px ${c}66;width:22px;height:22px;border-radius:4px;"
+        onclick="selectColor('${c}')"></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:28px;height:28px;border-radius:5px;flex-shrink:0;border:2px solid var(--border);background:${selectedProjColor};box-shadow:0 0 8px ${selectedProjColor}88;" id="proj-color-preview"></div>
+      <input type="color" id="proj-hex-picker" value="${selectedProjColor}"
+        style="width:36px;height:28px;padding:2px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--surface2);"
+        oninput="selectColor(this.value)" title="Pick any color"/>
+      <input type="text" id="proj-hex-input" value="${selectedProjColor}"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;font-family:var(--font-ui);color:var(--text);outline:none;"
+        placeholder="#RRGGBB" oninput="onHexInput(this.value)" onfocus="this.select()"/>
+    </div>`;
+}
+
+function onHexInput(val){
+  val=val.trim();
+  if(/^#[0-9A-Fa-f]{6}$/.test(val)) selectColor(val);
+}
+
+function selectColor(c){
+  selectedProjColor=c;
+  const preview=document.getElementById('proj-color-preview');
+  const hexPicker=document.getElementById('proj-hex-picker');
+  const hexInput=document.getElementById('proj-hex-input');
+  if(preview){preview.style.background=c;preview.style.boxShadow=`0 0 8px ${c}88`;}
+  if(hexPicker) hexPicker.value=c;
+  if(hexInput) hexInput.value=c;
+  document.querySelectorAll('#proj-color-swatches .swatch').forEach(el=>{
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes(`'${c}'`));
+  });
+}
 
 function saveProject(){
   const name=document.getElementById("proj-name-input").value.trim();
   if(!name){showToast("Project NAME REQUIRED");return;}
-  projects.push({id:genId(),name,domain:document.getElementById("proj-domain-input").value,color:selectedProjColor,collapsed:false});
-  saveAllDebounced();closeModal("modal-project");renderAll();showToast("Project SaveED ✓");
+  const domain=document.getElementById("proj-domain-input").value;
+  if(editingProjectId){
+    const p=projects.find(p=>p.id===editingProjectId);if(!p) return;
+    p.name=name;p.domain=domain;p.color=selectedProjColor;
+    showToast("Project UPDATED ✓");
+  }else{
+    projects.push({id:genId(),name,domain,color:selectedProjColor,collapsed:false});
+    showToast("Project SAVED ✓");
+  }
+  saveAllDebounced();closeModal("modal-project");renderAll();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2912,7 +3366,31 @@ function selectSlotTask(taskId){
   saveSlots(); closeModal('modal-slot-assign'); renderAll();
 }
 
+let _slotAssignCallback = null;
+
 function confirmSlotAssign(){
+  // If called from reset modal, use callback
+  if(_slotAssignCallback){
+    const cb = _slotAssignCallback;
+    _slotAssignCallback = null;
+    // Check if a task was selected from the list
+    const selected = document.querySelector('#slot-assign-list .slot-assign-item.selected');
+    if(selected){
+      cb(selected.dataset.taskId, null);
+      return;
+    }
+    const newText=document.getElementById('slot-assign-new').value.trim();
+    if(newText){
+      const pid=(projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
+      const newTask={id:genId(),title:newText,projectId:pid,priority:'medium',
+        status:'todo',notes:'',dueDate:'',source:'',recur:'none',effort:'',estimate:'',createdAt:Date.now()};
+      tasks.push(newTask); saveAllDebounced();
+      cb(newTask.id, null);
+      return;
+    }
+    cb(null, null);
+    return;
+  }
   if(!_assigningSlot) return;
   const newText=document.getElementById('slot-assign-new').value.trim();
   if(newText){
@@ -2931,6 +3409,96 @@ function getParkingLot(){
   const assignedIds=new Set(Object.values(threeSlots).map(s=>s?.taskId).filter(Boolean));
   return tasks.filter(t=>t.status!=='done'&&!assignedIds.has(t.id));
 }
+
+// ── Voice Input ───────────────────────────────────────────────────
+let _voiceRecognition = null;
+let _voiceActive = false;
+let _voiceBtnId = null;
+let _voiceTargetId = null;
+
+function toggleVoice(inputId, btnId){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    showToast('Voice not supported in this browser. Try Chrome or Safari.');
+    return;
+  }
+  if(_voiceActive){
+    stopVoice();
+    return;
+  }
+  _voiceTargetId = inputId;
+  _voiceBtnId = btnId;
+  _voiceActive = true;
+
+  const btn = document.getElementById(btnId);
+  if(btn) btn.classList.add('listening');
+
+  _voiceRecognition = new SpeechRecognition();
+  _voiceRecognition.lang = 'en-US';
+  _voiceRecognition.continuous = false;
+  _voiceRecognition.interimResults = true;
+
+  const el = document.getElementById(inputId);
+  const isContentEditable = el && el.contentEditable === 'true';
+
+  // For regular inputs: save placeholder and show listening hint
+  if(el && !isContentEditable){
+    el._origPlaceholder = el.placeholder;
+    el.placeholder = '🎙 Listening…';
+  }
+
+  // Track what was there before so we only append new voice text
+  const existingText = isContentEditable
+    ? (el ? el.innerText.trim() : '')
+    : (el ? el.value : '');
+
+  _voiceRecognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(r => r[0].transcript).join('');
+    if(!el) return;
+    if(isContentEditable){
+      // Show interim result as a preview, will be finalised on end
+      el.dataset.voicePreview = transcript;
+      const base = existingText ? existingText + '\n' : '';
+      el.innerText = base + transcript;
+    } else {
+      el.value = existingText ? existingText + ' ' + transcript : transcript;
+    }
+  };
+
+  _voiceRecognition.onend = () => {
+    stopVoice();
+    if(el && !isContentEditable && el._origPlaceholder){
+      el.placeholder = el._origPlaceholder;
+      delete el._origPlaceholder;
+    }
+    const hasContent = isContentEditable ? el?.innerText.trim() : el?.value.trim();
+    if(hasContent) showToast('🎙 Got it — review and save');
+  };
+
+  _voiceRecognition.onerror = (event) => {
+    stopVoice();
+    if(el && !isContentEditable && el._origPlaceholder){
+      el.placeholder = el._origPlaceholder;
+      delete el._origPlaceholder;
+    }
+    if(event.error === 'not-allowed') showToast('Microphone permission denied');
+    else if(event.error !== 'no-speech') showToast('Voice error: ' + event.error);
+  };
+
+  _voiceRecognition.start();
+}
+
+function stopVoice(){
+  _voiceActive = false;
+  if(_voiceRecognition){ try{ _voiceRecognition.stop(); }catch(e){} _voiceRecognition = null; }
+  if(_voiceBtnId){
+    const btn = document.getElementById(_voiceBtnId);
+    if(btn) btn.classList.remove('listening');
+    _voiceBtnId = null;
+  }
+}
+// ──────────────────────────────────────────────────────────────────
 
 function brainDump(text){
   if(!text||!text.trim()) return;
@@ -2959,15 +3527,16 @@ function renderTodayView(container){
   html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
     <div>
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">${greeting}</div>
-      ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Assign your 3s below</div>'}
+      ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Tap <strong style="color:var(--accent);">+ ADD</strong> on any slot to assign a task</div>'}
     </div>
-    <button onclick="openModal('modal-reset')" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
+    <button onclick="openReset()" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
   </div>`;
 
   // Brain dump bar
   html+=`<div class="brain-dump-bar">
     <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought… (goes straight to Parking Lot)"
       onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
   </div>`;
 
@@ -3040,15 +3609,15 @@ function renderDomain(title, slots){
     html+=`<div class="three-slot">
       <span class="slot-label">${label}</span>`;
     if(text){
-      html+=`<div class="slot-task" style="${done?'opacity:0.5;text-decoration:line-through;':''}">
+      html+=`<div class="slot-task" style="${done?'opacity:0.5;text-decoration:line-through;':''}" onclick="openSlotAssign('${slotId}','${label}')" title="Tap to reassign">
         <div class="slot-task-title">${esc(text)}</div>
         ${proj?`<div class="slot-task-proj">◈ ${esc(proj.name)}</div>`:''}
       </div>
-      <button class="slot-done-btn ${done?'done':''}" onclick="toggleSlotDone('${slotId}')">${done?'✓':''}</button>
+      <button class="slot-done-btn ${done?'done':''}" onclick="toggleSlotDone('${slotId}')" title="${done?'Mark incomplete':'Mark complete'}">✓</button>
       <button class="slot-unassign-btn" onclick="unassignSlot('${slotId}')" title="Remove from slot">✕</button>`;
     } else {
-      html+=`<div class="slot-empty">— empty —</div>
-      <button class="slot-assign-btn" onclick="openSlotAssign('${slotId}','${label}')">+ ASSIGN</button>`;
+      html+=`<div class="slot-empty" onclick="openSlotAssign('${slotId}','${label}')" style="cursor:pointer;" title="Tap to assign a task">tap to assign a task</div>
+      <button class="slot-assign-btn" onclick="openSlotAssign('${slotId}','${label}')">+ ADD</button>`;
     }
     html+=`</div>`;
   }
@@ -3085,27 +3654,88 @@ function showResetStep(n){
 }
 
 function resetNext(){
-  if(resetStep===4){
-    // Apply the 3s from the reset wizard
-    const fields=[
-      ['w1','reset-w1'],['w2','reset-w2'],['w3','reset-w3'],
-      ['h1','reset-h1'],
-      ['f1','reset-f1'],['f2','reset-f2'],['f3','reset-f3']
-    ];
-    for(const [slotId,inputId] of fields){
-      const val=(document.getElementById(inputId)?.value||'').trim();
-      if(val){
-        // Try to match an existing task
-        const match=tasks.find(t=>t.status!=='done'&&t.title.toLowerCase()===val.toLowerCase());
-        if(match) threeSlots[slotId]={taskId:match.id,done:false};
-        else threeSlots[slotId]={customText:val,done:false};
-      }
+  // Save journal when leaving step 3
+  if(resetStep===3){
+    const dump  = (document.getElementById('reset-dump')?.value||'').trim();
+    const close = (document.getElementById('reset-close')?.value||'').trim();
+    const ahead = (document.getElementById('reset-ahead')?.value||'').trim();
+    if(dump||close||ahead){
+      saveWeeklyJournal({dump, close, ahead});
     }
-    saveSlots();
+    // Render step 4 pickers with current slot state
+    renderResetPickers();
   }
   if(resetStep>=5){closeModal('modal-reset');renderAll();showToast('🌅 WEEK IS SET. GO CONQUER IT.');return;}
   resetStep++;
   showResetStep(resetStep);
+}
+
+function saveWeeklyJournal({dump,close,ahead}){
+  const entries = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  const entry = {
+    date: new Date().toISOString().slice(0,10),
+    weekLabel: getWeekLabel(),
+    dump, close, ahead
+  };
+  // Prepend newest, keep only last 4 weeks
+  entries.unshift(entry);
+  const trimmed = entries.slice(0,4);
+  localStorage.setItem('hub-journal', JSON.stringify(trimmed));
+}
+
+function getWeekLabel(){
+  const d = new Date();
+  const start = new Date(d);
+  start.setDate(d.getDate() - d.getDay()); // Sunday
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `Week of ${fmt(start)} – ${fmt(end)}`;
+}
+
+// Step 4: render slot pickers inside the reset modal
+function renderResetPickers(){
+  const PICKER_SLOTS = ['w1','w2','w3','h1','f1','f2','f3'];
+  for(const slotId of PICKER_SLOTS){
+    const el = document.getElementById('reset-slot-'+slotId);
+    if(!el) continue;
+    const s = threeSlots[slotId];
+    const task = s?.taskId ? tasks.find(t=>t.id===s.taskId) : null;
+    const text = task ? task.title : (s?.customText||'');
+    if(text){
+      el.innerHTML = `<span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(text)}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-right:4px;">change</span>`;
+      el.style.borderColor='var(--green)';
+      el.style.color='var(--green)';
+    } else {
+      const label = el.dataset.label;
+      el.innerHTML = `<span style="font-size:12px;color:var(--text4);font-family:var(--font-ui);">${label}</span>
+        <span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">+ PICK</span>`;
+      el.style.borderColor='var(--border2)';
+    }
+  }
+}
+
+let _resetPickingSlot = null;
+function openResetSlotPicker(slotId, label){
+  _resetPickingSlot = slotId;
+  // Reuse the slot-assign modal
+  document.getElementById('slot-assign-title').textContent = 'PICK: '+label;
+  document.getElementById('slot-assign-search').value='';
+  document.getElementById('slot-assign-new').value='';
+  renderSlotAssignList();
+  // Override confirm to go back to reset modal
+  _slotAssignCallback = (taskId, customText) => {
+    if(taskId) threeSlots[_resetPickingSlot]={taskId,done:false};
+    else if(customText) threeSlots[_resetPickingSlot]={customText,done:false};
+    saveSlots();
+    closeModal('modal-slot-assign');
+    renderResetPickers();
+    openModal('modal-reset');
+  };
+  closeModal('modal-reset');
+  openModal('modal-slot-assign');
+  setTimeout(()=>document.getElementById('slot-assign-search').focus(),150);
 }
 
 function resetBack(){
