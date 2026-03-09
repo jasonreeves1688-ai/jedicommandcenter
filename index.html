@@ -2559,14 +2559,27 @@ function renderSettings(container){
     </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">Projects</div>
-      ${projects.map(p=>`
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);">
-          <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
-          <span style="flex:1;font-size:11px;font-family:var(--font-ui);letter-spacing:0.5px;color:${p.color};">${esc(p.name)}</span>
-          <span style="font-size:9px;color:var(--text3);font-family:var(--font-ui);">${p.domain==="work"?"Work":"Personal"}</span>
-          <button onclick="openEditProject('${p.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✏ EDIT</button>
-        </div>`).join("")}
-      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Save Project</button>
+      ${['work','personal'].map(domain=>{
+        const domainProjs=projects.filter(p=>(p.domain||'work')===domain);
+        if(domainProjs.length===0) return '';
+        const key='hub-settings-proj-'+domain+'-collapsed';
+        const isCollapsed=localStorage.getItem(key)==='true';
+        const label=domain==='work'?'⚔ Work':'🏡 Personal';
+        return `<div style="margin-bottom:4px;">
+          <div onclick="toggleSettingsProjGroup('${domain}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;user-select:none;margin-bottom:2px;">
+            <span style="font-size:10px;color:var(--text3);transition:transform 0.15s;display:inline-block;transform:rotate(${isCollapsed?'0':'90'}deg);">▶</span>
+            <span style="flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;color:var(--text2);">${label}</span>
+            <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${domainProjs.length} project${domainProjs.length!==1?'s':''}</span>
+          </div>
+          ${isCollapsed?'':domainProjs.map(p=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 10px 8px 24px;border-bottom:1px solid var(--border);">
+              <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
+              <span style="flex:1;font-size:11px;font-family:var(--font-ui);letter-spacing:0.5px;color:${p.color};">${esc(p.name)}</span>
+              <button onclick="openEditProject('${p.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✏ EDIT</button>
+            </div>`).join('')}
+        </div>`;
+      }).join('')}
+      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Add Project</button>
     </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">⬆ Import (CSV)</div>
@@ -3093,15 +3106,56 @@ function deleteProject(){
   showToast("Project deleted");
 }
 
-function renderSwatches(){
-  const wrap=document.getElementById("proj-color-swatches");if(!wrap) return;
-  wrap.innerHTML=PROJECT_COLORS.map(c=>
-    `<div class="swatch ${c===selectedProjColor?'selected':''}" style="background:${c};box-shadow:0 0 8px ${c}66;"
-      onclick="selectColor('${c}')"></div>`
-  ).join("");
+function toggleSettingsProjGroup(domain){
+  const key='hub-settings-proj-'+domain+'-collapsed';
+  const cur=localStorage.getItem(key)==='true';
+  localStorage.setItem(key,String(!cur));
+  renderAll();
 }
 
-function selectColor(c){selectedProjColor=c;renderSwatches();}
+function renderSwatches(){
+  const wrap=document.getElementById('proj-color-swatches');if(!wrap) return;
+  const palette=[
+    '#1A4A8A','#2878A0','#1565C0','#0D47A1','#00BCD4','#006064',
+    '#4A2878','#7A3060','#6A1B9A','#4A148C','#AD1457','#880E4F',
+    '#1A5C28','#2E7D32','#33691E','#004D40','#00695C','#1B5E20',
+    '#7A1818','#8B5C1A','#7A4A10','#BF360C','#E65100','#F57F17',
+    '#37474F','#455A64','#546E7A','#4E342E','#5D4037','#6D4C41',
+  ];
+  wrap.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+      ${palette.map(c=>`<div class="swatch ${c.toLowerCase()===selectedProjColor.toLowerCase()?'selected':''}"
+        style="background:${c};box-shadow:0 0 6px ${c}66;width:22px;height:22px;border-radius:4px;"
+        onclick="selectColor('${c}')"></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:28px;height:28px;border-radius:5px;flex-shrink:0;border:2px solid var(--border);background:${selectedProjColor};box-shadow:0 0 8px ${selectedProjColor}88;" id="proj-color-preview"></div>
+      <input type="color" id="proj-hex-picker" value="${selectedProjColor}"
+        style="width:36px;height:28px;padding:2px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--surface2);"
+        oninput="selectColor(this.value)" title="Pick any color"/>
+      <input type="text" id="proj-hex-input" value="${selectedProjColor}"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;font-family:var(--font-ui);color:var(--text);outline:none;"
+        placeholder="#RRGGBB" oninput="onHexInput(this.value)" onfocus="this.select()"/>
+    </div>`;
+}
+
+function onHexInput(val){
+  val=val.trim();
+  if(/^#[0-9A-Fa-f]{6}$/.test(val)) selectColor(val);
+}
+
+function selectColor(c){
+  selectedProjColor=c;
+  const preview=document.getElementById('proj-color-preview');
+  const hexPicker=document.getElementById('proj-hex-picker');
+  const hexInput=document.getElementById('proj-hex-input');
+  if(preview){preview.style.background=c;preview.style.boxShadow=`0 0 8px ${c}88`;}
+  if(hexPicker) hexPicker.value=c;
+  if(hexInput) hexInput.value=c;
+  document.querySelectorAll('#proj-color-swatches .swatch').forEach(el=>{
+    el.classList.toggle('selected', (el.getAttribute('onclick')||'').includes(`'${c}'`));
+  });
+}
 
 function saveProject(){
   const name=document.getElementById("proj-name-input").value.trim();
