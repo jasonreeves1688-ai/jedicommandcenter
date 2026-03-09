@@ -280,11 +280,12 @@ html,body{
   width:3px;min-height:36px;border-radius:2px;flex-shrink:0;margin-top:2px;
 }
 .check-btn{
-  width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:2px;
-  border:2px solid var(--border2);background:transparent;cursor:pointer;
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  border:2px solid var(--text3);background:transparent;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:transparent;outline:none;transition:all 0.12s;
+  font-size:13px;color:var(--text4);outline:none;transition:all 0.12s;
 }
+.check-btn:hover{border-color:var(--green);background:rgba(61,184,122,0.12);color:var(--green);}
 .check-btn.checked{background:var(--green);border-color:var(--green);color:#fff;}
 .check-btn:active{transform:scale(0.9);}
 .task-body{flex:1;min-width:0;}
@@ -1569,9 +1570,7 @@ function renderTaskRow(task,proj){
   return `<div class="task-row ${isDone?'done':''}" style="${pBg?"background:"+pBg+";":""}">
     <div class="task-row-top">
       <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
-      <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">
-        ${isDone?'✓':''}
-      </button>
+      <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="task-body">
         <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
         <div class="task-meta">${dueStr}${projChip}</div>
@@ -1653,9 +1652,9 @@ function renderFocusPanel(container){
     const srcInfo=t.source?SOURCE_OPTIONS.find(s=>s.val===t.source):null;
     const srcBadge=srcInfo?`<span style="font-size:7px;padding:1px 4px;border-radius:2px;border:1px solid ${srcInfo.color}44;background:${srcInfo.color}11;color:${srcInfo.color};font-family:var(--font-ui);">${srcInfo.icon}</span>`:"";
     return `<div onclick="selectMission('${t.id}')" style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:3px;border:1px solid;margin-bottom:5px;cursor:pointer;transition:all 0.15s;${selStyle}">
-      <button class="check-btn ${t.status==='done'?'checked':''}" onclick="completeTask('${t.id}',event)" title="${t.status==='done'?'Mark incomplete':'Mark complete'}">
-        ${t.status==='done'?'✓':''}
-      </button>
+
+
+
       <div style="flex:1;min-width:0;">
         <div style="font-size:12px;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
         <div style="display:flex;gap:4px;margin-top:3px;align-items:center;flex-wrap:wrap;">
