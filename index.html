@@ -713,6 +713,13 @@ html,body{
 .reset-dot{width:8px;height:8px;border-radius:50%;background:var(--surface3);transition:background 0.2s;}
 .reset-dot.done{background:var(--green);}
 .reset-dot.active{background:var(--accent);}
+.reset-slot-picker{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 12px;margin-bottom:6px;border-radius:6px;
+  border:1px solid var(--border2);background:var(--surface2);
+  cursor:pointer;transition:border-color 0.15s;min-height:38px;
+}
+.reset-slot-picker:hover{border-color:var(--accent);background:var(--surface3);}
 
 /* chip buttons — source, recur, effort */
 .chip-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
@@ -1009,17 +1016,17 @@ html,body{
     <div id="reset-step-4" class="reset-step">
       <div class="reset-step-num">STEP 4 OF 5 · 5 MIN</div>
       <div class="reset-step-title">⚔ Pick Your 3s</div>
-      <div class="reset-step-desc">Using what you just wrote, assign this week's slots. Everything else goes to the Parking Lot.</div>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">This week's 3 Work things:</div>
-      <input class="field-input" id="reset-w1" placeholder="⚔ Strategic thing…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-w2" placeholder="🤝 Team thing…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-w3" placeholder="📣 Commitment thing…" style="margin-bottom:10px;font-size:13px;"/>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">Home (1 thing):</div>
-      <input class="field-input" id="reset-h1" placeholder="🏡 One home thing this week…" style="margin-bottom:10px;font-size:13px;"/>
-      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:8px;">Family (3 things):</div>
-      <input class="field-input" id="reset-f1" placeholder="👨‍👧 Presence moment…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-f2" placeholder="💑 Partner connection…" style="margin-bottom:6px;font-size:13px;"/>
-      <input class="field-input" id="reset-f3" placeholder="📋 Logistics item…" style="margin-bottom:6px;font-size:13px;"/>
+      <div class="reset-step-desc">Tap each slot to search and assign a task. These will appear on your Today tab.</div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">💼 WORK — 3 things</div>
+      <div id="reset-slot-w1" class="reset-slot-picker" data-slot="w1" data-label="Strategic" onclick="openResetSlotPicker('w1','Strategic')"></div>
+      <div id="reset-slot-w2" class="reset-slot-picker" data-slot="w2" data-label="Team" onclick="openResetSlotPicker('w2','Team')"></div>
+      <div id="reset-slot-w3" class="reset-slot-picker" data-slot="w3" data-label="Commitment" onclick="openResetSlotPicker('w3','Commitment')"></div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin:10px 0 6px;">🏡 HOME — 1 thing</div>
+      <div id="reset-slot-h1" class="reset-slot-picker" data-slot="h1" data-label="Home" onclick="openResetSlotPicker('h1','Home')"></div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin:10px 0 6px;">👨‍👧 FAMILY — 3 things</div>
+      <div id="reset-slot-f1" class="reset-slot-picker" data-slot="f1" data-label="Presence" onclick="openResetSlotPicker('f1','Presence')"></div>
+      <div id="reset-slot-f2" class="reset-slot-picker" data-slot="f2" data-label="Partner" onclick="openResetSlotPicker('f2','Partner')"></div>
+      <div id="reset-slot-f3" class="reset-slot-picker" data-slot="f3" data-label="Logistics" onclick="openResetSlotPicker('f3','Logistics')"></div>
     </div>
     <div id="reset-step-5" class="reset-step">
       <div class="reset-step-num">STEP 5 OF 5 · 2 MIN</div>
@@ -2269,8 +2276,97 @@ async function sendTestRaven(){
   }
 }
 
+function renderJournalSection(){
+  const journal = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  if(journal.length === 0)
+    return `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:10px 0;font-style:italic;">No entries yet — complete a Weekly Reset to create your first journal entry.</div>`;
+
+  return journal.map((e,i) => {
+    const renderField = (icon, label, fieldKey) => {
+      const val = e[fieldKey]||'';
+      const lines = val.split('\n').map(l=>l.trim()).filter(Boolean);
+      const linesHtml = lines.map(line => `
+        <div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;">
+          <div style="flex:1;font-size:13px;color:var(--text2);line-height:1.5;">${esc(line)}</div>
+          <button onclick="journalLineToTask(${i},'${fieldKey}',${JSON.stringify(line)})"
+            style="flex-shrink:0;font-size:10px;font-family:var(--font-ui);font-weight:700;
+            padding:2px 7px;border-radius:3px;border:1px solid var(--border2);
+            background:transparent;color:var(--text3);cursor:pointer;white-space:nowrap;
+            transition:all 0.12s;" 
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">
+            + task
+          </button>
+        </div>`).join('');
+      return `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:5px;">${icon} ${label}</div>
+          ${linesHtml}
+          <textarea id="journal-${i}-${fieldKey}"
+            style="width:100%;margin-top:6px;min-height:60px;background:var(--surface2);
+            border:1px solid var(--border);border-radius:5px;padding:7px 9px;
+            font-size:12px;font-family:var(--font-body);color:var(--text2);
+            resize:none;outline:none;line-height:1.5;"
+            placeholder="Edit ${label.toLowerCase()}…"
+            onfocus="this.style.borderColor='var(--accent)'"
+            onblur="this.style.borderColor='var(--border)'"
+          >${esc(val)}</textarea>
+        </div>`;
+    };
+    return `
+      <details style="margin-bottom:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden;" ${i===0?'open':''}>
+        <summary style="font-size:12px;font-family:var(--font-ui);font-weight:700;color:var(--accent);
+          cursor:pointer;padding:10px 12px;background:var(--surface2);letter-spacing:0.3px;
+          display:flex;justify-content:space-between;align-items:center;list-style:none;">
+          <span>${e.weekLabel}</span>
+          <span style="color:var(--text4);font-weight:400;font-size:10px;">${e.date}</span>
+        </summary>
+        <div style="padding:12px;">
+          ${renderField('🧠','Brain Dump','dump')}
+          ${renderField('📖','Last Week','close')}
+          ${renderField('📅','Look Ahead','ahead')}
+          <button onclick="saveJournalEntry(${i})"
+            style="width:100%;padding:8px;border-radius:5px;border:1px solid var(--accent);
+            background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);
+            font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.5px;margin-top:4px;">
+            💾 SAVE EDITS
+          </button>
+        </div>
+      </details>`;
+  }).join('');
+}
+
+function saveJournalEntry(idx){
+  const journal = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  if(!journal[idx]) return;
+  ['dump','close','ahead'].forEach(field => {
+    const el = document.getElementById(`journal-${idx}-${field}`);
+    if(el) journal[idx][field] = el.value.trim();
+  });
+  localStorage.setItem('hub-journal', JSON.stringify(journal));
+  showToast('📓 Journal entry saved');
+}
+
+function journalLineToTask(idx, field, line){
+  if(!line.trim()) return;
+  const pid = (projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
+  const newTask = {
+    id: genId(), title: line.trim(), projectId: pid,
+    priority: 'medium', status: 'todo', notes: `From weekly journal (${field})`,
+    dueDate: '', source: 'self', recur: 'none', effort: '', estimate: '',
+    createdAt: Date.now()
+  };
+  tasks.push(newTask);
+  saveAllDebounced();
+  showToast('✓ Added to tasks: ' + line.trim().slice(0,40));
+}
+
 function renderSettings(container){
   container.innerHTML=`
+    <div style="margin-bottom:20px;">
+      <div class="section-title">📓 Weekly Journal <span style="font-size:10px;color:var(--text4);font-weight:400;">(last 4 resets)</span></div>
+      ${renderJournalSection()}
+    </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">Projects</div>
       ${projects.map(p=>`
@@ -2912,7 +3008,31 @@ function selectSlotTask(taskId){
   saveSlots(); closeModal('modal-slot-assign'); renderAll();
 }
 
+let _slotAssignCallback = null;
+
 function confirmSlotAssign(){
+  // If called from reset modal, use callback
+  if(_slotAssignCallback){
+    const cb = _slotAssignCallback;
+    _slotAssignCallback = null;
+    // Check if a task was selected from the list
+    const selected = document.querySelector('#slot-assign-list .slot-assign-item.selected');
+    if(selected){
+      cb(selected.dataset.taskId, null);
+      return;
+    }
+    const newText=document.getElementById('slot-assign-new').value.trim();
+    if(newText){
+      const pid=(projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
+      const newTask={id:genId(),title:newText,projectId:pid,priority:'medium',
+        status:'todo',notes:'',dueDate:'',source:'',recur:'none',effort:'',estimate:'',createdAt:Date.now()};
+      tasks.push(newTask); saveAllDebounced();
+      cb(newTask.id, null);
+      return;
+    }
+    cb(null, null);
+    return;
+  }
   if(!_assigningSlot) return;
   const newText=document.getElementById('slot-assign-new').value.trim();
   if(newText){
@@ -3085,27 +3205,88 @@ function showResetStep(n){
 }
 
 function resetNext(){
-  if(resetStep===4){
-    // Apply the 3s from the reset wizard
-    const fields=[
-      ['w1','reset-w1'],['w2','reset-w2'],['w3','reset-w3'],
-      ['h1','reset-h1'],
-      ['f1','reset-f1'],['f2','reset-f2'],['f3','reset-f3']
-    ];
-    for(const [slotId,inputId] of fields){
-      const val=(document.getElementById(inputId)?.value||'').trim();
-      if(val){
-        // Try to match an existing task
-        const match=tasks.find(t=>t.status!=='done'&&t.title.toLowerCase()===val.toLowerCase());
-        if(match) threeSlots[slotId]={taskId:match.id,done:false};
-        else threeSlots[slotId]={customText:val,done:false};
-      }
+  // Save journal when leaving step 3
+  if(resetStep===3){
+    const dump  = (document.getElementById('reset-dump')?.value||'').trim();
+    const close = (document.getElementById('reset-close')?.value||'').trim();
+    const ahead = (document.getElementById('reset-ahead')?.value||'').trim();
+    if(dump||close||ahead){
+      saveWeeklyJournal({dump, close, ahead});
     }
-    saveSlots();
+    // Render step 4 pickers with current slot state
+    renderResetPickers();
   }
   if(resetStep>=5){closeModal('modal-reset');renderAll();showToast('🌅 WEEK IS SET. GO CONQUER IT.');return;}
   resetStep++;
   showResetStep(resetStep);
+}
+
+function saveWeeklyJournal({dump,close,ahead}){
+  const entries = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+  const entry = {
+    date: new Date().toISOString().slice(0,10),
+    weekLabel: getWeekLabel(),
+    dump, close, ahead
+  };
+  // Prepend newest, keep only last 4 weeks
+  entries.unshift(entry);
+  const trimmed = entries.slice(0,4);
+  localStorage.setItem('hub-journal', JSON.stringify(trimmed));
+}
+
+function getWeekLabel(){
+  const d = new Date();
+  const start = new Date(d);
+  start.setDate(d.getDate() - d.getDay()); // Sunday
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = dt => dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `Week of ${fmt(start)} – ${fmt(end)}`;
+}
+
+// Step 4: render slot pickers inside the reset modal
+function renderResetPickers(){
+  const PICKER_SLOTS = ['w1','w2','w3','h1','f1','f2','f3'];
+  for(const slotId of PICKER_SLOTS){
+    const el = document.getElementById('reset-slot-'+slotId);
+    if(!el) continue;
+    const s = threeSlots[slotId];
+    const task = s?.taskId ? tasks.find(t=>t.id===s.taskId) : null;
+    const text = task ? task.title : (s?.customText||'');
+    if(text){
+      el.innerHTML = `<span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(text)}</span>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-right:4px;">change</span>`;
+      el.style.borderColor='var(--green)';
+      el.style.color='var(--green)';
+    } else {
+      const label = el.dataset.label;
+      el.innerHTML = `<span style="font-size:12px;color:var(--text4);font-family:var(--font-ui);">${label}</span>
+        <span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">+ PICK</span>`;
+      el.style.borderColor='var(--border2)';
+    }
+  }
+}
+
+let _resetPickingSlot = null;
+function openResetSlotPicker(slotId, label){
+  _resetPickingSlot = slotId;
+  // Reuse the slot-assign modal
+  document.getElementById('slot-assign-title').textContent = 'PICK: '+label;
+  document.getElementById('slot-assign-search').value='';
+  document.getElementById('slot-assign-new').value='';
+  renderSlotAssignList();
+  // Override confirm to go back to reset modal
+  _slotAssignCallback = (taskId, customText) => {
+    if(taskId) threeSlots[_resetPickingSlot]={taskId,done:false};
+    else if(customText) threeSlots[_resetPickingSlot]={customText,done:false};
+    saveSlots();
+    closeModal('modal-slot-assign');
+    renderResetPickers();
+    openModal('modal-reset');
+  };
+  closeModal('modal-reset');
+  openModal('modal-slot-assign');
+  setTimeout(()=>document.getElementById('slot-assign-search').focus(),150);
 }
 
 function resetBack(){
