@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1446,6 +1446,7 @@ function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s
 // ═══════════════════════════════════════════════════════════════
 let projects=[], tasks=[];
 let totalXP=0;
+let kidsGame=null; // loaded from cloud, null until first load
 // Multi-select filter state (Sets of selected values; empty = all)
 let filterRealm=new Set();       // "work"|"personal"
 let filterStatus=new Set(["todo","inprogress","blocked"]); // default: active
@@ -1502,6 +1503,15 @@ async function loadAll(){
     })).filter(p=>p.id&&p.name);
     const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
 
+    // Load kids game from cloud if present
+    if(data.kidsGame&&data.kidsGame.players){
+      kidsGame=data.kidsGame;
+      localStorage.setItem("hub-kids",JSON.stringify(kidsGame));
+    } else {
+      const lk=localStorage.getItem("hub-kids");
+      if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
+    }
+
     if(sheetProjects.length===0&&sheetTasks.length===0){
       const lp=localStorage.getItem("hub-projects");
       const lt=localStorage.getItem("hub-tasks");
@@ -1510,12 +1520,12 @@ async function loadAll(){
       if(localProjects.length>0||localTasks.length>0){
         projects=localProjects;tasks=localTasks;
         showToast("Cloud empty — uploading local data…");
-        await apiCall("saveAll",{projects,tasks});
+        await apiCall("saveAll",{projects,tasks,kidsGame});
         showToast("✓ "+projects.length+" Projects + "+tasks.length+" TaskS SENT");
       }else{
         projects=SEED_PROJECTS;tasks=SEED_TASKS;
         showToast("First visit — uploading data…");
-        await apiCall("saveAll",{projects,tasks});
+        await apiCall("saveAll",{projects,tasks,kidsGame});
         showToast("✓ All tasks uploaded ✓");
       }
     }else{
@@ -1526,15 +1536,15 @@ async function loadAll(){
     const lt=localStorage.getItem("hub-tasks");
     if(lp) try{projects=JSON.parse(lp);}catch(e2){}
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
+    const lk=localStorage.getItem("hub-kids");
+    if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
     showToast("Offline — Using local data");
   }
   if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
   if(tasks.length>=0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-  // Load XP total — if none stored yet, seed from existing completed tasks
   const storedXP=localStorage.getItem("hub-totalXP");
   if(storedXP!==null){ totalXP=parseInt(storedXP)||0; }
   else {
-    // First time — award XP for all existing completed tasks
     totalXP=tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
     localStorage.setItem("hub-totalXP",String(totalXP));
   }
@@ -1545,14 +1555,13 @@ async function saveAllDebounced(){
   localStorage.setItem("hub-tasks",JSON.stringify(tasks));
   localStorage.setItem("hub-totalXP",String(totalXP));
   clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks});}catch(e){}},800);
+  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks,kidsGame});}catch(e){}},800);
 }
 
 async function syncNow(){
   showToast("Syncing…");
-  // Push local state to cloud first, then confirm
   try{
-    await apiCall("saveAll",{projects,tasks});
+    await apiCall("saveAll",{projects,tasks,kidsGame});
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -4334,19 +4343,31 @@ const KIDS_DEFAULT_BIG_PRIZES = [
 ];
 
 function kidsData() {
+  // Use in-memory global if already loaded
+  if (kidsGame) return kidsGame;
+  // Fall back to localStorage while cloud loads
   const raw = localStorage.getItem('hub-kids');
-  if (raw) try { return JSON.parse(raw); } catch(e) {}
-  return {
+  if (raw) try { kidsGame = JSON.parse(raw); return kidsGame; } catch(e) {}
+  // First visit — create defaults, persist locally immediately
+  kidsGame = {
     players: [{name:'Player 1', score:0, prizeLog:[]}, {name:'Player 2', score:0, prizeLog:[]}],
     cats: KIDS_DEFAULT_CATS.map(c=>({...c})),
     wheelPrizesSmall: [...KIDS_DEFAULT_SMALL_PRIZES],
     wheelPrizesBig: [...KIDS_DEFAULT_BIG_PRIZES],
     activeTab: 0
   };
+  localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+  return kidsGame;
 }
 
 function saveKidsData(d) {
+  kidsGame = d;
   localStorage.setItem('hub-kids', JSON.stringify(d));
+  // Debounced cloud push alongside tasks/projects
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async()=>{
+    try{ await apiCall('saveAll',{projects, tasks, kidsGame:d}); }catch(e){}
+  }, 800);
 }
 
 let kidsEditCatId = null;
@@ -4358,6 +4379,12 @@ let _kidsSpinType = 'small'; // 'small' | 'big'
 
 function renderKidsGame(container) {
   const d = kidsData();
+
+  // First-time setup: prompt for names once only
+  if (d.players[0].name === 'Player 1' && !localStorage.getItem('hub-kids-setup-done')) {
+    localStorage.setItem('hub-kids-setup-done', '1');
+    setTimeout(() => openKidsSetup(), 300);
+  }
   const tabs = [
     {id:0, label:'🏆 Scores'},
     {id:1, label:'📋 Actions'},
