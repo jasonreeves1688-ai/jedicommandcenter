@@ -1578,36 +1578,54 @@ async function runDiagnostic(){
   showToast("RUNNING 🔮 Diagnose…");
   const lp=localStorage.getItem("hub-projects");
   const lt=localStorage.getItem("hub-tasks");
+  const lk=localStorage.getItem("hub-kids");
   const localP=lp?JSON.parse(lp):[];
   const localT=lt?JSON.parse(lt):[];
-  let sheetP=0,sheetT=0,sheetErr="";
+  const localK=lk?JSON.parse(lk):null;
+  let sheetP=0,sheetT=0,sheetK=null,sheetErr="",rawKids="(none)";
   try{
     const data=await apiCall("getAll");
     sheetP=(data.projects||[]).filter(p=>p.id&&p.name).length;
     sheetT=(data.tasks||[]).filter(t=>t.id&&t.title).length;
-  }catch(e){sheetErr=" (sync unavailable)";}
+    sheetK=data.kidsGame||null;
+    rawKids=sheetK?JSON.stringify(sheetK).slice(0,80)+"…":"null — Apps Script not updated yet!";
+  }catch(e){sheetErr=" (sync unavailable: "+e.message+")";}
   const msg=[
     "=== DIVINATION REPORT ===",
-    "Local tasks:",
-    "  Parties: "+localP.length,
-    "  Quests: "+localT.length,
+    "LOCAL STORAGE:",
+    "  Projects: "+localP.length,
+    "  Tasks: "+localT.length,
+    "  Kids data: "+(localK?"YES — players: "+localK.players.map(p=>p.name+"("+p.score+")").join(", "):"NO"),
     "",
-    "Cloud data"+sheetErr+":",
-    "  Parties: "+sheetP,
-    "  Quests: "+sheetT,
+    "CLOUD"+sheetErr+":",
+    "  Projects: "+sheetP,
+    "  Tasks: "+sheetT,
+    "  kidsGame: "+rawKids,
     "",
     "IN MEMORY:",
-    "  Parties: "+projects.length,
-    "  Quests: "+tasks.length,
+    "  Projects: "+projects.length,
+    "  Tasks: "+tasks.length,
+    "  kidsGame: "+(kidsGame?"YES — "+kidsGame.players.map(p=>p.name+"("+p.score+")").join(", "):"null"),
   ].join("\n");
   alert(msg);
 }
 
 async function forcePushToSheets(){
-  if(!confirm("Overwrite cloud with local tomes?")) return;
+  if(!confirm("Overwrite cloud with local data?")) return;
   showToast("UPLOADING ALL DATA…");
-  try{await apiCall("saveAll",{projects,tasks});showToast(`✓ ${projects.length} Projects + ${tasks.length} TaskS SENT`);}
-  catch(e){showToast("TRANSTask FAILED — CHECK SIGNAL");}
+  try{
+    await apiCall("saveAll",{projects,tasks,kidsGame});
+    showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
+  }catch(e){showToast("Push failed — check connection");}
+}
+
+async function pushKidsData(){
+  const d=kidsData();
+  showToast("Pushing kids data…");
+  try{
+    await apiCall("saveAll",{projects,tasks,kidsGame:d});
+    showToast("✓ Kids data synced to cloud!");
+  }catch(e){showToast("Failed: "+e.message);}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2842,8 +2860,9 @@ function renderSettings(container){
     <div style="margin-bottom:16px;">
       <div class="section-title">📡 Sync / Cloud</div>
       <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH ARCHIVES</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 🔮 Diagnose</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ ↑ Push all local data</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
       <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
         Use "Push all local data" if cloud appears empty.
         TaskS SYNC AUTOMATICALLY WITHIN ~1 SECOND.
