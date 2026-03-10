@@ -1,4 +1,4 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -851,8 +851,10 @@ html,body{
 .ec-icon{font-size:14px;}
 .ec-lbl{letter-spacing:0.3px;}
 /* ── Kids Game ── */
-.kids-wrap{padding:12px;max-width:480px;margin:0 auto;}
-.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;}
+.kids-wrap{padding:12px;max-width:900px;margin:0 auto;}
+.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:260px;}
+.kids-scores-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+.kids-scores-row .kids-player-card{margin-bottom:0;}
 .kids-player-card.player-0{background:linear-gradient(135deg,#1a2a4a,#1e3460);border-color:#3a6fd8;}
 .kids-player-card.player-1{background:linear-gradient(135deg,#2a1a3a,#3d1f5a);border-color:#9b59b6;}
 .kids-player-name{font-size:22px;font-family:var(--font-body);font-weight:700;margin-bottom:4px;}
@@ -4449,7 +4451,8 @@ function kidsSetSpinType(type) {
 function renderKidsScores(d) {
   let html = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;">
     <button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>
-  </div>`;
+  </div>
+  <div class="kids-scores-row">`;
 
   d.players.forEach((p, i) => {
     const score = p.score || 0;
@@ -4489,6 +4492,7 @@ function renderKidsScores(d) {
     </div>`;
   });
 
+  html += `</div>`; // close kids-scores-row
   return html;
 }
 
