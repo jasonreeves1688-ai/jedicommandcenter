@@ -1447,6 +1447,7 @@ function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s
 let projects=[], tasks=[];
 let totalXP=0;
 let kidsGame=null; // loaded from cloud, null until first load
+let kidsCloudLoaded=false; // true once loadAll has completed
 // Multi-select filter state (Sets of selected values; empty = all)
 let filterRealm=new Set();       // "work"|"personal"
 let filterStatus=new Set(["todo","inprogress","blocked"]); // default: active
@@ -1554,6 +1555,7 @@ async function loadAll(){
     totalXP=tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
     localStorage.setItem("hub-totalXP",String(totalXP));
   }
+  kidsCloudLoaded=true;
 }
 
 async function saveAllDebounced(){
@@ -4405,8 +4407,8 @@ let _kidsSpinType = 'small'; // 'small' | 'big'
 function renderKidsGame(container) {
   const d = kidsData();
 
-  // Only prompt for names if still using defaults (cloud load already happened)
-  if (d.players[0].name === 'Player 1' && d.players[1].name === 'Player 2') {
+  // Only prompt for names if cloud has loaded and names are still factory defaults
+  if (kidsCloudLoaded && d.players[0].name === 'Player 1' && d.players[1].name === 'Player 2') {
     setTimeout(() => openKidsSetup(), 300);
   }
   const tabs = [
