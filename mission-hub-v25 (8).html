@@ -851,8 +851,10 @@ html,body{
 .ec-icon{font-size:14px;}
 .ec-lbl{letter-spacing:0.3px;}
 /* ── Kids Game ── */
-.kids-wrap{padding:12px;max-width:480px;margin:0 auto;}
-.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;}
+.kids-wrap{padding:12px;max-width:900px;margin:0 auto;}
+.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:260px;}
+.kids-scores-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+.kids-scores-row .kids-player-card{margin-bottom:0;}
 .kids-player-card.player-0{background:linear-gradient(135deg,#1a2a4a,#1e3460);border-color:#3a6fd8;}
 .kids-player-card.player-1{background:linear-gradient(135deg,#2a1a3a,#3d1f5a);border-color:#9b59b6;}
 .kids-player-name{font-size:22px;font-family:var(--font-body);font-weight:700;margin-bottom:4px;}
@@ -867,11 +869,11 @@ html,body{
 .kids-player-card.player-1 .kids-prize-bar-fill{background:linear-gradient(90deg,#9b59b6,#cc8ef5);}
 .kids-prize-milestones{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.4);font-family:var(--font-ui);margin-top:3px;}
 .kids-action-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-.kids-quick-btn{flex:1;min-width:70px;padding:7px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:0.3px;cursor:pointer;text-align:center;transition:all 0.15s;color:#fff;background:transparent;}
+.kids-quick-btn{flex:1;min-width:80px;max-width:140px;padding:9px 6px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:0.3px;cursor:pointer;text-align:center;transition:all 0.15s;color:#fff;background:transparent;line-height:1.3;}
 .kids-quick-btn:active{transform:scale(0.94);}
-.kids-quick-btn.earn{background:rgba(46,160,67,0.2);border-color:rgba(46,160,67,0.4);}
+.kids-quick-btn.earn{background:rgba(46,160,67,0.2);border-color:rgba(46,160,67,0.5);}
 .kids-quick-btn.earn:hover{background:rgba(46,160,67,0.35);}
-.kids-quick-btn.lose{background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.4);}
+.kids-quick-btn.lose{background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.5);}
 .kids-quick-btn.lose:hover{background:rgba(220,53,69,0.35);}
 .kids-section-title{font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:1px;color:var(--text3);margin:16px 0 8px;text-transform:uppercase;}
 .kids-cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;}
@@ -1446,6 +1448,8 @@ function sourceColor(val){ const s=SOURCE_OPTIONS.find(x=>x.val===val); return s
 // ═══════════════════════════════════════════════════════════════
 let projects=[], tasks=[];
 let totalXP=0;
+let kidsGame=null; // loaded from cloud, null until first load
+let kidsCloudLoaded=false; // true once loadAll has completed
 // Multi-select filter state (Sets of selected values; empty = all)
 let filterRealm=new Set();       // "work"|"personal"
 let filterStatus=new Set(["todo","inprogress","blocked"]); // default: active
@@ -1502,6 +1506,21 @@ async function loadAll(){
     })).filter(p=>p.id&&p.name);
     const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
 
+    // Load kids game from cloud if present
+    if(data.kidsGame&&data.kidsGame.players){
+      // Cloud has data — always trust cloud over local
+      kidsGame=data.kidsGame;
+      localStorage.setItem("hub-kids",JSON.stringify(kidsGame));
+    } else {
+      // Cloud has no kids data yet — load from local and schedule push
+      const lk=localStorage.getItem("hub-kids");
+      if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
+      // Push local kids data up to cloud so it's available on other devices
+      if(kidsGame){
+        try{ await apiCall("saveAll",{projects,tasks,kidsGame}); }catch(e2){}
+      }
+    }
+
     if(sheetProjects.length===0&&sheetTasks.length===0){
       const lp=localStorage.getItem("hub-projects");
       const lt=localStorage.getItem("hub-tasks");
@@ -1510,12 +1529,12 @@ async function loadAll(){
       if(localProjects.length>0||localTasks.length>0){
         projects=localProjects;tasks=localTasks;
         showToast("Cloud empty — uploading local data…");
-        await apiCall("saveAll",{projects,tasks});
+        await apiCall("saveAll",{projects,tasks,kidsGame});
         showToast("✓ "+projects.length+" Projects + "+tasks.length+" TaskS SENT");
       }else{
         projects=SEED_PROJECTS;tasks=SEED_TASKS;
         showToast("First visit — uploading data…");
-        await apiCall("saveAll",{projects,tasks});
+        await apiCall("saveAll",{projects,tasks,kidsGame});
         showToast("✓ All tasks uploaded ✓");
       }
     }else{
@@ -1526,18 +1545,19 @@ async function loadAll(){
     const lt=localStorage.getItem("hub-tasks");
     if(lp) try{projects=JSON.parse(lp);}catch(e2){}
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
+    const lk=localStorage.getItem("hub-kids");
+    if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
     showToast("Offline — Using local data");
   }
   if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
   if(tasks.length>=0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-  // Load XP total — if none stored yet, seed from existing completed tasks
   const storedXP=localStorage.getItem("hub-totalXP");
   if(storedXP!==null){ totalXP=parseInt(storedXP)||0; }
   else {
-    // First time — award XP for all existing completed tasks
     totalXP=tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
     localStorage.setItem("hub-totalXP",String(totalXP));
   }
+  kidsCloudLoaded=true;
 }
 
 async function saveAllDebounced(){
@@ -1545,14 +1565,13 @@ async function saveAllDebounced(){
   localStorage.setItem("hub-tasks",JSON.stringify(tasks));
   localStorage.setItem("hub-totalXP",String(totalXP));
   clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks});}catch(e){}},800);
+  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks,kidsGame});}catch(e){}},800);
 }
 
 async function syncNow(){
   showToast("Syncing…");
-  // Push local state to cloud first, then confirm
   try{
-    await apiCall("saveAll",{projects,tasks});
+    await apiCall("saveAll",{projects,tasks,kidsGame});
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -1563,36 +1582,54 @@ async function runDiagnostic(){
   showToast("RUNNING 🔮 Diagnose…");
   const lp=localStorage.getItem("hub-projects");
   const lt=localStorage.getItem("hub-tasks");
+  const lk=localStorage.getItem("hub-kids");
   const localP=lp?JSON.parse(lp):[];
   const localT=lt?JSON.parse(lt):[];
-  let sheetP=0,sheetT=0,sheetErr="";
+  const localK=lk?JSON.parse(lk):null;
+  let sheetP=0,sheetT=0,sheetK=null,sheetErr="",rawKids="(none)";
   try{
     const data=await apiCall("getAll");
     sheetP=(data.projects||[]).filter(p=>p.id&&p.name).length;
     sheetT=(data.tasks||[]).filter(t=>t.id&&t.title).length;
-  }catch(e){sheetErr=" (sync unavailable)";}
+    sheetK=data.kidsGame||null;
+    rawKids=sheetK?JSON.stringify(sheetK).slice(0,80)+"…":"null — Apps Script not updated yet!";
+  }catch(e){sheetErr=" (sync unavailable: "+e.message+")";}
   const msg=[
     "=== DIVINATION REPORT ===",
-    "Local tasks:",
-    "  Parties: "+localP.length,
-    "  Quests: "+localT.length,
+    "LOCAL STORAGE:",
+    "  Projects: "+localP.length,
+    "  Tasks: "+localT.length,
+    "  Kids data: "+(localK?"YES — players: "+localK.players.map(p=>p.name+"("+p.score+")").join(", "):"NO"),
     "",
-    "Cloud data"+sheetErr+":",
-    "  Parties: "+sheetP,
-    "  Quests: "+sheetT,
+    "CLOUD"+sheetErr+":",
+    "  Projects: "+sheetP,
+    "  Tasks: "+sheetT,
+    "  kidsGame: "+rawKids,
     "",
     "IN MEMORY:",
-    "  Parties: "+projects.length,
-    "  Quests: "+tasks.length,
+    "  Projects: "+projects.length,
+    "  Tasks: "+tasks.length,
+    "  kidsGame: "+(kidsGame?"YES — "+kidsGame.players.map(p=>p.name+"("+p.score+")").join(", "):"null"),
   ].join("\n");
   alert(msg);
 }
 
 async function forcePushToSheets(){
-  if(!confirm("Overwrite cloud with local tomes?")) return;
+  if(!confirm("Overwrite cloud with local data?")) return;
   showToast("UPLOADING ALL DATA…");
-  try{await apiCall("saveAll",{projects,tasks});showToast(`✓ ${projects.length} Projects + ${tasks.length} TaskS SENT`);}
-  catch(e){showToast("TRANSTask FAILED — CHECK SIGNAL");}
+  try{
+    await apiCall("saveAll",{projects,tasks,kidsGame});
+    showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
+  }catch(e){showToast("Push failed — check connection");}
+}
+
+async function pushKidsData(){
+  const d=kidsData();
+  showToast("Pushing kids data…");
+  try{
+    await apiCall("saveAll",{projects,tasks,kidsGame:d});
+    showToast("✓ Kids data synced to cloud!");
+  }catch(e){showToast("Failed: "+e.message);}
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2827,8 +2864,9 @@ function renderSettings(container){
     <div style="margin-bottom:16px;">
       <div class="section-title">📡 Sync / Cloud</div>
       <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH ARCHIVES</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 🔮 Diagnose</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ ↑ Push all local data</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
       <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
         Use "Push all local data" if cloud appears empty.
         TaskS SYNC AUTOMATICALLY WITHIN ~1 SECOND.
@@ -4334,19 +4372,31 @@ const KIDS_DEFAULT_BIG_PRIZES = [
 ];
 
 function kidsData() {
+  // Use in-memory global if already loaded
+  if (kidsGame) return kidsGame;
+  // Fall back to localStorage while cloud loads
   const raw = localStorage.getItem('hub-kids');
-  if (raw) try { return JSON.parse(raw); } catch(e) {}
-  return {
+  if (raw) try { kidsGame = JSON.parse(raw); return kidsGame; } catch(e) {}
+  // First visit — create defaults, persist locally immediately
+  kidsGame = {
     players: [{name:'Player 1', score:0, prizeLog:[]}, {name:'Player 2', score:0, prizeLog:[]}],
     cats: KIDS_DEFAULT_CATS.map(c=>({...c})),
     wheelPrizesSmall: [...KIDS_DEFAULT_SMALL_PRIZES],
     wheelPrizesBig: [...KIDS_DEFAULT_BIG_PRIZES],
     activeTab: 0
   };
+  localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+  return kidsGame;
 }
 
 function saveKidsData(d) {
+  kidsGame = d;
   localStorage.setItem('hub-kids', JSON.stringify(d));
+  // Debounced cloud push alongside tasks/projects
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(async()=>{
+    try{ await apiCall('saveAll',{projects, tasks, kidsGame:d}); }catch(e){}
+  }, 800);
 }
 
 let kidsEditCatId = null;
@@ -4401,7 +4451,8 @@ function kidsSetSpinType(type) {
 function renderKidsScores(d) {
   let html = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;">
     <button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>
-  </div>`;
+  </div>
+  <div class="kids-scores-row">`;
 
   d.players.forEach((p, i) => {
     const score = p.score || 0;
@@ -4433,14 +4484,15 @@ function renderKidsScores(d) {
         <div class="kids-prize-milestones"><span>0</span><span>+25</span></div>
       </div>
       <div class="kids-action-row">
-        ${earnCats.slice(0,5).map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} +${c.pts}</button>`).join('')}
+        ${earnCats.map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">+${c.pts} pts</span></button>`).join('')}
       </div>
-      <div class="kids-action-row">
-        ${loseCats.slice(0,3).map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${c.pts}</button>`).join('')}
+      <div class="kids-action-row" style="margin-top:6px;">
+        ${loseCats.map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">${c.pts} pts</span></button>`).join('')}
       </div>
     </div>`;
   });
 
+  html += `</div>`; // close kids-scores-row
   return html;
 }
 
@@ -4900,6 +4952,50 @@ function saveKidsSetup() {
   renderKidsGame(document.getElementById('main'));
 }
 
+const KIDS_EMOJI_LIST = [
+  // Positive / activities
+  '⭐','🌟','✨','🏆','🎉','🎊','🥇','🎖','🏅','💪',
+  '📚','✏️','🎨','🎭','🎮','🎵','🎤','🏃','🚴','🤸',
+  '🛁','🪥','😴','🌙','🍎','🥦','🥗','🍽️','🧹','🧺',
+  '🧼','🫧','💊','🩺','🤝','❤️','😊','😄','🙏','👍',
+  '🌈','🦋','🌸','🌻','🌺','🍀','🌿','🌱','⚽','🏀',
+  '🎯','🧩','🔬','🔭','💡','📖','📝','🖊️','🗒️','📅',
+  // Negative / consequences
+  '😡','😤','😠','👊','💢','🤬','😢','😭','📵','🚫',
+  '❌','⛔','🙅','💔','👎','🤦','😞','😔','🥺','😬',
+  // Food & treats
+  '🍦','🍕','🍔','🌮','🍜','🧁','🍰','🎂','🍫','🍬',
+  // Animals (kids love these)
+  '🐶','🐱','🐰','🦊','🐻','🐼','🐨','🦁','🐸','🐙',
+  '🦄','🐲','🦕','🦖','🐬','🦋','🐝','🦜','🐧','🦩',
+  // Misc fun
+  '🚀','🛸','🌍','🏖','🏔','🎪','🎠','🎡','🎢','🎭',
+];
+
+function buildKidsEmojiGrid(selectedEmoji) {
+  const grid = document.getElementById('kids-emoji-grid');
+  if (!grid) return;
+  grid.innerHTML = KIDS_EMOJI_LIST.map(e =>
+    `<button type="button" onclick="selectKidsEmoji('${e}')" style="
+      font-size:22px;width:38px;height:38px;border:2px solid ${e===selectedEmoji?'var(--accent)':'transparent'};
+      background:${e===selectedEmoji?'rgba(232,168,56,0.15)':'transparent'};
+      border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:all 0.1s;padding:0;
+    " id="kids-emoji-btn-${e.codePointAt(0)}">${e}</button>`
+  ).join('');
+}
+
+function selectKidsEmoji(emoji) {
+  document.getElementById('kids-cat-emoji-input').value = emoji;
+  document.getElementById('kids-emoji-preview').textContent = emoji;
+  // Update border highlights
+  document.querySelectorAll('#kids-emoji-grid button').forEach(btn => {
+    const selected = btn.textContent.trim() === emoji;
+    btn.style.borderColor = selected ? 'var(--accent)' : 'transparent';
+    btn.style.background = selected ? 'rgba(232,168,56,0.15)' : 'transparent';
+  });
+}
+
 function openAddKidsCat() {
   kidsEditCatId = null;
   document.getElementById('kids-cat-modal-title').textContent = 'Add Category';
@@ -4907,8 +5003,9 @@ function openAddKidsCat() {
   document.getElementById('kids-cat-name-input').value = '';
   document.getElementById('kids-cat-pts-input').value = '';
   document.getElementById('kids-cat-delete-wrap').style.display = 'none';
+  document.getElementById('kids-emoji-preview').textContent = '⭐';
   openModal('modal-kids-cat');
-  setTimeout(() => document.getElementById('kids-cat-name-input').focus(), 300);
+  setTimeout(() => { buildKidsEmojiGrid(''); document.getElementById('kids-cat-name-input').focus(); }, 200);
 }
 
 function openEditKidsCat(id) {
@@ -4921,7 +5018,9 @@ function openEditKidsCat(id) {
   document.getElementById('kids-cat-name-input').value = cat.name;
   document.getElementById('kids-cat-pts-input').value = cat.pts;
   document.getElementById('kids-cat-delete-wrap').style.display = 'block';
+  document.getElementById('kids-emoji-preview').textContent = cat.emoji || '⭐';
   openModal('modal-kids-cat');
+  setTimeout(() => buildKidsEmojiGrid(cat.emoji), 200);
 }
 
 function saveKidsCat() {
@@ -5032,12 +5131,16 @@ init();
 </script>
 
 <!-- Kids Game Modals -->
-<div class="modal-overlay" id="modal-kids-cat" onclick="if(event.target===this)closeModal('modal-kids-cat')">
-  <div class="modal-box" style="max-width:340px;">
+<div class="modal-overlay" id="modal-kids-cat" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-cat')">
+  <div class="modal-box" style="max-width:360px;">
     <div class="modal-title" id="kids-cat-modal-title">Add Category</div>
     <div class="field-group">
       <label class="field-label">Emoji</label>
-      <input class="field-input" id="kids-cat-emoji-input" placeholder="🌟" maxlength="4" style="width:60px;"/>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div id="kids-emoji-preview" style="font-size:32px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">⭐</div>
+        <input class="field-input" id="kids-cat-emoji-input" placeholder="or type one…" maxlength="4" style="flex:1;" oninput="document.getElementById('kids-emoji-preview').textContent=this.value||'⭐'"/>
+      </div>
+      <div id="kids-emoji-grid" style="display:flex;flex-wrap:wrap;gap:4px;max-height:180px;overflow-y:auto;padding:4px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);"></div>
     </div>
     <div class="field-group">
       <label class="field-label">Category Name</label>
@@ -5055,7 +5158,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-setup" onclick="if(event.target===this)closeModal('modal-kids-setup')">
+<div class="modal-overlay" id="modal-kids-setup" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-setup')">
   <div class="modal-box" style="max-width:340px;">
     <div class="modal-title">Player Setup</div>
     <div class="field-group">
@@ -5072,7 +5175,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-prizes" onclick="if(event.target===this)closeModal('modal-kids-prizes')">
+<div class="modal-overlay" id="modal-kids-prizes" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-prizes')">
   <div class="modal-box" style="max-width:340px;">
     <div class="modal-title" id="kids-prizes-modal-title">🎁 Small Prize Wheel (25pts)</div>
     <div id="kids-prizes-modal-sub" style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:10px;">These smaller prizes are spun when a player hits 25, 50, 75 (non-100) points.</div>
@@ -5085,7 +5188,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-edit-pts" onclick="if(event.target===this)closeModal('modal-kids-edit-pts')">
+<div class="modal-overlay" id="modal-kids-edit-pts" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-edit-pts')">
   <div class="modal-box" style="max-width:300px;">
     <div class="modal-title" id="kids-edit-pts-title">Edit Points</div>
     <div class="field-group">
@@ -5100,7 +5203,7 @@ init();
 </div>
 
 <!-- Log Prize Modal -->
-<div class="modal-overlay" id="modal-log-prize" onclick="if(event.target===this)closeModal('modal-log-prize')">
+<div class="modal-overlay" id="modal-log-prize" style="display:none;" onclick="if(event.target===this)closeModal('modal-log-prize')">
   <div class="modal-box" style="max-width:320px;">
     <div class="modal-title">Log a Prize</div>
     <div class="field-group">
