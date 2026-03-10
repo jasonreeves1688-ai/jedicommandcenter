@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1505,11 +1505,17 @@ async function loadAll(){
 
     // Load kids game from cloud if present
     if(data.kidsGame&&data.kidsGame.players){
+      // Cloud has data — always trust cloud over local
       kidsGame=data.kidsGame;
       localStorage.setItem("hub-kids",JSON.stringify(kidsGame));
     } else {
+      // Cloud has no kids data yet — load from local and schedule push
       const lk=localStorage.getItem("hub-kids");
       if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
+      // Push local kids data up to cloud so it's available on other devices
+      if(kidsGame){
+        try{ await apiCall("saveAll",{projects,tasks,kidsGame}); }catch(e2){}
+      }
     }
 
     if(sheetProjects.length===0&&sheetTasks.length===0){
@@ -4380,9 +4386,8 @@ let _kidsSpinType = 'small'; // 'small' | 'big'
 function renderKidsGame(container) {
   const d = kidsData();
 
-  // First-time setup: prompt for names once only
-  if (d.players[0].name === 'Player 1' && !localStorage.getItem('hub-kids-setup-done')) {
-    localStorage.setItem('hub-kids-setup-done', '1');
+  // Only prompt for names if still using defaults (cloud load already happened)
+  if (d.players[0].name === 'Player 1' && d.players[1].name === 'Player 2') {
     setTimeout(() => openKidsSetup(), 300);
   }
   const tabs = [
