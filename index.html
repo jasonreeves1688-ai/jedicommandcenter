@@ -867,11 +867,11 @@ html,body{
 .kids-player-card.player-1 .kids-prize-bar-fill{background:linear-gradient(90deg,#9b59b6,#cc8ef5);}
 .kids-prize-milestones{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.4);font-family:var(--font-ui);margin-top:3px;}
 .kids-action-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-.kids-quick-btn{flex:1;min-width:70px;padding:7px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);font-family:var(--font-ui);font-size:10px;font-weight:700;letter-spacing:0.3px;cursor:pointer;text-align:center;transition:all 0.15s;color:#fff;background:transparent;}
+.kids-quick-btn{flex:1;min-width:80px;max-width:140px;padding:9px 6px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:0.3px;cursor:pointer;text-align:center;transition:all 0.15s;color:#fff;background:transparent;line-height:1.3;}
 .kids-quick-btn:active{transform:scale(0.94);}
-.kids-quick-btn.earn{background:rgba(46,160,67,0.2);border-color:rgba(46,160,67,0.4);}
+.kids-quick-btn.earn{background:rgba(46,160,67,0.2);border-color:rgba(46,160,67,0.5);}
 .kids-quick-btn.earn:hover{background:rgba(46,160,67,0.35);}
-.kids-quick-btn.lose{background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.4);}
+.kids-quick-btn.lose{background:rgba(220,53,69,0.2);border-color:rgba(220,53,69,0.5);}
 .kids-quick-btn.lose:hover{background:rgba(220,53,69,0.35);}
 .kids-section-title{font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:1px;color:var(--text3);margin:16px 0 8px;text-transform:uppercase;}
 .kids-cat-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;}
@@ -4406,11 +4406,6 @@ let _kidsSpinType = 'small'; // 'small' | 'big'
 
 function renderKidsGame(container) {
   const d = kidsData();
-
-  // Only prompt for names if cloud has loaded and names are still factory defaults
-  if (kidsCloudLoaded && d.players[0].name === 'Player 1' && d.players[1].name === 'Player 2') {
-    setTimeout(() => openKidsSetup(), 300);
-  }
   const tabs = [
     {id:0, label:'🏆 Scores'},
     {id:1, label:'📋 Actions'},
@@ -4486,10 +4481,10 @@ function renderKidsScores(d) {
         <div class="kids-prize-milestones"><span>0</span><span>+25</span></div>
       </div>
       <div class="kids-action-row">
-        ${earnCats.slice(0,5).map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} +${c.pts}</button>`).join('')}
+        ${earnCats.map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">+${c.pts} pts</span></button>`).join('')}
       </div>
-      <div class="kids-action-row">
-        ${loseCats.slice(0,3).map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${c.pts}</button>`).join('')}
+      <div class="kids-action-row" style="margin-top:6px;">
+        ${loseCats.map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">${c.pts} pts</span></button>`).join('')}
       </div>
     </div>`;
   });
@@ -4953,6 +4948,50 @@ function saveKidsSetup() {
   renderKidsGame(document.getElementById('main'));
 }
 
+const KIDS_EMOJI_LIST = [
+  // Positive / activities
+  '⭐','🌟','✨','🏆','🎉','🎊','🥇','🎖','🏅','💪',
+  '📚','✏️','🎨','🎭','🎮','🎵','🎤','🏃','🚴','🤸',
+  '🛁','🪥','😴','🌙','🍎','🥦','🥗','🍽️','🧹','🧺',
+  '🧼','🫧','💊','🩺','🤝','❤️','😊','😄','🙏','👍',
+  '🌈','🦋','🌸','🌻','🌺','🍀','🌿','🌱','⚽','🏀',
+  '🎯','🧩','🔬','🔭','💡','📖','📝','🖊️','🗒️','📅',
+  // Negative / consequences
+  '😡','😤','😠','👊','💢','🤬','😢','😭','📵','🚫',
+  '❌','⛔','🙅','💔','👎','🤦','😞','😔','🥺','😬',
+  // Food & treats
+  '🍦','🍕','🍔','🌮','🍜','🧁','🍰','🎂','🍫','🍬',
+  // Animals (kids love these)
+  '🐶','🐱','🐰','🦊','🐻','🐼','🐨','🦁','🐸','🐙',
+  '🦄','🐲','🦕','🦖','🐬','🦋','🐝','🦜','🐧','🦩',
+  // Misc fun
+  '🚀','🛸','🌍','🏖','🏔','🎪','🎠','🎡','🎢','🎭',
+];
+
+function buildKidsEmojiGrid(selectedEmoji) {
+  const grid = document.getElementById('kids-emoji-grid');
+  if (!grid) return;
+  grid.innerHTML = KIDS_EMOJI_LIST.map(e =>
+    `<button type="button" onclick="selectKidsEmoji('${e}')" style="
+      font-size:22px;width:38px;height:38px;border:2px solid ${e===selectedEmoji?'var(--accent)':'transparent'};
+      background:${e===selectedEmoji?'rgba(232,168,56,0.15)':'transparent'};
+      border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:all 0.1s;padding:0;
+    " id="kids-emoji-btn-${e.codePointAt(0)}">${e}</button>`
+  ).join('');
+}
+
+function selectKidsEmoji(emoji) {
+  document.getElementById('kids-cat-emoji-input').value = emoji;
+  document.getElementById('kids-emoji-preview').textContent = emoji;
+  // Update border highlights
+  document.querySelectorAll('#kids-emoji-grid button').forEach(btn => {
+    const selected = btn.textContent.trim() === emoji;
+    btn.style.borderColor = selected ? 'var(--accent)' : 'transparent';
+    btn.style.background = selected ? 'rgba(232,168,56,0.15)' : 'transparent';
+  });
+}
+
 function openAddKidsCat() {
   kidsEditCatId = null;
   document.getElementById('kids-cat-modal-title').textContent = 'Add Category';
@@ -4960,8 +4999,9 @@ function openAddKidsCat() {
   document.getElementById('kids-cat-name-input').value = '';
   document.getElementById('kids-cat-pts-input').value = '';
   document.getElementById('kids-cat-delete-wrap').style.display = 'none';
+  document.getElementById('kids-emoji-preview').textContent = '⭐';
   openModal('modal-kids-cat');
-  setTimeout(() => document.getElementById('kids-cat-name-input').focus(), 300);
+  setTimeout(() => { buildKidsEmojiGrid(''); document.getElementById('kids-cat-name-input').focus(); }, 200);
 }
 
 function openEditKidsCat(id) {
@@ -4974,7 +5014,9 @@ function openEditKidsCat(id) {
   document.getElementById('kids-cat-name-input').value = cat.name;
   document.getElementById('kids-cat-pts-input').value = cat.pts;
   document.getElementById('kids-cat-delete-wrap').style.display = 'block';
+  document.getElementById('kids-emoji-preview').textContent = cat.emoji || '⭐';
   openModal('modal-kids-cat');
+  setTimeout(() => buildKidsEmojiGrid(cat.emoji), 200);
 }
 
 function saveKidsCat() {
@@ -5086,11 +5128,15 @@ init();
 
 <!-- Kids Game Modals -->
 <div class="modal-overlay" id="modal-kids-cat" onclick="if(event.target===this)closeModal('modal-kids-cat')">
-  <div class="modal-box" style="max-width:340px;">
+  <div class="modal-box" style="max-width:360px;">
     <div class="modal-title" id="kids-cat-modal-title">Add Category</div>
     <div class="field-group">
       <label class="field-label">Emoji</label>
-      <input class="field-input" id="kids-cat-emoji-input" placeholder="🌟" maxlength="4" style="width:60px;"/>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div id="kids-emoji-preview" style="font-size:32px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">⭐</div>
+        <input class="field-input" id="kids-cat-emoji-input" placeholder="or type one…" maxlength="4" style="flex:1;" oninput="document.getElementById('kids-emoji-preview').textContent=this.value||'⭐'"/>
+      </div>
+      <div id="kids-emoji-grid" style="display:flex;flex-wrap:wrap;gap:4px;max-height:180px;overflow-y:auto;padding:4px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);"></div>
     </div>
     <div class="field-group">
       <label class="field-label">Category Name</label>
