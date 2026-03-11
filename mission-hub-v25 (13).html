@@ -430,38 +430,80 @@ html,body{
 }
 
 /* ── CALENDAR ── */
-.cal-header{padding:8px 10px 4px;}
-.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;}
+/* ── Calendar ─────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;}
 .cal-nav-btn{
-  padding:6px 14px;border-radius:6px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text2);font-size:18px;cursor:pointer;outline:none;
+  padding:6px 16px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-size:16px;cursor:pointer;outline:none;
+  transition:background 0.15s;
 }
-.cal-month{font-family:var(--font-ui);font-size:15px;font-weight:700;color:var(--text);}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin:0 6px;background:var(--border);}
-.cal-day{
-  background:var(--surface);padding:4px 2px;min-height:52px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:2px;transition:background 0.1s;
+.cal-nav-btn:hover{background:var(--surface);}
+.cal-month{font-family:var(--font-ui);font-size:16px;font-weight:800;color:var(--text);letter-spacing:0.5px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 10px 10px;}
+.cal-day-hdr{
+  font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);
+  text-align:center;padding:4px 0 6px;letter-spacing:0.5px;
 }
-.cal-day:hover{background:var(--surface2);}
-.cal-day.other-month .cal-day-num{opacity:0.3;}
-.cal-day.today .cal-day-num{
-  background:var(--accent);color:var(--bg);border-radius:50%;
-  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+.cal-cell{
+  background:var(--surface);border-radius:8px;padding:5px 4px 6px;
+  min-height:60px;cursor:default;display:flex;flex-direction:column;align-items:center;
+  gap:3px;transition:background 0.1s;border:1px solid transparent;
 }
-.cal-day.has-tasks{border-top:2px solid var(--blue);}
-.cal-day-num{font-size:12px;color:var(--text2);font-family:var(--font-ui);font-weight:500;}
-.cal-day-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;}
-.cal-dot{width:5px;height:5px;border-radius:50%;}
+.cal-cell.has-tasks{border-color:var(--border2);cursor:pointer;}
+.cal-cell.has-tasks:hover{background:var(--surface2);}
+.cal-cell.today{border-color:var(--accent) !important;background:rgba(232,168,56,0.07);}
+.cal-cell.overdue-day{border-color:rgba(255,80,80,0.35);}
+.cal-day-num{
+  font-size:11px;font-family:var(--font-ui);font-weight:600;
+  color:var(--text3);width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;border-radius:50%;flex-shrink:0;
+}
+.cal-day-num.today{background:var(--accent);color:#1a1f2e;font-weight:800;}
+.cal-day-num.overdue{color:rgba(255,100,100,0.9);}
+.cal-dots-row{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:0 2px;}
+.cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.cal-count-badge{
+  font-size:9px;font-family:var(--font-ui);font-weight:700;
+  color:var(--text4);background:var(--surface2);
+  border-radius:4px;padding:1px 4px;margin-top:1px;
+}
+
+/* Day detail panel */
+.cal-day-panel{
+  margin:0 10px 10px;background:var(--surface);border:1px solid var(--border2);
+  border-radius:12px;overflow:hidden;
+}
+.cal-day-panel-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+}
+.cal-day-panel-title{font-family:var(--font-ui);font-size:13px;font-weight:800;color:var(--text);}
+.cal-day-panel-close{
+  background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:2px 6px;
+}
+.cal-day-task{
+  display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+  border-bottom:1px solid var(--border);
+}
+.cal-day-task:last-child{border-bottom:none;}
+.cal-day-task-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.cal-day-task-title{font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;line-height:1.3;}
+.cal-day-task-proj{font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;}
+
+/* Upcoming list */
+.cal-upcoming{margin:0 10px 10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.cal-upcoming-title{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+.cal-upcoming-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.cal-upcoming-row:last-child{border-bottom:none;}
+.cal-upcoming-row:hover .cal-day-task-title{color:var(--accent);}
+.cal-upcoming-badge{
+  flex-shrink:0;min-width:44px;text-align:center;padding:4px 6px;border-radius:7px;
+  font-family:var(--font-ui);font-size:10px;font-weight:800;
+}
 .upcoming-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:8px;padding:10px;}
 .upcoming-title{font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;}
-.upcoming-row{
-  display:flex;align-items:center;gap:8px;padding:7px 0;
-  border-bottom:1px solid var(--border);cursor:pointer;
-}
+.upcoming-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .upcoming-row:last-child{border-bottom:none;}
-.upcoming-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.upcoming-title-text{font-size:13px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-body);}
-.upcoming-date{font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:500;flex-shrink:0;}
 
 /* ── CHARTS / INSIGHTS ── */
 .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin:6px;}
@@ -851,8 +893,10 @@ html,body{
 .ec-icon{font-size:14px;}
 .ec-lbl{letter-spacing:0.3px;}
 /* ── Kids Game ── */
-.kids-wrap{padding:12px;max-width:480px;margin:0 auto;}
-.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;}
+.kids-wrap{padding:12px;max-width:900px;margin:0 auto;}
+.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:260px;}
+.kids-scores-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+.kids-scores-row .kids-player-card{margin-bottom:0;}
 .kids-player-card.player-0{background:linear-gradient(135deg,#1a2a4a,#1e3460);border-color:#3a6fd8;}
 .kids-player-card.player-1{background:linear-gradient(135deg,#2a1a3a,#3d1f5a);border-color:#9b59b6;}
 .kids-player-name{font-size:22px;font-family:var(--font-body);font-weight:700;margin-bottom:4px;}
@@ -2341,76 +2385,158 @@ function playBeep(){
 // ═══════════════════════════════════════════════════════════════
 // REALM MAP (calendar)
 // ═══════════════════════════════════════════════════════════════
+let calSelectedDay = null;
+
 function renderCalendar(container){
-  const y=calendarDate.getFullYear(),m=calendarDate.getMonth();
+  const y=calendarDate.getFullYear(), m=calendarDate.getMonth();
   const firstDay=new Date(y,m,1).getDay();
   const daysInMonth=new Date(y,m+1,0).getDate();
   const todayStr=today();
-  const MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
-  const DAYS=["SU","MO","TU","WE","TH","FR","SA"];
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // Build date→tasks map (exclude done)
   const byDate={};
   tasks.forEach(t=>{
     if(!t.dueDate||t.status==="done") return;
-    const k=t.dueDate.slice(0,10);if(!byDate[k])byDate[k]=[];byDate[k].push(t);
+    const k=t.dueDate.slice(0,10);
+    if(!byDate[k]) byDate[k]=[];
+    byDate[k].push(t);
   });
-  let gridHtml=DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
+
+  // ── Grid ──
+  let gridHtml = DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
   for(let i=0;i<firstDay;i++) gridHtml+=`<div></div>`;
+
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const dt=byDate[ds]||[];
-    const isToday=ds===todayStr;const isOverdue=ds<todayStr&&dt.length>0;
+    const isToday=ds===todayStr;
+    const isOverdue=ds<todayStr&&dt.length>0;
+    const isSelected=calSelectedDay===ds;
+
     let cls="cal-cell";
     if(dt.length>0) cls+=" has-tasks";
     if(isToday) cls+=" today";
     if(isOverdue) cls+=" overdue-day";
-    const numCls=isToday?"today":isOverdue?"overdue":"normal";
-    let chips=dt.slice(0,2).map(t=>{
-      const proj=projects.find(p=>p.id===t.projectId);const c=proj?.color||"#FFD700";
-      return `<div class="cal-chip" style="background:${c}18;color:${c};border:1px solid ${c}33;">${esc(t.title)}</div>`;
-    }).join("");
-    if(dt.length>2) chips+=`<div class="cal-more">+${dt.length-2}</div>`;
-    gridHtml+=`<div class="${cls}" onclick="${dt.length>0?`calDayClick('${ds}')`:''}"}>
-      <div class="cal-day-num ${numCls}">${d}</div>${chips}</div>`;
-  }
-  const upcoming=tasks.filter(t=>t.dueDate&&t.status!=="done")
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,8);
-  const upcomingHtml=upcoming.length===0
-    ?`<div class="empty">— NO UPCOMING DEADLINES —</div>`
-    :upcoming.map(t=>{
+    if(isSelected) cls+=" today"; // highlight selected same as today
+
+    const numCls=isToday||isSelected?"today":isOverdue?"overdue":"";
+
+    // Dots — one per task, colored by project, max 6 then show count
+    let dotHtml="";
+    if(dt.length>0){
+      const shown=dt.slice(0,6);
+      dotHtml=`<div class="cal-dots-row">${shown.map(t=>{
         const proj=projects.find(p=>p.id===t.projectId);
-        const overdue=t.dueDate<todayStr;const isT=t.dueDate===todayStr;
-        const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
-        const bb=overdue?"rgba(255,32,32,0.15)":isT?"rgba(255,215,0,0.1)":"var(--border)";
-        const bc=overdue?"rgba(255,32,32,0.5)":isT?"var(--gold2)":"var(--border2)";
-        const lc=overdue?"#7A1818":isT?"#7A4A10":"#6A5030";
-        const lbl=overdue?"⚠ OVERDUE":isT?"★ TODAY":`${daysUntil}d`;
-        return `<div class="upcoming-row" onclick="setNav('tasks');renderAll();">
-          <div class="due-badge" style="background:${bb};border:1px solid ${bc};">
-            <div class="due-badge-lbl" style="color:${lc};">${lbl}</div>
-            <div class="due-badge-date" style="color:${overdue?'var(--red)':isT?'#FFD700':'#888899'};">${t.dueDate.slice(5)}</div>
+        const c=proj?.color||"#E8A838";
+        return `<div class="cal-dot" style="background:${c};"></div>`;
+      }).join("")}</div>`;
+      if(dt.length>6) dotHtml+=`<div class="cal-count-badge">+${dt.length-6}</div>`;
+      else if(dt.length>1) dotHtml+=`<div class="cal-count-badge">${dt.length}</div>`;
+    }
+
+    const onclick=dt.length>0||isToday?`calDayClick('${ds}')`:"";
+    gridHtml+=`<div class="${cls}" onclick="${onclick}">
+      <div class="cal-day-num ${numCls}">${d}</div>
+      ${dotHtml}
+    </div>`;
+  }
+
+  // ── Selected day panel ──
+  let dayPanelHtml="";
+  if(calSelectedDay){
+    const dt=byDate[calSelectedDay]||[];
+    const dObj=new Date(calSelectedDay+"T00:00:00");
+    const label=dObj.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+    const isOv=calSelectedDay<todayStr;
+    const isT=calSelectedDay===todayStr;
+    const heading=isT?"Today · "+label:isOv?"⚠ Overdue · "+label:label;
+
+    if(dt.length===0){
+      dayPanelHtml=`<div class="cal-day-panel">
+        <div class="cal-day-panel-hdr">
+          <span class="cal-day-panel-title">${heading}</span>
+          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
+        </div>
+        <div style="padding:18px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No tasks due this day.</div>
+      </div>`;
+    } else {
+      const rows=dt.map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        const c=proj?.color||"#E8A838";
+        const pDot=`<div class="cal-day-task-dot" style="background:${PRIORITY_COLOR[t.priority]||c};"></div>`;
+        return `<div class="cal-day-task">
+          ${pDot}
+          <div style="flex:1;min-width:0;">
+            <div class="cal-day-task-title">${esc(t.title)}</div>
+            ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
           </div>
-          <span class="priority-dot" style="background:${PRIORITY_COLOR[t.priority]||'#555580'};margin-top:0;"></span>
-          <span style="flex:1;font-size:13px;color:var(--text);min-width:0;">${esc(t.title)}</span>
-          ${proj?`<span style="font-size:8px;color:${proj.color};flex-shrink:0;font-family:var(--font-ui);letter-spacing:0.5px;">◈ ${esc(proj.name)}</span>`:""}
+          <span style="font-size:9px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
         </div>`;
       }).join("");
+      dayPanelHtml=`<div class="cal-day-panel">
+        <div class="cal-day-panel-hdr">
+          <span class="cal-day-panel-title">${heading} · ${dt.length} task${dt.length>1?"s":""}</span>
+          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
+        </div>
+        ${rows}
+      </div>`;
+    }
+  }
+
+  // ── Upcoming list ──
+  const upcoming=tasks
+    .filter(t=>t.dueDate&&t.status!=="done")
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate))
+    .slice(0,10);
+
+  let upcomingHtml="";
+  if(!upcoming.length){
+    upcomingHtml=`<div style="padding:16px;text-align:center;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No upcoming deadlines — all clear!</div>`;
+  } else {
+    upcomingHtml=upcoming.map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      const c=proj?.color||"#E8A838";
+      const overdue=t.dueDate<todayStr;
+      const isT=t.dueDate===todayStr;
+      const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
+      const badgeBg=overdue?"rgba(255,80,80,0.15)":isT?"rgba(232,168,56,0.15)":"var(--surface2)";
+      const badgeColor=overdue?"#ff6060":isT?"var(--accent)":"var(--text3)";
+      const lbl=overdue?`-${Math.abs(daysUntil)}d`:isT?"TODAY":`+${daysUntil}d`;
+      const dateStr=new Date(t.dueDate+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+      return `<div class="cal-upcoming-row" onclick="calDayClick('${t.dueDate.slice(0,10)}')">
+        <div class="cal-upcoming-badge" style="background:${badgeBg};color:${badgeColor};">
+          <div style="font-size:10px;">${lbl}</div>
+          <div style="font-size:9px;opacity:0.7;">${dateStr}</div>
+        </div>
+        <div class="cal-dot" style="background:${PRIORITY_COLOR[t.priority]||c};width:8px;height:8px;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</div>
+          ${proj?`<div style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:""}
+        </div>
+      </div>`;
+    }).join("");
+  }
 
   container.innerHTML=`
     <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calPrev()">←</button>
-      <div class="cal-month">★ ${MONTHS[m]} ${y}</div>
-      <button class="cal-nav-btn" onclick="calNext()">→</button>
+      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+      <div class="cal-month">${MONTHS[m]} ${y}</div>
+      <button class="cal-nav-btn" onclick="calNext()">›</button>
     </div>
     <div class="cal-grid">${gridHtml}</div>
-    <div class="upcoming-card">
-      <div class="upcoming-title">⏱ Upcoming due</div>
+    ${dayPanelHtml}
+    <div class="cal-upcoming">
+      <div class="cal-upcoming-title">⏱ All Upcoming</div>
       ${upcomingHtml}
     </div>`;
 }
 
-function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);renderAll();}
-function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);renderAll();}
-function calDayClick(ds){setNav("tasks");renderAll();}
+function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);calSelectedDay=null;renderAll();}
+function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);calSelectedDay=null;renderAll();}
+function calDayClick(ds){calSelectedDay=calSelectedDay===ds?null:ds;renderAll();}
+function calDayClose(){calSelectedDay=null;renderAll();}
 
 // ═══════════════════════════════════════════════════════════════
 // Settings SETTINGS
@@ -4404,6 +4530,112 @@ let kidsWheelAngle = 0;
 let kidsActiveTab = 0; // 0=scoreboard, 1=categories, 2=spin, 3=prizes
 let _kidsSpinType = 'small'; // 'small' | 'big'
 
+// ── Kids Sound Engine ─────────────────────────────────────────
+let _kidsAudioCtx = null;
+function _kidsAudio() {
+  if (!_kidsAudioCtx) _kidsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _kidsAudioCtx;
+}
+
+function playKidsSound(type) {
+  try {
+    const ctx = _kidsAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    if (type === 'point') {
+      // Cheerful ascending ding
+      const freqs = [523, 659, 784];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.1;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.start(t); osc.stop(t + 0.25);
+      });
+    }
+
+    else if (type === 'milestone-small') {
+      // Bright fanfare — C major arpeggio up
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.12;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.start(t); osc.stop(t + 0.35);
+      });
+    }
+
+    else if (type === 'milestone-big') {
+      // Epic fanfare — full chord + low boom
+      const chords = [[261, 329, 392], [349, 440, 523], [392, 494, 587], [523, 659, 784]];
+      chords.forEach((chord, ci) => {
+        chord.forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = ci === 3 ? 'triangle' : 'square';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + ci * 0.18;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.08, t + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.start(t); osc.stop(t + 0.45);
+        });
+      });
+      // Low boom
+      const boom = ctx.createOscillator();
+      const boomGain = ctx.createGain();
+      boom.connect(boomGain); boomGain.connect(ctx.destination);
+      boom.type = 'sine';
+      boom.frequency.setValueAtTime(80, ctx.currentTime);
+      boom.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
+      boomGain.gain.setValueAtTime(0.4, ctx.currentTime);
+      boomGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      boom.start(ctx.currentTime); boom.stop(ctx.currentTime + 0.5);
+    }
+
+    else if (type === 'spin-tick') {
+      // Short click for wheel tick
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 800 + Math.random() * 200;
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04);
+    }
+
+    else if (type === 'prize-reveal') {
+      // Sparkly ascending shimmer
+      const freqs = [784, 988, 1175, 1319, 1568];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.08;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t); osc.stop(t + 0.4);
+      });
+    }
+  } catch(e) { /* audio not supported — fail silently */ }
+}
+
 function renderKidsGame(container) {
   const d = kidsData();
   const tabs = [
@@ -4449,7 +4681,8 @@ function kidsSetSpinType(type) {
 function renderKidsScores(d) {
   let html = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;">
     <button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>
-  </div>`;
+  </div>
+  <div class="kids-scores-row">`;
 
   d.players.forEach((p, i) => {
     const score = p.score || 0;
@@ -4489,6 +4722,7 @@ function renderKidsScores(d) {
     </div>`;
   });
 
+  html += `</div>`; // close kids-scores-row
   return html;
 }
 
@@ -4579,45 +4813,69 @@ function renderKidsPrizeLog(d) {
   const showUsed = localStorage.getItem('hub-kids-show-used') !== 'false';
   const showPending = localStorage.getItem('hub-kids-show-pending') !== 'false';
 
+  const playerColors = ['#3a6fd8', '#9b59b6'];
+  const playerBg     = ['rgba(58,111,216,0.1)', 'rgba(155,89,182,0.1)'];
+  const playerBorder = ['rgba(58,111,216,0.4)', 'rgba(155,89,182,0.4)'];
+
   let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <div class="kids-section-title" style="margin:0;">Prize History</div>
+    <div class="kids-section-title" style="margin:0;">🎁 Prize Board</div>
     <button class="kids-cat-btn" onclick="openLogPrize()" style="padding:5px 12px;background:var(--accent);color:#1a1f2e;border-color:var(--accent);font-weight:700;">+ Log Prize</button>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:12px;">
-    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showPending?'rgba(100,181,246,0.5)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.12)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
-    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showUsed?'rgba(76,175,80,0.5)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.1)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
+  <div style="display:flex;gap:6px;margin-bottom:16px;">
+    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showPending?'rgba(100,181,246,0.7)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.15)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
+    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showUsed?'rgba(76,175,80,0.7)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.12)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
   </div>`;
 
-  const allPrizes = [];
-  d.players.forEach((p, i) => {
-    (p.prizeLog || []).forEach((pr, j) => allPrizes.push({...pr, playerName: p.name, playerIdx: i, prizeIdx: j}));
-  });
-  allPrizes.sort((a,b) => (b.ts||0)-(a.ts||0));
-
-  const filtered = allPrizes.filter(pr => pr.used ? showUsed : showPending);
-
-  if (!allPrizes.length) {
-    html += `<div style="text-align:center;padding:32px;color:var(--text3);font-family:var(--font-ui);">No prizes won yet — keep playing!</div>`;
-    return html;
-  }
-  if (!filtered.length) {
-    html += `<div style="text-align:center;padding:24px;color:var(--text3);font-family:var(--font-ui);font-size:12px;">No prizes in this category.</div>`;
+  const hasAnyPrize = d.players.some(p => (p.prizeLog||[]).length > 0);
+  if (!hasAnyPrize) {
+    html += `<div style="text-align:center;padding:40px 20px;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No prizes won yet — keep earning points!</div>`;
     return html;
   }
 
-  filtered.forEach(pr => {
-    const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    html += `<div class="kids-prize-item" style="${pr.used?'opacity:0.6;':''}">
-      <span style="font-size:18px;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
-      <div style="flex:1;">
-        <div class="kids-prize-item-name" style="${pr.used?'text-decoration:line-through;':''}">${esc(pr.prize||'Prize')}</div>
-        <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${esc(pr.playerName)} · ${date}${pr.used&&usedDate?' · used '+usedDate:''}</div>
-      </div>
-      <span class="kids-prize-item-type ${pr.type}" style="${pr.used?'opacity:0.5;':''}">${pr.type==='big'?'BIG':'SMALL'}</span>
-      <button onclick="toggleKidsPrizeUsed(${pr.playerIdx},${pr.prizeIdx})" title="${pr.used?'Mark unclaimed':'Mark as used'}" style="padding:2px 7px;border-radius:5px;border:1px solid ${pr.used?'rgba(76,175,80,0.4)':'rgba(100,181,246,0.4)'};background:transparent;color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:4px;">${pr.used?'↩':'✓'}</button>
-      <button onclick="deleteKidsPrize(${pr.playerIdx},${pr.prizeIdx})" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:2px;">✕</button>
-    </div>`;
+  // Render one section per player
+  d.players.forEach((p, playerIdx) => {
+    const log = (p.prizeLog || []);
+    // Split unclaimed vs used, each sorted newest first
+    const unclaimed = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>!pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const used      = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+
+    const visiblePrizes = [
+      ...(showPending ? unclaimed : []),
+      ...(showUsed    ? used      : [])
+    ];
+
+    // Always show the player header, even if no visible prizes in current filter
+    html += `<div style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${playerBg[playerIdx]};border:1px solid ${playerBorder[playerIdx]};margin-bottom:8px;">
+        <span style="font-size:18px;">${playerIdx===0?'🛡':'⚔'}</span>
+        <span style="font-family:var(--font-body);font-size:15px;font-weight:700;color:${playerColors[playerIdx]};">${esc(p.name)}</span>
+        <span style="margin-left:auto;font-family:var(--font-ui);font-size:10px;color:var(--text3);">
+          ${unclaimed.length} unclaimed &nbsp;·&nbsp; ${used.length} used
+        </span>
+      </div>`;
+
+    if (!visiblePrizes.length) {
+      html += `<div style="padding:12px 14px;color:var(--text4);font-family:var(--font-ui);font-size:11px;font-style:italic;">No prizes to show with current filters.</div>`;
+    } else {
+      visiblePrizes.forEach(pr => {
+        const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const typeBadgeColor = pr.type==='big' ? '#ffc107' : '#64b5f6';
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;border-radius:10px;background:${pr.used?'var(--surface2)':'var(--surface)'};border:1px solid ${pr.used?'var(--border)':playerBorder[playerIdx]};opacity:${pr.used?'0.65':'1'};">
+          <span style="font-size:20px;flex-shrink:0;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);${pr.used?'text-decoration:line-through;opacity:0.7;':''}">${esc(pr.prize||'Prize')}</div>
+            <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;">
+              Won ${date}${pr.used&&usedDate?' · Used '+usedDate:''}
+              &nbsp;<span style="color:${typeBadgeColor};font-weight:700;">${pr.type==='big'?'BIG PRIZE':'SMALL PRIZE'}</span>
+            </div>
+          </div>
+          <button onclick="toggleKidsPrizeUsed(${playerIdx},${pr.prizeIdx})" style="padding:5px 10px;border-radius:7px;border:1px solid ${pr.used?'rgba(76,175,80,0.5)':'rgba(100,181,246,0.5)'};background:${pr.used?'rgba(76,175,80,0.1)':'rgba(100,181,246,0.1)'};color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${pr.used?'↩ Unclaim':'✓ Used'}</button>
+          <button onclick="deleteKidsPrize(${playerIdx},${pr.prizeIdx})" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+        </div>`;
+      });
+    }
+    html += `</div>`;
   });
 
   return html;
@@ -4694,12 +4952,10 @@ function kidsAward(playerIdx, catId) {
 
   if (milestone) {
     _pendingCelebration = {playerIdx, milestone, d};
-    if (milestone.type === 'big') {
-      launchSpin(playerIdx, d, milestone);
-    } else {
-      launchSpin(playerIdx, d, milestone);
-    }
+    playKidsSound(milestone.type === 'big' ? 'milestone-big' : 'milestone-small');
+    launchSpin(playerIdx, d, milestone);
   } else {
+    if (cat.pts > 0) playKidsSound('point');
     showToast(`${cat.emoji} ${p.name}: ${cat.pts > 0 ? '+' : ''}${cat.pts} pts → ${p.score}`);
     renderKidsGame(document.getElementById('main'));
   }
@@ -4736,21 +4992,31 @@ function kidsSelectSpinPlayer(idx) {
 }
 
 function launchSpin(playerIdx, d, milestone) {
-  kidsActiveTab = 2;
   _spinPlayerIdx = playerIdx;
   _pendingCelebration = {playerIdx, milestone, d};
+
+  // Show celebration FIRST — dismissing it takes them to the spin wheel
+  showCelebration(d.players[playerIdx].name, null, milestone.type, true);
+  launchConfetti(milestone.type === 'big' ? 150 : 60);
+}
+
+function goToSpinAfterCelebration() {
+  const cel = _pendingCelebration;
+  closeCelebrationOnly();
+  if (!cel) return;
+  kidsActiveTab = 2;
   renderKidsGame(document.getElementById('main'));
   setTimeout(() => {
-    kidsSelectSpinPlayer(playerIdx);
+    kidsSelectSpinPlayer(cel.playerIdx);
     const spinBtn = document.getElementById('kids-spin-btn');
     if (spinBtn) {
       spinBtn.disabled = false;
-      spinBtn.textContent = milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
+      spinBtn.textContent = cel.milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
     }
     const resultEl = document.getElementById('spin-result');
-    if (resultEl) resultEl.textContent = `🎉 ${d.players[playerIdx].name} hit ${milestone.at} points! Spin to claim your prize!`;
+    const d = kidsData();
+    if (resultEl) resultEl.textContent = `🎉 ${d.players[cel.playerIdx].name} hit ${cel.milestone.at} points! Spin to claim your prize!`;
   }, 100);
-  launchConfetti(milestone.type === 'big' ? 120 : 50);
 }
 
 function initWheelCanvas(d) {
@@ -4829,6 +5095,8 @@ function spinWheel() {
   const endAngle = startAngle + totalRotation;
   const duration = 4000;
   const startTime = performance.now();
+  const tickSlice = (2 * Math.PI) / prizes.length;
+  let lastTickSlice = -1;
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
 
@@ -4837,6 +5105,15 @@ function spinWheel() {
     const t = Math.min(elapsed / duration, 1);
     kidsWheelAngle = startAngle + (endAngle - startAngle) * easeOut(t);
     drawWheel(canvas, prizes, kidsWheelAngle);
+
+    // Tick sound each time pointer crosses a new slice
+    const currentSlice = Math.floor(((-kidsWheelAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI)) / tickSlice);
+    if (currentSlice !== lastTickSlice) {
+      lastTickSlice = currentSlice;
+      // Ticks slow down as wheel decelerates
+      if (t < 0.92) playKidsSound('spin-tick');
+    }
+
     if (t < 1) {
       requestAnimationFrame(frame);
     } else {
@@ -4854,12 +5131,13 @@ function onSpinComplete(prize) {
   const milestone = _pendingCelebration?.milestone;
   const player = d.players[playerIdx];
 
-  // Record prize win
+  // Auto-add prize to player's prize log
   if (!player.prizeLog) player.prizeLog = [];
   player.prizeLog.push({
     prize,
     type: milestone?.type || 'small',
-    ts: Date.now()
+    ts: Date.now(),
+    used: false
   });
   saveKidsData(d);
 
@@ -4872,37 +5150,77 @@ function onSpinComplete(prize) {
   _pendingCelebration = null;
   _spinPlayerIdx = null;
 
-  showCelebration(player.name, prize, milestone?.type || 'small');
+  // Non-blocking banner — doesn't cover the wheel
+  playKidsSound('prize-reveal');
+  launchConfetti(milestone?.type === 'big' ? 150 : 60);
+  showPrizeBanner(player.name, prize, milestone?.type || 'small');
 }
 
-function showCelebration(playerName, prize, type) {
+function showPrizeBanner(playerName, prize, type) {
+  const banner = document.getElementById('kids-prize-banner');
+  if (!banner) return;
+  document.getElementById('kids-prize-banner-emoji').textContent = type === 'big' ? '🏆' : '🎁';
+  document.getElementById('kids-prize-banner-name').textContent = prize;
+  document.getElementById('kids-prize-banner-sub').textContent = `${playerName} won this prize! Added to your list. 🎊`;
+  banner.style.display = 'block';
+}
+
+function closePrizeBanner() {
+  const banner = document.getElementById('kids-prize-banner');
+  if (banner) banner.style.display = 'none';
+  renderKidsGame(document.getElementById('main'));
+}
+
+function showCelebration(playerName, prize, type, isMilestone=false) {
   const el = document.getElementById('kids-celebration');
   const emoji = document.getElementById('kids-celeb-emoji');
   const title = document.getElementById('kids-celeb-title');
   const sub = document.getElementById('kids-celeb-sub');
   const prizeEl = document.getElementById('kids-celeb-prize-name');
+  const closeBtn = document.getElementById('kids-celeb-close-btn');
 
   if (type === 'big') {
     emoji.textContent = '🏆';
-    title.textContent = 'MEGA PRIZE!';
+    title.textContent = isMilestone ? 'BIG MILESTONE!' : 'MEGA PRIZE!';
     title.style.color = '#ffc107';
-    sub.textContent = `${playerName} hit a BIG milestone! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a BIG prize! Spin the wheel to find out what you won!`
+      : `Amazing, ${playerName}! You won:`;
   } else {
-    emoji.textContent = '🎁';
-    title.textContent = 'PRIZE TIME!';
+    emoji.textContent = isMilestone ? '🎉' : '🎁';
+    title.textContent = isMilestone ? 'PRIZE MILESTONE!' : 'PRIZE TIME!';
     title.style.color = 'var(--accent)';
-    sub.textContent = `Amazing work, ${playerName}! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a prize! Spin the wheel to find out what you won!`
+      : `Amazing work, ${playerName}! You won:`;
   }
 
-  prizeEl.textContent = prize;
-  prizeEl.style.display = 'block';
+  if (prize) {
+    prizeEl.textContent = prize;
+    prizeEl.style.display = 'block';
+  } else {
+    prizeEl.style.display = 'none';
+  }
+
+  if (closeBtn) {
+    if (isMilestone) {
+      closeBtn.textContent = '🎡 Spin the Wheel!';
+      closeBtn.onclick = goToSpinAfterCelebration;
+    } else {
+      closeBtn.textContent = 'Awesome! 🎊';
+      closeBtn.onclick = closeCelebration;
+    }
+  }
+
   el.classList.add('active');
-  launchConfetti(type === 'big' ? 150 : 60);
+}
+
+function closeCelebrationOnly() {
+  document.getElementById('kids-celebration').classList.remove('active');
 }
 
 function closeCelebration() {
-  const el = document.getElementById('kids-celebration');
-  el.classList.remove('active');
+  closeCelebrationOnly();
   renderKidsGame(document.getElementById('main'));
 }
 
@@ -5127,7 +5445,7 @@ init();
 </script>
 
 <!-- Kids Game Modals -->
-<div class="modal-overlay" id="modal-kids-cat" onclick="if(event.target===this)closeModal('modal-kids-cat')">
+<div class="modal-overlay" id="modal-kids-cat" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-cat')">
   <div class="modal-box" style="max-width:360px;">
     <div class="modal-title" id="kids-cat-modal-title">Add Category</div>
     <div class="field-group">
@@ -5154,7 +5472,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-setup" onclick="if(event.target===this)closeModal('modal-kids-setup')">
+<div class="modal-overlay" id="modal-kids-setup" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-setup')">
   <div class="modal-box" style="max-width:340px;">
     <div class="modal-title">Player Setup</div>
     <div class="field-group">
@@ -5171,7 +5489,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-prizes" onclick="if(event.target===this)closeModal('modal-kids-prizes')">
+<div class="modal-overlay" id="modal-kids-prizes" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-prizes')">
   <div class="modal-box" style="max-width:340px;">
     <div class="modal-title" id="kids-prizes-modal-title">🎁 Small Prize Wheel (25pts)</div>
     <div id="kids-prizes-modal-sub" style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:10px;">These smaller prizes are spun when a player hits 25, 50, 75 (non-100) points.</div>
@@ -5184,7 +5502,7 @@ init();
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-kids-edit-pts" onclick="if(event.target===this)closeModal('modal-kids-edit-pts')">
+<div class="modal-overlay" id="modal-kids-edit-pts" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-edit-pts')">
   <div class="modal-box" style="max-width:300px;">
     <div class="modal-title" id="kids-edit-pts-title">Edit Points</div>
     <div class="field-group">
@@ -5199,7 +5517,7 @@ init();
 </div>
 
 <!-- Log Prize Modal -->
-<div class="modal-overlay" id="modal-log-prize" onclick="if(event.target===this)closeModal('modal-log-prize')">
+<div class="modal-overlay" id="modal-log-prize" style="display:none;" onclick="if(event.target===this)closeModal('modal-log-prize')">
   <div class="modal-box" style="max-width:320px;">
     <div class="modal-title">Log a Prize</div>
     <div class="field-group">
@@ -5232,8 +5550,16 @@ init();
     <div class="kids-celeb-title" id="kids-celeb-title">PRIZE TIME!</div>
     <div class="kids-celeb-sub" id="kids-celeb-sub">You earned a reward!</div>
     <div class="kids-celeb-prize" id="kids-celeb-prize-name" style="display:none;"></div>
-    <button class="kids-celeb-close" onclick="closeCelebration()">Awesome! 🎊</button>
+    <button class="kids-celeb-close" id="kids-celeb-close-btn" onclick="closeCelebration()">Awesome! 🎊</button>
   </div>
+</div>
+
+<!-- Post-spin prize banner (shown below wheel, not full-screen) -->
+<div id="kids-prize-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#1a2a4a,#2a1a3a);border:2px solid var(--accent);border-radius:16px;padding:16px 24px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:320px;width:90%;animation:celebPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+  <div id="kids-prize-banner-emoji" style="font-size:36px;margin-bottom:4px;">🎁</div>
+  <div id="kids-prize-banner-name" style="font-family:var(--font-body);font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;"></div>
+  <div id="kids-prize-banner-sub" style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:12px;">Added to your prize list! 🎊</div>
+  <button onclick="closePrizeBanner()" style="background:var(--accent);border:none;color:#1a1f2e;padding:8px 24px;border-radius:50px;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">Awesome! 🎊</button>
 </div>
 </body>
 </html>
