@@ -4689,45 +4689,69 @@ function renderKidsPrizeLog(d) {
   const showUsed = localStorage.getItem('hub-kids-show-used') !== 'false';
   const showPending = localStorage.getItem('hub-kids-show-pending') !== 'false';
 
+  const playerColors = ['#3a6fd8', '#9b59b6'];
+  const playerBg     = ['rgba(58,111,216,0.1)', 'rgba(155,89,182,0.1)'];
+  const playerBorder = ['rgba(58,111,216,0.4)', 'rgba(155,89,182,0.4)'];
+
   let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <div class="kids-section-title" style="margin:0;">Prize History</div>
+    <div class="kids-section-title" style="margin:0;">🎁 Prize Board</div>
     <button class="kids-cat-btn" onclick="openLogPrize()" style="padding:5px 12px;background:var(--accent);color:#1a1f2e;border-color:var(--accent);font-weight:700;">+ Log Prize</button>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:12px;">
-    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showPending?'rgba(100,181,246,0.5)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.12)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
-    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showUsed?'rgba(76,175,80,0.5)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.1)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
+  <div style="display:flex;gap:6px;margin-bottom:16px;">
+    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showPending?'rgba(100,181,246,0.7)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.15)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
+    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showUsed?'rgba(76,175,80,0.7)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.12)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
   </div>`;
 
-  const allPrizes = [];
-  d.players.forEach((p, i) => {
-    (p.prizeLog || []).forEach((pr, j) => allPrizes.push({...pr, playerName: p.name, playerIdx: i, prizeIdx: j}));
-  });
-  allPrizes.sort((a,b) => (b.ts||0)-(a.ts||0));
-
-  const filtered = allPrizes.filter(pr => pr.used ? showUsed : showPending);
-
-  if (!allPrizes.length) {
-    html += `<div style="text-align:center;padding:32px;color:var(--text3);font-family:var(--font-ui);">No prizes won yet — keep playing!</div>`;
-    return html;
-  }
-  if (!filtered.length) {
-    html += `<div style="text-align:center;padding:24px;color:var(--text3);font-family:var(--font-ui);font-size:12px;">No prizes in this category.</div>`;
+  const hasAnyPrize = d.players.some(p => (p.prizeLog||[]).length > 0);
+  if (!hasAnyPrize) {
+    html += `<div style="text-align:center;padding:40px 20px;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No prizes won yet — keep earning points!</div>`;
     return html;
   }
 
-  filtered.forEach(pr => {
-    const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    html += `<div class="kids-prize-item" style="${pr.used?'opacity:0.6;':''}">
-      <span style="font-size:18px;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
-      <div style="flex:1;">
-        <div class="kids-prize-item-name" style="${pr.used?'text-decoration:line-through;':''}">${esc(pr.prize||'Prize')}</div>
-        <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${esc(pr.playerName)} · ${date}${pr.used&&usedDate?' · used '+usedDate:''}</div>
-      </div>
-      <span class="kids-prize-item-type ${pr.type}" style="${pr.used?'opacity:0.5;':''}">${pr.type==='big'?'BIG':'SMALL'}</span>
-      <button onclick="toggleKidsPrizeUsed(${pr.playerIdx},${pr.prizeIdx})" title="${pr.used?'Mark unclaimed':'Mark as used'}" style="padding:2px 7px;border-radius:5px;border:1px solid ${pr.used?'rgba(76,175,80,0.4)':'rgba(100,181,246,0.4)'};background:transparent;color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:4px;">${pr.used?'↩':'✓'}</button>
-      <button onclick="deleteKidsPrize(${pr.playerIdx},${pr.prizeIdx})" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:2px;">✕</button>
-    </div>`;
+  // Render one section per player
+  d.players.forEach((p, playerIdx) => {
+    const log = (p.prizeLog || []);
+    // Split unclaimed vs used, each sorted newest first
+    const unclaimed = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>!pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const used      = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+
+    const visiblePrizes = [
+      ...(showPending ? unclaimed : []),
+      ...(showUsed    ? used      : [])
+    ];
+
+    // Always show the player header, even if no visible prizes in current filter
+    html += `<div style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${playerBg[playerIdx]};border:1px solid ${playerBorder[playerIdx]};margin-bottom:8px;">
+        <span style="font-size:18px;">${playerIdx===0?'🛡':'⚔'}</span>
+        <span style="font-family:var(--font-body);font-size:15px;font-weight:700;color:${playerColors[playerIdx]};">${esc(p.name)}</span>
+        <span style="margin-left:auto;font-family:var(--font-ui);font-size:10px;color:var(--text3);">
+          ${unclaimed.length} unclaimed &nbsp;·&nbsp; ${used.length} used
+        </span>
+      </div>`;
+
+    if (!visiblePrizes.length) {
+      html += `<div style="padding:12px 14px;color:var(--text4);font-family:var(--font-ui);font-size:11px;font-style:italic;">No prizes to show with current filters.</div>`;
+    } else {
+      visiblePrizes.forEach(pr => {
+        const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const typeBadgeColor = pr.type==='big' ? '#ffc107' : '#64b5f6';
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;border-radius:10px;background:${pr.used?'var(--surface2)':'var(--surface)'};border:1px solid ${pr.used?'var(--border)':playerBorder[playerIdx]};opacity:${pr.used?'0.65':'1'};">
+          <span style="font-size:20px;flex-shrink:0;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);${pr.used?'text-decoration:line-through;opacity:0.7;':''}">${esc(pr.prize||'Prize')}</div>
+            <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;">
+              Won ${date}${pr.used&&usedDate?' · Used '+usedDate:''}
+              &nbsp;<span style="color:${typeBadgeColor};font-weight:700;">${pr.type==='big'?'BIG PRIZE':'SMALL PRIZE'}</span>
+            </div>
+          </div>
+          <button onclick="toggleKidsPrizeUsed(${playerIdx},${pr.prizeIdx})" style="padding:5px 10px;border-radius:7px;border:1px solid ${pr.used?'rgba(76,175,80,0.5)':'rgba(100,181,246,0.5)'};background:${pr.used?'rgba(76,175,80,0.1)':'rgba(100,181,246,0.1)'};color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${pr.used?'↩ Unclaim':'✓ Used'}</button>
+          <button onclick="deleteKidsPrize(${playerIdx},${pr.prizeIdx})" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+        </div>`;
+      });
+    }
+    html += `</div>`;
   });
 
   return html;
