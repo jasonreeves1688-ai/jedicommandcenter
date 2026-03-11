@@ -4406,6 +4406,112 @@ let kidsWheelAngle = 0;
 let kidsActiveTab = 0; // 0=scoreboard, 1=categories, 2=spin, 3=prizes
 let _kidsSpinType = 'small'; // 'small' | 'big'
 
+// ── Kids Sound Engine ─────────────────────────────────────────
+let _kidsAudioCtx = null;
+function _kidsAudio() {
+  if (!_kidsAudioCtx) _kidsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _kidsAudioCtx;
+}
+
+function playKidsSound(type) {
+  try {
+    const ctx = _kidsAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    if (type === 'point') {
+      // Cheerful ascending ding
+      const freqs = [523, 659, 784];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.1;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.start(t); osc.stop(t + 0.25);
+      });
+    }
+
+    else if (type === 'milestone-small') {
+      // Bright fanfare — C major arpeggio up
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.12;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.start(t); osc.stop(t + 0.35);
+      });
+    }
+
+    else if (type === 'milestone-big') {
+      // Epic fanfare — full chord + low boom
+      const chords = [[261, 329, 392], [349, 440, 523], [392, 494, 587], [523, 659, 784]];
+      chords.forEach((chord, ci) => {
+        chord.forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = ci === 3 ? 'triangle' : 'square';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + ci * 0.18;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.08, t + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.start(t); osc.stop(t + 0.45);
+        });
+      });
+      // Low boom
+      const boom = ctx.createOscillator();
+      const boomGain = ctx.createGain();
+      boom.connect(boomGain); boomGain.connect(ctx.destination);
+      boom.type = 'sine';
+      boom.frequency.setValueAtTime(80, ctx.currentTime);
+      boom.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
+      boomGain.gain.setValueAtTime(0.4, ctx.currentTime);
+      boomGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      boom.start(ctx.currentTime); boom.stop(ctx.currentTime + 0.5);
+    }
+
+    else if (type === 'spin-tick') {
+      // Short click for wheel tick
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 800 + Math.random() * 200;
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04);
+    }
+
+    else if (type === 'prize-reveal') {
+      // Sparkly ascending shimmer
+      const freqs = [784, 988, 1175, 1319, 1568];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.08;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t); osc.stop(t + 0.4);
+      });
+    }
+  } catch(e) { /* audio not supported — fail silently */ }
+}
+
 function renderKidsGame(container) {
   const d = kidsData();
   const tabs = [
@@ -4698,12 +4804,10 @@ function kidsAward(playerIdx, catId) {
 
   if (milestone) {
     _pendingCelebration = {playerIdx, milestone, d};
-    if (milestone.type === 'big') {
-      launchSpin(playerIdx, d, milestone);
-    } else {
-      launchSpin(playerIdx, d, milestone);
-    }
+    playKidsSound(milestone.type === 'big' ? 'milestone-big' : 'milestone-small');
+    launchSpin(playerIdx, d, milestone);
   } else {
+    if (cat.pts > 0) playKidsSound('point');
     showToast(`${cat.emoji} ${p.name}: ${cat.pts > 0 ? '+' : ''}${cat.pts} pts → ${p.score}`);
     renderKidsGame(document.getElementById('main'));
   }
@@ -4740,21 +4844,31 @@ function kidsSelectSpinPlayer(idx) {
 }
 
 function launchSpin(playerIdx, d, milestone) {
-  kidsActiveTab = 2;
   _spinPlayerIdx = playerIdx;
   _pendingCelebration = {playerIdx, milestone, d};
+
+  // Show celebration FIRST — dismissing it takes them to the spin wheel
+  showCelebration(d.players[playerIdx].name, null, milestone.type, true);
+  launchConfetti(milestone.type === 'big' ? 150 : 60);
+}
+
+function goToSpinAfterCelebration() {
+  const cel = _pendingCelebration;
+  closeCelebrationOnly();
+  if (!cel) return;
+  kidsActiveTab = 2;
   renderKidsGame(document.getElementById('main'));
   setTimeout(() => {
-    kidsSelectSpinPlayer(playerIdx);
+    kidsSelectSpinPlayer(cel.playerIdx);
     const spinBtn = document.getElementById('kids-spin-btn');
     if (spinBtn) {
       spinBtn.disabled = false;
-      spinBtn.textContent = milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
+      spinBtn.textContent = cel.milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
     }
     const resultEl = document.getElementById('spin-result');
-    if (resultEl) resultEl.textContent = `🎉 ${d.players[playerIdx].name} hit ${milestone.at} points! Spin to claim your prize!`;
+    const d = kidsData();
+    if (resultEl) resultEl.textContent = `🎉 ${d.players[cel.playerIdx].name} hit ${cel.milestone.at} points! Spin to claim your prize!`;
   }, 100);
-  launchConfetti(milestone.type === 'big' ? 120 : 50);
 }
 
 function initWheelCanvas(d) {
@@ -4833,6 +4947,8 @@ function spinWheel() {
   const endAngle = startAngle + totalRotation;
   const duration = 4000;
   const startTime = performance.now();
+  const tickSlice = (2 * Math.PI) / prizes.length;
+  let lastTickSlice = -1;
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
 
@@ -4841,6 +4957,15 @@ function spinWheel() {
     const t = Math.min(elapsed / duration, 1);
     kidsWheelAngle = startAngle + (endAngle - startAngle) * easeOut(t);
     drawWheel(canvas, prizes, kidsWheelAngle);
+
+    // Tick sound each time pointer crosses a new slice
+    const currentSlice = Math.floor(((-kidsWheelAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI)) / tickSlice);
+    if (currentSlice !== lastTickSlice) {
+      lastTickSlice = currentSlice;
+      // Ticks slow down as wheel decelerates
+      if (t < 0.92) playKidsSound('spin-tick');
+    }
+
     if (t < 1) {
       requestAnimationFrame(frame);
     } else {
@@ -4858,12 +4983,13 @@ function onSpinComplete(prize) {
   const milestone = _pendingCelebration?.milestone;
   const player = d.players[playerIdx];
 
-  // Record prize win
+  // Auto-add prize to player's prize log
   if (!player.prizeLog) player.prizeLog = [];
   player.prizeLog.push({
     prize,
     type: milestone?.type || 'small',
-    ts: Date.now()
+    ts: Date.now(),
+    used: false
   });
   saveKidsData(d);
 
@@ -4876,37 +5002,77 @@ function onSpinComplete(prize) {
   _pendingCelebration = null;
   _spinPlayerIdx = null;
 
-  showCelebration(player.name, prize, milestone?.type || 'small');
+  // Non-blocking banner — doesn't cover the wheel
+  playKidsSound('prize-reveal');
+  launchConfetti(milestone?.type === 'big' ? 150 : 60);
+  showPrizeBanner(player.name, prize, milestone?.type || 'small');
 }
 
-function showCelebration(playerName, prize, type) {
+function showPrizeBanner(playerName, prize, type) {
+  const banner = document.getElementById('kids-prize-banner');
+  if (!banner) return;
+  document.getElementById('kids-prize-banner-emoji').textContent = type === 'big' ? '🏆' : '🎁';
+  document.getElementById('kids-prize-banner-name').textContent = prize;
+  document.getElementById('kids-prize-banner-sub').textContent = `${playerName} won this prize! Added to your list. 🎊`;
+  banner.style.display = 'block';
+}
+
+function closePrizeBanner() {
+  const banner = document.getElementById('kids-prize-banner');
+  if (banner) banner.style.display = 'none';
+  renderKidsGame(document.getElementById('main'));
+}
+
+function showCelebration(playerName, prize, type, isMilestone=false) {
   const el = document.getElementById('kids-celebration');
   const emoji = document.getElementById('kids-celeb-emoji');
   const title = document.getElementById('kids-celeb-title');
   const sub = document.getElementById('kids-celeb-sub');
   const prizeEl = document.getElementById('kids-celeb-prize-name');
+  const closeBtn = document.getElementById('kids-celeb-close-btn');
 
   if (type === 'big') {
     emoji.textContent = '🏆';
-    title.textContent = 'MEGA PRIZE!';
+    title.textContent = isMilestone ? 'BIG MILESTONE!' : 'MEGA PRIZE!';
     title.style.color = '#ffc107';
-    sub.textContent = `${playerName} hit a BIG milestone! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a BIG prize! Spin the wheel to find out what you won!`
+      : `Amazing, ${playerName}! You won:`;
   } else {
-    emoji.textContent = '🎁';
-    title.textContent = 'PRIZE TIME!';
+    emoji.textContent = isMilestone ? '🎉' : '🎁';
+    title.textContent = isMilestone ? 'PRIZE MILESTONE!' : 'PRIZE TIME!';
     title.style.color = 'var(--accent)';
-    sub.textContent = `Amazing work, ${playerName}! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a prize! Spin the wheel to find out what you won!`
+      : `Amazing work, ${playerName}! You won:`;
   }
 
-  prizeEl.textContent = prize;
-  prizeEl.style.display = 'block';
+  if (prize) {
+    prizeEl.textContent = prize;
+    prizeEl.style.display = 'block';
+  } else {
+    prizeEl.style.display = 'none';
+  }
+
+  if (closeBtn) {
+    if (isMilestone) {
+      closeBtn.textContent = '🎡 Spin the Wheel!';
+      closeBtn.onclick = goToSpinAfterCelebration;
+    } else {
+      closeBtn.textContent = 'Awesome! 🎊';
+      closeBtn.onclick = closeCelebration;
+    }
+  }
+
   el.classList.add('active');
-  launchConfetti(type === 'big' ? 150 : 60);
+}
+
+function closeCelebrationOnly() {
+  document.getElementById('kids-celebration').classList.remove('active');
 }
 
 function closeCelebration() {
-  const el = document.getElementById('kids-celebration');
-  el.classList.remove('active');
+  closeCelebrationOnly();
   renderKidsGame(document.getElementById('main'));
 }
 
@@ -5236,8 +5402,16 @@ init();
     <div class="kids-celeb-title" id="kids-celeb-title">PRIZE TIME!</div>
     <div class="kids-celeb-sub" id="kids-celeb-sub">You earned a reward!</div>
     <div class="kids-celeb-prize" id="kids-celeb-prize-name" style="display:none;"></div>
-    <button class="kids-celeb-close" onclick="closeCelebration()">Awesome! 🎊</button>
+    <button class="kids-celeb-close" id="kids-celeb-close-btn" onclick="closeCelebration()">Awesome! 🎊</button>
   </div>
+</div>
+
+<!-- Post-spin prize banner (shown below wheel, not full-screen) -->
+<div id="kids-prize-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#1a2a4a,#2a1a3a);border:2px solid var(--accent);border-radius:16px;padding:16px 24px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:320px;width:90%;animation:celebPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+  <div id="kids-prize-banner-emoji" style="font-size:36px;margin-bottom:4px;">🎁</div>
+  <div id="kids-prize-banner-name" style="font-family:var(--font-body);font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;"></div>
+  <div id="kids-prize-banner-sub" style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:12px;">Added to your prize list! 🎊</div>
+  <button onclick="closePrizeBanner()" style="background:var(--accent);border:none;color:#1a1f2e;padding:8px 24px;border-radius:50px;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">Awesome! 🎊</button>
 </div>
 </body>
 </html>
