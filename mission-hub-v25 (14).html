@@ -53,6 +53,33 @@ html,body{
   font-family:var(--font-body);
   font-size:16px;
 }
+
+/* ── Calm Mode ─────────────────────────────────────────────── */
+body.calm-mode *{
+  animation:none !important;
+  transition:none !important;
+}
+body.calm-mode{
+  --accent:#c49a38;
+  --bg:#14181e;
+}
+body.calm-mode .task-row,
+body.calm-mode .task-controls,
+body.calm-mode .kids-player-card,
+body.calm-mode .kids-prize-item{
+  box-shadow:none !important;
+}
+body.calm-mode #header-title{
+  background:none !important;
+  -webkit-background-clip:unset !important;
+  -webkit-text-fill-color:var(--accent) !important;
+  text-shadow:none !important;
+}
+body.calm-mode .nav-btn.active,
+body.calm-mode .nav-btn:hover{
+  background:rgba(196,154,56,0.1) !important;
+}
+body.calm-mode .sync-dot{display:none;}
 </style>
 <style>
 /* placeholder — dungeon bg replaced with nothing */
@@ -291,20 +318,23 @@ html,body{
 }
 .task-row:active{border-color:var(--border2);}
 .task-row-top{
-  display:flex;align-items:flex-start;gap:10px;padding:10px 10px 6px;
+  display:flex;align-items:stretch;gap:0;padding:0;min-height:52px;
 }
 .priority-bar{
-  width:3px;min-height:36px;border-radius:2px;flex-shrink:0;margin-top:2px;
+  width:3px;border-radius:0;flex-shrink:0;align-self:stretch;
+}
+.task-body-wrap{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 8px 8px 10px;
 }
 .check-btn{
-  width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;
-  border:2px solid var(--text3);background:transparent;cursor:pointer;
+  width:44px;align-self:stretch;border-radius:8px 0 0 8px;flex-shrink:0;
+  border:none;border-right:2px solid var(--border);background:transparent;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  font-size:13px;color:var(--text4);outline:none;transition:all 0.12s;
+  font-size:18px;color:var(--text4);outline:none;transition:all 0.12s;
 }
-.check-btn:hover{border-color:var(--green);background:rgba(61,184,122,0.12);color:var(--green);}
-.check-btn.checked{background:var(--green);border-color:var(--green);color:#fff;}
-.check-btn:active{transform:scale(0.9);}
+.check-btn:hover{background:rgba(61,184,122,0.1);color:var(--green);}
+.check-btn.checked{background:rgba(61,184,122,0.15);color:var(--green);}
+.check-btn:active{background:rgba(61,184,122,0.25);}
 .task-body{flex:1;min-width:0;}
 .task-title{
   font-size:15px;color:var(--text);font-weight:500;
@@ -430,38 +460,80 @@ html,body{
 }
 
 /* ── CALENDAR ── */
-.cal-header{padding:8px 10px 4px;}
-.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;}
+/* ── Calendar ─────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;}
 .cal-nav-btn{
-  padding:6px 14px;border-radius:6px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text2);font-size:18px;cursor:pointer;outline:none;
+  padding:6px 16px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);font-size:16px;cursor:pointer;outline:none;
+  transition:background 0.15s;
 }
-.cal-month{font-family:var(--font-ui);font-size:15px;font-weight:700;color:var(--text);}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin:0 6px;background:var(--border);}
-.cal-day{
-  background:var(--surface);padding:4px 2px;min-height:52px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;gap:2px;transition:background 0.1s;
+.cal-nav-btn:hover{background:var(--surface);}
+.cal-month{font-family:var(--font-ui);font-size:16px;font-weight:800;color:var(--text);letter-spacing:0.5px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 10px 10px;}
+.cal-day-hdr{
+  font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);
+  text-align:center;padding:4px 0 6px;letter-spacing:0.5px;
 }
-.cal-day:hover{background:var(--surface2);}
-.cal-day.other-month .cal-day-num{opacity:0.3;}
-.cal-day.today .cal-day-num{
-  background:var(--accent);color:var(--bg);border-radius:50%;
-  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+.cal-cell{
+  background:var(--surface);border-radius:8px;padding:5px 4px 6px;
+  min-height:60px;cursor:default;display:flex;flex-direction:column;align-items:center;
+  gap:3px;transition:background 0.1s;border:1px solid transparent;
 }
-.cal-day.has-tasks{border-top:2px solid var(--blue);}
-.cal-day-num{font-size:12px;color:var(--text2);font-family:var(--font-ui);font-weight:500;}
-.cal-day-dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;}
-.cal-dot{width:5px;height:5px;border-radius:50%;}
+.cal-cell.has-tasks{border-color:var(--border2);cursor:pointer;}
+.cal-cell.has-tasks:hover{background:var(--surface2);}
+.cal-cell.today{border-color:var(--accent) !important;background:rgba(232,168,56,0.07);}
+.cal-cell.overdue-day{border-color:rgba(255,80,80,0.35);}
+.cal-day-num{
+  font-size:11px;font-family:var(--font-ui);font-weight:600;
+  color:var(--text3);width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;border-radius:50%;flex-shrink:0;
+}
+.cal-day-num.today{background:var(--accent);color:#1a1f2e;font-weight:800;}
+.cal-day-num.overdue{color:rgba(255,100,100,0.9);}
+.cal-dots-row{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:0 2px;}
+.cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.cal-count-badge{
+  font-size:9px;font-family:var(--font-ui);font-weight:700;
+  color:var(--text4);background:var(--surface2);
+  border-radius:4px;padding:1px 4px;margin-top:1px;
+}
+
+/* Day detail panel */
+.cal-day-panel{
+  margin:0 10px 10px;background:var(--surface);border:1px solid var(--border2);
+  border-radius:12px;overflow:hidden;
+}
+.cal-day-panel-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+}
+.cal-day-panel-title{font-family:var(--font-ui);font-size:13px;font-weight:800;color:var(--text);}
+.cal-day-panel-close{
+  background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:2px 6px;
+}
+.cal-day-task{
+  display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+  border-bottom:1px solid var(--border);
+}
+.cal-day-task:last-child{border-bottom:none;}
+.cal-day-task-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.cal-day-task-title{font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;line-height:1.3;}
+.cal-day-task-proj{font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;}
+
+/* Upcoming list */
+.cal-upcoming{margin:0 10px 10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.cal-upcoming-title{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+.cal-upcoming-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+.cal-upcoming-row:last-child{border-bottom:none;}
+.cal-upcoming-row:hover .cal-day-task-title{color:var(--accent);}
+.cal-upcoming-badge{
+  flex-shrink:0;min-width:44px;text-align:center;padding:4px 6px;border-radius:7px;
+  font-family:var(--font-ui);font-size:10px;font-weight:800;
+}
 .upcoming-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:8px;padding:10px;}
 .upcoming-title{font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;}
-.upcoming-row{
-  display:flex;align-items:center;gap:8px;padding:7px 0;
-  border-bottom:1px solid var(--border);cursor:pointer;
-}
+.upcoming-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;}
 .upcoming-row:last-child{border-bottom:none;}
-.upcoming-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.upcoming-title-text{font-size:13px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-body);}
-.upcoming-date{font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:500;flex-shrink:0;}
 
 /* ── CHARTS / INSIGHTS ── */
 .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin:6px;}
@@ -851,8 +923,10 @@ html,body{
 .ec-icon{font-size:14px;}
 .ec-lbl{letter-spacing:0.3px;}
 /* ── Kids Game ── */
-.kids-wrap{padding:12px;max-width:480px;margin:0 auto;}
-.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;}
+.kids-wrap{padding:12px;max-width:900px;margin:0 auto;}
+.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:260px;}
+.kids-scores-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+.kids-scores-row .kids-player-card{margin-bottom:0;}
 .kids-player-card.player-0{background:linear-gradient(135deg,#1a2a4a,#1e3460);border-color:#3a6fd8;}
 .kids-player-card.player-1{background:linear-gradient(135deg,#2a1a3a,#3d1f5a);border-color:#9b59b6;}
 .kids-player-name{font-size:22px;font-family:var(--font-body);font-weight:700;margin-bottom:4px;}
@@ -1125,21 +1199,15 @@ html,body{
     <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
       <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
     </button>
-    <button class="nav-btn nav-collapsible" id="nav-focus" onclick="setNav('focus');closeMoreMenu()">
+    <button class="nav-btn" id="nav-focus" onclick="setNav('focus');closeMoreMenu()">
       <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
     </button>
     <button class="nav-btn" id="nav-add" onclick="openAddTask()">
       <span class="nav-icon" style="color:var(--accent);font-size:28px;">+</span>
       <span class="nav-label" style="color:var(--accent);">Add</span>
     </button>
-    <button class="nav-btn nav-collapsible" id="nav-cal" onclick="setNav('cal');closeMoreMenu()">
-      <span class="nav-icon">📅</span><span class="nav-label">Cal</span>
-    </button>
     <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
       <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
-    </button>
-    <button class="nav-btn nav-collapsible" id="nav-settings" onclick="setNav('settings');closeMoreMenu()">
-      <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
     </button>
     <button class="nav-btn" id="nav-more-btn" onclick="toggleMoreMenu()">
       <span class="nav-icon">⋯</span><span class="nav-label">More</span>
@@ -1148,9 +1216,6 @@ html,body{
 
   <!-- More overflow menu -->
   <div id="nav-more-menu">
-    <button class="nav-more-item" id="nav-more-focus" onclick="setNav('focus');closeMoreMenu()">
-      <span class="nav-more-icon">⏱</span>Focus
-    </button>
     <button class="nav-more-item" id="nav-more-cal" onclick="setNav('cal');closeMoreMenu()">
       <span class="nav-more-icon">📅</span>Calendar
     </button>
@@ -1167,26 +1232,32 @@ html,body{
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-title" id="modal-task-title">New Task</div>
     <div class="field-group">
+      <!-- Core 3 fields always visible -->
       <input class="field-input" id="task-title-input" placeholder="What needs to get done…" autocomplete="off"/>
       <select class="field-select" id="task-project-input">
         <option value="">SELECT Project…</option>
       </select>
-      <div class="field-row">
-        <select class="field-select" id="task-priority-input">
-          <option value="high">🔴 Urgent</option>
-          <option value="medium" selected>🟠 High</option>
-          <option value="low">🟡 Normal</option>
-        </select>
-        <select class="field-select" id="task-status-input">
-          <option value="todo">○ Open</option>
-          <option value="inprogress">● Active</option>
-          <option value="blocked">⊘ Blocked</option>
-          <option value="done">✓ Complete</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);flex:1;"/>
-        <select class="field-select" id="task-estimate-input" style="flex:0 0 auto;width:130px;" title="Time estimate">
+      <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
+
+      <!-- More options toggle -->
+      <button id="task-more-toggle" onclick="toggleTaskMoreOptions()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;padding:7px 12px;cursor:pointer;width:100%;text-align:left;letter-spacing:0.3px;">＋ More options</button>
+
+      <!-- Secondary fields, hidden by default -->
+      <div id="task-more-options" style="display:none;">
+        <div class="field-row">
+          <select class="field-select" id="task-priority-input">
+            <option value="high">🔴 Urgent</option>
+            <option value="medium" selected>🟠 High</option>
+            <option value="low">🟡 Normal</option>
+          </select>
+          <select class="field-select" id="task-status-input">
+            <option value="todo">○ Open</option>
+            <option value="inprogress">● Active</option>
+            <option value="blocked">⊘ Blocked</option>
+            <option value="done">✓ Complete</option>
+          </select>
+        </div>
+        <select class="field-select" id="task-estimate-input" title="Time estimate">
           <option value="">⏳ Est. time…</option>
           <option value="15m">⏳ 15 min</option>
           <option value="30m">⏳ 30 min</option>
@@ -1195,44 +1266,44 @@ html,body{
           <option value="4h">⏳ half day</option>
           <option value="8h+">⏳ full day+</option>
         </select>
-      </div>
-      <div>
-        <div class="notes-toolbar" id="notes-toolbar">
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('italic')"><i>I</i></button>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('underline')"><u>U</u></button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
-          <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
-          <div class="ntb-sep"></div>
-          <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
+        <div>
+          <div class="notes-toolbar" id="notes-toolbar">
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('italic')"><i>I</i></button>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('underline')"><u>U</u></button>
+            <div class="ntb-sep"></div>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
+            <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
+            <div class="ntb-sep"></div>
+            <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
+            <div class="ntb-sep"></div>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
+          </div>
+          <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
+            style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
+            onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
+            onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
         </div>
-        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
-          style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
-          onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
-          onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
-      </div>
-      <div>
-        <div class="chip-label">Source</div>
-        <div class="chip-group" id="source-chips"></div>
-      </div>
-      <div>
-        <div class="chip-label">Repeats</div>
-        <div class="chip-group" id="recur-chips"></div>
-      </div>
-      <div>
-        <div class="chip-label">Size</div>
-        <div class="chip-group" id="effort-chips"></div>
-      </div>
-      <div class="subtask-section">
-        <div class="chip-label">Subtasks</div>
-        <div id="modal-subtask-list" class="subtask-list"></div>
-        <div class="subtask-add-row">
-          <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
-          <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+        <div>
+          <div class="chip-label">Source</div>
+          <div class="chip-group" id="source-chips"></div>
+        </div>
+        <div>
+          <div class="chip-label">Repeats</div>
+          <div class="chip-group" id="recur-chips"></div>
+        </div>
+        <div>
+          <div class="chip-label">Size</div>
+          <div class="chip-group" id="effort-chips"></div>
+        </div>
+        <div class="subtask-section">
+          <div class="chip-label">Subtasks</div>
+          <div id="modal-subtask-list" class="subtask-list"></div>
+          <div class="subtask-add-row">
+            <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
+            <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1242,6 +1313,65 @@ html,body{
     </div>
     <div id="task-delete-wrap" style="display:none;margin-bottom:16px;">
       <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ Delete Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- MORNING RITUAL MODAL -->
+<div id="modal-morning" class="modal-overlay" style="display:none;">
+  <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:36px;margin-bottom:6px;">☀</div>
+      <div class="modal-title" style="margin:0;" id="morning-greeting">Good morning, Commander</div>
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">60 seconds to set your day</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="chip-label">What's your one most important thing today?</div>
+      <input class="field-input" id="morning-one-thing" placeholder="The thing that would make today a win…" autocomplete="off"/>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="chip-label">Anything on your mind that needs capturing?</div>
+      <input class="field-input" id="morning-brain-dump" placeholder="Optional — goes to your inbox…" autocomplete="off"/>
+    </div>
+    <div style="margin-bottom:6px;">
+      <div class="chip-label">How are you arriving today?</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="morning-energy-btns">
+        <button onclick="morningEnergy('🔋 Charged')" class="chip-btn" style="flex:1;">🔋 Charged</button>
+        <button onclick="morningEnergy('⚡ Wired')" class="chip-btn" style="flex:1;">⚡ Wired</button>
+        <button onclick="morningEnergy('😴 Foggy')" class="chip-btn" style="flex:1;">😴 Foggy</button>
+        <button onclick="morningEnergy('😤 Anxious')" class="chip-btn" style="flex:1;">😤 Anxious</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="modal-btn confirm" onclick="saveMorningRitual()">Let's go ⚔</button>
+      <button class="modal-btn cancel" onclick="skipMorningRitual()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- END OF DAY MODAL -->
+<div id="modal-eod" class="modal-overlay" style="display:none;">
+  <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:36px;margin-bottom:6px;">🌙</div>
+      <div class="modal-title" style="margin:0;">End of Day — 60 seconds</div>
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">Close the loop before you log off</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div class="chip-label">What actually happened today?</div>
+      <textarea class="field-input" id="eod-happened" placeholder="What did you get done?" rows="2" style="resize:none;"></textarea>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div class="chip-label">What didn't happen? (no judgment)</div>
+      <textarea class="field-input" id="eod-missed" placeholder="What slipped through?" rows="2" style="resize:none;"></textarea>
+    </div>
+    <div style="margin-bottom:6px;">
+      <div class="chip-label">One thing for tomorrow</div>
+      <input class="field-input" id="eod-tomorrow" placeholder="The first thing you'll do…" autocomplete="off"/>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="modal-btn confirm" onclick="saveEodRitual()">Done for today ✓</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-eod')">Skip</button>
     </div>
   </div>
 </div>
@@ -1645,27 +1775,49 @@ function renderAll(){
   renderTaskList(main);
 }
 
+function completedOnDate(dateStr){
+  return tasks.some(t=>{
+    if(!t.completedAt) return false;
+    const cd=new Date(t.completedAt);
+    return `${cd.getFullYear()}-${String(cd.getMonth()+1).padStart(2,"0")}-${String(cd.getDate()).padStart(2,"0")}`===dateStr;
+  });
+}
+
+function dateMinusDays(dateStr, n){
+  const d=new Date(dateStr+"T00:00:00");
+  d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function computeStreak(){
   const todayStr=today();
   let streak=0;
-  let checking=todayStr;
-  // Walk backwards from today
+  let missedOne=false; // grace day tracker
   for(let i=0;i<365;i++){
-    const d=new Date(checking+"T00:00:00");
-    const dayStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    const completedOnDay=tasks.some(t=>{
-      if(!t.completedAt) return false;
-      const cd=new Date(t.completedAt);
-      const cStr=`${cd.getFullYear()}-${String(cd.getMonth()+1).padStart(2,"0")}-${String(cd.getDate()).padStart(2,"0")}`;
-      return cStr===dayStr;
-    });
-    if(!completedOnDay&&i>0) break; // gap — streak ends (today having 0 is ok if streak>0 from yesterday)
-    if(completedOnDay) streak++;
-    else if(i===0) break; // today no completions yet, check yesterday
-    d.setDate(d.getDate()-1);
-    checking=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const dayStr=dateMinusDays(todayStr,i);
+    const done=completedOnDate(dayStr);
+    if(done){
+      streak++;
+      missedOne=false;
+    } else if(i===0){
+      // Today not done yet — check if yesterday keeps streak alive
+      continue;
+    } else if(!missedOne){
+      // First miss — grant grace day, keep going
+      missedOne=true;
+    } else {
+      // Two consecutive misses — streak ends
+      break;
+    }
   }
+  // Update longest streak
+  const prev=parseInt(localStorage.getItem('hub-longest-streak')||'0');
+  if(streak>prev){ localStorage.setItem('hub-longest-streak',String(streak)); }
   return streak;
+}
+
+function getLongestStreak(){
+  return parseInt(localStorage.getItem('hub-longest-streak')||'0');
 }
 
 function updateStats(){
@@ -1921,6 +2073,17 @@ function renderTaskRow(task,proj){
   const dueStr=relativeDue(task.dueDate,isDone);
   const isPinned=todayPinned.has(task.id);
 
+  // Task aging
+  const ageMs = task.createdAt ? Date.now()-parseInt(task.createdAt) : 0;
+  const ageDays = Math.floor(ageMs/86400000);
+  const isStale = !isDone && ageDays>=14;
+  const isAncient = !isDone && ageDays>=60;
+  const ageBadge = isAncient
+    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
+    : isStale
+    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
+    : '';
+
   // Priority button
   const pLabels={high:"🔴 Urgent",medium:"🟠 High",low:"🟡 Normal"};
   const pClass={high:"active-high",medium:"active-medium",low:"active-low"}[task.priority]||"";
@@ -2007,15 +2170,28 @@ function renderTaskRow(task,proj){
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":""}">
-    <div class="task-row-top">
+  // Compact due badge for collapsed view
+  const dueBadge = task.dueDate
+    ? `<span style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:4px;flex-shrink:0;
+        background:${overdue?'rgba(139,24,24,0.15)':task.dueDate===today()?'rgba(232,168,56,0.15)':'var(--surface2)'};
+        color:${overdue?'#ff6060':task.dueDate===today()?'var(--accent)':'var(--text4)'};"
+       onclick="event.stopPropagation();">${dueStr}</span>`
+    : '';
+
+  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":" "}${isStale&&!isDone?"opacity:0.82;":""}">
+    <div class="task-row-top" onclick="toggleExpand('${task.id}')">
+      <button class="check-btn ${isDone?'checked':''}" onclick="event.stopPropagation();completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
-      <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
-      <div class="task-body">
-        <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${projChip}${subPill}</div>
+      <div class="task-body-wrap">
+        <div class="task-body" style="flex:1;min-width:0;">
+          <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
+          <div class="task-meta">${projChip}${subPill}${ageBadge}</div>
+        </div>
+        ${!isExpanded ? dueBadge : ''}
+        <span style="font-size:11px;color:var(--text4);padding-right:4px;flex-shrink:0;transition:transform 0.15s;display:inline-block;transform:rotate(${isExpanded?'90':'0'}deg);">▶</span>
       </div>
     </div>
+    ${isExpanded ? `
     <div class="task-controls">
       ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
       <span class="tctl-spacer"></span>
@@ -2023,7 +2199,7 @@ function renderTaskRow(task,proj){
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
-    ${notesHtml}
+    ${notesHtml}` : ''}
   </div>`;
 }
 
@@ -2181,7 +2357,7 @@ function renderFocusPanel(container){
     :`<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);text-align:center;padding:12px;font-style:italic;">— All tasks complete 🎉 —</div>`;
 
   container.innerHTML=`<div>
-    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 4px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div>`:""}
+    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 2px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div><div style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--text4);padding-bottom:4px;letter-spacing:0.5px;">Best: ${getLongestStreak()} days${getLongestStreak()>streakCount?" — keep pushing!":""}</div>`:""}
     <!-- Timer -->
     <div class="pomo-card" style="border-color:${mc}44;">
       <div class="pomo-header">
@@ -2306,6 +2482,11 @@ function togglePomo(){
           pomoState.sessions++;
           const next=pomoState.sessions%4===0?"longBreak":"shortBreak";
           pomoState.mode=next;pomoState.timeLeft=next==="shortBreak"?300:900;
+          // Show "did you finish?" prompt if a mission is selected
+          if(selectedMissionId){
+            const _t=tasks.find(t=>t.id===selectedMissionId);
+            if(_t && _t.status!=='done') showPomoFinishPrompt(_t);
+          }
         }else{pomoState.mode="work";pomoState.timeLeft=pomoState.customWork*60;}
       }
       const d=document.querySelector(".pomo-digits");
@@ -2320,6 +2501,46 @@ function togglePomo(){
 function resetPomo(){
   clearInterval(pomoState.interval);pomoState.running=false;
   pomoState.timeLeft=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
+  renderAll();
+}
+
+function showPomoFinishPrompt(task){
+  // Remove any existing prompt
+  const old=document.getElementById('pomo-finish-prompt');
+  if(old) old.remove();
+  const el=document.createElement('div');
+  el.id='pomo-finish-prompt';
+  el.style.cssText=`position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:500;
+    width:90%;max-width:340px;background:var(--surface);border:2px solid var(--accent);
+    border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    font-family:var(--font-ui);animation:slideDown 0.2s ease;`;
+  el.innerHTML=`
+    <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⏱ SESSION COMPLETE</div>
+    <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:12px;line-height:1.3;">Did you finish: <em style="color:var(--accent);">${task.title.length>50?task.title.slice(0,47)+'…':task.title}</em>?</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="pomoFinishYes()" style="flex:1;padding:9px;border-radius:7px;border:none;background:var(--green);color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">✓ Done!</button>
+      <button onclick="pomoFinishNo()" style="flex:1;padding:9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">Still going</button>
+      <button onclick="document.getElementById('pomo-finish-prompt').remove()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  document.body.appendChild(el);
+  // Auto-dismiss after 30s
+  setTimeout(()=>{ const e=document.getElementById('pomo-finish-prompt'); if(e) e.remove(); },30000);
+}
+
+function pomoFinishYes(){
+  const el=document.getElementById('pomo-finish-prompt');
+  if(el) el.remove();
+  if(selectedMissionId){
+    updateTaskField(selectedMissionId,'status','done');
+    selectedMissionId=null;
+    renderAll();
+  }
+}
+
+function pomoFinishNo(){
+  const el=document.getElementById('pomo-finish-prompt');
+  if(el) el.remove();
+  // Keep mission selected, just dismiss
   renderAll();
 }
 
@@ -2341,76 +2562,158 @@ function playBeep(){
 // ═══════════════════════════════════════════════════════════════
 // REALM MAP (calendar)
 // ═══════════════════════════════════════════════════════════════
+let calSelectedDay = null;
+
 function renderCalendar(container){
-  const y=calendarDate.getFullYear(),m=calendarDate.getMonth();
+  const y=calendarDate.getFullYear(), m=calendarDate.getMonth();
   const firstDay=new Date(y,m,1).getDay();
   const daysInMonth=new Date(y,m+1,0).getDate();
   const todayStr=today();
-  const MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
-  const DAYS=["SU","MO","TU","WE","TH","FR","SA"];
+  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // Build date→tasks map (exclude done)
   const byDate={};
   tasks.forEach(t=>{
     if(!t.dueDate||t.status==="done") return;
-    const k=t.dueDate.slice(0,10);if(!byDate[k])byDate[k]=[];byDate[k].push(t);
+    const k=t.dueDate.slice(0,10);
+    if(!byDate[k]) byDate[k]=[];
+    byDate[k].push(t);
   });
-  let gridHtml=DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
+
+  // ── Grid ──
+  let gridHtml = DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
   for(let i=0;i<firstDay;i++) gridHtml+=`<div></div>`;
+
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const dt=byDate[ds]||[];
-    const isToday=ds===todayStr;const isOverdue=ds<todayStr&&dt.length>0;
+    const isToday=ds===todayStr;
+    const isOverdue=ds<todayStr&&dt.length>0;
+    const isSelected=calSelectedDay===ds;
+
     let cls="cal-cell";
     if(dt.length>0) cls+=" has-tasks";
     if(isToday) cls+=" today";
     if(isOverdue) cls+=" overdue-day";
-    const numCls=isToday?"today":isOverdue?"overdue":"normal";
-    let chips=dt.slice(0,2).map(t=>{
-      const proj=projects.find(p=>p.id===t.projectId);const c=proj?.color||"#FFD700";
-      return `<div class="cal-chip" style="background:${c}18;color:${c};border:1px solid ${c}33;">${esc(t.title)}</div>`;
-    }).join("");
-    if(dt.length>2) chips+=`<div class="cal-more">+${dt.length-2}</div>`;
-    gridHtml+=`<div class="${cls}" onclick="${dt.length>0?`calDayClick('${ds}')`:''}"}>
-      <div class="cal-day-num ${numCls}">${d}</div>${chips}</div>`;
-  }
-  const upcoming=tasks.filter(t=>t.dueDate&&t.status!=="done")
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,8);
-  const upcomingHtml=upcoming.length===0
-    ?`<div class="empty">— NO UPCOMING DEADLINES —</div>`
-    :upcoming.map(t=>{
+    if(isSelected) cls+=" today"; // highlight selected same as today
+
+    const numCls=isToday||isSelected?"today":isOverdue?"overdue":"";
+
+    // Dots — one per task, colored by project, max 6 then show count
+    let dotHtml="";
+    if(dt.length>0){
+      const shown=dt.slice(0,6);
+      dotHtml=`<div class="cal-dots-row">${shown.map(t=>{
         const proj=projects.find(p=>p.id===t.projectId);
-        const overdue=t.dueDate<todayStr;const isT=t.dueDate===todayStr;
-        const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
-        const bb=overdue?"rgba(255,32,32,0.15)":isT?"rgba(255,215,0,0.1)":"var(--border)";
-        const bc=overdue?"rgba(255,32,32,0.5)":isT?"var(--gold2)":"var(--border2)";
-        const lc=overdue?"#7A1818":isT?"#7A4A10":"#6A5030";
-        const lbl=overdue?"⚠ OVERDUE":isT?"★ TODAY":`${daysUntil}d`;
-        return `<div class="upcoming-row" onclick="setNav('tasks');renderAll();">
-          <div class="due-badge" style="background:${bb};border:1px solid ${bc};">
-            <div class="due-badge-lbl" style="color:${lc};">${lbl}</div>
-            <div class="due-badge-date" style="color:${overdue?'var(--red)':isT?'#FFD700':'#888899'};">${t.dueDate.slice(5)}</div>
+        const c=proj?.color||"#E8A838";
+        return `<div class="cal-dot" style="background:${c};"></div>`;
+      }).join("")}</div>`;
+      if(dt.length>6) dotHtml+=`<div class="cal-count-badge">+${dt.length-6}</div>`;
+      else if(dt.length>1) dotHtml+=`<div class="cal-count-badge">${dt.length}</div>`;
+    }
+
+    const onclick=dt.length>0||isToday?`calDayClick('${ds}')`:"";
+    gridHtml+=`<div class="${cls}" onclick="${onclick}">
+      <div class="cal-day-num ${numCls}">${d}</div>
+      ${dotHtml}
+    </div>`;
+  }
+
+  // ── Selected day panel ──
+  let dayPanelHtml="";
+  if(calSelectedDay){
+    const dt=byDate[calSelectedDay]||[];
+    const dObj=new Date(calSelectedDay+"T00:00:00");
+    const label=dObj.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+    const isOv=calSelectedDay<todayStr;
+    const isT=calSelectedDay===todayStr;
+    const heading=isT?"Today · "+label:isOv?"⚠ Overdue · "+label:label;
+
+    if(dt.length===0){
+      dayPanelHtml=`<div class="cal-day-panel">
+        <div class="cal-day-panel-hdr">
+          <span class="cal-day-panel-title">${heading}</span>
+          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
+        </div>
+        <div style="padding:18px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No tasks due this day.</div>
+      </div>`;
+    } else {
+      const rows=dt.map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        const c=proj?.color||"#E8A838";
+        const pDot=`<div class="cal-day-task-dot" style="background:${PRIORITY_COLOR[t.priority]||c};"></div>`;
+        return `<div class="cal-day-task">
+          ${pDot}
+          <div style="flex:1;min-width:0;">
+            <div class="cal-day-task-title">${esc(t.title)}</div>
+            ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
           </div>
-          <span class="priority-dot" style="background:${PRIORITY_COLOR[t.priority]||'#555580'};margin-top:0;"></span>
-          <span style="flex:1;font-size:13px;color:var(--text);min-width:0;">${esc(t.title)}</span>
-          ${proj?`<span style="font-size:8px;color:${proj.color};flex-shrink:0;font-family:var(--font-ui);letter-spacing:0.5px;">◈ ${esc(proj.name)}</span>`:""}
+          <span style="font-size:9px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
         </div>`;
       }).join("");
+      dayPanelHtml=`<div class="cal-day-panel">
+        <div class="cal-day-panel-hdr">
+          <span class="cal-day-panel-title">${heading} · ${dt.length} task${dt.length>1?"s":""}</span>
+          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
+        </div>
+        ${rows}
+      </div>`;
+    }
+  }
+
+  // ── Upcoming list ──
+  const upcoming=tasks
+    .filter(t=>t.dueDate&&t.status!=="done")
+    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate))
+    .slice(0,10);
+
+  let upcomingHtml="";
+  if(!upcoming.length){
+    upcomingHtml=`<div style="padding:16px;text-align:center;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No upcoming deadlines — all clear!</div>`;
+  } else {
+    upcomingHtml=upcoming.map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      const c=proj?.color||"#E8A838";
+      const overdue=t.dueDate<todayStr;
+      const isT=t.dueDate===todayStr;
+      const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
+      const badgeBg=overdue?"rgba(255,80,80,0.15)":isT?"rgba(232,168,56,0.15)":"var(--surface2)";
+      const badgeColor=overdue?"#ff6060":isT?"var(--accent)":"var(--text3)";
+      const lbl=overdue?`-${Math.abs(daysUntil)}d`:isT?"TODAY":`+${daysUntil}d`;
+      const dateStr=new Date(t.dueDate+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+      return `<div class="cal-upcoming-row" onclick="calDayClick('${t.dueDate.slice(0,10)}')">
+        <div class="cal-upcoming-badge" style="background:${badgeBg};color:${badgeColor};">
+          <div style="font-size:10px;">${lbl}</div>
+          <div style="font-size:9px;opacity:0.7;">${dateStr}</div>
+        </div>
+        <div class="cal-dot" style="background:${PRIORITY_COLOR[t.priority]||c};width:8px;height:8px;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</div>
+          ${proj?`<div style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:""}
+        </div>
+      </div>`;
+    }).join("");
+  }
 
   container.innerHTML=`
     <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calPrev()">←</button>
-      <div class="cal-month">★ ${MONTHS[m]} ${y}</div>
-      <button class="cal-nav-btn" onclick="calNext()">→</button>
+      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+      <div class="cal-month">${MONTHS[m]} ${y}</div>
+      <button class="cal-nav-btn" onclick="calNext()">›</button>
     </div>
     <div class="cal-grid">${gridHtml}</div>
-    <div class="upcoming-card">
-      <div class="upcoming-title">⏱ Upcoming due</div>
+    ${dayPanelHtml}
+    <div class="cal-upcoming">
+      <div class="cal-upcoming-title">⏱ All Upcoming</div>
       ${upcomingHtml}
     </div>`;
 }
 
-function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);renderAll();}
-function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);renderAll();}
-function calDayClick(ds){setNav("tasks");renderAll();}
+function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);calSelectedDay=null;renderAll();}
+function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);calSelectedDay=null;renderAll();}
+function calDayClick(ds){calSelectedDay=calSelectedDay===ds?null:ds;renderAll();}
+function calDayClose(){calSelectedDay=null;renderAll();}
 
 // ═══════════════════════════════════════════════════════════════
 // Settings SETTINGS
@@ -2861,14 +3164,22 @@ function renderSettings(container){
     </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">📡 Sync / Cloud</div>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH ARCHIVES</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
-      <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
-        Use "Push all local data" if cloud appears empty.
-        TaskS SYNC AUTOMATICALLY WITHIN ~1 SECOND.
-      </div>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ Sync Now</button>
+      <!-- Calm mode toggle -->
+      <button class="hbtn" style="width:100%;margin-bottom:16px;" onclick="toggleCalmMode()">🌿 Toggle Calm Mode</button>
+      <details style="margin-bottom:8px;">
+        <summary style="font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);list-style:none;display:flex;align-items:center;gap:6px;">
+          ⚙ Advanced / Debug
+        </summary>
+        <div style="padding:10px 4px 0;">
+          <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+          <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
+          <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
+          <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
+            Use "Push all local data" if cloud appears empty. Tasks sync automatically within ~1 second.
+          </div>
+        </div>
+      </details>
     </div>
     <div style="margin-bottom:32px;">
       <div class="section-title">⏳ Timer CONFIG</div>
@@ -3138,6 +3449,15 @@ function toggleProject(id){
   p.collapsed=!p.collapsed;saveAllDebounced();renderAll();
 }
 
+function toggleTaskMoreOptions(){
+  const el = document.getElementById('task-more-options');
+  const btn = document.getElementById('task-more-toggle');
+  if(!el || !btn) return;
+  const expanded = el.style.display !== 'none';
+  el.style.display = expanded ? 'none' : 'block';
+  btn.textContent = expanded ? '＋ More options' : '－ Fewer options';
+}
+
 function openAddTask(projectId=""){
   editingTaskId=null;
   document.getElementById("modal-task-title").textContent="New Task";
@@ -3155,6 +3475,11 @@ function openAddTask(projectId=""){
   sel.innerHTML=buildProjectOptions(projectId);
   _modalSubtasks = [];
   renderModalSubtaskList();
+  // Collapse more options for new tasks
+  const moreEl=document.getElementById("task-more-options");
+  const moreBtn=document.getElementById("task-more-toggle");
+  if(moreEl) moreEl.style.display="none";
+  if(moreBtn) moreBtn.textContent="＋ More options";
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
@@ -3177,6 +3502,11 @@ function openEditTask(id){
   sel.innerHTML=buildProjectOptions(t.projectId);
   _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
   renderModalSubtaskList();
+  // Always expand more options when editing existing task
+  const moreEl=document.getElementById("task-more-options");
+  const moreBtn=document.getElementById("task-more-toggle");
+  if(moreEl) moreEl.style.display="block";
+  if(moreBtn) moreBtn.textContent="－ Fewer options";
   openModal("modal-task");
 }
 let _modalSubtasks = [];
@@ -3588,6 +3918,7 @@ function toggleFocus(){if(activeNav==="focus") setNav("tasks"); else setNav("foc
 // slotId: w1,w2,w3 (work), h1 (home), f1,f2,f3 (family)
 let threeSlots = JSON.parse(localStorage.getItem('hub-slots')||'{}');
 let parkingExpanded = false;
+let overwhelmMode = false;  // "just show me one thing" mode
 let _assigningSlot = null;
 let resetStep = 1;
 
@@ -3817,7 +4148,59 @@ function renderTodayView(container){
 
   const parking=getParkingLot();
 
+  // ── Compute "Next Up" task ──────────────────────────────────
+  const _nextActive = tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').sort((a,b) => {
+    if(todayPinned.has(a.id) !== todayPinned.has(b.id)) return todayPinned.has(a.id) ? -1 : 1;
+    const aOver = a.dueDate && a.dueDate < todayStr ? 1 : 0;
+    const bOver = b.dueDate && b.dueDate < todayStr ? 1 : 0;
+    if(aOver !== bOver) return bOver - aOver;
+    const pOrd = {high:0,medium:1,low:2};
+    const pd = (pOrd[a.priority]??1)-(pOrd[b.priority]??1);
+    if(pd !== 0) return pd;
+    if(a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if(a.dueDate) return -1;
+    if(b.dueDate) return 1;
+    return 0;
+  });
+  const _nextTask = _nextActive[0] || null;
+  const _nextProj = _nextTask ? projects.find(p => p.id === _nextTask.projectId) : null;
+
   let html=``;
+
+  // Overwhelm mode — just one thing
+  if(overwhelmMode){
+    html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--accent);">🧘 One Thing Mode</div>
+      <button onclick="overwhelmMode=false;renderAll();" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕ Back to normal</button>
+    </div>`;
+    // Brain dump bar
+    html+=`<div class="brain-dump-bar">
+      <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought…"
+        onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value=''}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
+      <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
+    </div>`;
+    // Show Next Up in overwhelm mode
+    if(_nextTask){
+      const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
+      const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
+      const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:11px;">⚠ OVERDUE</span>`
+                       : _isToday   ? `<span style="color:var(--accent);font-size:11px;">📅 TODAY</span>`
+                       : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:11px;">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
+      const _np = _nextProj;
+      html+=`<div style="margin:8px 10px;padding:20px;border-radius:12px;border:2px solid var(--accent);background:rgba(232,168,56,0.07);text-align:center;">
+        <div style="font-size:11px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">⚔ YOUR ONE THING</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.4;margin-bottom:8px;">${esc(_nextTask.title)}</div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px;">${_np?`<span style="font-size:11px;color:${_np.color};">◈ ${esc(_np.name)}</span>`:''}${_dueLabel}</div>
+        <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">▶ Start Focus Session</button>
+        <button onclick="updateTaskField('${_nextTask.id}','status','done');renderAll();" style="width:100%;padding:9px;margin-top:8px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">✓ Already done — what's next?</button>
+      </div>`;
+    } else {
+      html+=`<div style="margin:40px 20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">🎉 No active tasks — you're all clear!</div>`;
+    }
+    container.innerHTML=html;
+    return;
+  }
 
   // Header
   html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
@@ -3825,8 +4208,29 @@ function renderTodayView(container){
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">${greeting}</div>
       ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Tap <strong style="color:var(--accent);">+ ADD</strong> on any slot to assign a task</div>'}
     </div>
-    <button onclick="openReset()" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button onclick="overwhelmMode=true;renderAll();" title="Just show me one thing" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">🧘</button>
+      <button onclick="openReset()" style="padding:6px 11px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 Reset</button>
+    </div>
   </div>`;
+
+  // ── Next Up banner ──────────────────────────────────────────
+  if(_nextTask){
+    const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
+    const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
+    const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:10px;font-family:var(--font-ui);">⚠ OVERDUE</span>`
+                     : _isToday   ? `<span style="color:var(--accent);font-size:10px;font-family:var(--font-ui);">📅 TODAY</span>`
+                     : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:10px;font-family:var(--font-ui);">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
+    html += `<div style="margin:4px 10px 10px;padding:12px 14px;border-radius:10px;border:2px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.07);">
+      <div style="font-size:9px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚔ NEXT UP</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.3;margin-bottom:6px;">${esc(_nextTask.title)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        ${_nextProj ? `<span style="font-size:10px;color:${_nextProj.color};font-family:var(--font-ui);">◈ ${esc(_nextProj.name)}</span>` : ''}
+        ${_dueLabel}
+      </div>
+      <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:9px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">▶ Start Focus Session</button>
+    </div>`;
+  }
 
   // Brain dump bar
   html+=`<div class="brain-dump-bar">
@@ -3857,35 +4261,63 @@ function renderTodayView(container){
 
   // Parking Lot
   const plCount=parking.length;
+  const plPreview=parking.slice(0,3);
+  const plRest=parking.slice(3);
   html+=`<div class="parking-lot">
     <div class="parking-lot-header" onclick="parkingExpanded=!parkingExpanded;renderAll();">
-      <span class="parking-lot-title">🅿 PARKING LOT — ${plCount} Task${plCount!==1?'S':''}</span>
+      <span class="parking-lot-title">🅿 Inbox — ${plCount} task${plCount!==1?'s':''}</span>
       <span style="font-size:11px;color:var(--text3);">${parkingExpanded?'▾':'▸'}</span>
     </div>`;
-  if(parkingExpanded){
-    if(plCount===0){
-      html+=`<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Nothing parked — all clear.</div>`;
-    } else {
-      html+=parking.slice(0,30).map(t=>{
-        const proj=projects.find(p=>p.id===t.projectId);
-        return `<div class="parking-lot-item">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-            ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
-          </div>
-          <button class="parking-lot-assign" onclick="setNav('tasks')">VIEW</button>
-        </div>`;
-      }).join('');
-      if(plCount>30) html+=`<div style="padding:6px 12px;font-size:11px;color:var(--text3);font-family:var(--font-ui);">+${plCount-30} more in TaskS</div>`;
+
+  if(plCount===0){
+    html+=`<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Inbox empty — all clear.</div>`;
+  } else {
+    // Always show top 3
+    html+=plPreview.map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      // Find first available slot to suggest
+      const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
+      const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
+      return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${esc(t.title)}</div>
+          ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
+        </div>
+        <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
+      </div>`;
+    }).join('');
+    // Remaining tasks expandable
+    if(plRest.length>0){
+      if(parkingExpanded){
+        html+=plRest.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
+          const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
+          return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
+            </div>
+            <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
+          </div>`;
+        }).join('');
+      } else {
+        html+=`<div onclick="parkingExpanded=true;renderAll();" style="padding:8px 12px;font-size:11px;color:var(--text3);font-family:var(--font-ui);cursor:pointer;text-align:center;">+ ${plRest.length} more — tap to expand</div>`;
+      }
     }
   }
   html+=`</div>`;
 
-  // Evening capture nudge
+  // Evening capture nudge + EOD ritual
   if(hour>=17){
-    html+=`<div style="margin:0 6px 10px;padding:10px 14px;border-radius:5px;border:1px solid rgba(58,68,104,0.2);background:rgba(34,40,64,0.3);">
-      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 EVENING — 2 MIN</div>
-      <div style="font-size:12px;color:var(--text2);">Anything that broke or came up today? Just capture it — don't process. Use the box above.</div>
+    const eodDone = localStorage.getItem('hub-eod-done') === today();
+    html+=`<div style="margin:0 6px 10px;padding:12px 14px;border-radius:10px;border:1px solid rgba(58,68,104,0.3);background:rgba(34,40,64,0.4);">
+      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 CLOSE THE DAY</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Capture anything that came up, then do your 60-second close.</div>
+      ${eodDone
+        ? `<div style="font-size:11px;color:var(--green);font-family:var(--font-ui);font-weight:700;">✓ Day closed — well done.</div>`
+        : `<button onclick="openEodRitual()" style="width:100%;padding:9px;border-radius:7px;border:none;background:rgba(58,68,104,0.4);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">🌙 Close the Day (60 sec)</button>`
+      }
     </div>`;
   }
 
@@ -4309,6 +4741,101 @@ function checkPassword(){
   }
 }
 
+// ── Daily Ritual System ──────────────────────────────────────
+let _morningEnergy = '';
+
+function morningEnergy(val){
+  _morningEnergy = val;
+  document.querySelectorAll('#morning-energy-btns .chip-btn').forEach(b=>{
+    b.style.borderColor = b.textContent.trim()===val ? 'var(--accent)' : '';
+    b.style.color = b.textContent.trim()===val ? 'var(--accent)' : '';
+    b.style.background = b.textContent.trim()===val ? 'var(--accent-soft)' : '';
+  });
+}
+
+function saveMorningRitual(){
+  const oneThing = document.getElementById('morning-one-thing').value.trim();
+  const dump = document.getElementById('morning-brain-dump').value.trim();
+  // Save to daily journal entry
+  const dailyLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+  dailyLog.unshift({
+    date: today(),
+    type: 'morning',
+    oneThing,
+    energy: _morningEnergy,
+    dump,
+    ts: Date.now()
+  });
+  localStorage.setItem('hub-daily-log', JSON.stringify(dailyLog.slice(0,90)));
+  localStorage.setItem('hub-morning-done', today());
+  // Brain dump → inbox
+  if(dump) brainDump(dump);
+  // Pin the one thing as a task if it matches something, else create it
+  if(oneThing){
+    const match = tasks.find(t=>t.status!=='done'&&t.title.toLowerCase().includes(oneThing.toLowerCase()));
+    if(match){
+      todayPinned.add(match.id);
+      savePinned();
+    } else {
+      const id=genId();
+      tasks.push({id,title:oneThing,projectId:'',priority:'high',status:'todo',
+        notes:'',dueDate:today(),source:'self',recur:'none',effort:'',estimate:'',
+        subtasks:[],createdAt:Date.now()});
+      todayPinned.add(id);
+      savePinned();
+      saveAllDebounced();
+    }
+  }
+  closeModal('modal-morning');
+  setNav('today');
+  renderAll();
+  showToast('☀ Morning set — go get it!');
+}
+
+function skipMorningRitual(){
+  localStorage.setItem('hub-morning-done', today());
+  closeModal('modal-morning');
+}
+
+function checkMorningRitual(){
+  const done = localStorage.getItem('hub-morning-done');
+  if(done !== today()){
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning, Commander'
+                : hour < 17 ? 'Afternoon check-in, Commander'
+                : 'Evening, Commander';
+    const el = document.getElementById('morning-greeting');
+    if(el) el.textContent = greet;
+    _morningEnergy = '';
+    setTimeout(() => openModal('modal-morning'), 800);
+  }
+}
+
+function saveEodRitual(){
+  const happened = document.getElementById('eod-happened').value.trim();
+  const missed = document.getElementById('eod-missed').value.trim();
+  const tomorrow = document.getElementById('eod-tomorrow').value.trim();
+  const dailyLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+  // Find today's morning entry and append, or create new
+  const todayEntry = dailyLog.find(e=>e.date===today()&&e.type==='morning');
+  if(todayEntry){ todayEntry.happened=happened; todayEntry.missed=missed; todayEntry.tomorrow=tomorrow; }
+  else { dailyLog.unshift({date:today(),type:'morning',happened,missed,tomorrow,ts:Date.now()}); }
+  localStorage.setItem('hub-daily-log', JSON.stringify(dailyLog.slice(0,90)));
+  // Pre-populate morning one-thing with tomorrow hint
+  if(tomorrow) localStorage.setItem('hub-tomorrow-hint', tomorrow);
+  localStorage.setItem('hub-eod-done', today());
+  closeModal('modal-eod');
+  showToast('🌙 Day closed. Rest well.');
+}
+
+function openEodRitual(){
+  document.getElementById('eod-happened').value='';
+  document.getElementById('eod-missed').value='';
+  const hint = localStorage.getItem('hub-tomorrow-hint')||'';
+  document.getElementById('eod-tomorrow').value='';
+  openModal('modal-eod');
+}
+
 async function bootApp(){
   document.getElementById("loading").style.display="flex";
   const lp=localStorage.getItem("hub-projects");
@@ -4319,9 +4846,21 @@ async function bootApp(){
   document.getElementById("loading").style.display="none";
   document.getElementById("app").style.display="flex";
   renderAll();
+  checkMorningRitual();
+}
+
+function toggleCalmMode(){
+  const isCalm = document.body.classList.toggle('calm-mode');
+  localStorage.setItem('hub-calm', isCalm ? '1' : '0');
+  renderAll();
+  showToast(isCalm ? '🌿 Calm mode ON' : '⚡ Calm mode OFF');
 }
 
 async function init(){
+  // Apply calm mode before anything renders
+  if(localStorage.getItem('hub-calm') === '1'){
+    document.body.classList.add('calm-mode');
+  }
   const authTime=localStorage.getItem("hub-auth");
   const now=Date.now();
   if(authTime&&(now-parseInt(authTime))<GATE_DURATION){
@@ -4404,6 +4943,112 @@ let kidsWheelAngle = 0;
 let kidsActiveTab = 0; // 0=scoreboard, 1=categories, 2=spin, 3=prizes
 let _kidsSpinType = 'small'; // 'small' | 'big'
 
+// ── Kids Sound Engine ─────────────────────────────────────────
+let _kidsAudioCtx = null;
+function _kidsAudio() {
+  if (!_kidsAudioCtx) _kidsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _kidsAudioCtx;
+}
+
+function playKidsSound(type) {
+  try {
+    const ctx = _kidsAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    if (type === 'point') {
+      // Cheerful ascending ding
+      const freqs = [523, 659, 784];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.1;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.start(t); osc.stop(t + 0.25);
+      });
+    }
+
+    else if (type === 'milestone-small') {
+      // Bright fanfare — C major arpeggio up
+      const notes = [523, 659, 784, 1047];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.12;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.start(t); osc.stop(t + 0.35);
+      });
+    }
+
+    else if (type === 'milestone-big') {
+      // Epic fanfare — full chord + low boom
+      const chords = [[261, 329, 392], [349, 440, 523], [392, 494, 587], [523, 659, 784]];
+      chords.forEach((chord, ci) => {
+        chord.forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = ci === 3 ? 'triangle' : 'square';
+          osc.frequency.value = freq;
+          const t = ctx.currentTime + ci * 0.18;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.08, t + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.start(t); osc.stop(t + 0.45);
+        });
+      });
+      // Low boom
+      const boom = ctx.createOscillator();
+      const boomGain = ctx.createGain();
+      boom.connect(boomGain); boomGain.connect(ctx.destination);
+      boom.type = 'sine';
+      boom.frequency.setValueAtTime(80, ctx.currentTime);
+      boom.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
+      boomGain.gain.setValueAtTime(0.4, ctx.currentTime);
+      boomGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      boom.start(ctx.currentTime); boom.stop(ctx.currentTime + 0.5);
+    }
+
+    else if (type === 'spin-tick') {
+      // Short click for wheel tick
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 800 + Math.random() * 200;
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.04);
+    }
+
+    else if (type === 'prize-reveal') {
+      // Sparkly ascending shimmer
+      const freqs = [784, 988, 1175, 1319, 1568];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.08;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+        osc.start(t); osc.stop(t + 0.4);
+      });
+    }
+  } catch(e) { /* audio not supported — fail silently */ }
+}
+
 function renderKidsGame(container) {
   const d = kidsData();
   const tabs = [
@@ -4449,7 +5094,8 @@ function kidsSetSpinType(type) {
 function renderKidsScores(d) {
   let html = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px;">
     <button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>
-  </div>`;
+  </div>
+  <div class="kids-scores-row">`;
 
   d.players.forEach((p, i) => {
     const score = p.score || 0;
@@ -4489,6 +5135,7 @@ function renderKidsScores(d) {
     </div>`;
   });
 
+  html += `</div>`; // close kids-scores-row
   return html;
 }
 
@@ -4579,45 +5226,69 @@ function renderKidsPrizeLog(d) {
   const showUsed = localStorage.getItem('hub-kids-show-used') !== 'false';
   const showPending = localStorage.getItem('hub-kids-show-pending') !== 'false';
 
+  const playerColors = ['#3a6fd8', '#9b59b6'];
+  const playerBg     = ['rgba(58,111,216,0.1)', 'rgba(155,89,182,0.1)'];
+  const playerBorder = ['rgba(58,111,216,0.4)', 'rgba(155,89,182,0.4)'];
+
   let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <div class="kids-section-title" style="margin:0;">Prize History</div>
+    <div class="kids-section-title" style="margin:0;">🎁 Prize Board</div>
     <button class="kids-cat-btn" onclick="openLogPrize()" style="padding:5px 12px;background:var(--accent);color:#1a1f2e;border-color:var(--accent);font-weight:700;">+ Log Prize</button>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:12px;">
-    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showPending?'rgba(100,181,246,0.5)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.12)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
-    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:6px;border-radius:7px;border:1px solid ${showUsed?'rgba(76,175,80,0.5)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.1)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
+  <div style="display:flex;gap:6px;margin-bottom:16px;">
+    <button onclick="toggleKidsPrizeFilter('pending')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showPending?'rgba(100,181,246,0.7)':'var(--border)'};background:${showPending?'rgba(100,181,246,0.15)':'var(--surface2)'};color:${showPending?'#64b5f6':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">🎁 Unclaimed</button>
+    <button onclick="toggleKidsPrizeFilter('used')" style="flex:1;padding:7px;border-radius:8px;border:2px solid ${showUsed?'rgba(76,175,80,0.7)':'var(--border)'};background:${showUsed?'rgba(76,175,80,0.12)':'var(--surface2)'};color:${showUsed?'#66bb6a':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✅ Used</button>
   </div>`;
 
-  const allPrizes = [];
-  d.players.forEach((p, i) => {
-    (p.prizeLog || []).forEach((pr, j) => allPrizes.push({...pr, playerName: p.name, playerIdx: i, prizeIdx: j}));
-  });
-  allPrizes.sort((a,b) => (b.ts||0)-(a.ts||0));
-
-  const filtered = allPrizes.filter(pr => pr.used ? showUsed : showPending);
-
-  if (!allPrizes.length) {
-    html += `<div style="text-align:center;padding:32px;color:var(--text3);font-family:var(--font-ui);">No prizes won yet — keep playing!</div>`;
-    return html;
-  }
-  if (!filtered.length) {
-    html += `<div style="text-align:center;padding:24px;color:var(--text3);font-family:var(--font-ui);font-size:12px;">No prizes in this category.</div>`;
+  const hasAnyPrize = d.players.some(p => (p.prizeLog||[]).length > 0);
+  if (!hasAnyPrize) {
+    html += `<div style="text-align:center;padding:40px 20px;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No prizes won yet — keep earning points!</div>`;
     return html;
   }
 
-  filtered.forEach(pr => {
-    const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    html += `<div class="kids-prize-item" style="${pr.used?'opacity:0.6;':''}">
-      <span style="font-size:18px;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
-      <div style="flex:1;">
-        <div class="kids-prize-item-name" style="${pr.used?'text-decoration:line-through;':''}">${esc(pr.prize||'Prize')}</div>
-        <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${esc(pr.playerName)} · ${date}${pr.used&&usedDate?' · used '+usedDate:''}</div>
-      </div>
-      <span class="kids-prize-item-type ${pr.type}" style="${pr.used?'opacity:0.5;':''}">${pr.type==='big'?'BIG':'SMALL'}</span>
-      <button onclick="toggleKidsPrizeUsed(${pr.playerIdx},${pr.prizeIdx})" title="${pr.used?'Mark unclaimed':'Mark as used'}" style="padding:2px 7px;border-radius:5px;border:1px solid ${pr.used?'rgba(76,175,80,0.4)':'rgba(100,181,246,0.4)'};background:transparent;color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:4px;">${pr.used?'↩':'✓'}</button>
-      <button onclick="deleteKidsPrize(${pr.playerIdx},${pr.prizeIdx})" style="padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:10px;cursor:pointer;margin-left:2px;">✕</button>
-    </div>`;
+  // Render one section per player
+  d.players.forEach((p, playerIdx) => {
+    const log = (p.prizeLog || []);
+    // Split unclaimed vs used, each sorted newest first
+    const unclaimed = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>!pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const used      = log.map((pr,j)=>({...pr,prizeIdx:j})).filter(pr=>pr.used).sort((a,b)=>(b.ts||0)-(a.ts||0));
+
+    const visiblePrizes = [
+      ...(showPending ? unclaimed : []),
+      ...(showUsed    ? used      : [])
+    ];
+
+    // Always show the player header, even if no visible prizes in current filter
+    html += `<div style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${playerBg[playerIdx]};border:1px solid ${playerBorder[playerIdx]};margin-bottom:8px;">
+        <span style="font-size:18px;">${playerIdx===0?'🛡':'⚔'}</span>
+        <span style="font-family:var(--font-body);font-size:15px;font-weight:700;color:${playerColors[playerIdx]};">${esc(p.name)}</span>
+        <span style="margin-left:auto;font-family:var(--font-ui);font-size:10px;color:var(--text3);">
+          ${unclaimed.length} unclaimed &nbsp;·&nbsp; ${used.length} used
+        </span>
+      </div>`;
+
+    if (!visiblePrizes.length) {
+      html += `<div style="padding:12px 14px;color:var(--text4);font-family:var(--font-ui);font-size:11px;font-style:italic;">No prizes to show with current filters.</div>`;
+    } else {
+      visiblePrizes.forEach(pr => {
+        const date = pr.ts ? new Date(pr.ts).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const usedDate = pr.usedTs ? new Date(pr.usedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+        const typeBadgeColor = pr.type==='big' ? '#ffc107' : '#64b5f6';
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;border-radius:10px;background:${pr.used?'var(--surface2)':'var(--surface)'};border:1px solid ${pr.used?'var(--border)':playerBorder[playerIdx]};opacity:${pr.used?'0.65':'1'};">
+          <span style="font-size:20px;flex-shrink:0;">${pr.used?'✅':(pr.type==='big'?'🏆':'🎁')}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--text);${pr.used?'text-decoration:line-through;opacity:0.7;':''}">${esc(pr.prize||'Prize')}</div>
+            <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;">
+              Won ${date}${pr.used&&usedDate?' · Used '+usedDate:''}
+              &nbsp;<span style="color:${typeBadgeColor};font-weight:700;">${pr.type==='big'?'BIG PRIZE':'SMALL PRIZE'}</span>
+            </div>
+          </div>
+          <button onclick="toggleKidsPrizeUsed(${playerIdx},${pr.prizeIdx})" style="padding:5px 10px;border-radius:7px;border:1px solid ${pr.used?'rgba(76,175,80,0.5)':'rgba(100,181,246,0.5)'};background:${pr.used?'rgba(76,175,80,0.1)':'rgba(100,181,246,0.1)'};color:${pr.used?'#66bb6a':'#64b5f6'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${pr.used?'↩ Unclaim':'✓ Used'}</button>
+          <button onclick="deleteKidsPrize(${playerIdx},${pr.prizeIdx})" style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+        </div>`;
+      });
+    }
+    html += `</div>`;
   });
 
   return html;
@@ -4694,12 +5365,10 @@ function kidsAward(playerIdx, catId) {
 
   if (milestone) {
     _pendingCelebration = {playerIdx, milestone, d};
-    if (milestone.type === 'big') {
-      launchSpin(playerIdx, d, milestone);
-    } else {
-      launchSpin(playerIdx, d, milestone);
-    }
+    playKidsSound(milestone.type === 'big' ? 'milestone-big' : 'milestone-small');
+    launchSpin(playerIdx, d, milestone);
   } else {
+    if (cat.pts > 0) playKidsSound('point');
     showToast(`${cat.emoji} ${p.name}: ${cat.pts > 0 ? '+' : ''}${cat.pts} pts → ${p.score}`);
     renderKidsGame(document.getElementById('main'));
   }
@@ -4736,21 +5405,31 @@ function kidsSelectSpinPlayer(idx) {
 }
 
 function launchSpin(playerIdx, d, milestone) {
-  kidsActiveTab = 2;
   _spinPlayerIdx = playerIdx;
   _pendingCelebration = {playerIdx, milestone, d};
+
+  // Show celebration FIRST — dismissing it takes them to the spin wheel
+  showCelebration(d.players[playerIdx].name, null, milestone.type, true);
+  launchConfetti(milestone.type === 'big' ? 150 : 60);
+}
+
+function goToSpinAfterCelebration() {
+  const cel = _pendingCelebration;
+  closeCelebrationOnly();
+  if (!cel) return;
+  kidsActiveTab = 2;
   renderKidsGame(document.getElementById('main'));
   setTimeout(() => {
-    kidsSelectSpinPlayer(playerIdx);
+    kidsSelectSpinPlayer(cel.playerIdx);
     const spinBtn = document.getElementById('kids-spin-btn');
     if (spinBtn) {
       spinBtn.disabled = false;
-      spinBtn.textContent = milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
+      spinBtn.textContent = cel.milestone.type === 'big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!';
     }
     const resultEl = document.getElementById('spin-result');
-    if (resultEl) resultEl.textContent = `🎉 ${d.players[playerIdx].name} hit ${milestone.at} points! Spin to claim your prize!`;
+    const d = kidsData();
+    if (resultEl) resultEl.textContent = `🎉 ${d.players[cel.playerIdx].name} hit ${cel.milestone.at} points! Spin to claim your prize!`;
   }, 100);
-  launchConfetti(milestone.type === 'big' ? 120 : 50);
 }
 
 function initWheelCanvas(d) {
@@ -4829,6 +5508,8 @@ function spinWheel() {
   const endAngle = startAngle + totalRotation;
   const duration = 4000;
   const startTime = performance.now();
+  const tickSlice = (2 * Math.PI) / prizes.length;
+  let lastTickSlice = -1;
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
 
@@ -4837,6 +5518,15 @@ function spinWheel() {
     const t = Math.min(elapsed / duration, 1);
     kidsWheelAngle = startAngle + (endAngle - startAngle) * easeOut(t);
     drawWheel(canvas, prizes, kidsWheelAngle);
+
+    // Tick sound each time pointer crosses a new slice
+    const currentSlice = Math.floor(((-kidsWheelAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI)) / tickSlice);
+    if (currentSlice !== lastTickSlice) {
+      lastTickSlice = currentSlice;
+      // Ticks slow down as wheel decelerates
+      if (t < 0.92) playKidsSound('spin-tick');
+    }
+
     if (t < 1) {
       requestAnimationFrame(frame);
     } else {
@@ -4854,12 +5544,13 @@ function onSpinComplete(prize) {
   const milestone = _pendingCelebration?.milestone;
   const player = d.players[playerIdx];
 
-  // Record prize win
+  // Auto-add prize to player's prize log
   if (!player.prizeLog) player.prizeLog = [];
   player.prizeLog.push({
     prize,
     type: milestone?.type || 'small',
-    ts: Date.now()
+    ts: Date.now(),
+    used: false
   });
   saveKidsData(d);
 
@@ -4872,37 +5563,77 @@ function onSpinComplete(prize) {
   _pendingCelebration = null;
   _spinPlayerIdx = null;
 
-  showCelebration(player.name, prize, milestone?.type || 'small');
+  // Non-blocking banner — doesn't cover the wheel
+  playKidsSound('prize-reveal');
+  launchConfetti(milestone?.type === 'big' ? 150 : 60);
+  showPrizeBanner(player.name, prize, milestone?.type || 'small');
 }
 
-function showCelebration(playerName, prize, type) {
+function showPrizeBanner(playerName, prize, type) {
+  const banner = document.getElementById('kids-prize-banner');
+  if (!banner) return;
+  document.getElementById('kids-prize-banner-emoji').textContent = type === 'big' ? '🏆' : '🎁';
+  document.getElementById('kids-prize-banner-name').textContent = prize;
+  document.getElementById('kids-prize-banner-sub').textContent = `${playerName} won this prize! Added to your list. 🎊`;
+  banner.style.display = 'block';
+}
+
+function closePrizeBanner() {
+  const banner = document.getElementById('kids-prize-banner');
+  if (banner) banner.style.display = 'none';
+  renderKidsGame(document.getElementById('main'));
+}
+
+function showCelebration(playerName, prize, type, isMilestone=false) {
   const el = document.getElementById('kids-celebration');
   const emoji = document.getElementById('kids-celeb-emoji');
   const title = document.getElementById('kids-celeb-title');
   const sub = document.getElementById('kids-celeb-sub');
   const prizeEl = document.getElementById('kids-celeb-prize-name');
+  const closeBtn = document.getElementById('kids-celeb-close-btn');
 
   if (type === 'big') {
     emoji.textContent = '🏆';
-    title.textContent = 'MEGA PRIZE!';
+    title.textContent = isMilestone ? 'BIG MILESTONE!' : 'MEGA PRIZE!';
     title.style.color = '#ffc107';
-    sub.textContent = `${playerName} hit a BIG milestone! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a BIG prize! Spin the wheel to find out what you won!`
+      : `Amazing, ${playerName}! You won:`;
   } else {
-    emoji.textContent = '🎁';
-    title.textContent = 'PRIZE TIME!';
+    emoji.textContent = isMilestone ? '🎉' : '🎁';
+    title.textContent = isMilestone ? 'PRIZE MILESTONE!' : 'PRIZE TIME!';
     title.style.color = 'var(--accent)';
-    sub.textContent = `Amazing work, ${playerName}! You won:`;
+    sub.textContent = isMilestone
+      ? `${playerName} earned a prize! Spin the wheel to find out what you won!`
+      : `Amazing work, ${playerName}! You won:`;
   }
 
-  prizeEl.textContent = prize;
-  prizeEl.style.display = 'block';
+  if (prize) {
+    prizeEl.textContent = prize;
+    prizeEl.style.display = 'block';
+  } else {
+    prizeEl.style.display = 'none';
+  }
+
+  if (closeBtn) {
+    if (isMilestone) {
+      closeBtn.textContent = '🎡 Spin the Wheel!';
+      closeBtn.onclick = goToSpinAfterCelebration;
+    } else {
+      closeBtn.textContent = 'Awesome! 🎊';
+      closeBtn.onclick = closeCelebration;
+    }
+  }
+
   el.classList.add('active');
-  launchConfetti(type === 'big' ? 150 : 60);
+}
+
+function closeCelebrationOnly() {
+  document.getElementById('kids-celebration').classList.remove('active');
 }
 
 function closeCelebration() {
-  const el = document.getElementById('kids-celebration');
-  el.classList.remove('active');
+  closeCelebrationOnly();
   renderKidsGame(document.getElementById('main'));
 }
 
@@ -5232,8 +5963,16 @@ init();
     <div class="kids-celeb-title" id="kids-celeb-title">PRIZE TIME!</div>
     <div class="kids-celeb-sub" id="kids-celeb-sub">You earned a reward!</div>
     <div class="kids-celeb-prize" id="kids-celeb-prize-name" style="display:none;"></div>
-    <button class="kids-celeb-close" onclick="closeCelebration()">Awesome! 🎊</button>
+    <button class="kids-celeb-close" id="kids-celeb-close-btn" onclick="closeCelebration()">Awesome! 🎊</button>
   </div>
+</div>
+
+<!-- Post-spin prize banner (shown below wheel, not full-screen) -->
+<div id="kids-prize-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:600;background:linear-gradient(135deg,#1a2a4a,#2a1a3a);border:2px solid var(--accent);border-radius:16px;padding:16px 24px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:320px;width:90%;animation:celebPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+  <div id="kids-prize-banner-emoji" style="font-size:36px;margin-bottom:4px;">🎁</div>
+  <div id="kids-prize-banner-name" style="font-family:var(--font-body);font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;"></div>
+  <div id="kids-prize-banner-sub" style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:12px;">Added to your prize list! 🎊</div>
+  <button onclick="closePrizeBanner()" style="background:var(--accent);border:none;color:#1a1f2e;padding:8px 24px;border-radius:50px;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">Awesome! 🎊</button>
 </div>
 </body>
 </html>
