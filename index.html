@@ -648,7 +648,7 @@ html,body{
 .nav-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;line-height:1;}
 
 /* Overflow "More" menu */
-#nav-more-btn{display:none;}
+#nav-more-btn{display:flex;}
 #nav-more-menu{
   display:none;position:fixed;bottom:calc(56px + env(safe-area-inset-bottom));right:8px;
   background:var(--surface2);border:1px solid var(--border);border-radius:12px;
@@ -666,11 +666,7 @@ html,body{
 .nav-more-item.active{color:var(--accent);}
 .nav-more-icon{font-size:20px;width:24px;text-align:center;}
 
-/* On small screens collapse Focus/Calendar/Settings into More */
-@media(max-width:480px){
-  .nav-collapsible{display:none !important;}
-  #nav-more-btn{display:flex;}
-}
+/* nav-more-btn always visible */
 
 /* ── MODALS ── */
 .modal-overlay{
@@ -1199,7 +1195,7 @@ html,body{
     <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
       <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
     </button>
-    <button class="nav-btn" id="nav-focus" onclick="setNav('focus');closeMoreMenu()">
+    <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
       <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
     </button>
     <button class="nav-btn" id="nav-add" onclick="openAddTask()">
@@ -2643,10 +2639,11 @@ function renderCalendar(container){
         const proj=projects.find(p=>p.id===t.projectId);
         const c=proj?.color||"#E8A838";
         const pDot=`<div class="cal-day-task-dot" style="background:${PRIORITY_COLOR[t.priority]||c};"></div>`;
-        return `<div class="cal-day-task">
-          ${pDot}
+        const isDoneTask = t.status==='done';
+        return `<div class="cal-day-task" style="${isDoneTask?'opacity:0.5;':''}">
+          <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:32px;height:32px;border-radius:50%;border:2px solid ${isDoneTask?'var(--green)':'var(--text3)'};background:${isDoneTask?'var(--green)':'transparent'};color:${isDoneTask?'#fff':'var(--text4)'};font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="${isDoneTask?'Mark incomplete':'Mark complete'}">✓</button>
           <div style="flex:1;min-width:0;">
-            <div class="cal-day-task-title">${esc(t.title)}</div>
+            <div class="cal-day-task-title" style="${isDoneTask?'text-decoration:line-through;':''}">${esc(t.title)}</div>
             ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
           </div>
           <span style="font-size:9px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
@@ -3885,7 +3882,7 @@ function setNav(nav){
   closeFdd();
   activeNav=nav;focusOn=nav==="focus";
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
-  const collapsedNavs=['focus','cal','settings'];
+  const collapsedNavs=['cal','settings'];  // these live only in the More menu
   const btn=document.getElementById(`nav-${nav}`);if(btn) btn.classList.add("active");
   // On small screens where collapsible items are hidden, highlight More button instead
   const moreBtn=document.getElementById('nav-more-btn');
@@ -4279,6 +4276,7 @@ function renderTodayView(container){
       const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
       const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
       return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+        <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Mark complete">✓</button>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${esc(t.title)}</div>
           ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
@@ -4294,6 +4292,7 @@ function renderTodayView(container){
           const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
           const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
           return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+            <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Mark complete">✓</button>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
               ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
