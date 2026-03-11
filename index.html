@@ -53,6 +53,33 @@ html,body{
   font-family:var(--font-body);
   font-size:16px;
 }
+
+/* ── Calm Mode ─────────────────────────────────────────────── */
+body.calm-mode *{
+  animation:none !important;
+  transition:none !important;
+}
+body.calm-mode{
+  --accent:#c49a38;
+  --bg:#14181e;
+}
+body.calm-mode .task-row,
+body.calm-mode .task-controls,
+body.calm-mode .kids-player-card,
+body.calm-mode .kids-prize-item{
+  box-shadow:none !important;
+}
+body.calm-mode #header-title{
+  background:none !important;
+  -webkit-background-clip:unset !important;
+  -webkit-text-fill-color:var(--accent) !important;
+  text-shadow:none !important;
+}
+body.calm-mode .nav-btn.active,
+body.calm-mode .nav-btn:hover{
+  background:rgba(196,154,56,0.1) !important;
+}
+body.calm-mode .sync-dot{display:none;}
 </style>
 <style>
 /* placeholder — dungeon bg replaced with nothing */
@@ -291,20 +318,23 @@ html,body{
 }
 .task-row:active{border-color:var(--border2);}
 .task-row-top{
-  display:flex;align-items:flex-start;gap:10px;padding:10px 10px 6px;
+  display:flex;align-items:stretch;gap:0;padding:0;min-height:52px;
 }
 .priority-bar{
-  width:3px;min-height:36px;border-radius:2px;flex-shrink:0;margin-top:2px;
+  width:3px;border-radius:0;flex-shrink:0;align-self:stretch;
+}
+.task-body-wrap{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:10px 8px 8px 10px;
 }
 .check-btn{
-  width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:1px;
-  border:2px solid var(--text3);background:transparent;cursor:pointer;
+  width:44px;align-self:stretch;border-radius:8px 0 0 8px;flex-shrink:0;
+  border:none;border-right:2px solid var(--border);background:transparent;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  font-size:13px;color:var(--text4);outline:none;transition:all 0.12s;
+  font-size:18px;color:var(--text4);outline:none;transition:all 0.12s;
 }
-.check-btn:hover{border-color:var(--green);background:rgba(61,184,122,0.12);color:var(--green);}
-.check-btn.checked{background:var(--green);border-color:var(--green);color:#fff;}
-.check-btn:active{transform:scale(0.9);}
+.check-btn:hover{background:rgba(61,184,122,0.1);color:var(--green);}
+.check-btn.checked{background:rgba(61,184,122,0.15);color:var(--green);}
+.check-btn:active{background:rgba(61,184,122,0.25);}
 .task-body{flex:1;min-width:0;}
 .task-title{
   font-size:15px;color:var(--text);font-weight:500;
@@ -1169,21 +1199,15 @@ html,body{
     <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
       <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
     </button>
-    <button class="nav-btn nav-collapsible" id="nav-focus" onclick="setNav('focus');closeMoreMenu()">
+    <button class="nav-btn" id="nav-focus" onclick="setNav('focus');closeMoreMenu()">
       <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
     </button>
     <button class="nav-btn" id="nav-add" onclick="openAddTask()">
       <span class="nav-icon" style="color:var(--accent);font-size:28px;">+</span>
       <span class="nav-label" style="color:var(--accent);">Add</span>
     </button>
-    <button class="nav-btn nav-collapsible" id="nav-cal" onclick="setNav('cal');closeMoreMenu()">
-      <span class="nav-icon">📅</span><span class="nav-label">Cal</span>
-    </button>
     <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
       <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
-    </button>
-    <button class="nav-btn nav-collapsible" id="nav-settings" onclick="setNav('settings');closeMoreMenu()">
-      <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
     </button>
     <button class="nav-btn" id="nav-more-btn" onclick="toggleMoreMenu()">
       <span class="nav-icon">⋯</span><span class="nav-label">More</span>
@@ -1192,9 +1216,6 @@ html,body{
 
   <!-- More overflow menu -->
   <div id="nav-more-menu">
-    <button class="nav-more-item" id="nav-more-focus" onclick="setNav('focus');closeMoreMenu()">
-      <span class="nav-more-icon">⏱</span>Focus
-    </button>
     <button class="nav-more-item" id="nav-more-cal" onclick="setNav('cal');closeMoreMenu()">
       <span class="nav-more-icon">📅</span>Calendar
     </button>
@@ -1211,26 +1232,32 @@ html,body{
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-title" id="modal-task-title">New Task</div>
     <div class="field-group">
+      <!-- Core 3 fields always visible -->
       <input class="field-input" id="task-title-input" placeholder="What needs to get done…" autocomplete="off"/>
       <select class="field-select" id="task-project-input">
         <option value="">SELECT Project…</option>
       </select>
-      <div class="field-row">
-        <select class="field-select" id="task-priority-input">
-          <option value="high">🔴 Urgent</option>
-          <option value="medium" selected>🟠 High</option>
-          <option value="low">🟡 Normal</option>
-        </select>
-        <select class="field-select" id="task-status-input">
-          <option value="todo">○ Open</option>
-          <option value="inprogress">● Active</option>
-          <option value="blocked">⊘ Blocked</option>
-          <option value="done">✓ Complete</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);flex:1;"/>
-        <select class="field-select" id="task-estimate-input" style="flex:0 0 auto;width:130px;" title="Time estimate">
+      <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
+
+      <!-- More options toggle -->
+      <button id="task-more-toggle" onclick="toggleTaskMoreOptions()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;padding:7px 12px;cursor:pointer;width:100%;text-align:left;letter-spacing:0.3px;">＋ More options</button>
+
+      <!-- Secondary fields, hidden by default -->
+      <div id="task-more-options" style="display:none;">
+        <div class="field-row">
+          <select class="field-select" id="task-priority-input">
+            <option value="high">🔴 Urgent</option>
+            <option value="medium" selected>🟠 High</option>
+            <option value="low">🟡 Normal</option>
+          </select>
+          <select class="field-select" id="task-status-input">
+            <option value="todo">○ Open</option>
+            <option value="inprogress">● Active</option>
+            <option value="blocked">⊘ Blocked</option>
+            <option value="done">✓ Complete</option>
+          </select>
+        </div>
+        <select class="field-select" id="task-estimate-input" title="Time estimate">
           <option value="">⏳ Est. time…</option>
           <option value="15m">⏳ 15 min</option>
           <option value="30m">⏳ 30 min</option>
@@ -1239,44 +1266,44 @@ html,body{
           <option value="4h">⏳ half day</option>
           <option value="8h+">⏳ full day+</option>
         </select>
-      </div>
-      <div>
-        <div class="notes-toolbar" id="notes-toolbar">
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('italic')"><i>I</i></button>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('underline')"><u>U</u></button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
-          <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
-          <div class="ntb-sep"></div>
-          <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
+        <div>
+          <div class="notes-toolbar" id="notes-toolbar">
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('italic')"><i>I</i></button>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('underline')"><u>U</u></button>
+            <div class="ntb-sep"></div>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('insertUnorderedList')">• LIST</button>
+            <button class="ntb" onmousedown="event.preventDefault();insertCheckbox()">☑ CHECK</button>
+            <div class="ntb-sep"></div>
+            <button class="mic-btn" id="mic-btn-notes" onmousedown="event.preventDefault();toggleVoice('task-notes-input','mic-btn-notes')" title="Voice note" style="width:24px;height:24px;font-size:12px;border:none;background:transparent;">🎙</button>
+            <div class="ntb-sep"></div>
+            <button class="ntb" onmousedown="event.preventDefault();noteCmd('removeFormat')" style="font-size:10px;">✕ CLEAR</button>
+          </div>
+          <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
+            style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
+            onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
+            onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
         </div>
-        <div class="notes-editor" id="task-notes-input" contenteditable="true" data-placeholder="Notes, context, links…" spellcheck="false"
-          style="min-height:90px;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;cursor:text;"
-          onfocus="this.style.borderColor='var(--accent)';this.style.borderTopColor='transparent'"
-          onblur="this.style.borderColor='var(--border)';this.style.borderTopColor='transparent'"></div>
-      </div>
-      <div>
-        <div class="chip-label">Source</div>
-        <div class="chip-group" id="source-chips"></div>
-      </div>
-      <div>
-        <div class="chip-label">Repeats</div>
-        <div class="chip-group" id="recur-chips"></div>
-      </div>
-      <div>
-        <div class="chip-label">Size</div>
-        <div class="chip-group" id="effort-chips"></div>
-      </div>
-      <div class="subtask-section">
-        <div class="chip-label">Subtasks</div>
-        <div id="modal-subtask-list" class="subtask-list"></div>
-        <div class="subtask-add-row">
-          <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
-          <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+        <div>
+          <div class="chip-label">Source</div>
+          <div class="chip-group" id="source-chips"></div>
+        </div>
+        <div>
+          <div class="chip-label">Repeats</div>
+          <div class="chip-group" id="recur-chips"></div>
+        </div>
+        <div>
+          <div class="chip-label">Size</div>
+          <div class="chip-group" id="effort-chips"></div>
+        </div>
+        <div class="subtask-section">
+          <div class="chip-label">Subtasks</div>
+          <div id="modal-subtask-list" class="subtask-list"></div>
+          <div class="subtask-add-row">
+            <input class="subtask-add-input" id="modal-subtask-input" placeholder="Add a subtask…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}"/>
+            <button class="subtask-add-btn" onclick="addModalSubtask()">+ ADD</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1286,6 +1313,65 @@ html,body{
     </div>
     <div id="task-delete-wrap" style="display:none;margin-bottom:16px;">
       <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ Delete Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- MORNING RITUAL MODAL -->
+<div id="modal-morning" class="modal-overlay" style="display:none;">
+  <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:36px;margin-bottom:6px;">☀</div>
+      <div class="modal-title" style="margin:0;" id="morning-greeting">Good morning, Commander</div>
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">60 seconds to set your day</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="chip-label">What's your one most important thing today?</div>
+      <input class="field-input" id="morning-one-thing" placeholder="The thing that would make today a win…" autocomplete="off"/>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="chip-label">Anything on your mind that needs capturing?</div>
+      <input class="field-input" id="morning-brain-dump" placeholder="Optional — goes to your inbox…" autocomplete="off"/>
+    </div>
+    <div style="margin-bottom:6px;">
+      <div class="chip-label">How are you arriving today?</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="morning-energy-btns">
+        <button onclick="morningEnergy('🔋 Charged')" class="chip-btn" style="flex:1;">🔋 Charged</button>
+        <button onclick="morningEnergy('⚡ Wired')" class="chip-btn" style="flex:1;">⚡ Wired</button>
+        <button onclick="morningEnergy('😴 Foggy')" class="chip-btn" style="flex:1;">😴 Foggy</button>
+        <button onclick="morningEnergy('😤 Anxious')" class="chip-btn" style="flex:1;">😤 Anxious</button>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="modal-btn confirm" onclick="saveMorningRitual()">Let's go ⚔</button>
+      <button class="modal-btn cancel" onclick="skipMorningRitual()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- END OF DAY MODAL -->
+<div id="modal-eod" class="modal-overlay" style="display:none;">
+  <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:36px;margin-bottom:6px;">🌙</div>
+      <div class="modal-title" style="margin:0;">End of Day — 60 seconds</div>
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">Close the loop before you log off</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div class="chip-label">What actually happened today?</div>
+      <textarea class="field-input" id="eod-happened" placeholder="What did you get done?" rows="2" style="resize:none;"></textarea>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div class="chip-label">What didn't happen? (no judgment)</div>
+      <textarea class="field-input" id="eod-missed" placeholder="What slipped through?" rows="2" style="resize:none;"></textarea>
+    </div>
+    <div style="margin-bottom:6px;">
+      <div class="chip-label">One thing for tomorrow</div>
+      <input class="field-input" id="eod-tomorrow" placeholder="The first thing you'll do…" autocomplete="off"/>
+    </div>
+    <div class="modal-actions" style="margin-top:16px;">
+      <button class="modal-btn confirm" onclick="saveEodRitual()">Done for today ✓</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-eod')">Skip</button>
     </div>
   </div>
 </div>
@@ -1689,27 +1775,49 @@ function renderAll(){
   renderTaskList(main);
 }
 
+function completedOnDate(dateStr){
+  return tasks.some(t=>{
+    if(!t.completedAt) return false;
+    const cd=new Date(t.completedAt);
+    return `${cd.getFullYear()}-${String(cd.getMonth()+1).padStart(2,"0")}-${String(cd.getDate()).padStart(2,"0")}`===dateStr;
+  });
+}
+
+function dateMinusDays(dateStr, n){
+  const d=new Date(dateStr+"T00:00:00");
+  d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function computeStreak(){
   const todayStr=today();
   let streak=0;
-  let checking=todayStr;
-  // Walk backwards from today
+  let missedOne=false; // grace day tracker
   for(let i=0;i<365;i++){
-    const d=new Date(checking+"T00:00:00");
-    const dayStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    const completedOnDay=tasks.some(t=>{
-      if(!t.completedAt) return false;
-      const cd=new Date(t.completedAt);
-      const cStr=`${cd.getFullYear()}-${String(cd.getMonth()+1).padStart(2,"0")}-${String(cd.getDate()).padStart(2,"0")}`;
-      return cStr===dayStr;
-    });
-    if(!completedOnDay&&i>0) break; // gap — streak ends (today having 0 is ok if streak>0 from yesterday)
-    if(completedOnDay) streak++;
-    else if(i===0) break; // today no completions yet, check yesterday
-    d.setDate(d.getDate()-1);
-    checking=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const dayStr=dateMinusDays(todayStr,i);
+    const done=completedOnDate(dayStr);
+    if(done){
+      streak++;
+      missedOne=false;
+    } else if(i===0){
+      // Today not done yet — check if yesterday keeps streak alive
+      continue;
+    } else if(!missedOne){
+      // First miss — grant grace day, keep going
+      missedOne=true;
+    } else {
+      // Two consecutive misses — streak ends
+      break;
+    }
   }
+  // Update longest streak
+  const prev=parseInt(localStorage.getItem('hub-longest-streak')||'0');
+  if(streak>prev){ localStorage.setItem('hub-longest-streak',String(streak)); }
   return streak;
+}
+
+function getLongestStreak(){
+  return parseInt(localStorage.getItem('hub-longest-streak')||'0');
 }
 
 function updateStats(){
@@ -1965,6 +2073,17 @@ function renderTaskRow(task,proj){
   const dueStr=relativeDue(task.dueDate,isDone);
   const isPinned=todayPinned.has(task.id);
 
+  // Task aging
+  const ageMs = task.createdAt ? Date.now()-parseInt(task.createdAt) : 0;
+  const ageDays = Math.floor(ageMs/86400000);
+  const isStale = !isDone && ageDays>=14;
+  const isAncient = !isDone && ageDays>=60;
+  const ageBadge = isAncient
+    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
+    : isStale
+    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
+    : '';
+
   // Priority button
   const pLabels={high:"🔴 Urgent",medium:"🟠 High",low:"🟡 Normal"};
   const pClass={high:"active-high",medium:"active-medium",low:"active-low"}[task.priority]||"";
@@ -2051,15 +2170,28 @@ function renderTaskRow(task,proj){
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":""}">
-    <div class="task-row-top">
+  // Compact due badge for collapsed view
+  const dueBadge = task.dueDate
+    ? `<span style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:4px;flex-shrink:0;
+        background:${overdue?'rgba(139,24,24,0.15)':task.dueDate===today()?'rgba(232,168,56,0.15)':'var(--surface2)'};
+        color:${overdue?'#ff6060':task.dueDate===today()?'var(--accent)':'var(--text4)'};"
+       onclick="event.stopPropagation();">${dueStr}</span>`
+    : '';
+
+  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":" "}${isStale&&!isDone?"opacity:0.82;":""}">
+    <div class="task-row-top" onclick="toggleExpand('${task.id}')">
+      <button class="check-btn ${isDone?'checked':''}" onclick="event.stopPropagation();completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
-      <button class="check-btn ${isDone?'checked':''}" onclick="completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
-      <div class="task-body">
-        <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-        <div class="task-meta">${projChip}${subPill}</div>
+      <div class="task-body-wrap">
+        <div class="task-body" style="flex:1;min-width:0;">
+          <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
+          <div class="task-meta">${projChip}${subPill}${ageBadge}</div>
+        </div>
+        ${!isExpanded ? dueBadge : ''}
+        <span style="font-size:11px;color:var(--text4);padding-right:4px;flex-shrink:0;transition:transform 0.15s;display:inline-block;transform:rotate(${isExpanded?'90':'0'}deg);">▶</span>
       </div>
     </div>
+    ${isExpanded ? `
     <div class="task-controls">
       ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
       <span class="tctl-spacer"></span>
@@ -2067,7 +2199,7 @@ function renderTaskRow(task,proj){
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
-    ${notesHtml}
+    ${notesHtml}` : ''}
   </div>`;
 }
 
@@ -2225,7 +2357,7 @@ function renderFocusPanel(container){
     :`<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);text-align:center;padding:12px;font-style:italic;">— All tasks complete 🎉 —</div>`;
 
   container.innerHTML=`<div>
-    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 4px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div>`:""}
+    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 2px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div><div style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--text4);padding-bottom:4px;letter-spacing:0.5px;">Best: ${getLongestStreak()} days${getLongestStreak()>streakCount?" — keep pushing!":""}</div>`:""}
     <!-- Timer -->
     <div class="pomo-card" style="border-color:${mc}44;">
       <div class="pomo-header">
@@ -2350,6 +2482,11 @@ function togglePomo(){
           pomoState.sessions++;
           const next=pomoState.sessions%4===0?"longBreak":"shortBreak";
           pomoState.mode=next;pomoState.timeLeft=next==="shortBreak"?300:900;
+          // Show "did you finish?" prompt if a mission is selected
+          if(selectedMissionId){
+            const _t=tasks.find(t=>t.id===selectedMissionId);
+            if(_t && _t.status!=='done') showPomoFinishPrompt(_t);
+          }
         }else{pomoState.mode="work";pomoState.timeLeft=pomoState.customWork*60;}
       }
       const d=document.querySelector(".pomo-digits");
@@ -2364,6 +2501,46 @@ function togglePomo(){
 function resetPomo(){
   clearInterval(pomoState.interval);pomoState.running=false;
   pomoState.timeLeft=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
+  renderAll();
+}
+
+function showPomoFinishPrompt(task){
+  // Remove any existing prompt
+  const old=document.getElementById('pomo-finish-prompt');
+  if(old) old.remove();
+  const el=document.createElement('div');
+  el.id='pomo-finish-prompt';
+  el.style.cssText=`position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:500;
+    width:90%;max-width:340px;background:var(--surface);border:2px solid var(--accent);
+    border-radius:12px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    font-family:var(--font-ui);animation:slideDown 0.2s ease;`;
+  el.innerHTML=`
+    <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⏱ SESSION COMPLETE</div>
+    <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:12px;line-height:1.3;">Did you finish: <em style="color:var(--accent);">${task.title.length>50?task.title.slice(0,47)+'…':task.title}</em>?</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="pomoFinishYes()" style="flex:1;padding:9px;border-radius:7px;border:none;background:var(--green);color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">✓ Done!</button>
+      <button onclick="pomoFinishNo()" style="flex:1;padding:9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">Still going</button>
+      <button onclick="document.getElementById('pomo-finish-prompt').remove()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  document.body.appendChild(el);
+  // Auto-dismiss after 30s
+  setTimeout(()=>{ const e=document.getElementById('pomo-finish-prompt'); if(e) e.remove(); },30000);
+}
+
+function pomoFinishYes(){
+  const el=document.getElementById('pomo-finish-prompt');
+  if(el) el.remove();
+  if(selectedMissionId){
+    updateTaskField(selectedMissionId,'status','done');
+    selectedMissionId=null;
+    renderAll();
+  }
+}
+
+function pomoFinishNo(){
+  const el=document.getElementById('pomo-finish-prompt');
+  if(el) el.remove();
+  // Keep mission selected, just dismiss
   renderAll();
 }
 
@@ -2987,14 +3164,22 @@ function renderSettings(container){
     </div>
     <div style="margin-bottom:16px;">
       <div class="section-title">📡 Sync / Cloud</div>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ SYNC WITH ARCHIVES</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
-      <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
-      <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
-        Use "Push all local data" if cloud appears empty.
-        TaskS SYNC AUTOMATICALLY WITHIN ~1 SECOND.
-      </div>
+      <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="syncNow()">↻ Sync Now</button>
+      <!-- Calm mode toggle -->
+      <button class="hbtn" style="width:100%;margin-bottom:16px;" onclick="toggleCalmMode()">🌿 Toggle Calm Mode</button>
+      <details style="margin-bottom:8px;">
+        <summary style="font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);list-style:none;display:flex;align-items:center;gap:6px;">
+          ⚙ Advanced / Debug
+        </summary>
+        <div style="padding:10px 4px 0;">
+          <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+          <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
+          <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
+          <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
+            Use "Push all local data" if cloud appears empty. Tasks sync automatically within ~1 second.
+          </div>
+        </div>
+      </details>
     </div>
     <div style="margin-bottom:32px;">
       <div class="section-title">⏳ Timer CONFIG</div>
@@ -3264,6 +3449,15 @@ function toggleProject(id){
   p.collapsed=!p.collapsed;saveAllDebounced();renderAll();
 }
 
+function toggleTaskMoreOptions(){
+  const el = document.getElementById('task-more-options');
+  const btn = document.getElementById('task-more-toggle');
+  if(!el || !btn) return;
+  const expanded = el.style.display !== 'none';
+  el.style.display = expanded ? 'none' : 'block';
+  btn.textContent = expanded ? '＋ More options' : '－ Fewer options';
+}
+
 function openAddTask(projectId=""){
   editingTaskId=null;
   document.getElementById("modal-task-title").textContent="New Task";
@@ -3281,6 +3475,11 @@ function openAddTask(projectId=""){
   sel.innerHTML=buildProjectOptions(projectId);
   _modalSubtasks = [];
   renderModalSubtaskList();
+  // Collapse more options for new tasks
+  const moreEl=document.getElementById("task-more-options");
+  const moreBtn=document.getElementById("task-more-toggle");
+  if(moreEl) moreEl.style.display="none";
+  if(moreBtn) moreBtn.textContent="＋ More options";
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
@@ -3303,6 +3502,11 @@ function openEditTask(id){
   sel.innerHTML=buildProjectOptions(t.projectId);
   _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
   renderModalSubtaskList();
+  // Always expand more options when editing existing task
+  const moreEl=document.getElementById("task-more-options");
+  const moreBtn=document.getElementById("task-more-toggle");
+  if(moreEl) moreEl.style.display="block";
+  if(moreBtn) moreBtn.textContent="－ Fewer options";
   openModal("modal-task");
 }
 let _modalSubtasks = [];
@@ -3714,6 +3918,7 @@ function toggleFocus(){if(activeNav==="focus") setNav("tasks"); else setNav("foc
 // slotId: w1,w2,w3 (work), h1 (home), f1,f2,f3 (family)
 let threeSlots = JSON.parse(localStorage.getItem('hub-slots')||'{}');
 let parkingExpanded = false;
+let overwhelmMode = false;  // "just show me one thing" mode
 let _assigningSlot = null;
 let resetStep = 1;
 
@@ -3943,7 +4148,59 @@ function renderTodayView(container){
 
   const parking=getParkingLot();
 
+  // ── Compute "Next Up" task ──────────────────────────────────
+  const _nextActive = tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').sort((a,b) => {
+    if(todayPinned.has(a.id) !== todayPinned.has(b.id)) return todayPinned.has(a.id) ? -1 : 1;
+    const aOver = a.dueDate && a.dueDate < todayStr ? 1 : 0;
+    const bOver = b.dueDate && b.dueDate < todayStr ? 1 : 0;
+    if(aOver !== bOver) return bOver - aOver;
+    const pOrd = {high:0,medium:1,low:2};
+    const pd = (pOrd[a.priority]??1)-(pOrd[b.priority]??1);
+    if(pd !== 0) return pd;
+    if(a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if(a.dueDate) return -1;
+    if(b.dueDate) return 1;
+    return 0;
+  });
+  const _nextTask = _nextActive[0] || null;
+  const _nextProj = _nextTask ? projects.find(p => p.id === _nextTask.projectId) : null;
+
   let html=``;
+
+  // Overwhelm mode — just one thing
+  if(overwhelmMode){
+    html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--accent);">🧘 One Thing Mode</div>
+      <button onclick="overwhelmMode=false;renderAll();" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕ Back to normal</button>
+    </div>`;
+    // Brain dump bar
+    html+=`<div class="brain-dump-bar">
+      <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought…"
+        onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value=''}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
+      <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
+    </div>`;
+    // Show Next Up in overwhelm mode
+    if(_nextTask){
+      const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
+      const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
+      const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:11px;">⚠ OVERDUE</span>`
+                       : _isToday   ? `<span style="color:var(--accent);font-size:11px;">📅 TODAY</span>`
+                       : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:11px;">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
+      const _np = _nextProj;
+      html+=`<div style="margin:8px 10px;padding:20px;border-radius:12px;border:2px solid var(--accent);background:rgba(232,168,56,0.07);text-align:center;">
+        <div style="font-size:11px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">⚔ YOUR ONE THING</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.4;margin-bottom:8px;">${esc(_nextTask.title)}</div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px;">${_np?`<span style="font-size:11px;color:${_np.color};">◈ ${esc(_np.name)}</span>`:''}${_dueLabel}</div>
+        <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">▶ Start Focus Session</button>
+        <button onclick="updateTaskField('${_nextTask.id}','status','done');renderAll();" style="width:100%;padding:9px;margin-top:8px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">✓ Already done — what's next?</button>
+      </div>`;
+    } else {
+      html+=`<div style="margin:40px 20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">🎉 No active tasks — you're all clear!</div>`;
+    }
+    container.innerHTML=html;
+    return;
+  }
 
   // Header
   html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
@@ -3951,8 +4208,29 @@ function renderTodayView(container){
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">${greeting}</div>
       ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Tap <strong style="color:var(--accent);">+ ADD</strong> on any slot to assign a task</div>'}
     </div>
-    <button onclick="openReset()" style="padding:6px 11px;border-radius:3px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 WEEKLY RESET</button>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button onclick="overwhelmMode=true;renderAll();" title="Just show me one thing" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">🧘</button>
+      <button onclick="openReset()" style="padding:6px 11px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 Reset</button>
+    </div>
   </div>`;
+
+  // ── Next Up banner ──────────────────────────────────────────
+  if(_nextTask){
+    const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
+    const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
+    const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:10px;font-family:var(--font-ui);">⚠ OVERDUE</span>`
+                     : _isToday   ? `<span style="color:var(--accent);font-size:10px;font-family:var(--font-ui);">📅 TODAY</span>`
+                     : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:10px;font-family:var(--font-ui);">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
+    html += `<div style="margin:4px 10px 10px;padding:12px 14px;border-radius:10px;border:2px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.07);">
+      <div style="font-size:9px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚔ NEXT UP</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.3;margin-bottom:6px;">${esc(_nextTask.title)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        ${_nextProj ? `<span style="font-size:10px;color:${_nextProj.color};font-family:var(--font-ui);">◈ ${esc(_nextProj.name)}</span>` : ''}
+        ${_dueLabel}
+      </div>
+      <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:9px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">▶ Start Focus Session</button>
+    </div>`;
+  }
 
   // Brain dump bar
   html+=`<div class="brain-dump-bar">
@@ -3983,35 +4261,63 @@ function renderTodayView(container){
 
   // Parking Lot
   const plCount=parking.length;
+  const plPreview=parking.slice(0,3);
+  const plRest=parking.slice(3);
   html+=`<div class="parking-lot">
     <div class="parking-lot-header" onclick="parkingExpanded=!parkingExpanded;renderAll();">
-      <span class="parking-lot-title">🅿 PARKING LOT — ${plCount} Task${plCount!==1?'S':''}</span>
+      <span class="parking-lot-title">🅿 Inbox — ${plCount} task${plCount!==1?'s':''}</span>
       <span style="font-size:11px;color:var(--text3);">${parkingExpanded?'▾':'▸'}</span>
     </div>`;
-  if(parkingExpanded){
-    if(plCount===0){
-      html+=`<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Nothing parked — all clear.</div>`;
-    } else {
-      html+=parking.slice(0,30).map(t=>{
-        const proj=projects.find(p=>p.id===t.projectId);
-        return `<div class="parking-lot-item">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-            ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
-          </div>
-          <button class="parking-lot-assign" onclick="setNav('tasks')">VIEW</button>
-        </div>`;
-      }).join('');
-      if(plCount>30) html+=`<div style="padding:6px 12px;font-size:11px;color:var(--text3);font-family:var(--font-ui);">+${plCount-30} more in TaskS</div>`;
+
+  if(plCount===0){
+    html+=`<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Inbox empty — all clear.</div>`;
+  } else {
+    // Always show top 3
+    html+=plPreview.map(t=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      // Find first available slot to suggest
+      const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
+      const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
+      return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${esc(t.title)}</div>
+          ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
+        </div>
+        <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
+      </div>`;
+    }).join('');
+    // Remaining tasks expandable
+    if(plRest.length>0){
+      if(parkingExpanded){
+        html+=plRest.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
+          const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
+          return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
+            </div>
+            <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
+          </div>`;
+        }).join('');
+      } else {
+        html+=`<div onclick="parkingExpanded=true;renderAll();" style="padding:8px 12px;font-size:11px;color:var(--text3);font-family:var(--font-ui);cursor:pointer;text-align:center;">+ ${plRest.length} more — tap to expand</div>`;
+      }
     }
   }
   html+=`</div>`;
 
-  // Evening capture nudge
+  // Evening capture nudge + EOD ritual
   if(hour>=17){
-    html+=`<div style="margin:0 6px 10px;padding:10px 14px;border-radius:5px;border:1px solid rgba(58,68,104,0.2);background:rgba(34,40,64,0.3);">
-      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 EVENING — 2 MIN</div>
-      <div style="font-size:12px;color:var(--text2);">Anything that broke or came up today? Just capture it — don't process. Use the box above.</div>
+    const eodDone = localStorage.getItem('hub-eod-done') === today();
+    html+=`<div style="margin:0 6px 10px;padding:12px 14px;border-radius:10px;border:1px solid rgba(58,68,104,0.3);background:rgba(34,40,64,0.4);">
+      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 CLOSE THE DAY</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Capture anything that came up, then do your 60-second close.</div>
+      ${eodDone
+        ? `<div style="font-size:11px;color:var(--green);font-family:var(--font-ui);font-weight:700;">✓ Day closed — well done.</div>`
+        : `<button onclick="openEodRitual()" style="width:100%;padding:9px;border-radius:7px;border:none;background:rgba(58,68,104,0.4);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">🌙 Close the Day (60 sec)</button>`
+      }
     </div>`;
   }
 
@@ -4435,6 +4741,101 @@ function checkPassword(){
   }
 }
 
+// ── Daily Ritual System ──────────────────────────────────────
+let _morningEnergy = '';
+
+function morningEnergy(val){
+  _morningEnergy = val;
+  document.querySelectorAll('#morning-energy-btns .chip-btn').forEach(b=>{
+    b.style.borderColor = b.textContent.trim()===val ? 'var(--accent)' : '';
+    b.style.color = b.textContent.trim()===val ? 'var(--accent)' : '';
+    b.style.background = b.textContent.trim()===val ? 'var(--accent-soft)' : '';
+  });
+}
+
+function saveMorningRitual(){
+  const oneThing = document.getElementById('morning-one-thing').value.trim();
+  const dump = document.getElementById('morning-brain-dump').value.trim();
+  // Save to daily journal entry
+  const dailyLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+  dailyLog.unshift({
+    date: today(),
+    type: 'morning',
+    oneThing,
+    energy: _morningEnergy,
+    dump,
+    ts: Date.now()
+  });
+  localStorage.setItem('hub-daily-log', JSON.stringify(dailyLog.slice(0,90)));
+  localStorage.setItem('hub-morning-done', today());
+  // Brain dump → inbox
+  if(dump) brainDump(dump);
+  // Pin the one thing as a task if it matches something, else create it
+  if(oneThing){
+    const match = tasks.find(t=>t.status!=='done'&&t.title.toLowerCase().includes(oneThing.toLowerCase()));
+    if(match){
+      todayPinned.add(match.id);
+      savePinned();
+    } else {
+      const id=genId();
+      tasks.push({id,title:oneThing,projectId:'',priority:'high',status:'todo',
+        notes:'',dueDate:today(),source:'self',recur:'none',effort:'',estimate:'',
+        subtasks:[],createdAt:Date.now()});
+      todayPinned.add(id);
+      savePinned();
+      saveAllDebounced();
+    }
+  }
+  closeModal('modal-morning');
+  setNav('today');
+  renderAll();
+  showToast('☀ Morning set — go get it!');
+}
+
+function skipMorningRitual(){
+  localStorage.setItem('hub-morning-done', today());
+  closeModal('modal-morning');
+}
+
+function checkMorningRitual(){
+  const done = localStorage.getItem('hub-morning-done');
+  if(done !== today()){
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning, Commander'
+                : hour < 17 ? 'Afternoon check-in, Commander'
+                : 'Evening, Commander';
+    const el = document.getElementById('morning-greeting');
+    if(el) el.textContent = greet;
+    _morningEnergy = '';
+    setTimeout(() => openModal('modal-morning'), 800);
+  }
+}
+
+function saveEodRitual(){
+  const happened = document.getElementById('eod-happened').value.trim();
+  const missed = document.getElementById('eod-missed').value.trim();
+  const tomorrow = document.getElementById('eod-tomorrow').value.trim();
+  const dailyLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+  // Find today's morning entry and append, or create new
+  const todayEntry = dailyLog.find(e=>e.date===today()&&e.type==='morning');
+  if(todayEntry){ todayEntry.happened=happened; todayEntry.missed=missed; todayEntry.tomorrow=tomorrow; }
+  else { dailyLog.unshift({date:today(),type:'morning',happened,missed,tomorrow,ts:Date.now()}); }
+  localStorage.setItem('hub-daily-log', JSON.stringify(dailyLog.slice(0,90)));
+  // Pre-populate morning one-thing with tomorrow hint
+  if(tomorrow) localStorage.setItem('hub-tomorrow-hint', tomorrow);
+  localStorage.setItem('hub-eod-done', today());
+  closeModal('modal-eod');
+  showToast('🌙 Day closed. Rest well.');
+}
+
+function openEodRitual(){
+  document.getElementById('eod-happened').value='';
+  document.getElementById('eod-missed').value='';
+  const hint = localStorage.getItem('hub-tomorrow-hint')||'';
+  document.getElementById('eod-tomorrow').value='';
+  openModal('modal-eod');
+}
+
 async function bootApp(){
   document.getElementById("loading").style.display="flex";
   const lp=localStorage.getItem("hub-projects");
@@ -4445,9 +4846,21 @@ async function bootApp(){
   document.getElementById("loading").style.display="none";
   document.getElementById("app").style.display="flex";
   renderAll();
+  checkMorningRitual();
+}
+
+function toggleCalmMode(){
+  const isCalm = document.body.classList.toggle('calm-mode');
+  localStorage.setItem('hub-calm', isCalm ? '1' : '0');
+  renderAll();
+  showToast(isCalm ? '🌿 Calm mode ON' : '⚡ Calm mode OFF');
 }
 
 async function init(){
+  // Apply calm mode before anything renders
+  if(localStorage.getItem('hub-calm') === '1'){
+    document.body.classList.add('calm-mode');
+  }
   const authTime=localStorage.getItem("hub-auth");
   const now=Date.now();
   if(authTime&&(now-parseInt(authTime))<GATE_DURATION){
