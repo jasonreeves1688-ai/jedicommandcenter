@@ -1772,12 +1772,25 @@ async function loadAll(){
   }
   if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
   if(tasks.length>=0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-  const storedXP=localStorage.getItem("hub-totalXP");
-  if(storedXP!==null){ totalXP=parseInt(storedXP)||0; }
-  else {
-    totalXP=tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
-    localStorage.setItem("hub-totalXP",String(totalXP));
+
+  // totalXP — take the higher of cloud vs local (never go backwards across devices)
+  const storedXP = localStorage.getItem("hub-totalXP");
+  const localXP  = storedXP !== null ? (parseInt(storedXP)||0) : null;
+  const cloudXP  = (typeof data !== "undefined" && data.jasonStats) ? (data.jasonStats.totalXP||0) : 0;
+  if(localXP === null){
+    // No local value — calculate from tasks
+    totalXP = tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
+  } else {
+    totalXP = Math.max(localXP, cloudXP);
   }
+  localStorage.setItem("hub-totalXP", String(totalXP));
+
+  // longestStreak — take the higher of cloud vs local
+  const localLongest = parseInt(localStorage.getItem("hub-longest-streak")||"0");
+  const cloudLongest = (typeof data !== "undefined" && data.jasonStats) ? (data.jasonStats.longestStreak||0) : 0;
+  const bestLongest  = Math.max(localLongest, cloudLongest);
+  if(bestLongest > localLongest) localStorage.setItem("hub-longest-streak", String(bestLongest));
+
   kidsCloudLoaded=true;
 }
 
@@ -5526,6 +5539,22 @@ async function backgroundSync(){
       const localTs = localJR ? (localJR.lastSaved || 0) : 0;
       if(cloudTs > localTs){
         localStorage.setItem("hub-jason-rewards", JSON.stringify(data.jasonRewards));
+        changed = true;
+      }
+    }
+
+    // totalXP and longestStreak — always take the max across devices
+    if(data.jasonStats){
+      const cloudXP = data.jasonStats.totalXP || 0;
+      if(cloudXP > totalXP){
+        totalXP = cloudXP;
+        localStorage.setItem("hub-totalXP", String(totalXP));
+        changed = true;
+      }
+      const cloudLongest = data.jasonStats.longestStreak || 0;
+      const localLongest = parseInt(localStorage.getItem("hub-longest-streak")||"0");
+      if(cloudLongest > localLongest){
+        localStorage.setItem("hub-longest-streak", String(cloudLongest));
         changed = true;
       }
     }
