@@ -1633,6 +1633,7 @@ function getJasonRewards(){
   };
 }
 function saveJasonRewards(r){
+  r.lastSaved = Date.now(); // timestamp for cross-device conflict resolution
   localStorage.setItem('hub-jason-rewards', JSON.stringify(r));
 }
 let kidsCloudLoaded=false; // true once loadAll has completed
@@ -1703,7 +1704,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — use it and push to cloud
         kidsGame = localKids;
-        try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
+        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
       } else {
         // Cloud is newer or equal — trust it
         kidsGame = cloudKids;
@@ -1714,7 +1715,30 @@ async function loadAll(){
       localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
     } else if(localKids){
       kidsGame = localKids;
-      try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
+      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+    }
+
+    // Load Jason rewards — compare timestamps, take newer version
+    const ljr = localStorage.getItem('hub-jason-rewards');
+    const localJR = ljr ? (() => { try{ return JSON.parse(ljr); }catch(e){ return null; } })() : null;
+    const cloudJR = data.jasonRewards && typeof data.jasonRewards.completions !== 'undefined' ? data.jasonRewards : null;
+    if(cloudJR && localJR){
+      const cloudTs = cloudJR.lastSaved || 0;
+      const localTs = localJR.lastSaved  || 0;
+      if(localTs > cloudTs){
+        // Local is newer — keep it, push to cloud
+        localStorage.setItem('hub-jason-rewards', JSON.stringify(localJR));
+        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+      } else {
+        // Cloud is newer or equal — trust it
+        localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
+      }
+    } else if(cloudJR){
+      // Only cloud has data — load it
+      localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
+    } else if(localJR){
+      // Only local has data — push it up
+      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
     }
 
     if(sheetProjects.length===0&&sheetTasks.length===0){
@@ -1743,6 +1767,7 @@ async function loadAll(){
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
     const lk=localStorage.getItem("hub-kids");
     if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
+    // jasonRewards loads from localStorage automatically via getJasonRewards()
     showToast("Offline — Using local data");
   }
   if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
@@ -1776,7 +1801,7 @@ async function saveAllDebounced(){
 async function syncNow(){
   showToast("Syncing…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame});
+    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -1823,7 +1848,7 @@ async function forcePushToSheets(){
   if(!confirm("Overwrite cloud with local data?")) return;
   showToast("UPLOADING ALL DATA…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame});
+    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
     showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
   }catch(e){showToast("Push failed — check connection");}
 }
@@ -1832,7 +1857,7 @@ async function pushKidsData(){
   const d=kidsData();
   showToast("Pushing kids data…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame:d});
+    await apiCall("saveAll",{projects,tasks,kidsGame:d,...getCloudStats()});
     showToast("✓ Kids data synced to cloud!");
   }catch(e){showToast("Failed: "+e.message);}
 }
@@ -5465,6 +5490,63 @@ async function init(){
 window.addEventListener("online",()=>{showToast("Connection restored — SYNCING…");syncNow();});
 window.addEventListener("offline",()=>{setSyncStatus("offline","Offline");showToast("Offline — Using local data");});
 
+// ── Background sync: pull fresh data every 2.5 minutes ────────────
+async function backgroundSync(){
+  if(!navigator.onLine) return;
+  try{
+    const data = await apiCall("getAll");
+    const sheetProjects=(data.projects||[]).map(p=>({...p,collapsed:p.collapsed==="true"||p.collapsed===true})).filter(p=>p.id&&p.name);
+    const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
+    let changed = false;
+
+    if(sheetTasks.length > 0){
+      projects = sheetProjects;
+      tasks    = sheetTasks;
+      localStorage.setItem("hub-projects", JSON.stringify(projects));
+      localStorage.setItem("hub-tasks",    JSON.stringify(tasks));
+      changed = true;
+    }
+
+    // Kids game — timestamp-based merge
+    if(data.kidsGame && data.kidsGame.players){
+      const cloudTs = data.kidsGame.lastSaved || 0;
+      const localTs = kidsGame ? (kidsGame.lastSaved || 0) : 0;
+      if(cloudTs > localTs){
+        kidsGame = data.kidsGame;
+        localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
+        changed = true;
+      }
+    }
+
+    // Jason rewards — timestamp-based merge
+    if(data.jasonRewards && typeof data.jasonRewards.completions !== "undefined"){
+      const lrRaw = localStorage.getItem("hub-jason-rewards");
+      const localJR = lrRaw ? JSON.parse(lrRaw) : null;
+      const cloudTs = data.jasonRewards.lastSaved || 0;
+      const localTs = localJR ? (localJR.lastSaved || 0) : 0;
+      if(cloudTs > localTs){
+        localStorage.setItem("hub-jason-rewards", JSON.stringify(data.jasonRewards));
+        changed = true;
+      }
+    }
+
+    if(changed){ updateStats(); renderAll(); }
+  }catch(e){ /* silent fail */ }
+}
+setInterval(backgroundSync, 2.5 * 60 * 1000);
+
+// ── Visibility sync: re-fetch when tab becomes active after being away ──
+let _lastVisibleAt = Date.now();
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "hidden"){
+    _lastVisibleAt = Date.now();
+  } else {
+    if(Date.now() - _lastVisibleAt > 60000){
+      backgroundSync();
+    }
+  }
+});
+
 // ═══════════════════════════════════════════════
 //  KIDS POINT GAME
 // ═══════════════════════════════════════════════
@@ -5521,7 +5603,7 @@ function saveKidsData(d) {
   kidsSyncTimeout = setTimeout(async()=>{
     // Read kidsGame fresh at fire time in case more changes accumulated
     if(kidsGame) kidsGame.lastSaved = Date.now();
-    try{ await apiCall('saveAll',{projects, tasks, kidsGame}); }catch(e){}
+    try{ await apiCall('saveAll',{projects, tasks, kidsGame, ...getCloudStats()}); }catch(e){}
   }, 1200);
 }
 
