@@ -282,6 +282,26 @@ html,body{
 
 /* ── TASK LIST ── */
 #main{flex:1;overflow-y:auto;overflow-x:hidden;background:var(--bg);overscroll-behavior:contain;}
+/* ── PERSISTENT STATS STRIP ── */
+#stats-strip{
+  background:var(--surface);border-bottom:1px solid rgba(232,168,56,0.15);
+  padding:7px 12px;flex-shrink:0;
+}
+.sstrip-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.sstrip-stat{
+  display:flex;align-items:center;gap:5px;
+  background:var(--surface2);border-radius:20px;
+  padding:4px 10px;white-space:nowrap;flex-shrink:0;
+}
+.sstrip-stat .ss-icon{font-size:13px;line-height:1;}
+.sstrip-stat .ss-val{font-size:14px;font-weight:900;font-family:var(--font-ui);line-height:1;}
+.sstrip-stat .ss-lbl{font-size:9px;color:var(--text4);font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
+.sstrip-bars{display:flex;flex-direction:column;gap:5px;}
+.sstrip-bar-row{display:flex;align-items:center;gap:7px;}
+.sstrip-bar-name{font-size:10px;font-family:var(--font-ui);white-space:nowrap;flex-shrink:0;min-width:60px;font-weight:600;}
+.sstrip-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.sstrip-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}
+.sstrip-bar-note{font-size:10px;font-family:var(--font-ui);white-space:nowrap;font-weight:700;flex-shrink:0;min-width:52px;text-align:right;}
 #main::-webkit-scrollbar{width:4px;}
 #main::-webkit-scrollbar-track{background:transparent;}
 #main::-webkit-scrollbar-thumb{background:var(--border);}
@@ -707,6 +727,7 @@ html,body{
 @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse-bar{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:0.75;filter:brightness(1.3)}}
 
 /* Today view */
 .today-section-title{
@@ -1125,6 +1146,9 @@ html,body{
       <button class="hbtn" style="padding:2px 8px;font-size:9px;" onclick="syncNow()">↻ SYNC</button>
     </div>
   </div>
+
+  <!-- STATS STRIP -->
+  <div id="stats-strip"></div>
 
   <!-- STREAK BANNER -->
   <div id="streak-banner" style="display:none;"></div>
@@ -1815,8 +1839,100 @@ async function pushKidsData(){
 // ═══════════════════════════════════════════════════════════════
 // RENDER ENGINE
 // ═══════════════════════════════════════════════════════════════
+function renderStatsStrip(){
+  const strip = document.getElementById('stats-strip');
+  if(!strip) return;
+
+  const streak = computeStreak();
+  const doneTodayCount = tasks.filter(t=>{
+    if(t.status!=='done'||!t.completedAt) return false;
+    const d = new Date(parseInt(t.completedAt));
+    return d.toDateString()===new Date().toDateString();
+  }).length;
+
+  // Jason rewards
+  const jr = getJasonRewards();
+  const threshold   = jr.spinThreshold  || 25;
+  const bigThresh   = jr.bigThreshold   || 100;
+  const completions = jr.completions    || 0;
+  const spinCredits = jr.spinCredits    || 0;
+  const bigCredits  = jr.bigSpinCredits || 0;
+  const spinPct = Math.round(((completions % threshold) / threshold) * 100);
+  const bigPct  = Math.round(((completions % bigThresh)  / bigThresh)  * 100);
+  const nextSpin = threshold - (completions % threshold);
+  const nextBig  = bigThresh  - (completions % bigThresh);
+
+  // Kids bars
+  let kidsBarsHtml = '';
+  if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
+    const MILESTONE = 25; // same milestone as kids game
+    kidsBarsHtml = kidsGame.players.map(p => {
+      const score = p.score || 0;
+      const pct = Math.round(((score % MILESTONE) / MILESTONE) * 100);
+      const toNext = MILESTONE - (score % MILESTONE);
+      const color = p.color || '#9B59B6';
+      const hasReady = (score > 0 && score % MILESTONE === 0);
+      return `<div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:${color};">${p.name}</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color}99,${color});${hasReady?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="color:${hasReady?color:'var(--text4)'};">
+          ${hasReady?'🎁 spin!':toNext+' pts'}
+        </span>
+      </div>`;
+    }).join('');
+  }
+
+  strip.innerHTML = `
+    <!-- Row 1: stat pills -->
+    <div class="sstrip-top">
+      <div class="sstrip-stat" style="border:1px solid ${streak>0?'rgba(232,168,56,0.35)':'var(--border)'};">
+        <span class="ss-icon">${streak>0?'🔥':'💤'}</span>
+        <div>
+          <div class="ss-val" style="color:${streak>0?'var(--accent)':'var(--text3)'};">${streak||0}</div>
+          <div class="ss-lbl">STREAK</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(74,144,217,0.3);">
+        <span class="ss-icon">⚔</span>
+        <div>
+          <div class="ss-val" style="color:#4A90D9;">${totalXP.toLocaleString()}</div>
+          <div class="ss-lbl">XP</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(61,184,122,0.3);">
+        <span class="ss-icon">✅</span>
+        <div>
+          <div class="ss-val" style="color:var(--green);">${doneTodayCount}</div>
+          <div class="ss-lbl">TODAY</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: prize bars -->
+    <div class="sstrip-bars">
+      <div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:var(--accent);">🎡 Jason</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${spinPct}%;background:linear-gradient(90deg,var(--accent),#F5C842);${spinCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="color:${spinCredits>0?'var(--accent)':'var(--text4)'};">${spinCredits>0?'🎉 '+spinCredits+' spin!':nextSpin+' tasks'}</span>
+      </div>
+      <div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:#FFD700;">🏆 Big</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${bigPct}%;background:linear-gradient(90deg,#B8860B,#FFD700);${bigCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="color:${bigCredits>0?'#FFD700':'var(--text4)'};">${bigCredits>0?'🏆 '+bigCredits+' spin!':nextBig+' tasks'}</span>
+      </div>
+      ${kidsBarsHtml}
+    </div>`;
+}
+
 function renderAll(){
   updateStats();
+  renderStatsStrip();
   const main=document.getElementById("main");
   if(activeNav==="today"){renderTodayView(main);return;}
   if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
@@ -2528,24 +2644,6 @@ function renderJasonRewardsSection(){
       </div>`:''}
     </div>
 
-    <!-- Progress bars -->
-    <div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">
-        <span>🎡 Next spin</span><span>${nextSpin} task${nextSpin!==1?'s':''} away</span>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${Math.round(((completions%threshold)/threshold)*100)}%;background:var(--accent);border-radius:3px;transition:width 0.4s;"></div>
-      </div>
-    </div>
-    <div style="margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">
-        <span>🏆 Next big prize</span><span>${nextBig} task${nextBig!==1?'s':''} away</span>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${Math.round(((completions%bigThreshold)/bigThreshold)*100)}%;background:#FFD700;border-radius:3px;transition:width 0.4s;"></div>
-      </div>
-    </div>
-
     <!-- Spin buttons -->
     ${spinCredits>0?`<button onclick="openJasonWheel('small')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:900;cursor:pointer;margin-bottom:8px;">🎡 Spin the Wheel! (${spinCredits} left)</button>`:''}
     ${bigSpinCredits>0?`<button onclick="openJasonWheel('big')" style="width:100%;padding:10px;border-radius:8px;border:none;background:#FFD700;color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:900;cursor:pointer;margin-bottom:8px;">🏆 SPIN BIG PRIZE WHEEL! (${bigSpinCredits} left)</button>`:''}
@@ -2812,7 +2910,6 @@ function renderFocusPanel(container){
     :`<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);text-align:center;padding:12px;font-style:italic;">— All tasks complete 🎉 —</div>`;
 
   container.innerHTML=`<div>
-    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 2px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div><div style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--text4);padding-bottom:4px;letter-spacing:0.5px;">Best: ${getLongestStreak()} days${getLongestStreak()>streakCount?" — keep pushing!":""}</div>`:""}
     <!-- Timer -->
     <div class="pomo-card" style="border-color:${mc}44;">
       <div class="pomo-header">
