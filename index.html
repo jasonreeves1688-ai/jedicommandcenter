@@ -1628,7 +1628,7 @@ const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
 let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
 let dragSrcId=null;
-let calendarDate=new Date(), syncTimeout=null;
+let calendarDate=new Date(), syncTimeout=null, kidsSyncTimeout=null;
 let selectedProjColor=PROJECT_COLORS[0], importPreviewData=null;
 
 const genId=()=>Math.random().toString(36).substr(2,9);
@@ -1667,19 +1667,29 @@ async function loadAll(){
     })).filter(p=>p.id&&p.name);
     const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
 
-    // Load kids game from cloud if present
-    if(data.kidsGame&&data.kidsGame.players){
-      // Cloud has data — always trust cloud over local
-      kidsGame=data.kidsGame;
-      localStorage.setItem("hub-kids",JSON.stringify(kidsGame));
-    } else {
-      // Cloud has no kids data yet — load from local and schedule push
-      const lk=localStorage.getItem("hub-kids");
-      if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
-      // Push local kids data up to cloud so it's available on other devices
-      if(kidsGame){
-        try{ await apiCall("saveAll",{projects,tasks,kidsGame}); }catch(e2){}
+    // Load kids game — compare timestamps, take newer version
+    const lk=localStorage.getItem("hub-kids");
+    const localKids=lk?JSON.parse(lk):null;
+    const cloudKids=data.kidsGame&&data.kidsGame.players?data.kidsGame:null;
+    if(cloudKids && localKids){
+      // Both exist — take whichever has the more recent lastSaved timestamp
+      const cloudTs = cloudKids.lastSaved || 0;
+      const localTs = localKids.lastSaved || 0;
+      if(localTs > cloudTs){
+        // Local is newer — use it and push to cloud
+        kidsGame = localKids;
+        try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
+      } else {
+        // Cloud is newer or equal — trust it
+        kidsGame = cloudKids;
+        localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
       }
+    } else if(cloudKids){
+      kidsGame = cloudKids;
+      localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
+    } else if(localKids){
+      kidsGame = localKids;
+      try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
     }
 
     if(sheetProjects.length===0&&sheetTasks.length===0){
@@ -5373,13 +5383,16 @@ function kidsData() {
 }
 
 function saveKidsData(d) {
+  d.lastSaved = Date.now(); // timestamp for conflict resolution
   kidsGame = d;
   localStorage.setItem('hub-kids', JSON.stringify(d));
-  // Debounced cloud push alongside tasks/projects
-  clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(async()=>{
-    try{ await apiCall('saveAll',{projects, tasks, kidsGame:d}); }catch(e){}
-  }, 800);
+  // Separate debounce timer — does NOT share with tasks/projects
+  clearTimeout(kidsSyncTimeout);
+  kidsSyncTimeout = setTimeout(async()=>{
+    // Read kidsGame fresh at fire time in case more changes accumulated
+    if(kidsGame) kidsGame.lastSaved = Date.now();
+    try{ await apiCall('saveAll',{projects, tasks, kidsGame}); }catch(e){}
+  }, 1200);
 }
 
 let kidsEditCatId = null;
