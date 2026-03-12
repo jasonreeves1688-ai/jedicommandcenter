@@ -147,7 +147,7 @@ html,body{
   letter-spacing:0.3px;line-height:1.2;
 }
 #header-sub{font-size:10px;color:var(--text4);font-family:var(--font-ui);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;}
-#header-stats{font-size:12px;color:var(--text3);font-family:var(--font-ui);}
+#header-stats{display:none;}
 #header-actions{display:flex;gap:6px;align-items:center;}
 
 .hbtn{
@@ -282,6 +282,27 @@ html,body{
 
 /* ── TASK LIST ── */
 #main{flex:1;overflow-y:auto;overflow-x:hidden;background:var(--bg);overscroll-behavior:contain;}
+/* ── PERSISTENT STATS STRIP ── */
+#stats-strip{
+  background:var(--surface);border-bottom:1px solid rgba(232,168,56,0.15);
+  padding:7px 12px;flex-shrink:0;
+}
+.sstrip-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.sstrip-stat{
+  display:flex;align-items:center;gap:6px;
+  background:#2A3050;border-radius:20px;
+  padding:5px 11px;white-space:nowrap;flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.07);
+}
+.sstrip-stat .ss-icon{font-size:14px;line-height:1;}
+.sstrip-stat .ss-val{font-size:14px;font-weight:900;font-family:var(--font-ui);line-height:1;color:#FFFFFF;}
+.sstrip-stat .ss-lbl{font-size:9px;color:#8090B8;font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
+.sstrip-bars{display:flex;flex-direction:column;gap:5px;}
+.sstrip-bar-row{display:flex;align-items:center;gap:7px;}
+.sstrip-bar-name{font-size:10px;font-family:var(--font-ui);white-space:nowrap;flex-shrink:0;min-width:60px;font-weight:600;}
+.sstrip-bar-track{flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.sstrip-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}
+.sstrip-bar-note{font-size:10px;font-family:var(--font-ui);white-space:nowrap;font-weight:700;flex-shrink:0;min-width:52px;text-align:right;}
 #main::-webkit-scrollbar{width:4px;}
 #main::-webkit-scrollbar-track{background:transparent;}
 #main::-webkit-scrollbar-thumb{background:var(--border);}
@@ -707,6 +728,7 @@ html,body{
 @keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse-bar{0%,100%{opacity:1;filter:brightness(1)}50%{opacity:0.75;filter:brightness(1.3)}}
 
 /* Today view */
 .today-section-title{
@@ -1125,6 +1147,9 @@ html,body{
       <button class="hbtn" style="padding:2px 8px;font-size:9px;" onclick="syncNow()">↻ SYNC</button>
     </div>
   </div>
+
+  <!-- STATS STRIP -->
+  <div id="stats-strip"></div>
 
   <!-- STREAK BANNER -->
   <div id="streak-banner" style="display:none;"></div>
@@ -1608,6 +1633,7 @@ function getJasonRewards(){
   };
 }
 function saveJasonRewards(r){
+  r.lastSaved = Date.now(); // timestamp for cross-device conflict resolution
   localStorage.setItem('hub-jason-rewards', JSON.stringify(r));
 }
 let kidsCloudLoaded=false; // true once loadAll has completed
@@ -1678,7 +1704,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — use it and push to cloud
         kidsGame = localKids;
-        try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
+        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
       } else {
         // Cloud is newer or equal — trust it
         kidsGame = cloudKids;
@@ -1689,7 +1715,30 @@ async function loadAll(){
       localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
     } else if(localKids){
       kidsGame = localKids;
-      try{ await apiCall('saveAll',{projects,tasks,kidsGame}); }catch(e2){}
+      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+    }
+
+    // Load Jason rewards — compare timestamps, take newer version
+    const ljr = localStorage.getItem('hub-jason-rewards');
+    const localJR = ljr ? (() => { try{ return JSON.parse(ljr); }catch(e){ return null; } })() : null;
+    const cloudJR = data.jasonRewards && typeof data.jasonRewards.completions !== 'undefined' ? data.jasonRewards : null;
+    if(cloudJR && localJR){
+      const cloudTs = cloudJR.lastSaved || 0;
+      const localTs = localJR.lastSaved  || 0;
+      if(localTs > cloudTs){
+        // Local is newer — keep it, push to cloud
+        localStorage.setItem('hub-jason-rewards', JSON.stringify(localJR));
+        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+      } else {
+        // Cloud is newer or equal — trust it
+        localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
+      }
+    } else if(cloudJR){
+      // Only cloud has data — load it
+      localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
+    } else if(localJR){
+      // Only local has data — push it up
+      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
     }
 
     if(sheetProjects.length===0&&sheetTasks.length===0){
@@ -1718,6 +1767,7 @@ async function loadAll(){
     if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
     const lk=localStorage.getItem("hub-kids");
     if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
+    // jasonRewards loads from localStorage automatically via getJasonRewards()
     showToast("Offline — Using local data");
   }
   if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
@@ -1751,7 +1801,7 @@ async function saveAllDebounced(){
 async function syncNow(){
   showToast("Syncing…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame});
+    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -1798,7 +1848,7 @@ async function forcePushToSheets(){
   if(!confirm("Overwrite cloud with local data?")) return;
   showToast("UPLOADING ALL DATA…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame});
+    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
     showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
   }catch(e){showToast("Push failed — check connection");}
 }
@@ -1807,7 +1857,7 @@ async function pushKidsData(){
   const d=kidsData();
   showToast("Pushing kids data…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame:d});
+    await apiCall("saveAll",{projects,tasks,kidsGame:d,...getCloudStats()});
     showToast("✓ Kids data synced to cloud!");
   }catch(e){showToast("Failed: "+e.message);}
 }
@@ -1815,8 +1865,121 @@ async function pushKidsData(){
 // ═══════════════════════════════════════════════════════════════
 // RENDER ENGINE
 // ═══════════════════════════════════════════════════════════════
+function renderStatsStrip(){
+  const strip = document.getElementById('stats-strip');
+  if(!strip) return;
+
+  const streak = computeStreak();
+  const doneTodayCount = tasks.filter(t=>{
+    if(t.status!=='done'||!t.completedAt) return false;
+    const d = new Date(parseInt(t.completedAt));
+    return d.toDateString()===new Date().toDateString();
+  }).length;
+
+  // Jason rewards
+  const jr = getJasonRewards();
+  const threshold   = jr.spinThreshold  || 25;
+  const bigThresh   = jr.bigThreshold   || 100;
+  const completions = jr.completions    || 0;
+  const spinCredits = jr.spinCredits    || 0;
+  const bigCredits  = jr.bigSpinCredits || 0;
+  const spinPct = Math.round(((completions % threshold) / threshold) * 100);
+  const bigPct  = Math.round(((completions % bigThresh)  / bigThresh)  * 100);
+  const nextSpin = threshold - (completions % threshold);
+  const nextBig  = bigThresh  - (completions % bigThresh);
+
+  // Kids bars — colors match kids tab player-0/player-1 CSS
+  const KIDS_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
+  let kidsBarsHtml = '';
+  if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
+    const MILESTONE = 25;
+    kidsBarsHtml = kidsGame.players.map((p, idx) => {
+      const score = p.score || 0;
+      // Always count toward next multiple of 25 — even if score is exactly on a milestone
+      const progress = score % MILESTONE;
+      const toNext   = progress === 0 ? MILESTONE : MILESTONE - progress;
+      const pct      = Math.round((progress / MILESTONE) * 100);
+      const hasReady = progress === 0 && score > 0;
+      const color    = KIDS_COLORS[idx % KIDS_COLORS.length];
+      return `<div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:${color};">${p.name}</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color}88,${color});${hasReady?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${hasReady?color:'#9AAAC8'};border-radius:10px;padding:2px 7px;">${hasReady?'🎁 spin!':toNext+' pts'}</span>
+      </div>`;
+    }).join('');
+  }
+
+  const activeCount = tasks.filter(t=>t.status!=='done').length;
+  const doneAllCount = tasks.filter(t=>t.status==='done').length;
+
+  // Kids player index colors matching kids tab CSS
+  const KIDS_PLAYER_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
+
+  strip.innerHTML = `
+    <!-- Row 1: stat pills -->
+    <div class="sstrip-top">
+      <div class="sstrip-stat" style="border:1px solid ${streak>0?'rgba(232,168,56,0.4)':'rgba(255,255,255,0.06)'};">
+        <span class="ss-icon">${streak>0?'🔥':'💤'}</span>
+        <div>
+          <div class="ss-val" style="color:${streak>0?'#FFD166':'#8090B8'};">${streak||0}</div>
+          <div class="ss-lbl">STREAK</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(74,144,217,0.35);">
+        <span class="ss-icon">⚔</span>
+        <div>
+          <div class="ss-val" style="color:#6AADEE;">${totalXP.toLocaleString()}</div>
+          <div class="ss-lbl">XP</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(61,184,122,0.35);">
+        <span class="ss-icon">✅</span>
+        <div>
+          <div class="ss-val" style="color:#5DD89A;">${doneTodayCount}</div>
+          <div class="ss-lbl">TODAY</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(255,255,255,0.1);">
+        <span class="ss-icon">📋</span>
+        <div>
+          <div class="ss-val" style="color:#C0C8E8;">${activeCount}</div>
+          <div class="ss-lbl">ACTIVE</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(255,255,255,0.07);">
+        <span class="ss-icon">🏅</span>
+        <div>
+          <div class="ss-val" style="color:#8090B8;">${doneAllCount}</div>
+          <div class="ss-lbl">DONE</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: prize bars -->
+    <div class="sstrip-bars">
+      <div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:#F5C842;">🎡 Small Prize</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${spinPct}%;background:linear-gradient(90deg,#E8A838,#F5C842);${spinCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${spinCredits>0?'#F5C842':'#9AAAC8'};border-radius:10px;padding:2px 7px;">${spinCredits>0?'🎉 '+spinCredits+' ready!':nextSpin+' to go'}</span>
+      </div>
+      <div class="sstrip-bar-row">
+        <span class="sstrip-bar-name" style="color:#FFD700;">🏆 Big Prize</span>
+        <div class="sstrip-bar-track">
+          <div class="sstrip-bar-fill" style="width:${bigPct}%;background:linear-gradient(90deg,#B8860B,#FFD700);${bigCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+        </div>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${bigCredits>0?'#FFD700':'#9AAAC8'};border-radius:10px;padding:2px 7px;">${bigCredits>0?'🏆 '+bigCredits+' ready!':nextBig+' to go'}</span>
+      </div>
+      ${kidsBarsHtml}
+    </div>`;
+}
+
 function renderAll(){
   updateStats();
+  renderStatsStrip();
   const main=document.getElementById("main");
   if(activeNav==="today"){renderTodayView(main);return;}
   if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
@@ -2528,24 +2691,6 @@ function renderJasonRewardsSection(){
       </div>`:''}
     </div>
 
-    <!-- Progress bars -->
-    <div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">
-        <span>🎡 Next spin</span><span>${nextSpin} task${nextSpin!==1?'s':''} away</span>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${Math.round(((completions%threshold)/threshold)*100)}%;background:var(--accent);border-radius:3px;transition:width 0.4s;"></div>
-      </div>
-    </div>
-    <div style="margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">
-        <span>🏆 Next big prize</span><span>${nextBig} task${nextBig!==1?'s':''} away</span>
-      </div>
-      <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${Math.round(((completions%bigThreshold)/bigThreshold)*100)}%;background:#FFD700;border-radius:3px;transition:width 0.4s;"></div>
-      </div>
-    </div>
-
     <!-- Spin buttons -->
     ${spinCredits>0?`<button onclick="openJasonWheel('small')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:900;cursor:pointer;margin-bottom:8px;">🎡 Spin the Wheel! (${spinCredits} left)</button>`:''}
     ${bigSpinCredits>0?`<button onclick="openJasonWheel('big')" style="width:100%;padding:10px;border-radius:8px;border:none;background:#FFD700;color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:900;cursor:pointer;margin-bottom:8px;">🏆 SPIN BIG PRIZE WHEEL! (${bigSpinCredits} left)</button>`:''}
@@ -2812,7 +2957,6 @@ function renderFocusPanel(container){
     :`<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);text-align:center;padding:12px;font-style:italic;">— All tasks complete 🎉 —</div>`;
 
   container.innerHTML=`<div>
-    ${streakCount>0?`<div style="text-align:center;padding:8px 10px 2px;font-family:var(--font-ui);font-size:18px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">🔥 ${streakCount} DAY STREAK</div><div style="text-align:center;font-family:var(--font-ui);font-size:10px;color:var(--text4);padding-bottom:4px;letter-spacing:0.5px;">Best: ${getLongestStreak()} days${getLongestStreak()>streakCount?" — keep pushing!":""}</div>`:""}
     <!-- Timer -->
     <div class="pomo-card" style="border-color:${mc}44;">
       <div class="pomo-header">
@@ -5346,6 +5490,63 @@ async function init(){
 window.addEventListener("online",()=>{showToast("Connection restored — SYNCING…");syncNow();});
 window.addEventListener("offline",()=>{setSyncStatus("offline","Offline");showToast("Offline — Using local data");});
 
+// ── Background sync: pull fresh data every 2.5 minutes ────────────
+async function backgroundSync(){
+  if(!navigator.onLine) return;
+  try{
+    const data = await apiCall("getAll");
+    const sheetProjects=(data.projects||[]).map(p=>({...p,collapsed:p.collapsed==="true"||p.collapsed===true})).filter(p=>p.id&&p.name);
+    const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
+    let changed = false;
+
+    if(sheetTasks.length > 0){
+      projects = sheetProjects;
+      tasks    = sheetTasks;
+      localStorage.setItem("hub-projects", JSON.stringify(projects));
+      localStorage.setItem("hub-tasks",    JSON.stringify(tasks));
+      changed = true;
+    }
+
+    // Kids game — timestamp-based merge
+    if(data.kidsGame && data.kidsGame.players){
+      const cloudTs = data.kidsGame.lastSaved || 0;
+      const localTs = kidsGame ? (kidsGame.lastSaved || 0) : 0;
+      if(cloudTs > localTs){
+        kidsGame = data.kidsGame;
+        localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
+        changed = true;
+      }
+    }
+
+    // Jason rewards — timestamp-based merge
+    if(data.jasonRewards && typeof data.jasonRewards.completions !== "undefined"){
+      const lrRaw = localStorage.getItem("hub-jason-rewards");
+      const localJR = lrRaw ? JSON.parse(lrRaw) : null;
+      const cloudTs = data.jasonRewards.lastSaved || 0;
+      const localTs = localJR ? (localJR.lastSaved || 0) : 0;
+      if(cloudTs > localTs){
+        localStorage.setItem("hub-jason-rewards", JSON.stringify(data.jasonRewards));
+        changed = true;
+      }
+    }
+
+    if(changed){ updateStats(); renderAll(); }
+  }catch(e){ /* silent fail */ }
+}
+setInterval(backgroundSync, 2.5 * 60 * 1000);
+
+// ── Visibility sync: re-fetch when tab becomes active after being away ──
+let _lastVisibleAt = Date.now();
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "hidden"){
+    _lastVisibleAt = Date.now();
+  } else {
+    if(Date.now() - _lastVisibleAt > 60000){
+      backgroundSync();
+    }
+  }
+});
+
 // ═══════════════════════════════════════════════
 //  KIDS POINT GAME
 // ═══════════════════════════════════════════════
@@ -5402,7 +5603,7 @@ function saveKidsData(d) {
   kidsSyncTimeout = setTimeout(async()=>{
     // Read kidsGame fresh at fire time in case more changes accumulated
     if(kidsGame) kidsGame.lastSaved = Date.now();
-    try{ await apiCall('saveAll',{projects, tasks, kidsGame}); }catch(e){}
+    try{ await apiCall('saveAll',{projects, tasks, kidsGame, ...getCloudStats()}); }catch(e){}
   }, 1200);
 }
 
