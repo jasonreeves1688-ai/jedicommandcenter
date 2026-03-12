@@ -1700,12 +1700,12 @@ async function loadAll(){
       if(localProjects.length>0||localTasks.length>0){
         projects=localProjects;tasks=localTasks;
         showToast("Cloud empty — uploading local data…");
-        await apiCall("saveAll",{projects,tasks,kidsGame});
+        await apiCall("saveAll",{projects,tasks,kidsGame,jasonRewards:getJasonRewards()});
         showToast("✓ "+projects.length+" Projects + "+tasks.length+" TaskS SENT");
       }else{
         projects=SEED_PROJECTS;tasks=SEED_TASKS;
         showToast("First visit — uploading data…");
-        await apiCall("saveAll",{projects,tasks,kidsGame});
+        await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
         showToast("✓ All tasks uploaded ✓");
       }
     }else{
@@ -1731,12 +1731,21 @@ async function loadAll(){
   kidsCloudLoaded=true;
 }
 
+function getCloudStats(){
+  return {
+    totalXP:       totalXP,
+    streak:        computeStreak(),
+    longestStreak: getLongestStreak(),
+    jasonRewards:  getJasonRewards()
+  };
+}
+
 async function saveAllDebounced(){
   localStorage.setItem("hub-projects",JSON.stringify(projects));
   localStorage.setItem("hub-tasks",JSON.stringify(tasks));
   localStorage.setItem("hub-totalXP",String(totalXP));
   clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks,kidsGame});}catch(e){}},800);
+  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});}catch(e){}},800);
 }
 
 async function syncNow(){
@@ -3477,7 +3486,9 @@ async function sendTestRaven(){
       includeKingdom:kingdom,
       includeHome:home,
       projects,
-      tasks
+      tasks,
+      kidsGame,
+      ...getCloudStats()
     });
     if(el) el.textContent="✓ Briefing sent — check your inbox";
     showToast("✓ Sent!");
