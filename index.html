@@ -147,7 +147,7 @@ html,body{
   letter-spacing:0.3px;line-height:1.2;
 }
 #header-sub{font-size:10px;color:var(--text4);font-family:var(--font-ui);font-weight:500;letter-spacing:0.8px;text-transform:uppercase;}
-#header-stats{font-size:12px;color:var(--text3);font-family:var(--font-ui);}
+#header-stats{display:none;}
 #header-actions{display:flex;gap:6px;align-items:center;}
 
 .hbtn{
@@ -289,13 +289,14 @@ html,body{
 }
 .sstrip-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .sstrip-stat{
-  display:flex;align-items:center;gap:5px;
-  background:var(--surface2);border-radius:20px;
-  padding:4px 10px;white-space:nowrap;flex-shrink:0;
+  display:flex;align-items:center;gap:6px;
+  background:#2A3050;border-radius:20px;
+  padding:5px 11px;white-space:nowrap;flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.07);
 }
-.sstrip-stat .ss-icon{font-size:13px;line-height:1;}
-.sstrip-stat .ss-val{font-size:14px;font-weight:900;font-family:var(--font-ui);line-height:1;}
-.sstrip-stat .ss-lbl{font-size:9px;color:var(--text4);font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
+.sstrip-stat .ss-icon{font-size:14px;line-height:1;}
+.sstrip-stat .ss-val{font-size:14px;font-weight:900;font-family:var(--font-ui);line-height:1;color:#FFFFFF;}
+.sstrip-stat .ss-lbl{font-size:9px;color:#8090B8;font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
 .sstrip-bars{display:flex;flex-direction:column;gap:5px;}
 .sstrip-bar-row{display:flex;align-items:center;gap:7px;}
 .sstrip-bar-name{font-size:10px;font-family:var(--font-ui);white-space:nowrap;flex-shrink:0;min-width:60px;font-weight:600;}
@@ -1862,50 +1863,71 @@ function renderStatsStrip(){
   const nextSpin = threshold - (completions % threshold);
   const nextBig  = bigThresh  - (completions % bigThresh);
 
-  // Kids bars
+  // Kids bars — colors match kids tab player-0/player-1 CSS
+  const KIDS_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
   let kidsBarsHtml = '';
   if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
-    const MILESTONE = 25; // same milestone as kids game
-    kidsBarsHtml = kidsGame.players.map(p => {
+    const MILESTONE = 25;
+    kidsBarsHtml = kidsGame.players.map((p, idx) => {
       const score = p.score || 0;
-      const pct = Math.round(((score % MILESTONE) / MILESTONE) * 100);
-      const toNext = MILESTONE - (score % MILESTONE);
-      const color = p.color || '#9B59B6';
-      const hasReady = (score > 0 && score % MILESTONE === 0);
+      // Always count toward next multiple of 25 — even if score is exactly on a milestone
+      const progress = score % MILESTONE;
+      const toNext   = progress === 0 ? MILESTONE : MILESTONE - progress;
+      const pct      = Math.round((progress / MILESTONE) * 100);
+      const hasReady = progress === 0 && score > 0;
+      const color    = KIDS_COLORS[idx % KIDS_COLORS.length];
       return `<div class="sstrip-bar-row">
         <span class="sstrip-bar-name" style="color:${color};">${p.name}</span>
         <div class="sstrip-bar-track">
-          <div class="sstrip-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color}99,${color});${hasReady?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+          <div class="sstrip-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${color}88,${color});${hasReady?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
         </div>
-        <span class="sstrip-bar-note" style="color:${hasReady?color:'var(--text4)'};">
-          ${hasReady?'🎁 spin!':toNext+' pts'}
-        </span>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${hasReady?color:'#9AAAC8'};border-radius:10px;padding:2px 7px;">${hasReady?'🎁 spin!':toNext+' pts'}</span>
       </div>`;
     }).join('');
   }
 
+  const activeCount = tasks.filter(t=>t.status!=='done').length;
+  const doneAllCount = tasks.filter(t=>t.status==='done').length;
+
+  // Kids player index colors matching kids tab CSS
+  const KIDS_PLAYER_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
+
   strip.innerHTML = `
     <!-- Row 1: stat pills -->
     <div class="sstrip-top">
-      <div class="sstrip-stat" style="border:1px solid ${streak>0?'rgba(232,168,56,0.35)':'var(--border)'};">
+      <div class="sstrip-stat" style="border:1px solid ${streak>0?'rgba(232,168,56,0.4)':'rgba(255,255,255,0.06)'};">
         <span class="ss-icon">${streak>0?'🔥':'💤'}</span>
         <div>
-          <div class="ss-val" style="color:${streak>0?'var(--accent)':'var(--text3)'};">${streak||0}</div>
+          <div class="ss-val" style="color:${streak>0?'#FFD166':'#8090B8'};">${streak||0}</div>
           <div class="ss-lbl">STREAK</div>
         </div>
       </div>
-      <div class="sstrip-stat" style="border:1px solid rgba(74,144,217,0.3);">
+      <div class="sstrip-stat" style="border:1px solid rgba(74,144,217,0.35);">
         <span class="ss-icon">⚔</span>
         <div>
-          <div class="ss-val" style="color:#4A90D9;">${totalXP.toLocaleString()}</div>
+          <div class="ss-val" style="color:#6AADEE;">${totalXP.toLocaleString()}</div>
           <div class="ss-lbl">XP</div>
         </div>
       </div>
-      <div class="sstrip-stat" style="border:1px solid rgba(61,184,122,0.3);">
+      <div class="sstrip-stat" style="border:1px solid rgba(61,184,122,0.35);">
         <span class="ss-icon">✅</span>
         <div>
-          <div class="ss-val" style="color:var(--green);">${doneTodayCount}</div>
+          <div class="ss-val" style="color:#5DD89A;">${doneTodayCount}</div>
           <div class="ss-lbl">TODAY</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(255,255,255,0.1);">
+        <span class="ss-icon">📋</span>
+        <div>
+          <div class="ss-val" style="color:#C0C8E8;">${activeCount}</div>
+          <div class="ss-lbl">ACTIVE</div>
+        </div>
+      </div>
+      <div class="sstrip-stat" style="border:1px solid rgba(255,255,255,0.07);">
+        <span class="ss-icon">🏅</span>
+        <div>
+          <div class="ss-val" style="color:#8090B8;">${doneAllCount}</div>
+          <div class="ss-lbl">DONE</div>
         </div>
       </div>
     </div>
@@ -1913,18 +1935,18 @@ function renderStatsStrip(){
     <!-- Row 2: prize bars -->
     <div class="sstrip-bars">
       <div class="sstrip-bar-row">
-        <span class="sstrip-bar-name" style="color:var(--accent);">🎡 Jason</span>
+        <span class="sstrip-bar-name" style="color:#F5C842;">🎡 Small Prize</span>
         <div class="sstrip-bar-track">
-          <div class="sstrip-bar-fill" style="width:${spinPct}%;background:linear-gradient(90deg,var(--accent),#F5C842);${spinCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
+          <div class="sstrip-bar-fill" style="width:${spinPct}%;background:linear-gradient(90deg,#E8A838,#F5C842);${spinCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
         </div>
-        <span class="sstrip-bar-note" style="color:${spinCredits>0?'var(--accent)':'var(--text4)'};">${spinCredits>0?'🎉 '+spinCredits+' spin!':nextSpin+' tasks'}</span>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${spinCredits>0?'#F5C842':'#9AAAC8'};border-radius:10px;padding:2px 7px;">${spinCredits>0?'🎉 '+spinCredits+' ready!':nextSpin+' to go'}</span>
       </div>
       <div class="sstrip-bar-row">
-        <span class="sstrip-bar-name" style="color:#FFD700;">🏆 Big</span>
+        <span class="sstrip-bar-name" style="color:#FFD700;">🏆 Big Prize</span>
         <div class="sstrip-bar-track">
           <div class="sstrip-bar-fill" style="width:${bigPct}%;background:linear-gradient(90deg,#B8860B,#FFD700);${bigCredits>0?'animation:pulse-bar 1.5s ease-in-out infinite;':''}"></div>
         </div>
-        <span class="sstrip-bar-note" style="color:${bigCredits>0?'#FFD700':'var(--text4)'};">${bigCredits>0?'🏆 '+bigCredits+' spin!':nextBig+' tasks'}</span>
+        <span class="sstrip-bar-note" style="background:#2A3050;color:${bigCredits>0?'#FFD700':'#9AAAC8'};border-radius:10px;padding:2px 7px;">${bigCredits>0?'🏆 '+bigCredits+' ready!':nextBig+' to go'}</span>
       </div>
       ${kidsBarsHtml}
     </div>`;
