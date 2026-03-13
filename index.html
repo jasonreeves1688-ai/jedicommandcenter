@@ -89,10 +89,7 @@ body.calm-mode .sync-dot{display:none;}
 </style>
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Jason's Command Center"/>
+
 <meta name="theme-color" content="#1A1F2E"/>
 <title>Jason's Command Center</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Lora:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -251,7 +248,7 @@ html,body{
 .fdd-checkbox{
   width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border2);
   flex-shrink:0;display:flex;align-items:center;justify-content:center;
-  font-size:9px;transition:all 0.1s;background:var(--surface);
+  font-size:11px;transition:all 0.1s;background:var(--surface);
 }
 .fdd-item.selected .fdd-checkbox{background:var(--accent);border-color:var(--accent);color:var(--bg);}
 .fdd-clear{
@@ -284,6 +281,12 @@ html,body{
 
 /* ── TASK LIST ── */
 #main{flex:1;overflow-y:auto;overflow-x:clip;background:var(--bg);overscroll-behavior:contain;}
+/* ── MOBILE GLOBAL ── */
+button,a,[onclick]{-webkit-tap-highlight-color:transparent;}
+input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus */
+.field-input,.field-select{font-size:16px;}
+/* Ensure all interactive rows have enough tap height */
+.parking-lot-item,.cal-upcoming-row,.cal-day-task{min-height:44px;}
 /* ── PERSISTENT STATS STRIP ── */
 #stats-strip{
   background:var(--surface);border-bottom:1px solid rgba(232,168,56,0.15);
@@ -298,7 +301,7 @@ html,body{
 }
 .sstrip-stat .ss-icon{font-size:14px;line-height:1;}
 .sstrip-stat .ss-val{font-size:14px;font-weight:900;font-family:var(--font-ui);line-height:1;color:#FFFFFF;}
-.sstrip-stat .ss-lbl{font-size:9px;color:#8090B8;font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
+.sstrip-stat .ss-lbl{font-size:11px;color:#8090B8;font-family:var(--font-ui);letter-spacing:0.5px;line-height:1;}
 .sstrip-bars{display:flex;flex-direction:column;gap:5px;}
 .sstrip-bar-row{display:flex;align-items:center;gap:7px;}
 .sstrip-bar-name{font-size:10px;font-family:var(--font-ui);white-space:nowrap;flex-shrink:0;min-width:60px;font-weight:600;}
@@ -321,7 +324,7 @@ html,body{
 .proj-group-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .proj-group-name{flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;}
 .proj-group-count{font-size:10px;color:var(--text2);font-family:var(--font-ui);background:var(--surface3);padding:2px 6px;border-radius:10px;border:1px solid var(--border);}
-.proj-group-domain{font-size:9px;color:var(--text4);font-family:var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);}
+.proj-group-domain{font-size:11px;color:var(--text4);font-family:var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);}
 .proj-group-tasks{padding:2px 0 2px 4px;}
 .task-section-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -463,7 +466,7 @@ html,body{
 .pomo-ring-wrap{position:relative;flex-shrink:0;width:104px;height:104px;}
 .pomo-time{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .pomo-digits{font-family:var(--font-ui);font-size:22px;font-weight:700;letter-spacing:0.5px;}
-.pomo-mode-lbl{font-family:var(--font-ui);font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
+.pomo-mode-lbl{font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
 .pomo-controls{flex:1;}
 .pomo-dots{display:flex;gap:4px;margin-bottom:10px;align-items:center;}
 .pomo-dot{width:7px;height:7px;border-radius:50%;background:var(--border2);}
@@ -516,7 +519,7 @@ html,body{
 .cal-dots-row{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;padding:0 2px;}
 .cal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .cal-count-badge{
-  font-size:9px;font-family:var(--font-ui);font-weight:700;
+  font-size:11px;font-family:var(--font-ui);font-weight:700;
   color:var(--text4);background:var(--surface2);
   border-radius:4px;padding:1px 4px;margin-top:1px;
 }
@@ -567,7 +570,7 @@ html,body{
   border-radius:6px;padding:10px;text-align:center;
 }
 .chart-stat-num{font-size:22px;font-weight:700;font-family:var(--font-ui);}
-.chart-stat-lbl{font-size:9px;font-weight:700;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
+.chart-stat-lbl{font-size:11px;font-weight:700;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
 .chart-range-bar{display:flex;gap:4px;}
 .chart-range-btn{
   padding:4px 10px;border-radius:5px;border:1px solid var(--border);
@@ -625,7 +628,7 @@ html,body{
   border:1px solid var(--border);
 }
 .preview-stat-num{font-size:20px;font-weight:700;font-family:var(--font-ui);}
-.preview-stat-lbl{font-size:9px;font-weight:700;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-transform:uppercase;}
+.preview-stat-lbl{font-size:11px;font-weight:700;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-transform:uppercase;}
 .preview-task-row{
   display:flex;align-items:center;gap:8px;padding:6px 0;
   border-bottom:1px solid var(--border);font-size:13px;font-family:var(--font-ui);
@@ -691,9 +694,33 @@ html,body{
 .modal-sheet{
   background:var(--surface);border:1px solid var(--border2);
   border-radius:14px 14px 0 0;
-  padding:18px 16px 24px;
+  padding:18px 16px calc(24px + env(safe-area-inset-bottom));
   width:100%;max-width:520px;max-height:88vh;overflow-y:auto;
   box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+/* Dynamic modals created via JS — same bottom-sheet style */
+.modal{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:14px 14px 0 0;
+  padding:0;
+  padding-bottom:env(safe-area-inset-bottom);
+  width:100%;max-width:520px;max-height:88vh;overflow-y:auto;
+  box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px 10px;border-bottom:1px solid var(--border);
+  font-family:var(--font-ui);
+}
+.modal-title-text,.modal-title{
+  font-family:var(--font-ui);font-size:15px;font-weight:700;
+  color:var(--text);letter-spacing:0.3px;
+}
+.modal-close{
+  background:transparent;border:none;color:var(--text3);
+  font-size:18px;cursor:pointer;padding:4px 8px;
+  border-radius:6px;line-height:1;
+  min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;
 }
 .modal-title{
   font-family:var(--font-ui);font-size:15px;font-weight:700;
@@ -748,6 +775,7 @@ html,body{
 #undo-btn:active{background:rgba(100,200,100,0.3);}
 #undo-countdown{
   width:22px;height:22px;flex-shrink:0;
+  pointer-events:none;
 }
 #undo-countdown circle{
   fill:none;stroke-width:2.5;stroke-linecap:round;
@@ -804,7 +832,7 @@ html,body{
 }
 .three-slot:last-child{border-bottom:none;}
 .slot-label{
-  font-size:9px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;
+  font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;
   color:var(--text4);text-transform:uppercase;flex-shrink:0;width:76px;
 }
 .slot-task{flex:1;min-width:0;}
@@ -966,7 +994,7 @@ html,body{
 .ec-lbl{letter-spacing:0.3px;}
 /* ── Kids Game ── */
 .kids-wrap{padding:12px;max-width:900px;margin:0 auto;}
-.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:260px;}
+.kids-player-card{border-radius:14px;padding:16px;margin-bottom:14px;position:relative;overflow:hidden;border:2px solid transparent;transition:border-color 0.2s;flex:1;min-width:0;width:100%;}
 .kids-scores-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
 .kids-scores-row .kids-player-card{margin-bottom:0;}
 .kids-player-card.player-0{background:linear-gradient(135deg,#1a2a4a,#1e3460);border-color:#3a6fd8;}
@@ -981,7 +1009,7 @@ html,body{
 .kids-prize-bar-fill{height:100%;border-radius:4px;transition:width 0.5s ease;}
 .kids-player-card.player-0 .kids-prize-bar-fill{background:linear-gradient(90deg,#3a6fd8,#7eb8f7);}
 .kids-player-card.player-1 .kids-prize-bar-fill{background:linear-gradient(90deg,#9b59b6,#cc8ef5);}
-.kids-prize-milestones{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.4);font-family:var(--font-ui);margin-top:3px;}
+.kids-prize-milestones{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.4);font-family:var(--font-ui);margin-top:3px;}
 .kids-action-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
 .kids-quick-btn{flex:1;min-width:80px;max-width:140px;padding:9px 6px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);font-family:var(--font-ui);font-size:11px;font-weight:700;letter-spacing:0.3px;cursor:pointer;text-align:center;transition:all 0.15s;color:#fff;background:transparent;line-height:1.3;}
 .kids-quick-btn:active{transform:scale(0.94);}
@@ -1000,7 +1028,7 @@ html,body{
 .kids-prize-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);margin-bottom:5px;}
 .kids-prize-item-name{flex:1;font-size:11px;font-family:var(--font-ui);color:var(--text2);}
 .kids-prize-item-date{font-size:10px;color:var(--text4);font-family:var(--font-ui);}
-.kids-prize-item-type{font-size:9px;padding:2px 6px;border-radius:8px;font-family:var(--font-ui);font-weight:700;flex-shrink:0;}
+.kids-prize-item-type{font-size:11px;padding:2px 6px;border-radius:8px;font-family:var(--font-ui);font-weight:700;flex-shrink:0;}
 .kids-prize-item-type.small{background:rgba(100,181,246,0.2);color:#64b5f6;border:1px solid rgba(100,181,246,0.3);}
 .kids-prize-item-type.big{background:rgba(255,193,7,0.2);color:#ffc107;border:1px solid rgba(255,193,7,0.3);}
 .kids-celebration{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:none;align-items:center;justify-content:center;}
@@ -1180,7 +1208,7 @@ html,body{
     <div id="sync-dot"></div>
     <div id="sync-label">Synced</div>
     <div style="margin-left:auto;">
-      <button class="hbtn" style="padding:2px 8px;font-size:9px;" onclick="syncNow()">↻ SYNC</button>
+      <button class="hbtn" style="padding:2px 8px;font-size:11px;" onclick="syncNow()">↻ SYNC</button>
     </div>
   </div>
 
@@ -1276,6 +1304,15 @@ html,body{
     <button class="nav-more-item" id="nav-more-cal" onclick="setNav('cal');closeMoreMenu()">
       <span class="nav-more-icon">📅</span>Calendar
     </button>
+    <button class="nav-more-item" onclick="setNav('meetings');closeMoreMenu()">
+      <span class="nav-more-icon">📝</span>Meetings
+    </button>
+    <button class="nav-more-item" id="nav-more-waiting" onclick="setNav('waiting');closeMoreMenu()">
+      <span class="nav-more-icon">⏳</span>Waiting For
+    </button>
+    <button class="nav-more-item" id="nav-more-people" onclick="setNav('people');closeMoreMenu()">
+      <span class="nav-more-icon">👥</span>People
+    </button>
     <button class="nav-more-item" id="nav-more-settings" onclick="setNav('settings');closeMoreMenu()">
       <span class="nav-more-icon">⚙</span>Settings
     </button>
@@ -1322,15 +1359,23 @@ html,body{
             <option value="done">✓ Complete</option>
           </select>
         </div>
-        <select class="field-select" id="task-estimate-input" title="Time estimate">
-          <option value="">⏳ Est. time…</option>
-          <option value="15m">⏳ 15 min</option>
-          <option value="30m">⏳ 30 min</option>
-          <option value="1h">⏳ 1 hour</option>
-          <option value="2h">⏳ 2 hours</option>
-          <option value="4h">⏳ half day</option>
-          <option value="8h+">⏳ full day+</option>
-        </select>
+        <div style="display:flex;gap:6px;">
+          <select class="field-select" id="task-estimate-input" title="Time estimate" style="flex:1;">
+            <option value="">⏳ Est. time…</option>
+            <option value="15m">⏳ 15 min</option>
+            <option value="30m">⏳ 30 min</option>
+            <option value="1h">⏳ 1 hour</option>
+            <option value="2h">⏳ 2 hours</option>
+            <option value="4h">⏳ half day</option>
+            <option value="8h+">⏳ full day+</option>
+          </select>
+          <select class="field-select" id="task-energy-input" title="Energy type" style="flex:1;">
+            <option value="">⚡ Energy…</option>
+            <option value="heavy">🔴 Heavy</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="light">🟢 Light</option>
+          </select>
+        </div>
         <div>
           <div class="notes-toolbar" id="notes-toolbar">
             <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
@@ -1471,25 +1516,25 @@ html,body{
     <div class="modal-title">🌅 SUNDAY RESET</div>
     <div class="reset-progress" id="reset-progress"></div>
     <div id="reset-step-1" class="reset-step active">
-      <div class="reset-step-num">STEP 1 OF 5 · 3 MIN</div>
+      <div class="reset-step-num">STEP 1 OF 6 · 3 MIN</div>
       <div class="reset-step-title">🧠 Brain Dump</div>
       <div class="reset-step-desc">Everything floating in your head — work, home, family. No filtering, no structure. Just get it out.</div>
       <textarea class="reset-textarea" id="reset-dump" placeholder="What's on your mind? Worries, tasks, ideas, things you haven't done…"></textarea>
     </div>
     <div id="reset-step-2" class="reset-step">
-      <div class="reset-step-num">STEP 2 OF 5 · 3 MIN</div>
+      <div class="reset-step-num">STEP 2 OF 6 · 3 MIN</div>
       <div class="reset-step-title">📖 Close Last Week</div>
       <div class="reset-step-desc">What happened? What didn't? Any loose commitments to carry forward? No judgment — just capture.</div>
       <textarea class="reset-textarea" id="reset-close" placeholder="What got done, what slipped, what do you owe anyone…"></textarea>
     </div>
     <div id="reset-step-3" class="reset-step">
-      <div class="reset-step-num">STEP 3 OF 5 · 3 MIN</div>
+      <div class="reset-step-num">STEP 3 OF 6 · 3 MIN</div>
       <div class="reset-step-title">📅 Look Ahead</div>
       <div class="reset-step-desc">What's on the calendar this week? What will eat your bandwidth? Anything that changes your capacity?</div>
       <textarea class="reset-textarea" id="reset-ahead" placeholder="Meetings, travel, deadlines, family events, anything that shapes the week…"></textarea>
     </div>
-    <div id="reset-step-4" class="reset-step">
-      <div class="reset-step-num">STEP 4 OF 5 · 5 MIN</div>
+    <div id="reset-step-6" class="reset-step">
+      <div class="reset-step-num">STEP 5 OF 6 · 5 MIN</div>
       <div class="reset-step-title">⚔ Pick Your 3s</div>
       <div class="reset-step-desc">Tap each slot to search and assign a task. These will appear on your Today tab.</div>
       <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">💼 WORK — 3 things</div>
@@ -1503,10 +1548,21 @@ html,body{
       <div id="reset-slot-f2" class="reset-slot-picker" data-slot="f2" data-label="Partner" onclick="openResetSlotPicker('f2','Partner')"></div>
       <div id="reset-slot-f3" class="reset-slot-picker" data-slot="f3" data-label="Logistics" onclick="openResetSlotPicker('f3','Logistics')"></div>
     </div>
+    <div id="reset-step-4" class="reset-step">
+      <div class="reset-step-num">STEP 4 OF 6 · 2 MIN</div>
+      <div class="reset-step-title">🎯 Set Your 3 Wins</div>
+      <div class="reset-step-desc">What would make this week a win? Three specific, achievable outcomes. These stay visible on your Today screen all week.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+        <input id="reset-win1" class="field-input" placeholder="Win 1…" autocomplete="off"/>
+        <input id="reset-win2" class="field-input" placeholder="Win 2…" autocomplete="off"/>
+        <input id="reset-win3" class="field-input" placeholder="Win 3…" autocomplete="off"/>
+      </div>
+    </div>
     <div id="reset-step-5" class="reset-step">
-      <div class="reset-step-num">STEP 5 OF 5 · 2 MIN</div>
+      <div class="reset-step-num">STEP 6 OF 6 · 2 MIN</div>
       <div class="reset-step-title">🕊 Release</div>
       <div class="reset-step-desc">Everything that didn't make the 3s goes to the Parking Lot. It's not lost — it's just not this week. That's the deal.</div>
+      <div id="reset-people-nudges" style="margin-top:10px;"></div>
       <div style="background:var(--accent-soft);border:1px solid rgba(232,168,56,0.25);border-radius:4px;padding:12px;font-size:13px;color:var(--text2);line-height:1.6;">
         ✓ Your week has a shape now.<br>
         ✓ Everything else is parked, not lost.<br>
@@ -1548,7 +1604,7 @@ html,body{
         <option value="personal">🏡 Personal</option>
       </select>
       <div>
-        <div style="font-size:9px;color:var(--text3);margin-bottom:7px;font-family:var(--font-ui);letter-spacing:0.5px;">Project BANNER COLOR</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:7px;font-family:var(--font-ui);letter-spacing:0.5px;">Project BANNER COLOR</div>
         <div class="swatch-row" id="proj-color-swatches"></div>
       </div>
     </div>
@@ -1677,6 +1733,7 @@ function getJasonRewards(){
 function saveJasonRewards(r){
   r.lastSaved = Date.now(); // timestamp for cross-device conflict resolution
   localStorage.setItem('hub-jason-rewards', JSON.stringify(r));
+  saveAllDebounced(); // push to cloud so prizes persist across devices
 }
 let kidsCloudLoaded=false; // true once loadAll has completed
 // Multi-select filter state (Sets of selected values; empty = all)
@@ -1841,16 +1898,63 @@ async function loadAll(){
     }
   } catch(e){}
 
+  // Load new hub data from cloud (cloud wins if present)
+  try { if(data.waitingFor)      { waitingFor = data.waitingFor;           localStorage.setItem('hub-waiting',    JSON.stringify(waitingFor));     } } catch(e){}
+  try { if(data.weeklyIntentions){ weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); } } catch(e){}
+  try { if(data.somedayList)     { somedayList = data.somedayList;          localStorage.setItem('hub-someday',    JSON.stringify(somedayList));     } } catch(e){}
+  try { if(data.peopleList)      { peopleList = data.peopleList;            localStorage.setItem('hub-people',     JSON.stringify(peopleList));      } } catch(e){}
+  try { if(data.meetingLog)      { meetingLog = data.meetingLog;            localStorage.setItem('hub-meetings',   JSON.stringify(meetingLog));      } } catch(e){}
+  // Raven email settings — sync across devices
+  try { if(data.ravenSettings){
+    const rs = data.ravenSettings;
+    if(rs.email)   localStorage.setItem('hub-raven-email',   rs.email);
+    if(rs.hour)    localStorage.setItem('hub-raven-hour',    rs.hour);
+    if(rs.kingdom) localStorage.setItem('hub-raven-kingdom', rs.kingdom);
+    if(rs.home)    localStorage.setItem('hub-raven-home',    rs.home);
+  }} catch(e){}
+  // Daily log — merge: keep most entries (local may have today's not yet pushed)
+  try { if(data.dailyLog && data.dailyLog.length > 0){
+    const localLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+    const merged = [...localLog];
+    data.dailyLog.forEach(e=>{ if(!merged.find(l=>l.ts===e.ts)) merged.push(e); });
+    merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
+    localStorage.setItem('hub-daily-log', JSON.stringify(merged.slice(0,90)));
+  }} catch(e){}
+  // Weekly journal — merge
+  try { if(data.weeklyJournal && data.weeklyJournal.length > 0){
+    const localJ = JSON.parse(localStorage.getItem('hub-journal')||'[]');
+    const merged = [...localJ];
+    data.weeklyJournal.forEach(e=>{ if(!merged.find(l=>l.date===e.date)) merged.push(e); });
+    merged.sort((a,b)=>b.date.localeCompare(a.date));
+    localStorage.setItem('hub-journal', JSON.stringify(merged.slice(0,8)));
+  }} catch(e){}
+  // Tomorrow hint
+  try { if(data.tomorrowHint) localStorage.setItem('hub-tomorrow-hint', data.tomorrowHint); } catch(e){}
+
   kidsCloudLoaded=true;
 }
 
 function getCloudStats(){
   return {
-    totalXP:       totalXP,
-    streak:        computeStreak(),
-    longestStreak: getLongestStreak(),
-    jasonRewards:  getJasonRewards(),
-    todayPinned:   [...todayPinned]
+    totalXP:          totalXP,
+    streak:           computeStreak(),
+    longestStreak:    getLongestStreak(),
+    jasonRewards:     getJasonRewards(),
+    todayPinned:      [...todayPinned],
+    waitingFor:       waitingFor,
+    weeklyIntentions: weeklyIntentions,
+    somedayList:      somedayList,
+    peopleList:       peopleList,
+    meetingLog:       meetingLog,
+    ravenSettings: {
+      email:   localStorage.getItem('hub-raven-email')||'',
+      hour:    localStorage.getItem('hub-raven-hour')||'7',
+      kingdom: localStorage.getItem('hub-raven-kingdom')||'true',
+      home:    localStorage.getItem('hub-raven-home')||'true'
+    },
+    dailyLog:    JSON.parse(localStorage.getItem('hub-daily-log')||'[]'),
+    weeklyJournal: JSON.parse(localStorage.getItem('hub-journal')||'[]'),
+    tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||''
   };
 }
 
@@ -2075,6 +2179,9 @@ function renderAll(){
   if(activeNav==="today"){renderTodayView(main);return;}
   if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
   if(activeNav==="cal"||viewMode==="calendar"){renderCalendar(main);return;}
+  if(activeNav==="waiting"){ renderWaitingPage(main); return; }
+  if(activeNav==="people"){  renderPeoplePage(main);  return; }
+  if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
   if(activeNav==="settings"){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
   if(activeNav==="charts"){renderCharts(main);return;}
@@ -2363,9 +2470,9 @@ function renderTaskRow(task,proj){
   const isStale = !isDone && ageDays>=14;
   const isAncient = !isDone && ageDays>=60;
   const ageBadge = isAncient
-    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
+    ? `<span title="${ageDays} days old" style="font-size:11px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
     : isStale
-    ? `<span title="${ageDays} days old" style="font-size:9px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
+    ? `<span title="${ageDays} days old" style="font-size:11px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
     : '';
 
   // Priority button
@@ -2725,7 +2832,7 @@ function renderJasonRewardsSection(){
     ? unclaimed.slice(0,5).map((p,i)=>`
         <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
           <span style="font-size:13px;flex:1;color:var(--text);">${p.prize}</span>
-          <span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${p.type==='big'?'rgba(255,215,0,0.15)':'rgba(232,168,56,0.12)'};color:${p.type==='big'?'#FFD700':'var(--accent)'};font-weight:700;">${p.type==='big'?'BIG':'SMALL'}</span>
+          <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:${p.type==='big'?'rgba(255,215,0,0.15)':'rgba(232,168,56,0.12)'};color:${p.type==='big'?'#FFD700':'var(--accent)'};font-weight:700;">${p.type==='big'?'BIG':'SMALL'}</span>
           <button onclick="markJasonPrizeUsed(${i})" style="font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);cursor:pointer;font-family:var(--font-ui);">✓ Used</button>
         </div>`).join('')
     : `<div style="font-size:11px;color:var(--text4);font-style:italic;padding:6px 0;">No unclaimed prizes — keep completing tasks!</div>`;
@@ -2752,6 +2859,10 @@ function renderJasonRewardsSection(){
       <button onclick="spinJasonWheel()" ${jasonWheelSpinning?'disabled':''} style="width:100%;padding:12px;border-radius:8px;border:none;background:${jasonWheelSpinning?'var(--surface2)':(jasonWheelType==='big'?'#FFD700':'var(--accent)')};color:${jasonWheelSpinning?'var(--text3)':'#1a1f2e'};font-family:var(--font-ui);font-size:14px;font-weight:900;cursor:${jasonWheelSpinning?'not-allowed':'pointer'};">
         ${jasonWheelSpinning?'Spinning…':'🎡 SPIN!'}
       </button>
+      ${unclaimed.length>0?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:10px;font-weight:800;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:6px;">🎀 YOUR PRIZES (${unclaimed.length} unclaimed)</div>
+        ${unclaimedHtml}
+      </div>`:''}
     </div>`;
   }
 
@@ -2910,7 +3021,7 @@ function renderFocusPanel(container){
         </div>
         <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;padding:0 2px;">✕</button>
       </div>`
-    :`<div style="margin-top:8px;font-size:9px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-align:center;">↓ SELECT A Task BELOW</div>`;
+    :`<div style="margin-top:8px;font-size:11px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;text-align:center;">↓ SELECT A Task BELOW</div>`;
 
   // ── Today tasks — work first then personal ────────────────────
   const workProjIds=new Set(projects.filter(p=>p.domain==="work").map(p=>p.id));
@@ -2997,7 +3108,7 @@ function renderFocusPanel(container){
         return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(122,24,24,0.15);" onclick="openEditTask('${t.id}')">
           <span style="font-size:10px;color:#C0392B;flex-shrink:0;">⊘</span>
           <span style="flex:1;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">${esc(t.title)}</span>
-          ${proj?`<span style="font-size:9px;color:${proj.color};font-family:var(--font-ui);flex-shrink:0;">◈ ${esc(proj.name)}</span>`:""}
+          ${proj?`<span style="font-size:11px;color:${proj.color};font-family:var(--font-ui);flex-shrink:0;">◈ ${esc(proj.name)}</span>`:""}
         </div>`;
       }).join("")}
     </div>`
@@ -3093,7 +3204,7 @@ function renderFocusPanel(container){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div>
           <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--accent);letter-spacing:0.3px;">📋 Today's Tasks</div>
-          <div style="font-size:9px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;letter-spacing:0.5px;">Tap a task to target it</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;letter-spacing:0.5px;">Tap a task to target it</div>
         </div>
         <span style="background:${totalToday>0?'rgba(255,215,0,0.1)':'rgba(26,92,40,0.1)'};border:1px solid ${totalToday>0?'var(--gold2)':'rgba(26,92,40,0.35)'};color:${totalToday>0?'var(--gold)':'var(--green)'};font-family:var(--font-ui);font-size:12px;font-weight:900;padding:3px 12px;border-radius:2px;">${totalToday>0?totalToday+" LEFT":"BOARD CLEAR ✓"}</span>
       </div>
@@ -3101,8 +3212,8 @@ function renderFocusPanel(container){
       <!-- WORK -->
       <div style="margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(26,74,138,0.3);">
-          <span style="font-size:9px;font-family:var(--font-ui);font-weight:900;color:#1A4A8A;letter-spacing:0px;">Work</span>
-          ${workTasks.length>0?`<span style="font-size:9px;color:#1A4A8A;font-family:var(--font-ui);">${workTasks.length} quest${workTasks.length>1?'s':''}</span>`:""}
+          <span style="font-size:11px;font-family:var(--font-ui);font-weight:900;color:#1A4A8A;letter-spacing:0px;">Work</span>
+          ${workTasks.length>0?`<span style="font-size:11px;color:#1A4A8A;font-family:var(--font-ui);">${workTasks.length} quest${workTasks.length>1?'s':''}</span>`:""}
           ${workOverdueCount>0?`<span style="font-size:8px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 6px;border-radius:2px;font-family:var(--font-ui);">${workOverdueCount} OVERDUE</span>`:""}
         </div>
         ${todaySection("Work","#5B8DEF",workTasks)}
@@ -3111,8 +3222,8 @@ function renderFocusPanel(container){
       <!-- PERSONAL -->
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(26,92,40,0.3);">
-          <span style="font-size:9px;font-family:var(--font-ui);font-weight:900;color:#1A5C28;letter-spacing:0.5px;">🏡 Personal</span>
-          ${persTasks.length>0?`<span style="font-size:9px;color:#1A5C28;font-family:var(--font-ui);">${persTasks.length} quest${persTasks.length>1?'s':''}</span>`:""}
+          <span style="font-size:11px;font-family:var(--font-ui);font-weight:900;color:#1A5C28;letter-spacing:0.5px;">🏡 Personal</span>
+          ${persTasks.length>0?`<span style="font-size:11px;color:#1A5C28;font-family:var(--font-ui);">${persTasks.length} quest${persTasks.length>1?'s':''}</span>`:""}
           ${persOverdueCount>0?`<span style="font-size:8px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 6px;border-radius:2px;font-family:var(--font-ui);">${persOverdueCount} OVERDUE</span>`:""}
         </div>
         ${todaySection("Home","#3DB87A",persTasks)}
@@ -3330,7 +3441,7 @@ function renderCalendar(container){
             <div class="cal-day-task-title" style="${isDoneTask?'text-decoration:line-through;':''}">${esc(t.title)}</div>
             ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
           </div>
-          <span style="font-size:9px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
+          <span style="font-size:11px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
         </div>`;
       }).join("");
       dayPanelHtml=`<div class="cal-day-panel">
@@ -3366,14 +3477,14 @@ function renderCalendar(container){
       return `<div class="cal-upcoming-row" style="cursor:default;">
         <div class="cal-upcoming-badge" style="background:${badgeBg};color:${badgeColor};cursor:pointer;" onclick="calDayClick('${t.dueDate.slice(0,10)}')">
           <div style="font-size:10px;">${lbl}</div>
-          <div style="font-size:9px;opacity:0.7;">${dateStr}</div>
+          <div style="font-size:11px;opacity:0.7;">${dateStr}</div>
         </div>
         <div class="cal-dot" style="background:${PRIORITY_COLOR[t.priority]||c};width:8px;height:8px;flex-shrink:0;"></div>
         <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
           <div style="font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</div>
           ${proj?`<div style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:""}
         </div>
-        <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Complete">✓</button>
+        <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Complete">✓</button>
       </div>`;
     }).join("");
   }
@@ -4149,6 +4260,7 @@ function openAddTask(projectId=""){
   document.getElementById("task-notes-input").innerHTML="";
   window._editingRecur="none";window._editingEffort="";
   const estEl2=document.getElementById("task-estimate-input");if(estEl2) estEl2.value="";
+  const enEl2=document.getElementById("task-energy-input");if(enEl2) enEl2.value="";
   renderRecurChips("none");renderEffortChips("");
   document.getElementById("task-delete-wrap").style.display="none";
   document.getElementById("task-save-btn").textContent="Save";
@@ -4176,6 +4288,7 @@ function openEditTask(id){
   document.getElementById("task-notes-input").innerHTML=t.notes||"";
   window._editingRecur=t.recur||"none";window._editingEffort=t.effort||"";
   const estEl=document.getElementById("task-estimate-input");if(estEl) estEl.value=t.estimate||"";
+  const enEl=document.getElementById("task-energy-input");if(enEl) enEl.value=t.energy||"";
   renderRecurChips(t.recur||"none");renderEffortChips(t.effort||"");
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
@@ -4265,6 +4378,7 @@ function saveTask(){
     t.recur=window._editingRecur||"none";
     t.effort=window._editingEffort||"";
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
+    t.energy=document.getElementById("task-energy-input")?.value||"";
     t.subtasks=_modalSubtasks;
     showToast("Task UPDATED ✓");
   }else{
@@ -4276,6 +4390,7 @@ function saveTask(){
       recur:window._editingRecur||"none",
       effort:window._editingEffort||"",
       estimate:document.getElementById("task-estimate-input")?.value||"",
+      energy:document.getElementById("task-energy-input")?.value||"",
       subtasks:_modalSubtasks,
       createdAt:Date.now()});
     showToast("Task LOGGED ✓");
@@ -4507,7 +4622,7 @@ function renderImportPreview(){
       return `<div class="preview-task-row">
         <span style="width:5px;height:5px;border-radius:50%;background:${PRIORITY_COLOR[t.priority]};flex-shrink:0;box-shadow:0 0 4px ${PRIORITY_COLOR[t.priority]};"></span>
         <span style="flex:1;color:var(--text);">${esc(t.title)}</span>
-        ${proj?`<span style="color:${proj.color};font-size:9px;font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:""}
+        ${proj?`<span style="color:${proj.color};font-size:11px;font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:""}
       </div>`;
     }).join("")}
     ${d.newTasks.length>4?`<div style="font-size:10px;color:var(--text3);padding:4px 0;font-family:var(--font-ui);">…AND ${d.newTasks.length-4} MORE TaskS</div>`:""}
@@ -4581,13 +4696,24 @@ function toggleFocus(){if(activeNav==="focus") setNav("tasks"); else setNav("foc
 
 // Slot state: { slotId -> { taskId|null, customText|null, done:bool } }
 // slotId: w1,w2,w3 (work), h1 (home), f1,f2,f3 (family)
-let threeSlots = JSON.parse(localStorage.getItem('hub-slots')||'{}');
+let threeSlots = {}; // legacy slot system — kept for reset flow compatibility
 let parkingExpanded = false;
-let overwhelmMode = false;  // "just show me one thing" mode
+let overwhelmMode = false;
 let _assigningSlot = null;
 let resetStep = 1;
+let somedayExpanded = false;
 
-function saveSlots(){ localStorage.setItem('hub-slots', JSON.stringify(threeSlots)); }
+// ── New hub data (persisted to cloud via getCloudStats) ──────────
+function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
+function saveHubData(key, val){ localStorage.setItem(key, JSON.stringify(val)); saveAllDebounced(); }
+
+let waitingFor     = loadHubData('hub-waiting', []);    // [{id,person,what,dueDate,taskId,done,createdAt}]
+let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']}); // {week, wins:[3 strings]}
+let somedayList    = loadHubData('hub-someday', []);    // [{id,title,createdAt}]
+let peopleList     = loadHubData('hub-people', []);     // [{id,name,lastContact,nudgeDays,notes}]
+let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,attendees,decisions,notes,myCommits,theirCommits}]
+
+function saveSlots(){ /* legacy — no-op */ }
 
 function getSlotTask(slotId){
   const s=threeSlots[slotId];
@@ -4887,7 +5013,7 @@ function renderTodayView(container){
                      : _isToday   ? `<span style="color:var(--accent);font-size:10px;font-family:var(--font-ui);">📅 TODAY</span>`
                      : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:10px;font-family:var(--font-ui);">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
     html += `<div style="margin:4px 10px 10px;padding:12px 14px;border-radius:10px;border:2px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.07);">
-      <div style="font-size:9px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚔ NEXT UP</div>
+      <div style="font-size:11px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚔ NEXT UP</div>
       <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.3;margin-bottom:6px;">${esc(_nextTask.title)}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         ${_nextProj ? `<span style="font-size:10px;color:${_nextProj.color};font-family:var(--font-ui);">◈ ${esc(_nextProj.name)}</span>` : ''}
@@ -4904,6 +5030,13 @@ function renderTodayView(container){
     <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
   </div>`;
+
+  // ── Weekly intentions ───────────────────────────────────────
+  html += renderWeeklyIntentions();
+
+  // ── Waiting For (overdue/active only — compact) ──────────────
+  const activeWaiting = waitingFor.filter(w=>!w.done);
+  if(activeWaiting.length > 0) html += renderWaitingFor();
 
   // ── Today List ──────────────────────────────────────────────
   // Overdue (unpinned) — surface automatically
@@ -4985,7 +5118,7 @@ function renderTodayView(container){
 
     // Pinned done tasks — struck through at the bottom
     if(pinnedDone.length > 0){
-      html += `<div style="padding:6px 12px 4px;font-family:var(--font-ui);font-size:9px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">DONE</div>`;
+      html += `<div style="padding:6px 12px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">DONE</div>`;
       pinnedDone.forEach((t, i) => {
         const proj = projects.find(p => p.id === t.projectId);
         html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;opacity:0.5;${i<pinnedDone.length-1?'border-bottom:1px solid var(--border);':''}">
@@ -5103,13 +5236,20 @@ function openReset(){
   resetStep=1;
   renderResetProgress();
   showResetStep(1);
+  // Pre-fill intentions if this week already set
+  if(isCurrentWeekIntentions()){
+    const w = weeklyIntentions.wins||['','',''];
+    ['reset-win1','reset-win2','reset-win3'].forEach((id,i)=>{
+      const el=document.getElementById(id); if(el) el.value=w[i]||'';
+    });
+  }
   openModal('modal-reset');
 }
 
 function renderResetProgress(){
   const el=document.getElementById('reset-progress');
   if(!el) return;
-  el.innerHTML=Array.from({length:5},(_,i)=>{
+  el.innerHTML=Array.from({length:6},(_,i)=>{
     const s=i+1;
     return `<div class="reset-dot ${s<resetStep?'done':s===resetStep?'active':''}"></div>`;
   }).join('');
@@ -5121,9 +5261,25 @@ function showResetStep(n){
   if(el) el.classList.add('active');
   const next=document.getElementById('reset-next-btn');
   const back=document.getElementById('reset-back-btn');
-  if(next) next.textContent=n===5?'✓ DONE':'NEXT →';
+  if(next) next.textContent=n===6?'✓ DONE':'NEXT →';
   if(back) back.style.display=n>1?'inline-flex':'none';
   renderResetProgress();
+  // Step 6: show people nudges
+  if(n===6){
+    const nudgeEl = document.getElementById('reset-people-nudges');
+    if(nudgeEl && peopleList.length>0){
+      const nudges = getPeopleNudges();
+      nudgeEl.innerHTML = nudges.length>0
+        ? `<div style="padding:10px;border-radius:8px;border:1px solid rgba(232,168,56,0.3);background:rgba(232,168,56,0.05);">
+            <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">👥 PEOPLE TO REACH OUT TO</div>
+            ${nudges.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+              <div style="font-size:13px;flex:1;color:var(--text);">${esc(p.name)}</div>
+              <button onclick="logContact('${p.id}');showResetStep(6);" style="padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✓ Done</button>
+            </div>`).join('')}
+          </div>`
+        : `<div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);padding:6px 0;">👥 Everyone's been touched this week ✓</div>`;
+    }
+  }
 }
 
 function resetNext(){
@@ -5138,7 +5294,7 @@ function resetNext(){
     // Render step 4 pickers with current slot state
     renderResetPickers();
   }
-  if(resetStep>=5){closeModal('modal-reset');renderAll();showToast('🌅 WEEK IS SET. GO CONQUER IT.');return;}
+  if(resetStep>=6){closeModal('modal-reset');renderAll();showToast('🌅 WEEK IS SET. GO CONQUER IT.');return;}
   resetStep++;
   showResetStep(resetStep);
 }
@@ -5216,6 +5372,563 @@ function resetBack(){
   resetStep--;
   showResetStep(resetStep);
 }
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// FULL-PAGE VIEWS
+// ═══════════════════════════════════════════════════════════════
+function renderWaitingPage(container){
+  const todayStr = today();
+  const active = waitingFor.filter(w=>!w.done);
+  const done   = waitingFor.filter(w=>w.done).slice(0,10);
+
+  const row = (w, isDone) => {
+    const overdue = w.dueDate && w.dueDate < todayStr;
+    const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
+      <button onclick="toggleWaitingDone('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:11px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);">${esc(w.person)}</div>
+        <div style="font-size:14px;color:var(--text);line-height:1.4;margin-top:2px;">${esc(w.what)}</div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center;">
+          ${w.dueDate?`<span style="font-size:11px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ overdue ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
+          ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openTaskDetail('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
+          <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${w.createdAt.slice(5)}</span>
+        </div>
+      </div>
+      <button onclick="deleteWaiting('${w.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+    </div>`;
+  };
+
+  container.innerHTML = `
+    <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">⏳ Waiting For</div>
+      <button onclick="openWaitingModal()" style="padding:6px 14px;border-radius:7px;border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
+    </div>
+    <div style="margin:0 10px 10px;border-radius:10px;border:1px solid rgba(100,181,246,0.25);background:var(--surface);overflow:hidden;">
+      ${active.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing waiting — you're unblocked! 🎉</div>`
+        : active.map(w=>row(w,false)).join('')
+      }
+      ${done.length>0?`<div style="padding:6px 14px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">RESOLVED</div>${done.map(w=>row(w,true)).join('')}`:''}
+    </div>`;
+}
+
+function renderPeoplePage(container){
+  const nudges = getPeopleNudges();
+  const rest   = peopleList.filter(p=>!nudges.find(n=>n.id===p.id));
+  const todayStr = today();
+
+  const row = (p, isNudge) => {
+    const daysSince = p.lastContact ? Math.floor((new Date(todayStr)-new Date(p.lastContact))/86400000) : null;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);${isNudge?'background:rgba(232,168,56,0.04);':''}">
+      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
+        <div style="font-size:11px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);margin-top:2px;">
+          ${daysSince===null?'Never contacted — reach out!':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · overdue for a check-in':''}
+          · nudge every ${p.nudgeDays}d
+        </div>
+      </div>
+      <button onclick="logContact('${p.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
+      <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+    </div>`;
+  };
+
+  container.innerHTML = `
+    <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">👥 People</div>
+      <button onclick="openAddPersonModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
+    </div>
+    ${nudges.length>0?`<div style="margin:0 10px 4px;padding:6px 12px;border-radius:8px;background:rgba(232,168,56,0.08);border:1px solid rgba(232,168,56,0.2);font-family:var(--font-ui);font-size:11px;color:var(--accent);">⚡ ${nudges.length} person${nudges.length>1?'s':''} to reach out to</div>`:''}
+    <div style="margin:4px 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+      ${peopleList.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add people you want to stay in touch with.</div>`
+        : nudges.map(p=>row(p,true)).join('') + rest.map(p=>row(p,false)).join('')
+      }
+    </div>`;
+}
+
+function renderMeetingsPage(container){
+  container.innerHTML = `
+    <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 Meetings</div>
+      <button onclick="openMeetingCapture()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Capture</button>
+    </div>
+    <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+      ${meetingLog.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No meetings captured yet.</div>`
+        : meetingLog.map(m=>{
+            const hasCommits = m.myCommits?.trim();
+            const hasWaiting = m.theirCommits?.trim();
+            return `<div style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMeetingCapture('${m.id}')">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
+                  ${m.attendees?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">with ${esc(m.attendees.slice(0,50))}</div>`:''}
+                </div>
+                <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);flex-shrink:0;">${m.date}</div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                ${hasCommits?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⚡ my commits</span>`:''}
+                ${hasWaiting?`<span style="font-size:10px;background:rgba(100,181,246,0.1);color:#64B5F6;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⏳ waiting for</span>`:''}
+                ${m.decisions?`<span style="font-size:10px;background:rgba(102,187,106,0.1);color:#66BB6A;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">✅ decisions</span>`:''}
+              </div>
+            </div>`;
+          }).join('')
+      }
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WAITING FOR
+// ═══════════════════════════════════════════════════════════════
+function saveWaiting(){ saveHubData('hub-waiting', waitingFor); }
+
+function addWaitingFor(person, what, dueDate, taskId){
+  if(!person.trim() || !what.trim()) return;
+  waitingFor.unshift({ id:'wf'+Date.now(), person:person.trim(), what:what.trim(), dueDate:dueDate||'', taskId:taskId||'', done:false, createdAt:today() });
+  saveWaiting(); renderAll();
+}
+
+function toggleWaitingDone(id){
+  const w = waitingFor.find(x=>x.id===id);
+  if(w){ w.done = !w.done; saveWaiting(); renderAll(); }
+}
+
+function deleteWaiting(id){
+  waitingFor = waitingFor.filter(x=>x.id!==id);
+  saveWaiting(); renderAll();
+}
+
+function renderWaitingFor(){
+  const active = waitingFor.filter(x=>!x.done);
+  const done   = waitingFor.filter(x=>x.done);
+  const todayStr = today();
+
+  const rows = (arr, isDone) => arr.map(w => {
+    const overdue = w.dueDate && w.dueDate < todayStr;
+    const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
+      <button onclick="toggleWaitingDone('${w.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:10px;cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:#64B5F6;font-family:var(--font-ui);">${esc(w.person)}</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.4;">${esc(w.what)}</div>
+        <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
+          ${w.dueDate?`<span style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
+          ${linkedTask?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openTaskDetail('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,28))}</span>`:''}
+          <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${w.createdAt.slice(5)}</span>
+        </div>
+      </div>
+      <button onclick="deleteWaiting('${w.id}')" style="padding:2px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`;
+  }).join('');
+
+  return `<div style="margin:0 10px 10px;border-radius:10px;border:1px solid rgba(100,181,246,0.3);background:var(--surface);overflow:hidden;">
+    <div style="padding:8px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;">⏳ WAITING FOR (${active.length})</div>
+      <button onclick="openWaitingModal()" style="padding:3px 9px;border-radius:5px;border:1px solid rgba(100,181,246,0.4);background:transparent;color:#64B5F6;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ ADD</button>
+    </div>
+    ${active.length===0 && done.length===0
+      ? `<div style="padding:12px 14px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Nothing waiting — you're unblocked!</div>`
+      : rows(active, false) + (done.length>0 ? `<div style="padding:4px 12px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">RESOLVED</div>${rows(done, true)}` : '')
+    }
+  </div>`;
+}
+
+function openWaitingModal(prefillTaskId){
+  const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
+  const m = document.getElementById('modal-waiting');
+  if(m){
+    document.getElementById('wf-person').value='';
+    document.getElementById('wf-what').value = linkedTask ? linkedTask.title : '';
+    document.getElementById('wf-due').value='';
+    document.getElementById('wf-task-id').value = prefillTaskId||'';
+    openModal('modal-waiting');
+    setTimeout(()=>document.getElementById('wf-person').focus(),150);
+    return;
+  }
+  const el = document.createElement('div');
+  el.id='modal-waiting'; el.className='modal-overlay';
+  el.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">⏳ Waiting For</div>
+      <button class="modal-close" onclick="closeModal('modal-waiting')">✕</button>
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <input id="wf-person" class="field-input" placeholder="Who? (name or team)" autocomplete="off"/>
+      <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${linkedTask?esc(linkedTask.title):''}"/>
+      <input id="wf-due" type="date" class="field-input" placeholder="Expected by (optional)"/>
+      <input id="wf-task-id" type="hidden" value="${prefillTaskId||''}"/>
+      <button onclick="submitWaitingFor()" class="modal-btn primary" style="width:100%;">+ Add to Waiting For</button>
+    </div>
+  </div>`;
+  el.onclick = e => { if(e.target===el) closeModal('modal-waiting'); };
+  document.body.appendChild(el);
+  openModal('modal-waiting');
+  setTimeout(()=>document.getElementById('wf-person').focus(),150);
+}
+
+function submitWaitingFor(){
+  const person = document.getElementById('wf-person')?.value||'';
+  const what   = document.getElementById('wf-what')?.value||'';
+  const due    = document.getElementById('wf-due')?.value||'';
+  const taskId = document.getElementById('wf-task-id')?.value||'';
+  if(!person.trim()||!what.trim()){ showToast('Need a person and what you\'re waiting on'); return; }
+  addWaitingFor(person, what, due, taskId);
+  closeModal('modal-waiting');
+  showToast('⏳ Added to Waiting For');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEEKLY INTENTIONS
+// ═══════════════════════════════════════════════════════════════
+function saveIntentions(){ saveHubData('hub-intentions', weeklyIntentions); }
+
+function getWeekKey(){
+  const d = new Date(); const day = d.getDay();
+  const monday = new Date(d); monday.setDate(d.getDate() - (day===0?6:day-1));
+  return monday.toISOString().slice(0,10);
+}
+
+function isCurrentWeekIntentions(){
+  return weeklyIntentions.week === getWeekKey();
+}
+
+function renderWeeklyIntentions(){
+  const isCurrent = isCurrentWeekIntentions();
+  const wins = weeklyIntentions.wins || ['','',''];
+  const filled = wins.filter(w=>w.trim()).length;
+  if(!isCurrent || filled===0){
+    return `<div style="margin:0 10px 8px;padding:10px 14px;border-radius:10px;border:1px dashed rgba(232,168,56,0.3);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">No weekly intentions set yet.</div>
+      <button onclick="openIntentionsModal()" style="padding:4px 10px;border-radius:5px;border:1px solid rgba(232,168,56,0.4);background:transparent;color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">Set →</button>
+    </div>`;
+  }
+  return `<div style="margin:0 10px 8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(232,168,56,0.25);background:rgba(232,168,56,0.04);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;">🎯 THIS WEEK'S WINS</div>
+      <button onclick="openIntentionsModal()" style="padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">edit</button>
+    </div>
+    ${wins.filter(w=>w.trim()).map((w,i)=>`<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:5px;">
+      <span style="font-size:11px;color:var(--accent);font-weight:800;font-family:var(--font-ui);flex-shrink:0;">${i+1}.</span>
+      <span style="font-size:13px;color:var(--text);line-height:1.4;">${esc(w)}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+function openIntentionsModal(){
+  const el = document.getElementById('modal-intentions');
+  const wins = weeklyIntentions.wins || ['','',''];
+  if(el){
+    ['win1','win2','win3'].forEach((id,i)=>{ const inp=document.getElementById(id); if(inp) inp.value=wins[i]||''; });
+    openModal('modal-intentions'); return;
+  }
+  const m = document.createElement('div');
+  m.id='modal-intentions'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">🎯 This Week's 3 Wins</div>
+      <button class="modal-close" onclick="closeModal('modal-intentions')">✕</button>
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">What would make this week a win? 3 things — specific and achievable.</div>
+      <input id="win1" class="field-input" placeholder="Win 1…" value="${esc(wins[0]||'')}"/>
+      <input id="win2" class="field-input" placeholder="Win 2…" value="${esc(wins[1]||'')}"/>
+      <input id="win3" class="field-input" placeholder="Win 3…" value="${esc(wins[2]||'')}"/>
+      <button onclick="saveIntentionsFromModal()" class="modal-btn primary" style="width:100%;">✓ Set My Intentions</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-intentions'); };
+  document.body.appendChild(m);
+  openModal('modal-intentions');
+  setTimeout(()=>document.getElementById('win1').focus(),150);
+}
+
+function saveIntentionsFromModal(){
+  weeklyIntentions = {
+    week: getWeekKey(),
+    wins: [
+      document.getElementById('win1')?.value.trim()||'',
+      document.getElementById('win2')?.value.trim()||'',
+      document.getElementById('win3')?.value.trim()||''
+    ]
+  };
+  saveIntentions(); renderAll();
+  closeModal('modal-intentions');
+  showToast('🎯 Intentions set for the week!');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SOMEDAY LIST
+// ═══════════════════════════════════════════════════════════════
+function saveSomeday(){ saveHubData('hub-someday', somedayList); }
+
+function addSomeday(title){
+  if(!title.trim()) return;
+  somedayList.push({ id:'sd'+Date.now(), title:title.trim(), createdAt:today() });
+  saveSomeday(); renderAll();
+}
+
+function deleteSomeday(id){ somedayList=somedayList.filter(x=>x.id!==id); saveSomeday(); renderAll(); }
+
+function promoteSomeday(id){
+  const item = somedayList.find(x=>x.id===id); if(!item) return;
+  // Move to parking lot as a new task
+  const newTask = { id:'t'+Date.now(), projectId:'', title:item.title, priority:'medium', status:'todo',
+    dueDate:'', notes:'', source:'', recur:'none', effort:'', estimate:'', energy:'',
+    createdAt:today(), completedAt:null, subtasks:[] };
+  tasks.push(newTask);
+  somedayList = somedayList.filter(x=>x.id!==id);
+  saveSomeday(); saveAllDebounced(); renderAll();
+  showToast('↗ Moved to task list');
+}
+
+function renderSomedaySection(){
+  return `<div class="parking-lot" style="margin-top:8px;">
+    <div class="parking-lot-header" onclick="somedayExpanded=!somedayExpanded;renderAll();">
+      <span class="parking-lot-title">💭 Someday / Maybe — ${somedayList.length}</span>
+      <span style="font-size:11px;color:var(--text3);">${somedayExpanded?'▾':'▸'}</span>
+    </div>
+    ${somedayExpanded ? `
+      ${somedayList.length===0
+        ? `<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Empty — things you might do someday live here, out of sight.</div>`
+        : somedayList.map(s=>`<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</div>
+              <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${s.createdAt.slice(5)}</div>
+            </div>
+            <button onclick="promoteSomeday('${s.id}')" style="padding:4px 8px;border-radius:5px;border:1px solid rgba(232,168,56,0.4);background:transparent;color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">↗ Do it</button>
+            <button onclick="deleteSomeday('${s.id}')" style="padding:4px 6px;border-radius:5px;border:none;background:transparent;color:var(--text4);font-size:11px;cursor:pointer;">✕</button>
+          </div>`).join('')
+      }
+      <div style="padding:8px 12px;display:flex;gap:6px;">
+        <input id="someday-input" class="field-input" placeholder="Something you might do someday…" style="flex:1;margin:0;"
+          onkeydown="if(event.key==='Enter'){addSomeday(this.value);this.value=''}" autocomplete="off"/>
+        <button onclick="addSomeday(document.getElementById('someday-input').value);document.getElementById('someday-input').value='';"
+          style="padding:8px 12px;border-radius:7px;border:none;background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">+</button>
+      </div>` : ''}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PEOPLE / RELATIONSHIP NUDGES
+// ═══════════════════════════════════════════════════════════════
+function savePeople(){ saveHubData('hub-people', peopleList); }
+
+function addPerson(name, nudgeDays){
+  if(!name.trim()) return;
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), lastContact:'', nudgeDays:nudgeDays||14, notes:'' });
+  savePeople(); renderAll();
+}
+
+function logContact(id){
+  const p=peopleList.find(x=>x.id===id); if(!p) return;
+  p.lastContact=today(); savePeople(); renderAll();
+  showToast('✓ Contact logged for ' + p.name);
+}
+
+function deletePerson(id){ peopleList=peopleList.filter(x=>x.id!==id); savePeople(); renderAll(); }
+
+function getPeopleNudges(){
+  const todayStr=today();
+  return peopleList.filter(p=>{
+    if(!p.lastContact) return true;
+    const days=Math.floor((new Date(todayStr)-new Date(p.lastContact))/86400000);
+    return days >= p.nudgeDays;
+  });
+}
+
+function renderPeopleSection(){
+  const nudges = getPeopleNudges();
+  const rest   = peopleList.filter(p=>!nudges.find(n=>n.id===p.id));
+  const todayStr=today();
+
+  const personRow = (p, isNudge) => {
+    const daysSince = p.lastContact ? Math.floor((new Date(todayStr)-new Date(p.lastContact))/86400000) : null;
+    return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--border);${isNudge?'background:rgba(232,168,56,0.04);':''}">
+      <div style="width:32px;height:32px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.name)}</div>
+        <div style="font-size:10px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);">
+          ${daysSince===null?'Never contacted':daysSince===0?'Contacted today':`${daysSince}d ago`}${isNudge?' · reach out soon':''}
+        </div>
+      </div>
+      <button onclick="logContact('${p.id}')" style="padding:4px 8px;border-radius:5px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
+      <button onclick="deletePerson('${p.id}')" style="padding:4px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  };
+
+  return `<div style="margin:0 10px 10px;border-radius:10px;border:1px solid ${nudges.length>0?'rgba(232,168,56,0.3)':'var(--border)'};background:var(--surface);overflow:hidden;">
+    <div style="padding:8px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:${nudges.length>0?'var(--accent)':'var(--text3)'};letter-spacing:1px;">👥 PEOPLE ${nudges.length>0?`· ${nudges.length} to reach out to`:''}</div>
+      <button onclick="openAddPersonModal()" style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ ADD</button>
+    </div>
+    ${peopleList.length===0
+      ? `<div style="padding:12px 14px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Add people you want to stay in touch with.</div>`
+      : nudges.map(p=>personRow(p,true)).join('') + rest.map(p=>personRow(p,false)).join('')
+    }
+  </div>`;
+}
+
+function openAddPersonModal(){
+  const el=document.getElementById('modal-person');
+  if(el){ document.getElementById('person-name').value=''; document.getElementById('person-days').value='14'; openModal('modal-person'); setTimeout(()=>document.getElementById('person-name').focus(),150); return; }
+  const m=document.createElement('div');
+  m.id='modal-person'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">👤 Add Person</div>
+      <button class="modal-close" onclick="closeModal('modal-person')">✕</button>
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off"/>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
+        <input id="person-days" type="number" class="field-input" value="14" min="1" max="90" style="flex:1;"/>
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">days</span>
+      </div>
+      <button onclick="submitAddPerson()" class="modal-btn primary" style="width:100%;">+ Add</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{ if(e.target===m) closeModal('modal-person'); };
+  document.body.appendChild(m);
+  openModal('modal-person');
+  setTimeout(()=>document.getElementById('person-name').focus(),150);
+}
+
+function submitAddPerson(){
+  const name=document.getElementById('person-name')?.value||'';
+  const days=parseInt(document.getElementById('person-days')?.value||'14');
+  if(!name.trim()){ showToast('Need a name'); return; }
+  addPerson(name, days);
+  closeModal('modal-person');
+  showToast('👤 Added ' + name.trim());
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MEETING CAPTURE
+// ═══════════════════════════════════════════════════════════════
+function saveMeetings(){ saveHubData('hub-meetings', meetingLog); }
+
+function openMeetingCapture(existingId){
+  const existing = existingId ? meetingLog.find(m=>m.id===existingId) : null;
+  const el=document.getElementById('modal-meeting');
+  if(el){
+    document.getElementById('mtg-title').value = existing?.title||'';
+    document.getElementById('mtg-date').value  = existing?.date||today();
+    document.getElementById('mtg-attendees').value = existing?.attendees||'';
+    document.getElementById('mtg-decisions').value = existing?.decisions||'';
+    document.getElementById('mtg-notes').value     = existing?.notes||'';
+    document.getElementById('mtg-mycommits').value = existing?.myCommits||'';
+    document.getElementById('mtg-theircommits').value = existing?.theirCommits||'';
+    document.getElementById('mtg-id').value = existingId||'';
+    openModal('modal-meeting');
+    setTimeout(()=>document.getElementById('mtg-title').focus(),150);
+    return;
+  }
+  const m=document.createElement('div');
+  m.id='modal-meeting'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" style="max-height:88vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">📝 Meeting Capture</div>
+      <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <input type="hidden" id="mtg-id" value=""/>
+      <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off"/>
+      <div style="display:flex;gap:6px;">
+        <input id="mtg-date" type="date" class="field-input" value="${today()}" style="flex:1;"/>
+        <input id="mtg-attendees" class="field-input" placeholder="Who was there…" style="flex:2;" autocomplete="off"/>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:800;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">✅ DECISIONS MADE</div>
+        <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;"></textarea>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:800;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">📋 KEY NOTES</div>
+        <textarea id="mtg-notes" class="field-input" placeholder="Context, important points…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;"></textarea>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:800;color:var(--accent);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">⚡ MY COMMITMENTS <span style="font-weight:400;color:var(--text4);">(one per line — become tasks)</span></div>
+        <textarea id="mtg-mycommits" class="field-input" placeholder="I said I would…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;border-color:rgba(232,168,56,0.4);"></textarea>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">⏳ THEIR COMMITMENTS <span style="font-weight:400;color:var(--text4);">(one per line — become Waiting For)</span></div>
+        <textarea id="mtg-theircommits" class="field-input" placeholder="[Name]: they said they would…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;border-color:rgba(100,181,246,0.4);"></textarea>
+      </div>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid var(--border);">
+      <button onclick="saveMeetingCapture()" class="modal-btn primary" style="width:100%;">✓ Save Meeting</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{ if(e.target===m) closeModal('modal-meeting'); };
+  document.body.appendChild(m);
+  openModal('modal-meeting');
+  setTimeout(()=>document.getElementById('mtg-title').focus(),150);
+}
+
+function saveMeetingCapture(){
+  const id       = document.getElementById('mtg-id')?.value;
+  const title    = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
+  const date     = document.getElementById('mtg-date')?.value||today();
+  const attendees= document.getElementById('mtg-attendees')?.value.trim()||'';
+  const decisions= document.getElementById('mtg-decisions')?.value.trim()||'';
+  const notes    = document.getElementById('mtg-notes')?.value.trim()||'';
+  const myCommits= document.getElementById('mtg-mycommits')?.value.trim()||'';
+  const theirCommits=document.getElementById('mtg-theircommits')?.value.trim()||'';
+
+  const meeting = { id:id||'m'+Date.now(), title, date, attendees, decisions, notes, myCommits, theirCommits, createdAt:today() };
+
+  if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
+  else   { meetingLog.unshift(meeting); }
+
+  // Auto-create tasks from my commitments
+  let tasksCreated=0;
+  if(myCommits){
+    myCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+      const t={ id:'t'+Date.now()+Math.random().toString(36).slice(2,6), projectId:'', title:line,
+        priority:'medium', status:'todo', dueDate:'', notes:'From meeting: '+title+' ('+date+')',
+        source:'', recur:'none', effort:'', estimate:'', energy:'medium', createdAt:today(), completedAt:null, subtasks:[] };
+      tasks.push(t); tasksCreated++;
+    });
+  }
+
+  // Auto-create Waiting For from their commitments
+  let waitingCreated=0;
+  if(theirCommits){
+    theirCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
+      // Try to parse "[Name]: what" format
+      const match = line.match(/^([^:]+):\s*(.+)$/);
+      const person = match ? match[1].trim() : attendees.split(',')[0].trim()||'Meeting attendee';
+      const what   = match ? match[2].trim() : line;
+      waitingFor.unshift({ id:'wf'+Date.now()+Math.random().toString(36).slice(2,6), person, what, dueDate:'', taskId:'', done:false, createdAt:today() });
+      waitingCreated++;
+    });
+    saveHubData('hub-waiting', waitingFor);
+  }
+
+  saveMeetings(); saveAllDebounced(); renderAll();
+  closeModal('modal-meeting');
+  let msg = '📝 Meeting saved';
+  if(tasksCreated>0) msg += ' · '+tasksCreated+' task'+(tasksCreated>1?'s':'')+' created';
+  if(waitingCreated>0) msg += ' · '+waitingCreated+' waiting for';
+  showToast(msg);
+}
+
+function renderMeetingLog(){
+  if(meetingLog.length===0) return '';
+  return meetingLog.slice(0,5).map(m=>`<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMeetingCapture('${m.id}')">
+    <div style="flex-shrink:0;font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text4);min-width:36px;text-align:center;padding-top:2px;">${m.date.slice(5)}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
+      ${m.attendees?`<div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);">with ${esc(m.attendees.slice(0,40))}</div>`:''}
+    </div>
+    <span style="font-size:10px;color:var(--text4);">›</span>
+  </div>`).join('');
+}
+
 
 // ── Today picker — fluid task selector for Today screen ─────────
 function openTodayPicker(){
@@ -5744,9 +6457,13 @@ function saveEodRitual(){
 function openEodRitual(){
   document.getElementById('eod-happened').value='';
   document.getElementById('eod-missed').value='';
+  // Pre-fill tomorrow field with hint from previous day's EOD
   const hint = localStorage.getItem('hub-tomorrow-hint')||'';
-  document.getElementById('eod-tomorrow').value='';
+  const tomorrowEl = document.getElementById('eod-tomorrow');
+  if(tomorrowEl) tomorrowEl.value = hint;
   openModal('modal-eod');
+  // Clear hint after loading so it doesn't persist stale
+  localStorage.removeItem('hub-tomorrow-hint');
 }
 
 async function bootApp(){
@@ -6420,10 +7137,10 @@ function renderKidsScores(d) {
         <div class="kids-prize-milestones"><span>0</span><span>+25</span></div>
       </div>
       <div class="kids-action-row">
-        ${earnCats.map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">+${c.pts} pts</span></button>`).join('')}
+        ${earnCats.map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">+${c.pts} pts</span></button>`).join('')}
       </div>
       <div class="kids-action-row" style="margin-top:6px;">
-        ${loseCats.map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:9px;opacity:0.75;">${c.pts} pts</span></button>`).join('')}
+        ${loseCats.map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">${c.pts} pts</span></button>`).join('')}
       </div>
     </div>`;
   });
