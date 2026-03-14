@@ -750,7 +750,8 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 .tb-hour-row{display:flex;align-items:flex-start;min-height:60px;border-top:1px solid var(--border);position:relative;}
 .tb-hour-label{width:44px;flex-shrink:0;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);padding:3px 6px 0 0;text-align:right;margin-top:-7px;}
 .tb-hour-slot{flex:1;min-height:60px;position:relative;cursor:pointer;transition:background 0.1s;}
-.tb-hour-slot:hover{background:rgba(232,168,56,0.05);}
+.tb-hour-slot:hover{background:rgba(232,168,56,0.08);}
+.tb-hour-slot:active{background:rgba(232,168,56,0.18);}
 .tb-hour-slot.tb-drop-target{background:rgba(232,168,56,0.12);outline:2px dashed rgba(232,168,56,0.5);}
 .tb-block{
   position:absolute;left:4px;right:4px;
@@ -5679,15 +5680,23 @@ function renderWaitingPage(container){
   const todayStr = today();
   // Person filter
   const allActive = waitingFor.filter(w=>!w.done);
-  const active = waitingPersonFilter
-    ? allActive.filter(w=>w.personId===waitingPersonFilter)
-    : allActive;
-  const done = (waitingPersonFilter
-    ? waitingFor.filter(w=>w.done && w.personId===waitingPersonFilter)
-    : waitingFor.filter(w=>w.done)).slice(0,10);
-  // Filter bar — only show people from peopleList who actually appear in waitingFor
+  const matchWf = (w) => {
+    if(!waitingPersonFilter) return true;
+    if(waitingPersonFilter.startsWith('__name__')){
+      return w.person === waitingPersonFilter.slice(8);
+    }
+    return w.personId === waitingPersonFilter;
+  };
+  const active = allActive.filter(matchWf);
+  const done = waitingFor.filter(w=>w.done && matchWf(w)).slice(0,10);
+  // Filter bar — people from peopleList who appear in waitingFor (by id or name match)
   const wfPersonIds = new Set(waitingFor.map(w=>w.personId).filter(Boolean));
-  const wfPeople = peopleList.filter(p=>wfPersonIds.has(p.id));
+  const wfNameMatches = new Set(waitingFor.map(w=>w.person).filter(Boolean));
+  // Include matched peopleList entries + any legacy name-only entries as pseudo-people
+  const wfPeopleFromList = peopleList.filter(p=>wfPersonIds.has(p.id)||wfNameMatches.has(p.name));
+  const legacyNames = [...wfNameMatches].filter(name=>!peopleList.find(p=>p.name===name));
+  const wfLegacy = legacyNames.map(name=>({id:'__name__'+name, name}));
+  const wfPeople = [...wfPeopleFromList, ...wfLegacy];
 
   const row = (w, isDone) => {
     const overdue = w.dueDate && w.dueDate < todayStr;
@@ -6587,7 +6596,7 @@ function renderTimeBlock(container){
               if(removeFrom && removeFrom!=='${date}') removeTbBlock(removeFrom,tid);
               if(tid) addTbBlock('${date}',${startMin},tid);">
       <div class="tb-hour-label">${label}</div>
-      <div class="tb-hour-slot" ></div>
+      <div class="tb-hour-slot" onclick="tbSlotClick('${date}',${startMin})"></div>
     </div>`;
   }
 
@@ -6607,14 +6616,14 @@ function renderTimeBlock(container){
       ondragstart="event.dataTransfer.setData('taskId',this.dataset.taskid);event.dataTransfer.setData('removeFrom',this.dataset.date);this.style.opacity='0.4';"
       ondragend="this.style.opacity='1';"
       style="top:${topPx}px;height:${height}px;background:${b.color};left:52px;right:4px;">
-      <div class="tb-block-content" onclick="openEditTask(this.closest('.tb-block').dataset.taskid)">
+      <div class="tb-block-content" onclick="event.stopPropagation();const bl=this.closest('.tb-block');openTbBlockActions(bl.dataset.date,bl.dataset.taskid,${b.startMin})">
         <div class="tb-block-title">${esc(t.title)}</div>
         <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
       </div>
       <div class="tb-block-actions">
         <button class="tb-block-remove"
           onclick="event.stopPropagation();const bl=this.closest('.tb-block');removeTbBlock(bl.dataset.date,bl.dataset.taskid);"
-          title="Remove from schedule">✕</button>
+          title="Unschedule">✕</button>
       </div>
     </div>`;
   }
@@ -6639,8 +6648,10 @@ function renderTimeBlock(container){
         const c = proj?.color||'#E8A838';
         return `<div class="tb-task-chip"
           draggable="true"
+          data-taskid="${t.id}"
           ondragstart="event.dataTransfer.setData('taskId','${t.id}');this.classList.add('tb-dragging');"
-          ondragend="this.classList.remove('tb-dragging');">
+          ondragend="this.classList.remove('tb-dragging');"
+          onclick="tbChipClick('${date}','${t.id}')">
           <div class="tb-chip-est" style="color:${c};">${t.estimate}</div>
           <div class="tb-chip-title">${esc(t.title)}</div>
         </div>`;
@@ -6683,7 +6694,7 @@ function renderTimeBlock(container){
               const tid=event.dataTransfer.getData('taskId');
               const removeFrom=event.dataTransfer.getData('removeFrom');
               if(tid && removeFrom) removeTbBlock(removeFrom, tid);">
-        <div id="tb-sidebar-hdr">UNSCHEDULED (${unscheduled.length})</div>
+        <div id="tb-sidebar-hdr">UNSCHEDULED (${unscheduled.length})<div style="font-size:9px;font-weight:400;color:var(--text4);margin-top:2px;letter-spacing:0;">tap to schedule</div></div>
         <div id="tb-unscheduled">${chipHtml}</div>
       </div>
     </div>
@@ -6709,6 +6720,76 @@ function tbNavDate(delta){
     tbDate = d.toISOString().slice(0,10);
   }
   renderAll();
+}
+
+function openTbBlockActions(date, taskId, startMin){
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const old = document.getElementById('modal-tb-actions');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-tb-actions';
+  m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="padding:0;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(t.title)}</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-actions')">✕</button>
+    </div>
+    <div style="padding:0 14px 6px;font-family:var(--font-ui);font-size:11px;color:var(--text3);">Scheduled at ${minsToTime(startMin)} · ${t.estimate||'no estimate'}</div>
+    <div style="display:flex;flex-direction:column;gap:0;padding-bottom:8px;">
+      <button onclick="closeModal('modal-tb-actions');_tbPendingSlot={date,startMin,rescheduleTaskId:'${taskId}'};openTbTaskPickerReschedule('${date}','${taskId}');"
+        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
+        🕐 Reschedule — pick a new time
+      </button>
+      <button onclick="closeModal('modal-tb-actions');removeTbBlock('${date}','${taskId}');"
+        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
+        ↩ Unschedule — send back to sidebar
+      </button>
+      <button onclick="closeModal('modal-tb-actions');openEditTask('${taskId}');"
+        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
+        ✏ Edit task details
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-tb-actions'); };
+  document.body.appendChild(m);
+  openModal('modal-tb-actions');
+}
+
+function openTbTaskPickerReschedule(date, existingTaskId){
+  // Same as slot click but replaces the existing block
+  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
+  const old = document.getElementById('modal-tb-picker');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-tb-picker';
+  m.className = 'modal-overlay';
+  // Show all hours as options
+  let timeOptions = '';
+  for(let h=HOUR_START; h<HOUR_END; h++){
+    const startMin = h*60;
+    const label = h===12?'12pm':h<12?`${h}:00am`:`${h-12}:00pm`;
+    timeOptions += `<div onclick="removeTbBlock('${date}','${existingTaskId}');addTbBlock('${date}',${startMin},'${existingTaskId}');closeModal('modal-tb-picker');"
+      style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-family:var(--font-ui);font-size:14px;color:var(--text);">
+      ${label}
+    </div>
+    <div style="padding:0 8px 8px;">
+      <div onclick="removeTbBlock('${date}','${existingTaskId}');addTbBlock('${date}',${startMin}+30,'${existingTaskId}');closeModal('modal-tb-picker');"
+        style="padding:8px 12px;cursor:pointer;font-family:var(--font-ui);font-size:13px;color:var(--text3);">
+        ${h===12?'12:30pm':h<12?`${h}:30am`:`${h-12}:30pm`}
+      </div>
+    </div>`;
+  }
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">🕐 Pick new time</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-picker')">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">${timeOptions}</div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-tb-picker'); };
+  document.body.appendChild(m);
+  openModal('modal-tb-picker');
 }
 
 function tbSlotClick(date, startMin){
