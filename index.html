@@ -798,7 +798,9 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 #tb-auto-btn:active{background:#c87820;}
 /* Current time line */
 .tb-now-line{position:absolute;left:44px;right:4px;height:2px;background:#ff6060;z-index:10;pointer-events:none;}
-.tb-now-dot{position:absolute;left:40px;width:10px;height:10px;border-radius:50%;background:#ff6060;margin-top:-4px;z-index:11;}
+.tb-now-dot{position:absolute;left:40px;width:10px;height:10px;border-radius:50%;background:#ff6060;margin-top:-4px;z-index:11;pointer-events:none;}
+.tb-block{z-index:5;}
+.tb-block-remove{z-index:6;}
 
 /* ── MODALS ── */
 .modal-overlay{
@@ -2423,7 +2425,7 @@ function renderAll(){
   const main=document.getElementById("main");
   if(activeNav==="today"){renderTodayView(main);return;}
   if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
-  if(activeNav==="cal"||viewMode==="calendar"){renderCalendar(main);return;}
+  if(activeNav==="cal"){renderCalendar(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
   if(activeNav==="people"){  renderPeoplePage(main);  return; }
   if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
@@ -4949,7 +4951,7 @@ function setNav(nav){
   const tile = document.getElementById('grid-'+nav);
   if(tile) tile.classList.add('grid-active');
   if(nav==="cal") viewMode="calendar";
-  else if(nav==="tasks") viewMode="list";
+  else viewMode="list";  // always reset when leaving calendar
   const showSearch=nav==="tasks";
   const showFilter=nav==="tasks";
   const sb=document.getElementById("search-bar");
@@ -6600,15 +6602,19 @@ function renderTimeBlock(container){
     const endMin = b.startMin + b.durMin;
     blockHtml += `<div class="tb-block"
       draggable="true"
-      ondragstart="event.dataTransfer.setData('taskId','${t.id}');event.dataTransfer.setData('removeFrom','${date}');this.style.opacity='0.4';"
+      data-date="${date}"
+      data-taskid="${t.id}"
+      ondragstart="event.dataTransfer.setData('taskId',this.dataset.taskid);event.dataTransfer.setData('removeFrom',this.dataset.date);this.style.opacity='0.4';"
       ondragend="this.style.opacity='1';"
       style="top:${topPx}px;height:${height}px;background:${b.color};left:52px;right:4px;">
-      <div class="tb-block-content" onclick="openEditTask('${t.id}')">
+      <div class="tb-block-content" onclick="openEditTask(this.closest('.tb-block').dataset.taskid)">
         <div class="tb-block-title">${esc(t.title)}</div>
         <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
       </div>
       <div class="tb-block-actions">
-        <button class="tb-block-remove" onclick="event.stopPropagation();removeTbBlock('${date}','${t.id}')" title="Remove from schedule">✕</button>
+        <button class="tb-block-remove"
+          onclick="event.stopPropagation();const bl=this.closest('.tb-block');removeTbBlock(bl.dataset.date,bl.dataset.taskid);"
+          title="Remove from schedule">✕</button>
       </div>
     </div>`;
   }
@@ -6664,7 +6670,7 @@ function renderTimeBlock(container){
       <div id="tb-grid-wrap">
         <div id="tb-grid" style="position:relative;height:${gridHeight}px;">
           ${hourRows}
-          <div style="position:absolute;top:0;left:0;right:0;height:${gridHeight}px;pointer-events:none;">
+          <div style="position:absolute;top:0;left:0;right:0;height:${gridHeight}px;">
             ${blockHtml}
             ${nowLine}
           </div>
