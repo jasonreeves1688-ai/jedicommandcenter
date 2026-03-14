@@ -743,6 +743,18 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 .tb-nav-btn:active{background:var(--surface3);}
 #tb-slot-grid{scroll-behavior:smooth;}
 
+/* ── AI LOADING RING ── */
+@keyframes loadingRing{to{transform:rotate(360deg);}}
+
+/* ── AI TASK MODAL fullscreen ── */
+.modal-fullscreen{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:14px 14px 0 0;
+  width:100%;max-width:520px;
+  height:85vh;display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+
 /* ── MODALS ── */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(10,12,20,0.7);
@@ -1403,6 +1415,12 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       </button>
       <div class="fdd-panel" id="fdd-party-panel" style="display:none;"></div>
     </div>
+    <div class="fdd-wrap" id="fdd-person-wrap">
+      <button class="fdd-btn" id="fdd-person-btn" onclick="toggleFdd('person')">
+        <span>People</span><span class="fdd-caret">▼</span>
+      </button>
+      <div class="fdd-panel" id="fdd-person-panel" style="display:none;"></div>
+    </div>
     <div class="fdd-wrap" id="fdd-priority-wrap">
       <button class="fdd-btn" id="fdd-priority-btn" onclick="toggleFdd('priority')">
         <span>Priority</span><span class="fdd-caret">▼</span>
@@ -1556,6 +1574,11 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
             <option value="light">🟢 Light</option>
           </select>
         </div>
+        <div id="task-people-wrap">
+          <div class="chip-label">People</div>
+          <div id="task-people-picker" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:4px 0;"></div>
+          <input type="hidden" id="task-person-ids" value=""/>
+        </div>
         <div>
           <div class="notes-toolbar" id="notes-toolbar">
             <button class="ntb" onmousedown="event.preventDefault();noteCmd('bold')"><b>B</b></button>
@@ -1606,11 +1629,12 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 <!-- MORNING RITUAL MODAL -->
 <div id="modal-morning" class="modal-overlay" style="display:none;">
   <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
-    <div style="text-align:center;margin-bottom:16px;">
+    <div style="text-align:center;margin-bottom:12px;">
       <div style="font-size:36px;margin-bottom:6px;">☀</div>
       <div class="modal-title" style="margin:0;" id="morning-greeting">Good morning, Commander</div>
       <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">60 seconds to set your day</div>
     </div>
+    <div id="morning-ai-briefing" style="min-height:24px;margin-bottom:8px;"></div>
     <div style="margin-bottom:14px;">
       <div class="chip-label">What's your one most important thing today?</div>
       <input class="field-input" id="morning-one-thing" placeholder="The thing that would make today a win…" autocomplete="off"/>
@@ -1733,6 +1757,13 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       <div class="reset-step-title">🎯 Set Your 3 Wins</div>
       <div class="reset-step-desc">What would make this week a win? Three specific, achievable outcomes. These stay visible on your Today screen all week.</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+          <button onclick="runResetAI()"
+            style="padding:5px 12px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">
+            🤖 Coach me
+          </button>
+        </div>
+        <div id="reset-ai-output"></div>
         <input id="reset-win1" class="field-input" placeholder="Win 1…" autocomplete="off"/>
         <input id="reset-win2" class="field-input" placeholder="Win 2…" autocomplete="off"/>
         <input id="reset-win3" class="field-input" placeholder="Win 3…" autocomplete="off"/>
@@ -1922,6 +1953,7 @@ let filterStatus=new Set(["todo","inprogress","blocked"]); // default: active
 let filterParty=new Set();       // project IDs
 let filterPriority=new Set();    // "high"|"medium"|"low"
 let filterDue=new Set();         // "overdue"|"today"|"week"|"month"|"none"
+let filterPerson=new Set();      // person IDs
 let todayPinned=new Set();       // task IDs pinned to Today view
 let viewMode="list", activeNav="tasks";
 
@@ -1929,6 +1961,7 @@ let viewMode="list", activeNav="tasks";
 const realmActive=()=>filterRealm.size>0;
 const statusActive=()=>filterStatus.size>0&&!(filterStatus.has("todo")&&filterStatus.has("inprogress")&&filterStatus.has("blocked")&&filterStatus.has("done"));
 const partyActive=()=>filterParty.size>0;
+const personActive=()=>filterPerson.size>0;
 const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
 let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
@@ -2504,6 +2537,10 @@ function renderTaskList(container){
     const proj=projects.find(p=>p.id===t.projectId);
     if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
     if(partyActive()&&!filterParty.has(t.projectId)) return false;
+    if(personActive()){
+      const tpids=(t.personIds||'').split(',').filter(Boolean);
+      if(!tpids.some(id=>filterPerson.has(id))) return false;
+    }
     if(filterStatus.size>0&&!filterStatus.has(t.status)) return false;
     if(priorityActive()&&!filterPriority.has(t.priority)) return false;
     if(dueActive()){
@@ -2783,6 +2820,7 @@ function renderTaskRow(task,proj){
       ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
       <span class="tctl-spacer"></span>
       <button class="tctl-btn" onclick="event.stopPropagation();openEditTask('${task.id}')" title="Edit task" style="color:var(--text2);">✏ EDIT</button>
+      <button class="tctl-btn" onclick="event.stopPropagation();openTaskAI('${task.id}')" title="AI Assist" style="color:var(--accent);border-color:rgba(232,168,56,0.4);">🤖 AI</button>
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
@@ -4464,6 +4502,7 @@ function openAddTask(projectId=""){
   window._editingRecur="none";window._editingEffort="";
   const estEl2=document.getElementById("task-estimate-input");if(estEl2) estEl2.value="";
   const enEl2=document.getElementById("task-energy-input");if(enEl2) enEl2.value="";
+  renderTaskPeoplePicker('');
   renderRecurChips("none");renderEffortChips("");
   document.getElementById("task-delete-wrap").style.display="none";
   document.getElementById("task-save-btn").textContent="Save";
@@ -4492,6 +4531,7 @@ function openEditTask(id){
   window._editingRecur=t.recur||"none";window._editingEffort=t.effort||"";
   const estEl=document.getElementById("task-estimate-input");if(estEl) estEl.value=t.estimate||"";
   const enEl=document.getElementById("task-energy-input");if(enEl) enEl.value=t.energy||"";
+  renderTaskPeoplePicker(t.personIds||'');
   renderRecurChips(t.recur||"none");renderEffortChips(t.effort||"");
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
@@ -4567,6 +4607,31 @@ function deleteRowSubtask(taskId, subId){
 }
 // ──────────────────────────────────────────────────────────────────
 
+function renderTaskPeoplePicker(selectedIds){
+  const wrap = document.getElementById('task-people-picker');
+  const hidden = document.getElementById('task-person-ids');
+  if(!wrap) return;
+  const sel = new Set((selectedIds||'').split(',').filter(Boolean));
+  wrap.innerHTML = peopleList.length === 0
+    ? `<span style="font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;">No meeting contacts added yet</span>`
+    : peopleList.map(p=>`<button type="button"
+        class="person-chip ${sel.has(p.id)?'selected':''}"
+        onclick="toggleTaskPerson('${p.id}')"
+        style="font-size:11px;padding:4px 10px;min-height:28px;">
+        ${esc(p.name)}${p.role?`<span style='font-weight:400;color:var(--text4);font-size:10px;'> (${esc(p.role)})</span>`:''}
+      </button>`).join('');
+  if(hidden) hidden.value = [...sel].join(',');
+}
+
+function toggleTaskPerson(personId){
+  const hidden = document.getElementById('task-person-ids');
+  if(!hidden) return;
+  const sel = new Set(hidden.value.split(',').filter(Boolean));
+  sel.has(personId) ? sel.delete(personId) : sel.add(personId);
+  hidden.value = [...sel].join(',');
+  renderTaskPeoplePicker(hidden.value);
+}
+
 function saveTask(){
   const title=document.getElementById("task-title-input").value.trim();
   const projectId=document.getElementById("task-project-input").value;
@@ -4582,6 +4647,7 @@ function saveTask(){
     t.effort=window._editingEffort||"";
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
     t.energy=document.getElementById("task-energy-input")?.value||"";
+    t.personIds=document.getElementById("task-person-ids")?.value||"";
     t.subtasks=_modalSubtasks;
     showToast("Task UPDATED ✓");
   }else{
@@ -4594,6 +4660,7 @@ function saveTask(){
       effort:window._editingEffort||"",
       estimate:document.getElementById("task-estimate-input")?.value||"",
       energy:document.getElementById("task-energy-input")?.value||"",
+      personIds:document.getElementById("task-person-ids")?.value||"",
       subtasks:_modalSubtasks,
       createdAt:Date.now()});
     showToast("Task LOGGED ✓");
@@ -5285,7 +5352,10 @@ function renderTodayView(container){
   );
 
   // Pinned tasks
-  const pinnedTasks = [...todayPinned]
+  const pinnedTasks = [...new Set([
+    ...todayPinned,
+    ...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)
+  ])]
     .map(id => tasks.find(t => t.id === id))
     .filter(t => t && t.status !== 'done');
 
@@ -6316,6 +6386,13 @@ function openMeetingCapture(existingId){
 
       </div>
       <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text3);letter-spacing:0.5px;">Paste raw notes → let AI structure them, or fill manually</div>
+          <button id="mtg-ai-btn" onclick="runMeetingAI()"
+            style="padding:5px 12px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+            🤖 Structure with AI
+          </button>
+        </div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:6px;">✅ DECISIONS MADE</div>
         <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.decisions||''):''}</textarea>
       </div>
@@ -6450,97 +6527,116 @@ function renderTimeBlock(container){
   loadTbBlocks();
   const HS=getTbHourStart(), HE=getTbHourEnd();
   const date=tbDate;
+  const isToday = date===today();
   const dateObj=new Date(date+'T00:00:00');
   const dayLabel=dateObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
   const blocks=getTbBlocksForDate(date);
   const scheduledIds=new Set(blocks.map(b=>b.taskId));
 
-  // Unscheduled tasks (have estimates, active, not already blocked today)
-  const unscheduled=tasks
-    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
-    .sort((a,b)=>{
-      const aE=a.estimate?0:1, bE=b.estimate?0:1;
-      if(aE!==bE) return aE-bE;
-      const pOrd={high:0,medium:1,low:2};
-      return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
-    });
+  // Build a set of all 30-min slots occupied by each block (based on duration)
+  const occupiedSlots={}; // startMin of slot → block
+  for(const b of blocks){
+    const steps=Math.ceil(b.durMin/15);
+    for(let i=0;i<steps;i++){
+      const slotMin=b.startMin+(i*15);
+      if(!occupiedSlots[slotMin]) occupiedSlots[slotMin]=b;
+    }
+  }
 
-  // Build time slots — every 30 min
-  const slots=[];
-  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+30); }
-
-  // Map startMin → block for quick lookup
-  const blockByStart={};
-  for(const b of blocks) blockByStart[b.startMin]=b;
-
-  // Render scheduled blocks list
+  // Render scheduled blocks summary
   const scheduledHtml = blocks.length===0
-    ? `<div style="padding:16px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No tasks scheduled yet — tap a time slot below to add one.</div>`
+    ? `<div style="padding:14px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing scheduled — tap a time slot below.</div>`
     : blocks.map(b=>{
         const t=tasks.find(x=>x.id===b.taskId); if(!t) return '';
         const proj=projects.find(p=>p.id===t.projectId);
         const endMin=b.startMin+b.durMin;
+        const h=Math.floor(b.durMin/60), m=b.durMin%60;
+        const durLabel=(h?h+'h ':'')+(m?m+'m':'');
         return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
           <div style="width:3px;align-self:stretch;border-radius:2px;background:${b.color};flex-shrink:0;"></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">
-              ${minsToTime(b.startMin)} – ${minsToTime(endMin)}
-              ${proj?`<span style="color:${proj.color};margin-left:6px;">◈ ${esc(proj.name)}</span>`:''}
+              ${minsToTime(b.startMin)} – ${minsToTime(endMin)} · ${durLabel}
+              ${proj?`<span style="color:${proj.color};margin-left:4px;">◈ ${esc(proj.name)}</span>`:''}
             </div>
           </div>
           <button onclick="openTbReschedule('${date}','${t.id}')"
+            title="Reschedule"
             style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">🕐</button>
           <button onclick="removeTbBlock('${date}','${t.id}')"
+            title="Remove"
             style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>
         </div>`;
       }).join('');
 
-  // Render time slot grid — tap any slot to assign
+  // Render time slot grid — each row is 30 min
+  // Slots occupied mid-block show continuation, not a new tap target
+  const slots=[];
+  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+15); slots.push(h*60+30); slots.push(h*60+45); }
+
   const slotHtml = slots.map(startMin=>{
-    const b=blockByStart[startMin];
+    const b=occupiedSlots[startMin];
     const t=b?tasks.find(x=>x.id===b.taskId):null;
-    const isNow = date===today() && (() => {
+    const isBlockStart = b && b.startMin===startMin;
+    const isNow = isToday && (()=>{
       const now=new Date(); const cur=now.getHours()*60+now.getMinutes();
       return cur>=startMin && cur<startMin+30;
     })();
     const label=minsToTime(startMin);
-    if(t){
+
+    if(t && isBlockStart){
+      // First slot of a block — show task info + actions
       const proj=projects.find(p=>p.id===t.projectId);
-      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:${b.color}18;${isNow?'border-left:3px solid #ff6060;':''}">
+      const slots15=Math.ceil(b.durMin/15);
+      const heightPx=slots15*32-1; // 32px per 15-min slot
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:${b.color}20;min-height:${heightPx}px;${isNow?'border-left:3px solid #ff6060;':''}">
         <div style="width:44px;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text3);flex-shrink:0;">${label}</div>
-        <div style="width:3px;height:28px;border-radius:2px;background:${b.color};flex-shrink:0;"></div>
+        <div style="width:3px;align-self:stretch;border-radius:2px;background:${b.color};flex-shrink:0;min-height:24px;"></div>
         <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTbReschedule('${date}','${t.id}')">
           <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+          <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${t.estimate||''}</div>
         </div>
         <button onclick="removeTbBlock('${date}','${t.id}')"
-          style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;">✕</button>
+          style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>`;
+    } else if(t && !isBlockStart){
+      // Continuation slot — greyed out, no tap target
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:${b.color}10;${isNow?'border-left:3px solid #ff6060;':''}">
+        <div style="width:44px;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);flex-shrink:0;">${label}</div>
+        <div style="width:3px;align-self:stretch;border-radius:2px;background:${b.color}60;flex-shrink:0;"></div>
+        <div style="flex:1;font-family:var(--font-ui);font-size:11px;color:var(--text4);font-style:italic;">↑ continued</div>
       </div>`;
     } else {
+      // Empty slot — tap to assign
       return `<div onclick="openTbSlotPicker('${date}',${startMin})"
-        style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;${isNow?'border-left:3px solid #ff6060;background:rgba(255,80,80,0.04);':''}transition:background 0.1s;"
-        onmouseenter="this.style.background='rgba(232,168,56,0.05)'" onmouseleave="this.style.background='${isNow?'rgba(255,80,80,0.04)':'transparent'}'">
+        style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;${isNow?'border-left:3px solid #ff6060;background:rgba(255,80,80,0.04);':''}"
+        onmouseenter="this.style.background='rgba(232,168,56,0.06)'" onmouseleave="this.style.background='${isNow?'rgba(255,80,80,0.04)':'transparent'}'">
         <div style="width:44px;font-family:var(--font-ui);font-size:10px;font-weight:700;color:${isNow?'#ff6060':'var(--text4)'};flex-shrink:0;">${label}</div>
-        <div style="flex:1;font-family:var(--font-ui);font-size:11px;color:var(--text4);">— tap to assign</div>
-        <div style="font-size:14px;color:var(--border2);">+</div>
+        <div style="flex:1;font-family:var(--font-ui);font-size:11px;color:var(--text4);">—</div>
+        <div style="font-size:13px;color:var(--border2);">+</div>
       </div>`;
     }
   }).join('');
 
   const totalMins=blocks.reduce((s,b)=>s+b.durMin,0);
-  const totalLabel=totalMins>0
-    ? `${Math.floor(totalMins/60)?Math.floor(totalMins/60)+'h ':''} ${totalMins%60?totalMins%60+'m':''} planned`.trim()
-    : '';
+  const totalH=Math.floor(totalMins/60), totalM=totalMins%60;
+  const totalLabel=totalMins>0?`${totalH?totalH+'h ':''}${totalM?totalM+'m':''} planned`.trim():'';
 
   container.innerHTML=`
+    <!-- Header with back-to-list toggle -->
     <div style="display:flex;align-items:center;gap:8px;padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <button class="tb-nav-btn" onclick="tbNavDate(-1)">‹</button>
-      <div style="flex:1;font-family:var(--font-ui);font-size:15px;font-weight:800;color:var(--text);text-align:center;">${dayLabel}</div>
+      <div style="flex:1;font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);text-align:center;">${dayLabel}</div>
       <button class="tb-nav-btn" onclick="tbNavDate(1)">›</button>
       <button class="tb-nav-btn" onclick="tbNavDate(0)" style="font-size:10px;width:auto;padding:0 8px;">Today</button>
+      <button onclick="todayViewMode='list';renderAll();"
+        style="padding:5px 10px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">
+        ☰ List
+      </button>
     </div>
 
-    <!-- Scheduled tasks summary -->
+    <!-- Scheduled summary -->
     <div style="flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;">
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">SCHEDULED${totalLabel?' · '+totalLabel:''}</div>
@@ -6553,98 +6649,90 @@ function renderTimeBlock(container){
     </div>
 
     <!-- Time slot grid -->
-    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:4px 14px 4px;">TIME SLOTS — tap any to assign</div>
-    <div id="tb-slot-grid" style="flex:1;overflow-y:auto;margin:0 10px 10px;border-radius:8px;border:1px solid var(--border);overflow:hidden;background:var(--surface);">
+    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:4px 14px 4px;">TIME SLOTS</div>
+    <div id="tb-slot-grid" style="flex:1;overflow-y:auto;margin:0 10px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);">
       ${slotHtml}
     </div>`;
 
-  // Scroll to current time
   requestAnimationFrame(()=>{
     const grid=document.getElementById('tb-slot-grid');
     if(!grid) return;
     const now=new Date();
     const curMin=now.getHours()*60+now.getMinutes();
-    const idx=Math.max(0,Math.floor((curMin-HS*60)/30)-2);
-    grid.scrollTop=idx*41;
+    const idx=Math.max(0,Math.floor((curMin-HS*60)/15)-4);
+    grid.scrollTop=idx*32;
   });
 }
 
+
 // Pick a task then assign to a specific slot
 function openTbSlotPicker(date, startMin){
-  const scheduledIds=new Set(getTbBlocksForDate(date).map(b=>b.taskId));
-  const available=tasks
-    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
-    .sort((a,b)=>{
-      const pOrd={high:0,medium:1,low:2};
-      return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
-    });
-  const old=document.getElementById('modal-tb-slot'); if(old) old.remove();
-  const m=document.createElement('div');
-  m.id='modal-tb-slot'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">📌 ${minsToTime(startMin)} — assign task</div>
-      <button class="modal-close" onclick="closeModal('modal-tb-slot')">✕</button>
-    </div>
-    <div style="overflow-y:auto;flex:1;">
-      ${available.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No unscheduled tasks available.</div>`
-        : available.map(t=>{
-            const proj=projects.find(p=>p.id===t.projectId);
-            const c=proj?.color||'#E8A838';
-            return `<div onclick="addTbBlock('${date}',${startMin},'${t.id}');closeModal('modal-tb-slot');"
-              style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-                <div style="display:flex;gap:6px;margin-top:2px;">
-                  ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
-                  ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:'<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">no estimate</span>'}
-                </div>
-              </div>
-            </div>`;
-          }).join('')
-      }
-    </div>
-  </div>`;
-  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-slot');};
-  document.body.appendChild(m); openModal('modal-tb-slot');
+  _tbPickerDate=date; _tbPickerStartMin=startMin; _tbPickerMode='slot';
+  openTbTaskSearch();
 }
+let _tbPickerDate='', _tbPickerStartMin=0, _tbPickerMode='slot', _tbPickerTaskId='';
 
-// Pick a task first, then pick a time
-function openTbAddTask(date){
+function openTbTaskSearch(){
+  const old=document.getElementById('modal-tb-search'); if(old) old.remove();
+  const date=_tbPickerDate;
   const scheduledIds=new Set(getTbBlocksForDate(date).map(b=>b.taskId));
+  // Only tasks with estimates
   const available=tasks
-    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
+    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.estimate&&!scheduledIds.has(t.id))
     .sort((a,b)=>{const pOrd={high:0,medium:1,low:2};return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);});
-  const old=document.getElementById('modal-tb-add'); if(old) old.remove();
-  const m=document.createElement('div');
-  m.id='modal-tb-add'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">➕ Add to schedule</div>
-      <button class="modal-close" onclick="closeModal('modal-tb-add')">✕</button>
-    </div>
-    <div style="overflow-y:auto;flex:1;">
-      ${available.map(t=>{
+
+  const renderList=(query)=>{
+    const q=query.toLowerCase();
+    const filtered=q?available.filter(t=>t.title.toLowerCase().includes(q)):available;
+    return filtered.length===0
+      ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">${q?'No matches':'No tasks with time estimates'}</div>`
+      : filtered.map(t=>{
           const proj=projects.find(p=>p.id===t.projectId);
           const c=proj?.color||'#E8A838';
-          return `<div onclick="closeModal('modal-tb-add');openTbTimePicker('${date}','${t.id}');"
+          const dur=estToMins(t.estimate);
+          const h=Math.floor(dur/60),m=dur%60;
+          const durLabel=(h?h+'h ':'')+(m?m+'m':'');
+          const onclick=_tbPickerMode==='slot'
+            ? `addTbBlock('${date}',${_tbPickerStartMin},'${t.id}');closeModal('modal-tb-search');`
+            : `_tbPickerTaskId='${t.id}';closeModal('modal-tb-search');openTbTimePicker('${date}','${t.id}',false);`;
+          return `<div onclick="${onclick}"
             style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-              <div style="display:flex;gap:6px;margin-top:2px;">
+              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
                 ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
-                ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:''}
+                <span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate} (${durLabel})</span>
               </div>
             </div>
-            <span style="color:var(--text4);font-size:13px;">›</span>
           </div>`;
-        }).join('') || `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No unscheduled tasks.</div>`
-      }
+        }).join('');
+  };
+
+  const title=_tbPickerMode==='slot'?`📌 ${minsToTime(_tbPickerStartMin)} — pick a task`:'➕ Add to schedule';
+  const m=document.createElement('div');
+  m.id='modal-tb-search'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">${title}</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-search')">✕</button>
     </div>
+    <div style="padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <input id="tb-search-input" class="field-input" placeholder="Search tasks…" autocomplete="off" style="margin:0;"
+        oninput="document.getElementById('tb-search-list').innerHTML=renderTbList(this.value)"/>
+    </div>
+    <div id="tb-search-list" style="overflow-y:auto;flex:1;">${renderList('')}</div>
   </div>`;
-  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-add');};
-  document.body.appendChild(m); openModal('modal-tb-add');
+  // Expose renderList to window for inline use
+  window.renderTbList = renderList;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-search');};
+  document.body.appendChild(m); openModal('modal-tb-search');
+  setTimeout(()=>document.getElementById('tb-search-input')?.focus(),150);
+}
+
+// Pick a task first (via shared search), then pick a time
+function openTbAddTask(date){
+  _tbPickerDate=date; _tbPickerMode='add';
+  openTbTaskSearch();
 }
 
 // Pick a time for a specific task
@@ -6652,7 +6740,7 @@ function openTbTimePicker(date, taskId, isReschedule){
   const HS=getTbHourStart(), HE=getTbHourEnd();
   const t=tasks.find(x=>x.id===taskId); if(!t) return;
   const slots=[];
-  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+30); }
+  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+15); slots.push(h*60+30); slots.push(h*60+45); }
   const old=document.getElementById('modal-tb-time'); if(old) old.remove();
   const m=document.createElement('div');
   m.id='modal-tb-time'; m.className='modal-overlay';
@@ -6790,6 +6878,325 @@ function toggleTodayPin(taskId){
   renderAll();
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// AI ASSIST — shared helper + four features
+// ════════════════════════════════════════════════════════════════
+
+async function aiCall(systemPrompt, userPrompt, maxTokens=800){
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages:[{role:'user', content: userPrompt}]
+      })
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    return data.content?.[0]?.text || '';
+  } catch(e){
+    console.error('AI call failed:', e);
+    throw e;
+  }
+}
+
+function aiContext(){
+  // Shared context about Jason for all AI features
+  const todayStr = today();
+  const overdue = tasks.filter(t=>t.status!=='done'&&t.dueDate&&t.dueDate<todayStr);
+  const dueToday = tasks.filter(t=>t.status!=='done'&&t.dueDate===todayStr);
+  const pinned = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
+  const activeWaiting = waitingFor.filter(w=>!w.done).slice(0,10);
+  const recentMeetings = meetingLog.slice(0,5);
+  const nudges = getPeopleNudges().slice(0,5);
+  return {todayStr, overdue, dueToday, pinned, activeWaiting, recentMeetings, nudges};
+}
+
+// ── 1. MORNING BRIEFING ──────────────────────────────────────────
+async function generateMorningBriefing(){
+  const el = document.getElementById('morning-ai-briefing');
+  if(!el) return;
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;color:var(--text3);font-family:var(--font-ui);font-size:12px;">
+    <div style="width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>
+    Generating your briefing…
+  </div>`;
+
+  const ctx = aiContext();
+  const hintEl = document.getElementById('morning-one-thing');
+  const tomorrowHint = localStorage.getItem('hub-tomorrow-hint')||'';
+
+  try {
+    const briefing = await aiCall(
+      `You are a sharp, direct executive assistant for Jason, a Senior Director of Product Management / interim CPO at a healthcare technology company. 
+You know Jason has ADHD and needs clear, actionable, no-fluff communication. 
+Be warm but direct. Max 4 short bullet points. No headers. No em dashes. Lead with the single most important thing.`,
+      `Today is ${ctx.todayStr}. Give Jason a quick morning briefing based on this data:
+
+OVERDUE (${ctx.overdue.length}): ${ctx.overdue.slice(0,5).map(t=>`"${t.title}"${t.dueDate?' ('+t.dueDate+')':''}`).join(', ')||'none'}
+DUE TODAY (${ctx.dueToday.length}): ${ctx.dueToday.slice(0,5).map(t=>`"${t.title}"`).join(', ')||'none'}
+PINNED TODAY: ${ctx.pinned.slice(0,5).map(t=>`"${t.title}"`).join(', ')||'none'}
+WAITING FOR: ${ctx.activeWaiting.slice(0,5).map(w=>`${w.person} — "${w.what}"`).join('; ')||'none'}
+RECENT MEETINGS: ${ctx.recentMeetings.slice(0,3).map(m=>`"${m.title}" (${m.date})`).join(', ')||'none'}
+${tomorrowHint?`YESTERDAY'S INTENTION FOR TODAY: "${tomorrowHint}"`:''}
+
+Give 3-4 tight bullets. Flag the biggest risk. Suggest the one thing to start with if he's unsure.`,
+      400
+    );
+    el.innerHTML = `<div style="background:rgba(232,168,56,0.06);border:1px solid rgba(232,168,56,0.2);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">🤖 YOUR BRIEFING</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;">${esc(briefing)}</div>
+      <button onclick="generateMorningBriefing()" style="margin-top:8px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">↻ Regenerate</button>
+    </div>`;
+    // Auto-suggest one thing if field is empty
+    if(hintEl && !hintEl.value.trim()){
+      const match = briefing.match(/start with[:\s]+"?([^"\n.]+)"?/i) ||
+                    briefing.match(/first[:\s]+"?([^"\n.]+)"?/i);
+      if(match) hintEl.placeholder = match[1].trim().slice(0,80);
+    }
+  } catch(e){
+    el.innerHTML = `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);">Briefing unavailable offline — carry on.</div>`;
+  }
+}
+
+// ── 2. INLINE TASK ASSIST ────────────────────────────────────────
+async function openTaskAI(taskId){
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const proj = projects.find(p=>p.id===t.projectId);
+  const old = document.getElementById('modal-task-ai'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-task-ai'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--accent);">🤖 AI Assist</div>
+      <button class="modal-close" onclick="closeModal('modal-task-ai')">✕</button>
+    </div>
+    <div style="padding:10px 14px 6px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(t.title)}</div>
+      ${proj?`<div style="font-size:11px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;flex-shrink:0;border-bottom:1px solid var(--border);">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">WHAT DO YOU NEED?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <button onclick="runTaskAI('${taskId}','subtasks')" class="modal-btn" style="flex:1;min-width:120px;">🧩 Break into subtasks</button>
+        <button onclick="runTaskAI('${taskId}','estimate')" class="modal-btn" style="flex:1;min-width:120px;">⏱ Suggest estimate</button>
+        <button onclick="runTaskAI('${taskId}','notes')" class="modal-btn" style="flex:1;min-width:120px;">📋 Draft notes</button>
+        <button onclick="runTaskAI('${taskId}','people')" class="modal-btn" style="flex:1;min-width:120px;">👤 Suggest people</button>
+      </div>
+    </div>
+    <div id="task-ai-result" style="flex:1;overflow-y:auto;padding:14px;"></div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-task-ai');};
+  document.body.appendChild(m); openModal('modal-task-ai');
+}
+
+async function runTaskAI(taskId, mode){
+  const t = tasks.find(x=>x.id===taskId); if(!t) return;
+  const proj = projects.find(p=>p.id===t.projectId);
+  const el = document.getElementById('task-ai-result');
+  if(!el) return;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:var(--text3);font-family:var(--font-ui);font-size:12px;">
+    <div style="width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);border-top-color:transparent;animation:loadingRing 0.8s linear infinite;"></div> Thinking…</div>`;
+
+  const taskContext = `Task: "${t.title}"
+Project: ${proj?.name||'none'} (${proj?.domain||'work'})
+Priority: ${t.priority||'medium'}
+Status: ${t.status}
+Due: ${t.dueDate||'no date'}
+Estimate: ${t.estimate||'none set'}
+Energy: ${t.energy||'none set'}
+Notes: ${t.notes?t.notes.replace(/<[^>]+>/g,' ').trim().slice(0,300):'none'}`;
+
+  const prompts = {
+    subtasks: {
+      sys:`You are a sharp product manager assistant. Break tasks into clear, actionable subtasks. Return ONLY a JSON array of strings. No markdown, no explanation.`,
+      usr:`Break this task into 3-6 concrete subtasks:\n${taskContext}`
+    },
+    estimate: {
+      sys:`You are a product manager who estimates work precisely. Return ONLY a JSON object like {"estimate":"2h","reasoning":"one sentence"}.`,
+      usr:`Suggest a time estimate for this task:\n${taskContext}`
+    },
+    notes: {
+      sys:`You are a sharp executive assistant. Draft concise, useful context notes for a task. 2-4 sentences. Plain text only.`,
+      usr:`Draft working notes/context for this task that would help Jason execute it:\n${taskContext}`
+    },
+    people: {
+      sys:`You are a helpful assistant. Based on the task context and available people list, suggest who to assign. Return ONLY a JSON array of person names that match from the list.`,
+      usr:`Task: ${taskContext}\n\nAvailable people: ${peopleList.map(p=>p.name+(p.role?' ('+p.role+')':'')).join(', ')||'none added yet'}\n\nWho should be involved in this task?`
+    }
+  };
+
+  try {
+    const p = prompts[mode];
+    const result = await aiCall(p.sys, p.usr, 500);
+
+    if(mode==='subtasks'){
+      let items; try{ items=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ items=[result]; }
+      el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">SUGGESTED SUBTASKS</div>
+        ${items.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--text);flex:1;">${esc(String(s))}</span>
+          <button onclick="addAISubtask('${taskId}','${encodeURIComponent(String(s))}')" style="padding:4px 10px;border-radius:5px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:11px;cursor:pointer;white-space:nowrap;">+ Add</button>
+        </div>`).join('')}
+        <button onclick="addAllAISubtasks('${taskId}',${JSON.stringify(items).replace(/'/g,"&#39;")})" 
+          style="width:100%;margin-top:10px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">+ Add all subtasks</button>`;
+    } else if(mode==='estimate'){
+      let obj; try{ obj=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ obj={estimate:result,reasoning:''}; }
+      const EST_OPTIONS=['15m','30m','1h','2h','4h','8h+'];
+      const matched = EST_OPTIONS.find(e=>e===obj.estimate) || null;
+      el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">SUGGESTED ESTIMATE</div>
+        <div style="font-size:28px;font-weight:900;color:var(--text);margin-bottom:6px;">⏱ ${esc(obj.estimate||'?')}</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:14px;">${esc(obj.reasoning||'')}</div>
+        ${matched?`<button onclick="applyAIEstimate('${taskId}','${matched}')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">Apply ${matched} to task</button>`:''}`;
+    } else if(mode==='notes'){
+      el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">SUGGESTED NOTES</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:14px;">${esc(result)}</div>
+        <button onclick="applyAINotes('${taskId}','${encodeURIComponent(result)}')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">Apply notes to task</button>`;
+    } else if(mode==='people'){
+      let names; try{ names=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ names=[]; }
+      const matched = names.map(n=>peopleList.find(p=>p.name.toLowerCase()===n.toLowerCase())).filter(Boolean);
+      el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">SUGGESTED PEOPLE</div>
+        ${matched.length===0
+          ? `<div style="font-size:13px;color:var(--text3);">No matches from your people list found. Try adding more people first.</div>`
+          : matched.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--text3);">${p.name.slice(0,1)}</div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${esc(p.name)}</div>${p.role?`<div style="font-size:11px;color:var(--text4);">${esc(p.role)}</div>`:''}</div>
+              <button onclick="applyAIPerson('${taskId}','${p.id}')" style="padding:4px 10px;border-radius:5px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:11px;cursor:pointer;">+ Assign</button>
+            </div>`).join('')
+        }`;
+    }
+  } catch(e){
+    el.innerHTML=`<div style="font-size:13px;color:var(--text4);font-family:var(--font-ui);">AI unavailable — check connection.</div>`;
+  }
+}
+
+function addAISubtask(taskId, encodedText){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  if(!t.subtasks) t.subtasks=[];
+  t.subtasks.push({id:'s'+Date.now(),text:decodeURIComponent(encodedText),done:false});
+  saveAllDebounced();
+  showToast('✓ Subtask added');
+}
+
+function addAllAISubtasks(taskId, items){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  if(!t.subtasks) t.subtasks=[];
+  items.forEach(s=>t.subtasks.push({id:'s'+Date.now()+Math.random().toString(36).slice(2,5),text:String(s),done:false}));
+  saveAllDebounced(); closeModal('modal-task-ai'); renderAll();
+  showToast(`✓ ${items.length} subtasks added`);
+}
+
+function applyAIEstimate(taskId, estimate){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  t.estimate=estimate; saveAllDebounced(); closeModal('modal-task-ai'); renderAll();
+  showToast('⏱ Estimate applied');
+}
+
+function applyAINotes(taskId, encodedNotes){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const notes=decodeURIComponent(encodedNotes);
+  t.notes=(t.notes?t.notes+'<br><br>':'')+notes.replace(/\n/g,'<br>');
+  saveAllDebounced(); closeModal('modal-task-ai'); renderAll();
+  showToast('📋 Notes applied');
+}
+
+function applyAIPerson(taskId, personId){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const current=new Set((t.personIds||'').split(',').filter(Boolean));
+  current.add(personId);
+  t.personIds=[...current].join(',');
+  saveAllDebounced(); showToast('👤 Person assigned');
+  // Refresh the panel
+  const el=document.getElementById('task-ai-result');
+  if(el) el.querySelectorAll(`button[onclick*="${personId}"]`).forEach(b=>{b.textContent='✓';b.disabled=true;});
+}
+
+// ── 3. MEETING CAPTURE ASSIST ────────────────────────────────────
+async function runMeetingAI(){
+  const rawNotes = document.getElementById('mtg-notes')?.value.trim();
+  const title    = document.getElementById('mtg-title')?.value.trim()||'this meeting';
+  if(!rawNotes){ showToast('Paste your raw notes first'); return; }
+
+  const btn = document.getElementById('mtg-ai-btn');
+  if(btn){ btn.textContent='⏳ Structuring…'; btn.disabled=true; }
+
+  try {
+    const result = await aiCall(
+      `You are a sharp executive assistant. Structure raw meeting notes into clean sections.
+Return ONLY valid JSON with these exact keys: {"decisions":"...","notes":"...","myCommits":"one per line","theirCommits":"Name: what they committed to, one per line"}.
+Be concise. myCommits = things Jason committed to. theirCommits = things others committed to (format: "Name: commitment").`,
+      `Meeting: "${title}"\n\nRaw notes:\n${rawNotes}`,
+      600
+    );
+    let obj; try{ obj=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ throw new Error('Could not parse AI response'); }
+
+    if(obj.decisions){ const el=document.getElementById('mtg-decisions'); if(el) el.value=obj.decisions; }
+    if(obj.notes){ const el=document.getElementById('mtg-notes'); if(el) el.value=obj.notes; }
+    if(obj.myCommits){ const el=document.getElementById('mtg-mycommits'); if(el) el.value=obj.myCommits; }
+    if(obj.theirCommits){ const el=document.getElementById('mtg-theircommits'); if(el) el.value=obj.theirCommits; }
+    showToast('✓ Notes structured');
+  } catch(e){
+    showToast('AI structuring failed — check connection');
+  } finally {
+    if(btn){ btn.textContent='🤖 Structure with AI'; btn.disabled=false; }
+  }
+}
+
+// ── 4. WEEKLY RESET ASSIST ───────────────────────────────────────
+async function runResetAI(){
+  const el = document.getElementById('reset-ai-output');
+  if(!el) return;
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;color:var(--text3);font-family:var(--font-ui);font-size:12px;padding:8px 0;">
+    <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--accent);border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div> Analysing your week…</div>`;
+
+  const dump   = document.getElementById('reset-dump')?.value||'';
+  const close  = document.getElementById('reset-close')?.value||'';
+  const ahead  = document.getElementById('reset-ahead')?.value||'';
+  const ctx    = aiContext();
+  const done   = tasks.filter(t=>t.completedAt && new Date(t.completedAt) > new Date(Date.now()-7*86400000));
+  const nudges = getPeopleNudges();
+
+  try {
+    const result = await aiCall(
+      `You are a sharp, direct executive coach for Jason — Sr Director of Product / interim CPO with ADHD.
+Be specific, warm, and action-oriented. No fluff. Format response as JSON:
+{"wins":["3 specific suggested weekly wins based on context"],"reflections":"2-3 sentences about what to note from last week","watchouts":"1-2 things to watch this week","people":["names from the nudge list to prioritize"]}`,
+      `BRAIN DUMP: ${dump||'(none)'}
+LAST WEEK CLOSE: ${close||'(none)'}
+WEEK AHEAD: ${ahead||'(none)'}
+COMPLETED LAST 7 DAYS (${done.length}): ${done.slice(0,8).map(t=>t.title).join(', ')||'none'}
+OVERDUE (${ctx.overdue.length}): ${ctx.overdue.slice(0,5).map(t=>t.title).join(', ')||'none'}
+WAITING FOR: ${ctx.activeWaiting.slice(0,5).map(w=>`${w.person} — ${w.what}`).join('; ')||'none'}
+PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name).join(', ')||'none'}`,
+      600
+    );
+
+    let obj; try{ obj=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ obj={wins:[],reflections:result,watchouts:'',people:[]}; }
+
+    // Auto-fill the wins inputs if they're empty
+    if(obj.wins?.length){
+      ['reset-win1','reset-win2','reset-win3'].forEach((id,i)=>{
+        const inp=document.getElementById(id);
+        if(inp && !inp.value.trim() && obj.wins[i]) inp.value=obj.wins[i];
+      });
+    }
+
+    el.innerHTML=`<div style="background:rgba(232,168,56,0.06);border:1px solid rgba(232,168,56,0.2);border-radius:8px;padding:10px 12px;margin-top:8px;">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">🤖 AI COACH</div>
+      ${obj.reflections?`<p style="font-size:12px;color:var(--text);line-height:1.5;margin:0 0 8px;">${esc(obj.reflections)}</p>`:''}
+      ${obj.watchouts?`<p style="font-size:12px;color:#ff9966;line-height:1.5;margin:0 0 8px;">⚠ ${esc(obj.watchouts)}</p>`:''}
+      ${obj.wins?.length?`<p style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin:0;">Suggested wins filled in above ↑</p>`:''}
+      <button onclick="runResetAI()" style="margin-top:8px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">↻ Regenerate</button>
+    </div>`;
+  } catch(e){
+    el.innerHTML=`<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;">AI unavailable — carry on manually.</div>`;
+  }
+}
+
+
 function savePinned(){
   // Pins persist to cloud via saveAllDebounced — no localStorage needed
   saveAllDebounced();
@@ -6804,7 +7211,7 @@ function activateFocusNow(){
   const btn=document.getElementById("focus-now-btn");
   if(_focusNowOn){
     _focusNowOn=false;
-    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear();
+    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear(); filterPerson.clear();
     filterStatus=new Set(["todo","inprogress","blocked","done"]);
     if(btn){btn.classList.remove("active");btn.textContent="⚡ Focus Now";}
     updateAllFddBtns();
@@ -6812,7 +7219,7 @@ function activateFocusNow(){
     showToast("Showing all tasks");
   } else {
     _focusNowOn=true;
-    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear();
+    filterRealm.clear(); filterParty.clear(); filterPriority.clear(); filterDue.clear(); filterPerson.clear();
     filterStatus=new Set(["todo","inprogress","blocked"]);
     filterPriority.add("high");
     filterDue.add("overdue"); filterDue.add("today"); filterDue.add("week");
@@ -6906,6 +7313,12 @@ function renderFddPanel(name){
       {val:"month",  label:"📆 This Month",color:"#81C784",       set:filterDue},
       {val:"none",   label:"○ No Due Date",color:"var(--text3)", set:filterDue},
     ];
+  } else if(name==="person"){
+    // Only show people who are assigned to at least one task
+    const usedIds=new Set(tasks.flatMap(t=>(t.personIds||'').split(',').filter(Boolean)));
+    items=peopleList.filter(p=>usedIds.has(p.id))
+      .map(p=>({val:p.id,label:'👤 '+p.name+(p.role?' ('+p.role+')':''),color:'#64B5F6',set:filterPerson}));
+    if(!items.length){panel.innerHTML=`<div class="fdd-item" style="color:var(--text3);font-style:italic;">No people assigned to tasks yet</div>`;return;}
   }
 
   panel.innerHTML=items.map(it=>{
@@ -6924,7 +7337,7 @@ function toggleFddItem(name,val,e){
   e.stopPropagation();
   // If user manually changes filters, exit focus mode
   if(_focusNowOn){ _focusNowOn=false; const b=document.getElementById("focus-now-btn"); if(b){b.classList.remove("active");b.textContent="⚡ Focus Now";} }
-  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue};
+  const setMap={realm:filterRealm,status:filterStatus,party:filterParty,priority:filterPriority,due:filterDue,person:filterPerson};
   const s=setMap[name];
   if(!s) return;
   if(s.has(val)) s.delete(val); else s.add(val);
@@ -7011,7 +7424,10 @@ function toggleSearch(){
   else{document.getElementById("search-input").value="";renderAll();}
 }
 
-function openModal(id){document.getElementById(id).style.display="flex";}
+function openModal(id){
+  document.getElementById(id).style.display="flex";
+  if(id==="modal-morning") setTimeout(generateMorningBriefing, 200);
+}
 function closeModal(id){document.getElementById(id).style.display="none";}
 
 let toastTimer=null;
