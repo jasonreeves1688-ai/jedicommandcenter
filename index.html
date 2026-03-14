@@ -127,15 +127,14 @@ body.calm-mode .sync-dot{display:none;}
   --space:var(--bg);--deep:var(--surface);
 }
 html,body{
-#app{display:flex;flex-direction:column;height:100%;height:100dvh;position:relative;z-index:1;}
+#app{display:flex;flex-direction:row;height:100%;height:100dvh;position:relative;z-index:1;}
 
 /* ── HEADER ── */
 #header{
   background:var(--surface);
   border-bottom:1px solid var(--border);
   padding:0 14px;
-  padding-top:env(safe-area-inset-top);
-  min-height:56px;
+  min-height:52px;
   display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
 }
 #header-brand{display:flex;flex-direction:column;gap:1px;}
@@ -637,53 +636,157 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 /* ── QUICK CAPTURE BUTTON ── */
 
 
-/* ── BOTTOM NAV ── */
+/* ── NAV — shared button styles ── */
+.nav-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;
+  border:none;background:transparent;color:var(--text3);
+  font-family:var(--font-ui);font-weight:700;
+  outline:none;
+  transition:color 0.12s,background 0.12s;
+  -webkit-tap-highlight-color:transparent;
+}
+.nav-btn.active{color:var(--accent);}
+.nav-btn:active{opacity:0.7;}
+.nav-icon{font-size:20px;line-height:1;font-style:normal;display:block;transition:transform 0.12s;}
+.nav-btn.active .nav-icon{transform:scale(1.1);}
+.nav-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1;text-align:center;}
+#nav-add .nav-icon{color:var(--accent);}
+#nav-add .nav-label{color:var(--accent);}
+
+/* ── MOBILE default: bottom tab bar + grid launcher ── */
+#app{ flex-direction:column; }
+#app-content{
+  flex:1;min-width:0;display:flex;flex-direction:column;
+  overflow:hidden;padding-top:env(safe-area-inset-top);
+}
+#side-rail{ display:none; }
 #bottom-nav{
   background:var(--surface);border-top:1px solid var(--border);
   padding:0;padding-bottom:env(safe-area-inset-bottom);
   display:flex;align-items:stretch;flex-shrink:0;
 }
-.nav-btn{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;padding:8px 2px;cursor:pointer;
-  border:none;background:transparent;color:var(--text3);
-  font-family:var(--font-ui);font-size:10px;font-weight:600;
-  letter-spacing:0.3px;text-transform:uppercase;outline:none;
-  transition:color 0.12s;min-width:0;
+#bottom-nav .nav-btn{
+  flex:1;padding:8px 2px;
+  font-size:10px;letter-spacing:0.3px;text-transform:uppercase;min-width:0;
 }
-.nav-btn.active{color:var(--accent);}
-.nav-btn:active{opacity:0.7;}
-.nav-icon{
-  width:24px;height:24px;
+
+/* Grid launcher overlay — hidden until opened */
+#nav-grid-overlay{
+  display:none;position:fixed;inset:0;z-index:800;
+  background:rgba(10,12,20,0.94);backdrop-filter:blur(10px);
+  flex-direction:column;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));
+}
+#nav-grid-overlay.open{display:flex;}
+#nav-grid-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 8px;flex-shrink:0;
+}
+#nav-grid-title{
+  font-family:var(--font-ui);font-size:12px;font-weight:800;
+  color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;
+}
+#nav-grid-close{
+  background:var(--surface2);border:1px solid var(--border2);color:var(--text2);
+  font-size:16px;width:36px;height:36px;border-radius:50%;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  font-size:20px;line-height:1;
-  transition:transform 0.12s;
-  /* Neutralize emoji baseline drift */
-  font-style:normal;
+  -webkit-tap-highlight-color:transparent;
 }
-.nav-btn.active .nav-icon{transform:scale(1.1);}
-.nav-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;line-height:1;}
+#nav-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:10px;padding:8px 16px 16px;overflow-y:auto;flex:1;align-content:start;
+}
+.nav-grid-tile{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;padding:16px 8px;border-radius:14px;cursor:pointer;
+  border:1px solid var(--border2);background:var(--surface);
+  font-family:var(--font-ui);font-size:12px;font-weight:700;color:var(--text2);
+  transition:all 0.12s;min-height:84px;
+  -webkit-tap-highlight-color:transparent;
+}
+.nav-grid-tile:active{transform:scale(0.95);background:var(--surface2);}
+.nav-grid-tile.grid-active{border-color:var(--accent);background:rgba(232,168,56,0.08);color:var(--accent);}
+.nav-grid-tile-icon{font-size:26px;line-height:1;}
+.nav-grid-add{background:var(--accent);border-color:var(--accent);color:#1a1f2e;}
+.nav-grid-add:active{background:#c87820;}
 
-/* Overflow "More" menu */
-#nav-more-btn{display:flex;}
-#nav-more-menu{
-  display:none;position:fixed;bottom:calc(56px + env(safe-area-inset-bottom));right:8px;
-  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
-  box-shadow:0 -4px 24px rgba(0,0,0,0.4);z-index:500;overflow:hidden;min-width:180px;
+/* ── DESKTOP ≥768px: side rail, no bottom bar ── */
+@media(min-width:768px){
+  #app{ flex-direction:row; }
+  #bottom-nav{ display:none !important; }
+  #nav-grid-overlay{ display:none !important; }
+  #side-rail{
+    width:64px;flex-shrink:0;
+    background:var(--surface);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    overflow-y:auto;overflow-x:hidden;scrollbar-width:none;z-index:10;
+  }
+  #side-rail::-webkit-scrollbar{display:none;}
+  #side-rail .nav-btn{
+    width:calc(100% - 8px);padding:10px 4px;
+    font-size:9px;letter-spacing:0.3px;text-transform:uppercase;
+    min-height:54px;border-radius:10px;margin:1px 4px;
+    box-sizing:border-box;flex-shrink:0;
+  }
+  #side-rail .nav-btn.active{background:rgba(232,168,56,0.12);}
+  #side-rail #nav-add{margin-top:auto;}
+  .rail-divider{width:32px;height:1px;background:var(--border);flex-shrink:0;margin:4px 0;}
+  #app-content{ padding-top:env(safe-area-inset-top); }
 }
-#nav-more-menu.open{display:block;}
-.nav-more-item{
-  display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;
-  border:none;background:transparent;color:var(--text2);width:100%;text-align:left;
-  font-family:var(--font-ui);font-size:13px;font-weight:600;letter-spacing:0.3px;
-  border-bottom:1px solid var(--border);transition:background 0.1s;
-}
-.nav-more-item:last-child{border-bottom:none;}
-.nav-more-item:active{background:var(--surface3);}
-.nav-more-item.active{color:var(--accent);}
-.nav-more-icon{font-size:20px;width:24px;text-align:center;}
 
-/* nav-more-btn always visible */
+/* ── TIME BLOCK ── */
+#tb-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+#tb-header{display:flex;align-items:center;gap:10px;padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);}
+#tb-date-nav{display:flex;align-items:center;gap:8px;}
+#tb-date-label{font-family:var(--font-ui);font-size:15px;font-weight:800;color:var(--text);}
+.tb-nav-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
+#tb-body{display:flex;flex:1;overflow:hidden;gap:0;}
+#tb-grid-wrap{flex:1;overflow-y:auto;position:relative;min-width:0;}
+#tb-grid{position:relative;margin:0 10px;}
+.tb-hour-row{display:flex;align-items:flex-start;min-height:60px;border-top:1px solid var(--border);position:relative;}
+.tb-hour-label{width:44px;flex-shrink:0;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);padding:3px 6px 0 0;text-align:right;margin-top:-7px;}
+.tb-hour-slot{flex:1;min-height:60px;position:relative;cursor:pointer;transition:background 0.1s;}
+.tb-hour-slot:hover{background:rgba(232,168,56,0.05);}
+.tb-hour-slot.tb-drop-target{background:rgba(232,168,56,0.12);outline:2px dashed rgba(232,168,56,0.5);}
+.tb-block{
+  position:absolute;left:4px;right:4px;
+  border-radius:8px;padding:5px 8px;
+  font-family:var(--font-ui);font-size:11px;font-weight:700;
+  cursor:pointer;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  display:flex;flex-direction:column;justify-content:flex-start;
+  transition:opacity 0.1s;
+  min-height:24px;
+}
+.tb-block:active{opacity:0.7;}
+.tb-block-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;}
+.tb-block-time{font-size:10px;opacity:0.75;margin-top:2px;}
+.tb-block-remove{position:absolute;top:3px;right:5px;background:none;border:none;color:inherit;font-size:13px;cursor:pointer;opacity:0.6;padding:0;line-height:1;}
+/* Unscheduled sidebar */
+#tb-sidebar{width:160px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+#tb-sidebar-hdr{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:8px 10px 6px;border-bottom:1px solid var(--border);flex-shrink:0;}
+#tb-unscheduled{flex:1;overflow-y:auto;padding:6px;}
+.tb-task-chip{
+  display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;
+  margin-bottom:5px;cursor:grab;
+  border:1px solid var(--border2);background:var(--surface2);
+  font-family:var(--font-ui);font-size:11px;font-weight:600;color:var(--text2);
+  transition:all 0.12s;
+}
+.tb-task-chip:active{cursor:grabbing;opacity:0.7;transform:scale(0.97);}
+.tb-task-chip.tb-dragging{opacity:0.4;}
+.tb-chip-est{font-size:10px;color:var(--accent);font-weight:800;flex-shrink:0;}
+.tb-chip-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+/* Auto-schedule button */
+#tb-auto-btn{margin:8px 10px;padding:9px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;}
+#tb-auto-btn:active{background:#c87820;}
+/* Current time line */
+.tb-now-line{position:absolute;left:44px;right:4px;height:2px;background:#ff6060;z-index:10;pointer-events:none;}
+.tb-now-dot{position:absolute;left:40px;width:10px;height:10px;border-radius:50%;background:#ff6060;margin-top:-4px;z-index:11;}
 
 /* ── MODALS ── */
 .modal-overlay{
@@ -706,6 +809,58 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
   padding-bottom:env(safe-area-inset-bottom);
   width:100%;max-width:520px;max-height:88vh;overflow-y:auto;
   box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+/* Full-screen variant for capture modals */
+.modal-fullscreen{
+  background:var(--surface);
+  border-radius:0;border:none;
+  padding:0;
+  width:100%;height:100%;max-height:100%;max-width:100%;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-overlay.fullscreen{
+  align-items:stretch;
+  padding-top:env(safe-area-inset-top);
+}
+.modal-fullscreen .modal-header{
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.modal-fullscreen .modal-body{
+  flex:1;overflow-y:auto;padding:14px 16px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.modal-fullscreen .modal-footer{
+  padding:12px 16px;border-top:1px solid var(--border);
+  padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  flex-shrink:0;
+}
+/* Person picker chip */
+.person-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:20px;
+  border:1px solid var(--border2);background:var(--surface2);
+  font-family:var(--font-ui);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all 0.12s;color:var(--text2);
+  min-height:36px;
+}
+.person-chip.selected{
+  border-color:var(--accent);background:var(--accent-soft);color:var(--accent);
+}
+.person-chip:active{opacity:0.7;}
+/* Person filter bar */
+.person-filter-bar{
+  display:flex;gap:6px;padding:8px 12px;
+  overflow-x:auto;flex-shrink:0;
+  border-bottom:1px solid var(--border);
+  scrollbar-width:none;
+}
+.person-filter-bar::-webkit-scrollbar{display:none;}
+/* People list item */
+.people-list-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;border-bottom:1px solid var(--border);
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -1193,6 +1348,46 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
   <div class="vignette"></div>
 </div>
 
+  <!-- Side rail — always visible on left edge -->
+  <div id="side-rail">
+    <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
+      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+    </button>
+    <button class="nav-btn" id="nav-today" onclick="setNav('today')">
+      <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+    </button>
+    <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
+      <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
+    </button>
+    <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
+      <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
+    </button>
+    <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
+      <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
+    </button>
+    <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
+      <span class="nav-icon">📅</span><span class="nav-label">Cal</span>
+    </button>
+    <button class="nav-btn" id="nav-people" onclick="setNav('people')">
+      <span class="nav-icon">👥</span><span class="nav-label">People</span>
+    </button>
+    <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
+      <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+    </button>
+    <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
+      <span class="nav-icon">📊</span><span class="nav-label">Charts</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
+      <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
+    </button>
+    <div class="rail-divider"></div>
+    <button class="nav-btn" id="nav-add" onclick="openAddTask()">
+      <span class="nav-icon">+</span><span class="nav-label">Add</span>
+    </button>
+  </div>
+
+  <!-- App content column — fills right of rail -->
+  <div id="app-content">
   <!-- HEADER -->
   <div id="header">
     <div id="header-brand">
@@ -1276,46 +1471,76 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
   <!-- QUICK CAPTURE BUTTON -->
 
 
-  <!-- Bottom nav -->
+  </div><!-- /app-content -->
+
+  <!-- Mobile bottom nav (hidden on desktop via media query) -->
   <div id="bottom-nav">
-    <button class="nav-btn" id="nav-today" onclick="setNav('today')">
-      <span class="nav-icon">☀</span><span class="nav-label">Today</span>
-    </button>
     <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
       <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+    </button>
+    <button class="nav-btn" id="nav-today" onclick="setNav('today')">
+      <span class="nav-icon">☀</span><span class="nav-label">Today</span>
     </button>
     <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
       <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
     </button>
-    <button class="nav-btn" id="nav-add" onclick="openAddTask()">
-      <span class="nav-icon" style="color:var(--accent);font-size:28px;">+</span>
-      <span class="nav-label" style="color:var(--accent);">Add</span>
+    <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
+      <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
     </button>
     <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
       <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
     </button>
-    <button class="nav-btn" id="nav-more-btn" onclick="toggleMoreMenu()">
-      <span class="nav-icon">⋯</span><span class="nav-label">More</span>
+    <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
+      <span class="nav-icon">⊞</span><span class="nav-label">All</span>
     </button>
   </div>
 
-  <!-- More overflow menu -->
-  <div id="nav-more-menu">
-    <button class="nav-more-item" id="nav-more-cal" onclick="setNav('cal');closeMoreMenu()">
-      <span class="nav-more-icon">📅</span>Calendar
-    </button>
-    <button class="nav-more-item" onclick="setNav('meetings');closeMoreMenu()">
-      <span class="nav-more-icon">📝</span>Meetings
-    </button>
-    <button class="nav-more-item" id="nav-more-waiting" onclick="setNav('waiting');closeMoreMenu()">
-      <span class="nav-more-icon">⏳</span>Waiting For
-    </button>
-    <button class="nav-more-item" id="nav-more-people" onclick="setNav('people');closeMoreMenu()">
-      <span class="nav-more-icon">👥</span>People
-    </button>
-    <button class="nav-more-item" id="nav-more-settings" onclick="setNav('settings');closeMoreMenu()">
-      <span class="nav-more-icon">⚙</span>Settings
-    </button>
+  <!-- Grid launcher overlay (mobile only) -->
+  <div id="nav-grid-overlay">
+    <div id="nav-grid-header">
+      <div id="nav-grid-title">Go to…</div>
+      <button id="nav-grid-close" onclick="closeNavGrid()">✕</button>
+    </div>
+    <div id="nav-grid">
+      <button class="nav-grid-tile nav-grid-add" onclick="openAddTask();closeNavGrid()">
+        <span class="nav-grid-tile-icon">+</span>
+        <span>Add Task</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-today" onclick="setNav('today');closeNavGrid()">
+        <span class="nav-grid-tile-icon">☀</span><span>Today</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
+        <span class="nav-grid-tile-icon">☰</span><span>Tasks</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-focus" onclick="setNav('focus');closeNavGrid()">
+        <span class="nav-grid-tile-icon">⏱</span><span>Focus</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
+        <span class="nav-grid-tile-icon">📝</span><span>Meetings</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-kids" onclick="setNav('kids');closeNavGrid()">
+        <span class="nav-grid-tile-icon">⭐</span><span>Kids</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
+        <span class="nav-grid-tile-icon">⏳</span><span>Waiting For</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-cal" onclick="setNav('cal');closeNavGrid()">
+        <span class="nav-grid-tile-icon">📅</span><span>Calendar</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
+        <span class="nav-grid-tile-icon">👥</span><span>People</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-charts" onclick="setNav('charts');closeNavGrid()">
+        <span class="nav-grid-tile-icon">📊</span><span>Charts</span>
+      </button>
+
+      <button class="nav-grid-tile" id="grid-settings" onclick="setNav('settings');closeNavGrid()">
+        <span class="nav-grid-tile-icon">⚙</span><span>Settings</span>
+      </button>
+      <button class="nav-grid-tile" onclick="openMeetingCapture();closeNavGrid()">
+        <span class="nav-grid-tile-icon">🎙</span><span>New Meeting</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1787,6 +2012,10 @@ async function apiCall(action,data={}){
 async function loadAll(){
   try{
     const data=await apiCall("getAll");
+    // Check deployed Code.gs version
+    if(data.__version !== 'v27-sheets'){
+      console.warn('Old Code.gs deployed — hub data will not sync. Please redeploy.');
+    }
     const sheetProjects=(data.projects||[]).map(p=>({
       ...p,collapsed:p.collapsed==="true"||p.collapsed===true
     })).filter(p=>p.id&&p.name);
@@ -1930,6 +2159,7 @@ async function loadAll(){
   }} catch(e){}
   // Tomorrow hint
   try { if(data.tomorrowHint) localStorage.setItem('hub-tomorrow-hint', data.tomorrowHint); } catch(e){}
+  try { if(data.tbBlocks) { tbBlocks = data.tbBlocks; localStorage.setItem('hub-tb-blocks', JSON.stringify(tbBlocks)); } } catch(e){}
 
   kidsCloudLoaded=true;
 }
@@ -1954,7 +2184,8 @@ function getCloudStats(){
     },
     dailyLog:    JSON.parse(localStorage.getItem('hub-daily-log')||'[]'),
     weeklyJournal: JSON.parse(localStorage.getItem('hub-journal')||'[]'),
-    tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||''
+    tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||'',
+    tbBlocks: tbBlocks
   };
 }
 
@@ -3435,9 +3666,9 @@ function renderCalendar(container){
         const c=proj?.color||"#E8A838";
         const pDot=`<div class="cal-day-task-dot" style="background:${PRIORITY_COLOR[t.priority]||c};"></div>`;
         const isDoneTask = t.status==='done';
-        return `<div class="cal-day-task" style="${isDoneTask?'opacity:0.5;':''}">
-          <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:32px;height:32px;border-radius:50%;border:2px solid ${isDoneTask?'var(--green)':'var(--text3)'};background:${isDoneTask?'var(--green)':'transparent'};color:${isDoneTask?'#fff':'var(--text4)'};font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="${isDoneTask?'Mark incomplete':'Mark complete'}">✓</button>
-          <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
+        return `<div class="cal-day-task" onclick="openEditTask('${t.id}')" style="${isDoneTask?'opacity:0.5;':''}cursor:pointer;">
+          <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:36px;height:36px;border-radius:50%;border:2px solid ${isDoneTask?'var(--green)':'var(--text3)'};background:${isDoneTask?'var(--green)':'transparent'};color:${isDoneTask?'#fff':'var(--text4)'};font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="${isDoneTask?'Mark incomplete':'Mark complete'}">✓</button>
+          <div style="flex:1;min-width:0;">
             <div class="cal-day-task-title" style="${isDoneTask?'text-decoration:line-through;':''}">${esc(t.title)}</div>
             ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
           </div>
@@ -3480,7 +3711,7 @@ function renderCalendar(container){
           <div style="font-size:11px;opacity:0.7;">${dateStr}</div>
         </div>
         <div class="cal-dot" style="background:${PRIORITY_COLOR[t.priority]||c};width:8px;height:8px;flex-shrink:0;"></div>
-        <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
+        <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
           <div style="font-size:13px;color:var(--text);font-family:var(--font-ui);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</div>
           ${proj?`<div style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:""}
         </div>
@@ -3967,6 +4198,21 @@ function renderSettings(container){
           </div>
         </div>
       </details>
+    </div>
+    <div style="margin-bottom:24px;">
+      <div class="section-title">🗓 Time Block Hours</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;min-width:80px;">Day starts:</span>
+        <select class="field-select" onchange="localStorage.setItem('hub-tb-start',this.value)" style="flex:1;">
+          ${[5,6,7,8,9].map(h=>`<option value="${h}" ${getTbHourStart()===h?'selected':''}>${h<12?h+'am':h+'pm'}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;min-width:80px;">Day ends:</span>
+        <select class="field-select" onchange="localStorage.setItem('hub-tb-end',this.value)" style="flex:1;">
+          ${[18,19,20,21,22,23].map(h=>`<option value="${h}" ${getTbHourEnd()===h?'selected':''}>${h<12?h+'am':h===12?'12pm':h-12+'pm'}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div style="margin-bottom:32px;">
       <div class="section-title">⏳ Timer CONFIG</div>
@@ -4644,37 +4890,50 @@ function confirmImport(){
 // ═══════════════════════════════════════════════════════════════
 // NAV + FILTERS
 // ═══════════════════════════════════════════════════════════════
-function toggleMoreMenu(){
-  const menu=document.getElementById('nav-more-menu');
-  menu.classList.toggle('open');
-  // Close when tapping outside
-  if(menu.classList.contains('open')){
-    setTimeout(()=>document.addEventListener('click',closeMoreOnOutside,{once:true}),10);
-  }
+function toggleNavGrid(){
+  const overlay = document.getElementById('nav-grid-overlay');
+  if(!overlay) return;
+  if(overlay.classList.contains('open')){ closeNavGrid(); }
+  else { updateNavGridActive(); overlay.classList.add('open'); }
 }
-function closeMoreMenu(){
-  document.getElementById('nav-more-menu')?.classList.remove('open');
+
+function closeNavGrid(){
+  document.getElementById('nav-grid-overlay')?.classList.remove('open');
 }
-function closeMoreOnOutside(e){
-  if(!e.target.closest('#nav-more-menu')&&!e.target.closest('#nav-more-btn')) closeMoreMenu();
+
+function updateNavGridActive(){
+  document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(el=>el.classList.remove('active'));
+  const map = {today:'grid-today',tasks:'grid-tasks',focus:'grid-focus',
+    meetings:'grid-meetings',kids:'grid-kids',waiting:'grid-waiting',
+    cal:'grid-cal',people:'grid-people',charts:'grid-charts',settings:'grid-settings'};
+  const el = document.getElementById(map[activeNav]);
+  if(el) el.classList.add('active');
 }
+
+// Compat shims for any remaining references
+function toggleMoreMenu(){ toggleNavGrid(); }
+function closeMoreMenu(){ closeNavGrid(); }
+function closeMoreOnOutside(){}
 
 function setNav(nav){
   closeFdd();
+  closeNavGrid();
   activeNav=nav;focusOn=nav==="focus";
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
-  const collapsedNavs=['cal','settings'];  // these live only in the More menu
-  const btn=document.getElementById(`nav-${nav}`);if(btn) btn.classList.add("active");
-  // On small screens where collapsible items are hidden, highlight More button instead
-  const moreBtn=document.getElementById('nav-more-btn');
-  if(moreBtn){
-    if(collapsedNavs.includes(nav) && getComputedStyle(moreBtn).display!=='none'){
-      moreBtn.classList.add('active');
-    }
+  // Highlight matching button in BOTH nav bars (only one is visible at a time)
+  const btn = document.getElementById(`nav-${nav}`);
+  if(btn) btn.classList.add("active");
+  // Also update the ⊞ grid button — highlight if nav is not a primary tab
+  const primaryTabs = ['today','tasks','focus','meetings','kids'];
+  const gridBtn = document.getElementById('nav-grid-btn');
+  if(gridBtn){
+    if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
+    else gridBtn.classList.remove('active');
   }
-  // Sync active state in more menu items
-  document.querySelectorAll('.nav-more-item').forEach(b=>b.classList.remove('active'));
-  const moreItem=document.getElementById(`nav-more-${nav}`);if(moreItem) moreItem.classList.add('active');
+  // Highlight matching tile in the grid overlay
+  document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(t=>t.classList.remove('grid-active'));
+  const tile = document.getElementById('grid-'+nav);
+  if(tile) tile.classList.add('grid-active');
   if(nav==="cal") viewMode="calendar";
   else if(nav==="tasks") viewMode="list";
   const showSearch=nav==="tasks";
@@ -4702,6 +4961,12 @@ let overwhelmMode = false;
 let _assigningSlot = null;
 let resetStep = 1;
 let somedayExpanded = false;
+let tbDate = today();              // date being planned
+let todayViewMode = 'list';        // 'list' | 'timeblock' — toggle on Today screen
+let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
+let tbDragTask = null;             // task being dragged from unscheduled list
+let waitingPersonFilter = ''; // person id or '' for all
+let meetingPersonFilter = ''; // person id or '' for all
 
 // ── New hub data (persisted to cloud via getCloudStats) ──────────
 function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
@@ -4958,6 +5223,15 @@ function renderTodayView(container){
 
   let html=``;
 
+  // Time block view mode
+  if(todayViewMode === 'timeblock'){
+    tbDate = todayStr;
+    container.innerHTML = html;
+    // Render timeblock inline — reuse renderTimeBlock but inside today container
+    renderTimeBlock(container);
+    return;
+  }
+
   // Overwhelm mode — just one thing
   if(overwhelmMode){
     html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
@@ -5001,6 +5275,8 @@ function renderTodayView(container){
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
       <button onclick="overwhelmMode=true;renderAll();" title="Just show me one thing" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">🧘</button>
+      <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
+        style="padding:6px 8px;border-radius:6px;border:1px solid ${todayViewMode==='timeblock'?'rgba(232,168,56,0.5)':'var(--border)'};background:${todayViewMode==='timeblock'?'var(--accent-soft)':'var(--surface2)'};color:${todayViewMode==='timeblock'?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;cursor:pointer;" title="Time block view">🗓</button>
       <button onclick="openReset()" style="padding:6px 11px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 Reset</button>
     </div>
   </div>`;
@@ -5081,16 +5357,16 @@ function renderTodayView(container){
     // Overdue first — red tint, auto-surfaced
     overdueUnpinned.forEach((t, i) => {
       const proj = projects.find(p => p.id === t.projectId);
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(255,80,80,0.06);border-bottom:1px solid var(--border);">
-        <button onclick="completeTask('${t.id}',event)" style="width:28px;height:28px;border-radius:50%;border:2px solid #ff6060;background:transparent;color:#ff6060;font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
+      html += `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(255,80,80,0.06);border-bottom:1px solid var(--border);cursor:pointer;">
+        <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid #ff6060;background:transparent;color:#ff6060;font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
             <span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);font-weight:700;">⚠ OVERDUE ${t.dueDate.slice(5)}</span>
             ${proj ? `<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>` : ''}
           </div>
         </div>
-        <button onclick="toggleTodayPin('${t.id}')" title="Pin to today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">📌</button>
+        <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin to today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">📌</button>
       </div>`;
     });
 
@@ -5103,16 +5379,16 @@ function renderTodayView(container){
                       : isToday   ? `<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);">📅 today</span>`
                       : t.dueDate ? `<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">📅 ${t.dueDate.slice(5)}</span>` : '';
       const isLast = i === pinnedTasks.length - 1 && pinnedDone.length === 0;
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;${isLast?'':'border-bottom:1px solid var(--border);'}">
-        <button onclick="completeTask('${t.id}',event)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
-        <div style="flex:1;min-width:0;" onclick="openTaskDetail('${t.id}')">
+      html += `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;${isLast?'':'border-bottom:1px solid var(--border);'}cursor:pointer;">
+        <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
+        <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap;">
             ${proj ? `<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>` : ''}
             ${duePill}
           </div>
         </div>
-        <button onclick="toggleTodayPin('${t.id}')" title="Remove from today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">✕</button>
+        <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove from today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">✕</button>
       </div>`;
     });
 
@@ -5123,7 +5399,7 @@ function renderTodayView(container){
         const proj = projects.find(p => p.id === t.projectId);
         html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;opacity:0.5;${i<pinnedDone.length-1?'border-bottom:1px solid var(--border);':''}">
           <button onclick="completeTask('${t.id}',event)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--green);background:rgba(100,200,100,0.1);color:var(--green);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Undo completion">✓</button>
-          <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTaskDetail('${t.id}')">
+          <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
             <div style="font-size:13px;font-weight:500;color:var(--text3);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             ${proj ? `<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);opacity:0.7;">◈ ${esc(proj.name)}</div>` : ''}
           </div>
@@ -5154,13 +5430,13 @@ function renderTodayView(container){
       // Find first available slot to suggest
       const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
       const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
-      return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+      return `<div class="parking-lot-item" onclick="openEditTask('${t.id}')" style="border-bottom:1px solid var(--border);cursor:pointer;">
         <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Mark complete">✓</button>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${esc(t.title)}</div>
           ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
         </div>
-        <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
+        <button class="parking-lot-assign" onclick="event.stopPropagation();openTodayPicker();" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">+ Today</button>
       </div>`;
     }).join('');
     // Remaining tasks expandable
@@ -5380,8 +5656,20 @@ function resetBack(){
 // ═══════════════════════════════════════════════════════════════
 function renderWaitingPage(container){
   const todayStr = today();
-  const active = waitingFor.filter(w=>!w.done);
-  const done   = waitingFor.filter(w=>w.done).slice(0,10);
+  // Person filter
+  const allActive = waitingFor.filter(w=>!w.done);
+  const active = waitingPersonFilter
+    ? allActive.filter(w=>w.personId===waitingPersonFilter || w.person===getPersonNameById(waitingPersonFilter))
+    : allActive;
+  const done = (waitingPersonFilter
+    ? waitingFor.filter(w=>w.done && (w.personId===waitingPersonFilter || w.person===getPersonNameById(waitingPersonFilter)))
+    : waitingFor.filter(w=>w.done)).slice(0,10);
+  // Unique people in waiting for list for filter bar
+  const wfPeople = [...new Set(waitingFor.map(w=>w.personId||w.person).filter(Boolean))]
+    .map(idOrName => {
+      const p = peopleList.find(x=>x.id===idOrName);
+      return p ? p : { id:idOrName, name:idOrName };
+    }).slice(0,8);
 
   const row = (w, isDone) => {
     const overdue = w.dueDate && w.dueDate < todayStr;
@@ -5393,7 +5681,7 @@ function renderWaitingPage(container){
         <div style="font-size:14px;color:var(--text);line-height:1.4;margin-top:2px;">${esc(w.what)}</div>
         <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:11px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ overdue ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
-          ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openTaskDetail('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
+          ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openEditTask('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
           <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${w.createdAt.slice(5)}</span>
         </div>
       </div>
@@ -5401,11 +5689,18 @@ function renderWaitingPage(container){
     </div>`;
   };
 
+  const filterBar = wfPeople.length > 1 ? `
+    <div class="person-filter-bar">
+      <button class="person-chip ${!waitingPersonFilter?'selected':''}" onclick="waitingPersonFilter='';renderAll();">All</button>
+      ${wfPeople.map(p=>`<button class="person-chip ${waitingPersonFilter===p.id?'selected':''}" onclick="waitingPersonFilter='${p.id}';renderAll();">${p.name}</button>`).join('')}
+    </div>` : '';
+
   container.innerHTML = `
     <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">⏳ Waiting For</div>
       <button onclick="openWaitingModal()" style="padding:6px 14px;border-radius:7px;border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
     </div>
+    ${filterBar}
     <div style="margin:0 10px 10px;border-radius:10px;border:1px solid rgba(100,181,246,0.25);background:var(--surface);overflow:hidden;">
       ${active.length===0
         ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing waiting — you're unblocked! 🎉</div>`
@@ -5451,22 +5746,40 @@ function renderPeoplePage(container){
 }
 
 function renderMeetingsPage(container){
+  // Person filter for meetings
+  const filteredMeetings = meetingPersonFilter
+    ? meetingLog.filter(m=>(m.personIds||'').split(',').includes(meetingPersonFilter))
+    : meetingLog;
+  // Unique people who appear in meetings
+  const mtgPeople = [...new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)))]
+    .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean).slice(0,8);
+  const filterBar = mtgPeople.length > 1 ? `
+    <div class="person-filter-bar">
+      <button class="person-chip ${!meetingPersonFilter?'selected':''}" onclick="meetingPersonFilter='';renderAll();">All</button>
+      ${mtgPeople.map(p=>`<button class="person-chip ${meetingPersonFilter===p.id?'selected':''}" onclick="meetingPersonFilter='${p.id}';renderAll();">${p.name}</button>`).join('')}
+    </div>` : '';
+
   container.innerHTML = `
     <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 Meetings</div>
       <button onclick="openMeetingCapture()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Capture</button>
     </div>
+    ${filterBar}
     <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
-      ${meetingLog.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No meetings captured yet.</div>`
-        : meetingLog.map(m=>{
+      ${filteredMeetings.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">${meetingLog.length===0?'No meetings captured yet.':'No meetings with this person.'}</div>`
+        : filteredMeetings.map(m=>{
             const hasCommits = m.myCommits?.trim();
             const hasWaiting = m.theirCommits?.trim();
+            const mPersonChips = (m.personIds||'').split(',').filter(Boolean)
+                .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
+                .map(p=>`<span style="font-size:11px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:var(--font-ui);">${p.name}</span>`).join('');
             return `<div style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMeetingCapture('${m.id}')">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
-                  ${m.attendees?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">with ${esc(m.attendees.slice(0,50))}</div>`:''}
+                  ${mPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${mPersonChips}</div>`:''}
+                  ${m.attendees&&!mPersonChips?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">with ${esc(m.attendees.slice(0,50))}</div>`:''}
                 </div>
                 <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);flex-shrink:0;">${m.date}</div>
               </div>
@@ -5517,7 +5830,7 @@ function renderWaitingFor(){
         <div style="font-size:13px;color:var(--text);line-height:1.4;">${esc(w.what)}</div>
         <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
-          ${linkedTask?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openTaskDetail('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,28))}</span>`:''}
+          ${linkedTask?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openEditTask('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,28))}</span>`:''}
           <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${w.createdAt.slice(5)}</span>
         </div>
       </div>
@@ -5539,44 +5852,51 @@ function renderWaitingFor(){
 
 function openWaitingModal(prefillTaskId){
   const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
-  const m = document.getElementById('modal-waiting');
-  if(m){
-    document.getElementById('wf-person').value='';
-    document.getElementById('wf-what').value = linkedTask ? linkedTask.title : '';
-    document.getElementById('wf-due').value='';
-    document.getElementById('wf-task-id').value = prefillTaskId||'';
-    openModal('modal-waiting');
-    setTimeout(()=>document.getElementById('wf-person').focus(),150);
-    return;
-  }
+  const old = document.getElementById('modal-waiting');
+  if(old) old.remove();
   const el = document.createElement('div');
-  el.id='modal-waiting'; el.className='modal-overlay';
-  el.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">⏳ Waiting For</div>
+  el.id='modal-waiting'; el.className='modal-overlay fullscreen';
+  el.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">⏳ Waiting For</div>
       <button class="modal-close" onclick="closeModal('modal-waiting')">✕</button>
     </div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
-      <input id="wf-person" class="field-input" placeholder="Who? (name or team)" autocomplete="off"/>
-      <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${linkedTask?esc(linkedTask.title):''}"/>
-      <input id="wf-due" type="date" class="field-input" placeholder="Expected by (optional)"/>
+    <div class="modal-body">
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO?</div>
+        ${buildPersonPickerHTML('', 'wf-person-id')}
+        <input id="wf-person-free" class="field-input" placeholder="Or type a name not in your list…" autocomplete="off" style="margin-top:8px;"/>
+      </div>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">WHAT ARE YOU WAITING ON?</div>
+        <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${linkedTask?esc(linkedTask.title):''}"/>
+      </div>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">EXPECTED BY (OPTIONAL)</div>
+        <input id="wf-due" type="date" class="field-input"/>
+      </div>
       <input id="wf-task-id" type="hidden" value="${prefillTaskId||''}"/>
-      <button onclick="submitWaitingFor()" class="modal-btn primary" style="width:100%;">+ Add to Waiting For</button>
+    </div>
+    <div class="modal-footer">
+      <button onclick="submitWaitingFor()" style="width:100%;padding:14px;border-radius:10px;border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">+ Add to Waiting For</button>
     </div>
   </div>`;
   el.onclick = e => { if(e.target===el) closeModal('modal-waiting'); };
   document.body.appendChild(el);
   openModal('modal-waiting');
-  setTimeout(()=>document.getElementById('wf-person').focus(),150);
+  setTimeout(()=>document.getElementById('wf-what').focus(),150);
 }
 
 function submitWaitingFor(){
-  const person = document.getElementById('wf-person')?.value||'';
-  const what   = document.getElementById('wf-what')?.value||'';
+  const personId = document.getElementById('wf-person-id')?.value||'';
+  const personFree = document.getElementById('wf-person-free')?.value.trim()||'';
+  const person = personId ? getPersonNameById(personId) : personFree;
+  const what   = document.getElementById('wf-what')?.value.trim()||'';
   const due    = document.getElementById('wf-due')?.value||'';
   const taskId = document.getElementById('wf-task-id')?.value||'';
-  if(!person.trim()||!what.trim()){ showToast('Need a person and what you\'re waiting on'); return; }
-  addWaitingFor(person, what, due, taskId);
+  if(!person||!what){ showToast('Need a person and what you\'re waiting on'); return; }
+  waitingFor.unshift({ id:'wf'+Date.now(), person, personId:personId||'', what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
+  saveWaiting(); renderAll();
   closeModal('modal-waiting');
   showToast('⏳ Added to Waiting For');
 }
@@ -5717,10 +6037,64 @@ function renderSomedaySection(){
 // ═══════════════════════════════════════════════════════════════
 function savePeople(){ saveHubData('hub-people', peopleList); }
 
-function addPerson(name, nudgeDays){
+function addPerson(name, role, nudgeDays){
   if(!name.trim()) return;
-  peopleList.push({ id:'p'+Date.now(), name:name.trim(), lastContact:'', nudgeDays:nudgeDays||14, notes:'' });
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14, notes:'' });
   savePeople(); renderAll();
+}
+
+function updatePerson(id, name, role, nudgeDays){
+  const p = peopleList.find(x=>x.id===id); if(!p) return;
+  p.name = name.trim(); p.role = (role||'').trim(); p.nudgeDays = nudgeDays||14;
+  savePeople(); renderAll();
+  showToast('✓ Updated ' + p.name);
+}
+
+// Build person picker HTML for use in modals
+function buildPersonPickerHTML(selectedIds, inputId){
+  if(peopleList.length === 0){
+    return `<div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);padding:4px 0;">
+      No people added yet — <button onclick="setNav('people');closeModal('modal-waiting');closeModal('modal-meeting');" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:12px;cursor:pointer;text-decoration:underline;">add people first</button>
+    </div>`;
+  }
+  const sel = new Set(Array.isArray(selectedIds) ? selectedIds : [selectedIds].filter(Boolean));
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;" id="${inputId}-chips">
+    ${peopleList.map(p=>`<button type="button" class="person-chip ${sel.has(p.id)?'selected':''}"
+      onclick="togglePersonChip('${p.id}','${inputId}-chips')"
+      data-pid="${p.id}">
+      <span>${p.name.slice(0,1).toUpperCase()}</span>
+      <span>${p.name}${p.role?` <span style='color:var(--text4);font-weight:400;'>(${p.role})</span>`:''}</span>
+    </button>`).join('')}
+  </div>
+  <input type="hidden" id="${inputId}" value="${[...sel].join(',')}"/>`;
+}
+
+function togglePersonChip(personId, chipsContainerId){
+  const container = document.getElementById(chipsContainerId);
+  if(!container) return;
+  const hiddenId = chipsContainerId.replace('-chips','');
+  const hidden = document.getElementById(hiddenId);
+  const chips = container.querySelectorAll('[data-pid]');
+  const chip = container.querySelector(`[data-pid="${personId}"]`);
+  if(!chip) return;
+  const isSelected = chip.classList.contains('selected');
+  // For waiting-for — single select. For meeting — multi select
+  const isMulti = chipsContainerId.includes('mtg');
+  if(!isMulti) chips.forEach(c=>c.classList.remove('selected'));
+  chip.classList.toggle('selected', !isSelected);
+  // Update hidden value
+  const selected = [...container.querySelectorAll('.selected')].map(c=>c.dataset.pid);
+  if(hidden) hidden.value = selected.join(',');
+}
+
+function getPersonNameById(id){
+  const p = peopleList.find(x=>x.id===id);
+  return p ? p.name : id;
+}
+
+function getPersonNamesByIds(ids){
+  if(!ids) return '';
+  return ids.split(',').filter(Boolean).map(id=>getPersonNameById(id)).join(', ');
 }
 
 function logContact(id){
@@ -5772,24 +6146,49 @@ function renderPeopleSection(){
   </div>`;
 }
 
-function openAddPersonModal(){
-  const el=document.getElementById('modal-person');
-  if(el){ document.getElementById('person-name').value=''; document.getElementById('person-days').value='14'; openModal('modal-person'); setTimeout(()=>document.getElementById('person-name').focus(),150); return; }
+function openAddPersonModal(editId){
+  const existing = editId ? peopleList.find(p=>p.id===editId) : null;
+  const old = document.getElementById('modal-person');
+  if(old) old.remove();
   const m=document.createElement('div');
-  m.id='modal-person'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">👤 Add Person</div>
+  m.id='modal-person'; m.className='modal-overlay fullscreen';
+  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">👥 People</div>
       <button class="modal-close" onclick="closeModal('modal-person')">✕</button>
     </div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
-      <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off"/>
+    <div class="modal-body">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
+      <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
+      <input id="person-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
-        <input id="person-days" type="number" class="field-input" value="14" min="1" max="90" style="flex:1;"/>
-        <span style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">days</span>
+        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
+        <input id="person-days" type="number" class="field-input" value="${existing?existing.nudgeDays:14}" min="1" max="365" style="flex:1;"/>
+        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);">days</span>
       </div>
-      <button onclick="submitAddPerson()" class="modal-btn primary" style="width:100%;">+ Add</button>
+      <input type="hidden" id="person-edit-id" value="${editId||''}"/>
+      <button onclick="submitAddPerson()" style="width:100%;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Person'}</button>
+      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">ALL PEOPLE (${peopleList.length})</div>
+        <div id="people-edit-list">
+          ${peopleList.length===0
+            ? `<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);font-style:italic;padding:8px 0;">No people added yet.</div>`
+            : peopleList.map(p=>{
+                const nudges = getPeopleNudges();
+                const isNudge = nudges.find(n=>n.id===p.id);
+                return `<div class="people-list-item">
+                  <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
+                    <div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${p.role?esc(p.role)+' · ':''} every ${p.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}</div>
+                  </div>
+                  <button onclick="openAddPersonModal('${p.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;margin-right:4px;">edit</button>
+                  <button onclick="deletePerson('${p.id}');openAddPersonModal();" style="padding:6px 8px;border-radius:6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;">✕</button>
+                </div>`;
+              }).join('')
+          }
+        </div>
+      </div>
     </div>
   </div>`;
   m.onclick=e=>{ if(e.target===m) closeModal('modal-person'); };
@@ -5800,11 +6199,13 @@ function openAddPersonModal(){
 
 function submitAddPerson(){
   const name=document.getElementById('person-name')?.value||'';
+  const role=document.getElementById('person-role')?.value||'';
   const days=parseInt(document.getElementById('person-days')?.value||'14');
+  const editId=document.getElementById('person-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  addPerson(name, days);
-  closeModal('modal-person');
-  showToast('👤 Added ' + name.trim());
+  if(editId){ updatePerson(editId, name, role, days); }
+  else { addPerson(name, role, days); showToast('👤 Added ' + name.trim()); }
+  openAddPersonModal(); // refresh modal to show updated list
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5814,53 +6215,52 @@ function saveMeetings(){ saveHubData('hub-meetings', meetingLog); }
 
 function openMeetingCapture(existingId){
   const existing = existingId ? meetingLog.find(m=>m.id===existingId) : null;
-  const el=document.getElementById('modal-meeting');
-  if(el){
-    document.getElementById('mtg-title').value = existing?.title||'';
-    document.getElementById('mtg-date').value  = existing?.date||today();
-    document.getElementById('mtg-attendees').value = existing?.attendees||'';
-    document.getElementById('mtg-decisions').value = existing?.decisions||'';
-    document.getElementById('mtg-notes').value     = existing?.notes||'';
-    document.getElementById('mtg-mycommits').value = existing?.myCommits||'';
-    document.getElementById('mtg-theircommits').value = existing?.theirCommits||'';
-    document.getElementById('mtg-id').value = existingId||'';
-    openModal('modal-meeting');
-    setTimeout(()=>document.getElementById('mtg-title').focus(),150);
-    return;
-  }
+  const old = document.getElementById('modal-meeting');
+  if(old) old.remove();
+  const existingPersonIds = existing?.personIds || '';
   const m=document.createElement('div');
-  m.id='modal-meeting'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" style="max-height:88vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title">📝 Meeting Capture</div>
+  m.id='modal-meeting'; m.className='modal-overlay fullscreen';
+  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 ${existing?'Edit Meeting':'Meeting Capture'}</div>
       <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
     </div>
-    <div style="overflow-y:auto;flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;">
-      <input type="hidden" id="mtg-id" value=""/>
-      <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off"/>
-      <div style="display:flex;gap:6px;">
-        <input id="mtg-date" type="date" class="field-input" value="${today()}" style="flex:1;"/>
-        <input id="mtg-attendees" class="field-input" placeholder="Who was there…" style="flex:2;" autocomplete="off"/>
+    <div class="modal-body">
+      <input type="hidden" id="mtg-id" value="${existingId||''}"/>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">MEETING</div>
+        <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off" value="${existing?esc(existing.title):''}"/>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">DATE</div>
+          <input id="mtg-date" type="date" class="field-input" value="${existing?existing.date:today()}"/>
+        </div>
       </div>
       <div>
-        <div style="font-size:10px;font-weight:800;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">✅ DECISIONS MADE</div>
-        <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;"></textarea>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO WAS THERE?</div>
+        ${buildPersonPickerHTML(existingPersonIds, 'mtg-person-ids')}
+        <input id="mtg-attendees-free" class="field-input" placeholder="Others not in your list…" autocomplete="off" style="margin-top:8px;" value="${existing?esc(existing.attendees||''):''}"/>
       </div>
       <div>
-        <div style="font-size:10px;font-weight:800;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">📋 KEY NOTES</div>
-        <textarea id="mtg-notes" class="field-input" placeholder="Context, important points…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;"></textarea>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:6px;">✅ DECISIONS MADE</div>
+        <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.decisions||''):''}</textarea>
       </div>
       <div>
-        <div style="font-size:10px;font-weight:800;color:var(--accent);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">⚡ MY COMMITMENTS <span style="font-weight:400;color:var(--text4);">(one per line — become tasks)</span></div>
-        <textarea id="mtg-mycommits" class="field-input" placeholder="I said I would…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;border-color:rgba(232,168,56,0.4);"></textarea>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">📋 KEY NOTES</div>
+        <textarea id="mtg-notes" class="field-input" placeholder="Context, important points…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.notes||''):''}</textarea>
       </div>
       <div>
-        <div style="font-size:10px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:4px;">⏳ THEIR COMMITMENTS <span style="font-weight:400;color:var(--text4);">(one per line — become Waiting For)</span></div>
-        <textarea id="mtg-theircommits" class="field-input" placeholder="[Name]: they said they would…" style="width:100%;min-height:60px;resize:vertical;font-family:var(--font-body);font-size:13px;line-height:1.5;box-sizing:border-box;border-color:rgba(100,181,246,0.4);"></textarea>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚡ MY COMMITMENTS <span style="font-size:10px;font-weight:400;color:var(--text4);">one per line → become tasks</span></div>
+        <textarea id="mtg-mycommits" class="field-input" placeholder="I said I would…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;border-color:rgba(232,168,56,0.35);">${existing?esc(existing.myCommits||''):''}</textarea>
+      </div>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;margin-bottom:6px;">⏳ THEIR COMMITMENTS <span style="font-size:10px;font-weight:400;color:var(--text4);">one per line → become Waiting For</span></div>
+        <textarea id="mtg-theircommits" class="field-input" placeholder="Name: they said they would…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;border-color:rgba(100,181,246,0.35);">${existing?esc(existing.theirCommits||''):''}</textarea>
       </div>
     </div>
-    <div style="padding:10px 14px;border-top:1px solid var(--border);">
-      <button onclick="saveMeetingCapture()" class="modal-btn primary" style="width:100%;">✓ Save Meeting</button>
+    <div class="modal-footer">
+      <button onclick="saveMeetingCapture()" style="width:100%;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">✓ Save Meeting</button>
     </div>
   </div>`;
   m.onclick=e=>{ if(e.target===m) closeModal('modal-meeting'); };
@@ -5870,16 +6270,20 @@ function openMeetingCapture(existingId){
 }
 
 function saveMeetingCapture(){
-  const id       = document.getElementById('mtg-id')?.value;
-  const title    = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
-  const date     = document.getElementById('mtg-date')?.value||today();
-  const attendees= document.getElementById('mtg-attendees')?.value.trim()||'';
-  const decisions= document.getElementById('mtg-decisions')?.value.trim()||'';
-  const notes    = document.getElementById('mtg-notes')?.value.trim()||'';
-  const myCommits= document.getElementById('mtg-mycommits')?.value.trim()||'';
+  const id        = document.getElementById('mtg-id')?.value;
+  const title     = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
+  const date      = document.getElementById('mtg-date')?.value||today();
+  const personIds = document.getElementById('mtg-person-ids')?.value||'';
+  const attendeesFree = document.getElementById('mtg-attendees-free')?.value.trim()||'';
+  // Build combined attendees string for display
+  const namedAttendees = getPersonNamesByIds(personIds);
+  const attendees = [namedAttendees, attendeesFree].filter(Boolean).join(', ');
+  const decisions = document.getElementById('mtg-decisions')?.value.trim()||'';
+  const notes     = document.getElementById('mtg-notes')?.value.trim()||'';
+  const myCommits = document.getElementById('mtg-mycommits')?.value.trim()||'';
   const theirCommits=document.getElementById('mtg-theircommits')?.value.trim()||'';
 
-  const meeting = { id:id||'m'+Date.now(), title, date, attendees, decisions, notes, myCommits, theirCommits, createdAt:today() };
+  const meeting = { id:id||'m'+Date.now(), title, date, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today() };
 
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
@@ -5927,6 +6331,328 @@ function renderMeetingLog(){
     </div>
     <span style="font-size:10px;color:var(--text4);">›</span>
   </div>`).join('');
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// TIME BLOCK PLANNER
+// ════════════════════════════════════════════════════════════════
+
+const EST_MINS = {'15m':15,'30m':30,'1h':60,'2h':120,'4h':240,'8h+':480};
+// Dynamic — read from settings (defaults: 6am–10pm)
+function getTbHourStart(){ return parseInt(localStorage.getItem('hub-tb-start')||'6'); }
+function getTbHourEnd(){   return parseInt(localStorage.getItem('hub-tb-end')||'22'); }
+const MIN_PER_PX = 1;   // 1px = 1 minute (60px per hour)
+
+function estToMins(est){ return EST_MINS[est] || 30; }
+
+function minsToTime(mins){
+  const h = Math.floor(mins/60);
+  const m = mins % 60;
+  const ap = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return m === 0 ? `${h12}${ap}` : `${h12}:${String(m).padStart(2,'0')}${ap}`;
+}
+
+function saveTbBlocks(){
+  saveHubData('hub-tb-blocks', tbBlocks);
+}
+
+function loadTbBlocks(){
+  try{
+    const raw = localStorage.getItem('hub-tb-blocks');
+    if(raw) tbBlocks = JSON.parse(raw);
+  } catch(e){}
+}
+
+function getTbBlocksForDate(date){
+  return (tbBlocks[date] || []);
+}
+
+function autoSchedule(date){
+  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
+  const todayStr = today();
+  // Get unscheduled tasks with estimates for this date
+  const scheduled = new Set((tbBlocks[date]||[]).map(b=>b.taskId));
+  const candidates = tasks
+    .filter(t => t.status !== 'done' && t.status !== 'blocked' && t.estimate && !scheduled.has(t.id))
+    .sort((a,b) => {
+      // Overdue + today first, then high priority, then by energy (heavy first in morning)
+      const aOver = a.dueDate && a.dueDate <= todayStr ? 0 : 1;
+      const bOver = b.dueDate && b.dueDate <= todayStr ? 0 : 1;
+      if(aOver !== bOver) return aOver - bOver;
+      const pOrd = {high:0,medium:1,low:2};
+      return (pOrd[a.priority]||1) - (pOrd[b.priority]||1);
+    });
+
+  if(candidates.length === 0){ showToast('No unscheduled tasks with time estimates'); return; }
+
+  // Build schedule — fill from HOUR_START, skip lunch 12-1pm
+  let cursor = HOUR_START * 60;
+  const LUNCH_START = 12 * 60;
+  const LUNCH_END   = 13 * 60;
+  const DAY_END=HOUR_END*60;
+  const newBlocks = [...(tbBlocks[date]||[])];
+
+  for(const t of candidates){
+    const dur = estToMins(t.estimate);
+    // Skip over lunch
+    if(cursor < LUNCH_END && cursor + dur > LUNCH_START) cursor = LUNCH_END;
+    if(cursor + dur > DAY_END) break;
+    const proj = projects.find(p=>p.id===t.projectId);
+    newBlocks.push({
+      taskId: t.id,
+      startMin: cursor,
+      durMin: dur,
+      color: proj?.color || '#E8A838'
+    });
+    cursor += dur + 10; // 10min buffer between blocks
+  }
+
+  tbBlocks[date] = newBlocks;
+  saveTbBlocks();
+  renderAll();
+  showToast(`🗓 Scheduled ${newBlocks.length - (tbBlocks[date]?.length||0) + newBlocks.length} blocks`);
+}
+
+function addTbBlock(date, startMin, taskId){
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const dur = estToMins(t.estimate);
+  const proj = projects.find(p=>p.id===t.projectId);
+  if(!tbBlocks[date]) tbBlocks[date] = [];
+  // Remove existing block for this task on this date
+  tbBlocks[date] = tbBlocks[date].filter(b=>b.taskId !== taskId);
+  tbBlocks[date].push({ taskId, startMin, durMin: dur, color: proj?.color||'#E8A838' });
+  saveTbBlocks();
+  renderAll();
+}
+
+function removeTbBlock(date, taskId){
+  if(!tbBlocks[date]) return;
+  tbBlocks[date] = tbBlocks[date].filter(b=>b.taskId !== taskId);
+  saveTbBlocks();
+  renderAll();
+}
+
+function renderTimeBlock(container){
+  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
+  loadTbBlocks();
+  const date = tbDate;
+  const dateObj = new Date(date + 'T00:00:00');
+  const dayLabel = dateObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const blocks = getTbBlocksForDate(date);
+  const scheduledIds = new Set(blocks.map(b=>b.taskId));
+
+  // Unscheduled tasks — have estimates, not done, not already blocked
+  const unscheduled = tasks
+    .filter(t => t.status !== 'done' && t.status !== 'blocked' && t.estimate && !scheduledIds.has(t.id))
+    .sort((a,b) => {
+      const pOrd={high:0,medium:1,low:2};
+      return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
+    });
+
+  // Build hour grid rows
+  const totalMins = (HOUR_END - HOUR_START) * 60;
+  const gridHeight = totalMins; // 1px = 1 min
+
+  let hourRows = '';
+  for(let h = HOUR_START; h < HOUR_END; h++){
+    const label = h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h-12}pm`;
+    const startMin = h * 60;
+    hourRows += `<div class="tb-hour-row" style="height:60px;" 
+      ondragover="event.preventDefault();event.currentTarget.classList.add('tb-drop-target');"
+      ondragleave="event.currentTarget.classList.remove('tb-drop-target');"
+      ondrop="event.preventDefault();event.currentTarget.classList.remove('tb-drop-target');
+              const tid=event.dataTransfer.getData('taskId');
+              if(tid) addTbBlock('${date}',${startMin},tid);">
+      <div class="tb-hour-label">${label}</div>
+      <div class="tb-hour-slot" ></div>
+    </div>`;
+  }
+
+  // Render blocks as absolutely positioned overlays
+  let blockHtml = '';
+  for(const b of blocks){
+    const t = tasks.find(x=>x.id===b.taskId);
+    if(!t) continue;
+    const topPx  = (b.startMin - HOUR_START*60);
+    const height = Math.max(24, b.durMin);
+    const textColor = '#fff';
+    const endMin = b.startMin + b.durMin;
+    blockHtml += `<div class="tb-block" 
+      style="top:${topPx}px;height:${height}px;background:${b.color};color:${textColor};left:52px;right:4px;"
+      onclick="openEditTask('${t.id}')">
+      <button class="tb-block-remove" onclick="event.stopPropagation();removeTbBlock('${date}','${t.id}')" title="Remove">✕</button>
+      <div class="tb-block-title">${esc(t.title)}</div>
+      <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
+    </div>`;
+  }
+
+  // Current time line
+  const now = new Date();
+  let nowLine = '';
+  if(date === today()){
+    const nowMins = now.getHours()*60 + now.getMinutes();
+    if(nowMins >= HOUR_START*60 && nowMins <= HOUR_END*60){
+      const topPx = nowMins - HOUR_START*60;
+      nowLine = `<div class="tb-now-line" style="top:${topPx}px;"></div>
+                 <div class="tb-now-dot"  style="top:${topPx-4}px;"></div>`;
+    }
+  }
+
+  // Unscheduled chips
+  const chipHtml = unscheduled.length === 0
+    ? `<div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);padding:8px 4px;font-style:italic;">All tasks scheduled!</div>`
+    : unscheduled.map(t => {
+        const proj = projects.find(p=>p.id===t.projectId);
+        const c = proj?.color||'#E8A838';
+        return `<div class="tb-task-chip"
+          draggable="true"
+          ondragstart="event.dataTransfer.setData('taskId','${t.id}');this.classList.add('tb-dragging');"
+          ondragend="this.classList.remove('tb-dragging');">
+          <div class="tb-chip-est" style="color:${c};">${t.estimate}</div>
+          <div class="tb-chip-title">${esc(t.title)}</div>
+        </div>`;
+      }).join('');
+
+  // Total scheduled time
+  const totalScheduled = blocks.reduce((s,b)=>s+b.durMin, 0);
+  const totalH = Math.floor(totalScheduled/60);
+  const totalM = totalScheduled % 60;
+  const totalLabel = totalScheduled > 0
+    ? (totalH > 0 ? `${totalH}h${totalM>0?' '+totalM+'m':''}` : `${totalM}m`) + ' planned'
+    : 'Nothing planned yet';
+
+  container.innerHTML = `<div id="tb-wrap">
+    <div id="tb-header">
+      <div id="tb-date-nav">
+        <button class="tb-nav-btn" onclick="tbNavDate(-1)">‹</button>
+        <div id="tb-date-label">${dayLabel}</div>
+        <button class="tb-nav-btn" onclick="tbNavDate(1)">›</button>
+        <button class="tb-nav-btn" onclick="tbNavDate(0)" title="Today" style="font-size:11px;width:auto;padding:0 8px;">Today</button>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="font-family:var(--font-ui);font-size:11px;color:var(--text3);">${totalLabel}</div>
+    </div>
+    <button id="tb-auto-btn" onclick="autoSchedule('${date}')">⚡ Auto-schedule unscheduled tasks</button>
+    <div id="tb-body">
+      <div id="tb-grid-wrap">
+        <div id="tb-grid" style="position:relative;height:${gridHeight}px;">
+          ${hourRows}
+          <div style="position:absolute;top:0;left:0;right:0;height:${gridHeight}px;pointer-events:none;">
+            ${blockHtml}
+            ${nowLine}
+          </div>
+        </div>
+      </div>
+      <div id="tb-sidebar">
+        <div id="tb-sidebar-hdr">UNSCHEDULED (${unscheduled.length})</div>
+        <div id="tb-unscheduled">${chipHtml}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Scroll to current time or 8am
+  requestAnimationFrame(()=>{
+    const wrap = document.getElementById('tb-grid-wrap');
+    if(!wrap) return;
+    const now = new Date();
+    const scrollTo = date === today()
+      ? Math.max(0, (now.getHours()*60 + now.getMinutes()) - HOUR_START*60 - 60)
+      : (8 - HOUR_START) * 60;
+    wrap.scrollTop = scrollTo;
+  });
+}
+
+function tbNavDate(delta){
+  if(delta === 0){ tbDate = today(); }
+  else {
+    const d = new Date(tbDate + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    tbDate = d.toISOString().slice(0,10);
+  }
+  renderAll();
+}
+
+function tbSlotClick(date, startMin){
+  // Open task picker to assign a task to this slot
+  _tbPendingSlot = {date, startMin};
+  openTbTaskPicker();
+}
+
+let _tbPendingSlot = null;
+
+function tbChipClick(date, taskId){
+  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
+  // Find next free slot and schedule there
+  const blocks = getTbBlocksForDate(date);
+  const occupied = new Set();
+  for(const b of blocks){
+    for(let m=b.startMin; m<b.startMin+b.durMin; m++) occupied.add(m);
+  }
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  const dur = estToMins(t.estimate);
+  // Find first free gap
+  let slot = HOUR_START * 60;
+  const LUNCH_START = 12*60, LUNCH_END = 13*60, DAY_END = HOUR_END*60;
+  while(slot + dur <= DAY_END){
+    if(slot >= LUNCH_START && slot < LUNCH_END){ slot = LUNCH_END; continue; }
+    let fits = true;
+    for(let m=slot; m<slot+dur; m++){ if(occupied.has(m)){fits=false;break;} }
+    if(fits) break;
+    slot++;
+  }
+  if(slot + dur > DAY_END){ showToast('No free slot found — try a different day'); return; }
+  addTbBlock(date, slot, taskId);
+  showToast(`📌 Added at ${minsToTime(slot)}`);
+}
+
+function openTbTaskPicker(){
+  const slot = _tbPendingSlot;
+  if(!slot) return;
+  const available = tasks
+    .filter(t => t.status !== 'done' && t.status !== 'blocked')
+    .sort((a,b) => {
+      const aEst = a.estimate ? 0 : 1;
+      const bEst = b.estimate ? 0 : 1;
+      if(aEst !== bEst) return aEst - bEst;
+      const pOrd = {high:0,medium:1,low:2};
+      return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
+    });
+
+  const old = document.getElementById('modal-tb-picker');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-tb-picker';
+  m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">📌 ${minsToTime(slot.startMin)} — pick a task</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-picker')">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">
+      ${available.map(t => {
+        const proj = projects.find(p=>p.id===t.projectId);
+        const c = proj?.color||'#E8A838';
+        return `<div onclick="addTbBlock('${slot.date}',${slot.startMin},'${t.id}');closeModal('modal-tb-picker');"
+          style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;margin-top:2px;">
+              ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+              ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-tb-picker'); };
+  document.body.appendChild(m);
+  openModal('modal-tb-picker');
 }
 
 
