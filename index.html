@@ -739,69 +739,9 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 }
 
 /* ── TIME BLOCK ── */
-#tb-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden;}
-#tb-header{display:flex;align-items:center;gap:10px;padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);}
-#tb-date-nav{display:flex;align-items:center;gap:8px;}
-#tb-date-label{font-family:var(--font-ui);font-size:15px;font-weight:800;color:var(--text);}
-.tb-nav-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}
-#tb-body{display:flex;flex:1;overflow:hidden;gap:0;}
-#tb-grid-wrap{flex:1;overflow-y:auto;position:relative;min-width:0;}
-#tb-grid{position:relative;margin:0 10px;}
-.tb-hour-row{display:flex;align-items:flex-start;min-height:60px;border-top:1px solid var(--border);position:relative;}
-.tb-hour-label{width:44px;flex-shrink:0;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);padding:3px 6px 0 0;text-align:right;margin-top:-7px;}
-.tb-hour-slot{flex:1;min-height:60px;position:relative;cursor:pointer;transition:background 0.1s;}
-.tb-hour-slot:hover{background:rgba(232,168,56,0.08);}
-.tb-hour-slot:active{background:rgba(232,168,56,0.18);}
-.tb-hour-slot.tb-drop-target{background:rgba(232,168,56,0.12);outline:2px dashed rgba(232,168,56,0.5);}
-.tb-block{
-  position:absolute;left:4px;right:4px;
-  border-radius:8px;padding:4px 6px 4px 8px;
-  font-family:var(--font-ui);font-size:11px;font-weight:700;
-  cursor:pointer;overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,0.35);
-  display:flex;flex-direction:row;align-items:flex-start;gap:2px;
-  transition:opacity 0.1s;
-  min-height:28px;
-  color:#fff !important;
-  text-shadow:0 1px 3px rgba(0,0,0,0.5);
-}
-.tb-block:active{opacity:0.75;}
-.tb-block-content{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;padding-top:1px;}
-.tb-block-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;color:#fff;}
-.tb-block-time{font-size:10px;opacity:0.85;margin-top:1px;color:#fff;}
-.tb-block-actions{display:flex;flex-direction:column;gap:2px;flex-shrink:0;margin-top:-1px;}
-.tb-block-remove{
-  background:rgba(0,0,0,0.25);border:none;color:#fff;
-  font-size:11px;cursor:pointer;
-  width:22px;height:22px;border-radius:4px;
-  display:flex;align-items:center;justify-content:center;
-  -webkit-tap-highlight-color:transparent;
-  flex-shrink:0;
-}
-.tb-block-remove:active{background:rgba(0,0,0,0.5);}
-/* Unscheduled sidebar */
-#tb-sidebar{width:160px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-#tb-sidebar-hdr{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:8px 10px 6px;border-bottom:1px solid var(--border);flex-shrink:0;}
-#tb-unscheduled{flex:1;overflow-y:auto;padding:6px;}
-.tb-task-chip{
-  display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;
-  margin-bottom:5px;cursor:grab;
-  border:1px solid var(--border2);background:var(--surface2);
-  font-family:var(--font-ui);font-size:11px;font-weight:600;color:var(--text2);
-  transition:all 0.12s;
-}
-.tb-task-chip:active{cursor:grabbing;opacity:0.7;transform:scale(0.97);}
-.tb-task-chip.tb-dragging{opacity:0.4;}
-.tb-chip-est{font-size:10px;color:var(--accent);font-weight:800;flex-shrink:0;}
-.tb-chip-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
-/* Auto-schedule button */
-#tb-auto-btn{margin:8px 10px;padding:9px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;flex-shrink:0;}
-#tb-auto-btn:active{background:#c87820;}
-/* Current time line */
-.tb-now-line{position:absolute;left:44px;right:4px;height:2px;background:#ff6060;z-index:10;pointer-events:none;}
-.tb-now-dot{position:absolute;left:40px;width:10px;height:10px;border-radius:50%;background:#ff6060;margin-top:-4px;z-index:11;pointer-events:none;}
-.tb-block{z-index:5;}
-.tb-block-remove{z-index:6;}
+.tb-nav-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tb-nav-btn:active{background:var(--surface3);}
+#tb-slot-grid{scroll-behavior:smooth;}
 
 /* ── MODALS ── */
 .modal-overlay{
@@ -5683,9 +5623,13 @@ function renderWaitingPage(container){
   const matchWf = (w) => {
     if(!waitingPersonFilter) return true;
     if(waitingPersonFilter.startsWith('__name__')){
+      // Legacy pseudo-id — match by name string
       return w.person === waitingPersonFilter.slice(8);
     }
-    return w.personId === waitingPersonFilter;
+    // peopleList person — match by personId OR by name (for legacy entries)
+    if(w.personId === waitingPersonFilter) return true;
+    const p = peopleList.find(x=>x.id===waitingPersonFilter);
+    return p ? w.person === p.name : false;
   };
   const active = allActive.filter(matchWf);
   const done = waitingFor.filter(w=>w.done && matchWf(w)).slice(0,10);
@@ -6462,414 +6406,285 @@ function renderMeetingLog(){
 
 
 // ════════════════════════════════════════════════════════════════
-// TIME BLOCK PLANNER
+// TIME BLOCK PLANNER  v2 — simple list approach
 // ════════════════════════════════════════════════════════════════
 
 const EST_MINS = {'15m':15,'30m':30,'1h':60,'2h':120,'4h':240,'8h+':480};
-// Dynamic — read from settings (defaults: 6am–10pm)
 function getTbHourStart(){ return parseInt(localStorage.getItem('hub-tb-start')||'6'); }
 function getTbHourEnd(){   return parseInt(localStorage.getItem('hub-tb-end')||'22'); }
-const MIN_PER_PX = 1;   // 1px = 1 minute (60px per hour)
-
 function estToMins(est){ return EST_MINS[est] || 30; }
-
-function minsToTime(mins){
-  const h = Math.floor(mins/60);
-  const m = mins % 60;
-  const ap = h >= 12 ? 'pm' : 'am';
-  const h12 = h % 12 || 12;
-  return m === 0 ? `${h12}${ap}` : `${h12}:${String(m).padStart(2,'0')}${ap}`;
+function minsToTime(m){
+  const h=Math.floor(m/60), min=m%60, ap=h>=12?'pm':'am', h12=h%12||12;
+  return min===0?`${h12}${ap}`:`${h12}:${String(min).padStart(2,'0')}${ap}`;
 }
-
-function saveTbBlocks(){
-  saveHubData('hub-tb-blocks', tbBlocks);
-}
-
+function saveTbBlocks(){ saveHubData('hub-tb-blocks', tbBlocks); }
 function loadTbBlocks(){
-  try{
-    const raw = localStorage.getItem('hub-tb-blocks');
-    if(raw) tbBlocks = JSON.parse(raw);
-  } catch(e){}
+  try{ const r=localStorage.getItem('hub-tb-blocks'); if(r) tbBlocks=JSON.parse(r); }catch(e){}
 }
-
-function getTbBlocksForDate(date){
-  return (tbBlocks[date] || []);
-}
-
-function autoSchedule(date){
-  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
-  const todayStr = today();
-  // Get unscheduled tasks with estimates for this date
-  const scheduled = new Set((tbBlocks[date]||[]).map(b=>b.taskId));
-  const candidates = tasks
-    .filter(t => t.status !== 'done' && t.status !== 'blocked' && t.estimate && !scheduled.has(t.id))
-    .sort((a,b) => {
-      // Overdue + today first, then high priority, then by energy (heavy first in morning)
-      const aOver = a.dueDate && a.dueDate <= todayStr ? 0 : 1;
-      const bOver = b.dueDate && b.dueDate <= todayStr ? 0 : 1;
-      if(aOver !== bOver) return aOver - bOver;
-      const pOrd = {high:0,medium:1,low:2};
-      return (pOrd[a.priority]||1) - (pOrd[b.priority]||1);
-    });
-
-  if(candidates.length === 0){ showToast('No unscheduled tasks with time estimates'); return; }
-
-  // Build schedule — fill from HOUR_START, skip lunch 12-1pm
-  let cursor = HOUR_START * 60;
-  const LUNCH_START = 12 * 60;
-  const LUNCH_END   = 13 * 60;
-  const DAY_END=HOUR_END*60;
-  const newBlocks = [...(tbBlocks[date]||[])];
-
-  for(const t of candidates){
-    const dur = estToMins(t.estimate);
-    // Skip over lunch
-    if(cursor < LUNCH_END && cursor + dur > LUNCH_START) cursor = LUNCH_END;
-    if(cursor + dur > DAY_END) break;
-    const proj = projects.find(p=>p.id===t.projectId);
-    newBlocks.push({
-      taskId: t.id,
-      startMin: cursor,
-      durMin: dur,
-      color: proj?.color || '#E8A838'
-    });
-    cursor += dur + 10; // 10min buffer between blocks
-  }
-
-  tbBlocks[date] = newBlocks;
-  saveTbBlocks();
-  renderAll();
-  showToast(`🗓 Scheduled ${newBlocks.length - (tbBlocks[date]?.length||0) + newBlocks.length} blocks`);
-}
+function getTbBlocksForDate(d){ return tbBlocks[d]||[]; }
 
 function addTbBlock(date, startMin, taskId){
-  const t = tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  const dur = estToMins(t.estimate);
-  const proj = projects.find(p=>p.id===t.projectId);
-  if(!tbBlocks[date]) tbBlocks[date] = [];
-  // Remove existing block for this task on this date
-  tbBlocks[date] = tbBlocks[date].filter(b=>b.taskId !== taskId);
-  tbBlocks[date].push({ taskId, startMin, durMin: dur, color: proj?.color||'#E8A838' });
-  saveTbBlocks();
-  renderAll();
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const dur=estToMins(t.estimate||'30m');
+  const proj=projects.find(p=>p.id===t.projectId);
+  if(!tbBlocks[date]) tbBlocks[date]=[];
+  tbBlocks[date]=tbBlocks[date].filter(b=>b.taskId!==taskId); // remove existing slot for task
+  tbBlocks[date].push({taskId, startMin, durMin:dur, color:proj?.color||'#E8A838'});
+  tbBlocks[date].sort((a,b)=>a.startMin-b.startMin);
+  saveTbBlocks(); renderAll();
 }
 
 function removeTbBlock(date, taskId){
   if(!tbBlocks[date]) return;
-  tbBlocks[date] = tbBlocks[date].filter(b=>b.taskId !== taskId);
-  saveTbBlocks();
+  tbBlocks[date]=tbBlocks[date].filter(b=>b.taskId!==taskId);
+  saveTbBlocks(); renderAll();
+}
+
+function tbNavDate(delta){
+  if(delta===0){ tbDate=today(); }
+  else{ const d=new Date(tbDate+'T00:00:00'); d.setDate(d.getDate()+delta); tbDate=d.toISOString().slice(0,10); }
   renderAll();
 }
 
 function renderTimeBlock(container){
-  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
   loadTbBlocks();
-  const date = tbDate;
-  const dateObj = new Date(date + 'T00:00:00');
-  const dayLabel = dateObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
-  const blocks = getTbBlocksForDate(date);
-  const scheduledIds = new Set(blocks.map(b=>b.taskId));
+  const HS=getTbHourStart(), HE=getTbHourEnd();
+  const date=tbDate;
+  const dateObj=new Date(date+'T00:00:00');
+  const dayLabel=dateObj.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const blocks=getTbBlocksForDate(date);
+  const scheduledIds=new Set(blocks.map(b=>b.taskId));
 
-  // Unscheduled tasks — have estimates, not done, not already blocked
-  const unscheduled = tasks
-    .filter(t => t.status !== 'done' && t.status !== 'blocked' && t.estimate && !scheduledIds.has(t.id))
-    .sort((a,b) => {
+  // Unscheduled tasks (have estimates, active, not already blocked today)
+  const unscheduled=tasks
+    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
+    .sort((a,b)=>{
+      const aE=a.estimate?0:1, bE=b.estimate?0:1;
+      if(aE!==bE) return aE-bE;
       const pOrd={high:0,medium:1,low:2};
       return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
     });
 
-  // Build hour grid rows
-  const totalMins = (HOUR_END - HOUR_START) * 60;
-  const gridHeight = totalMins; // 1px = 1 min
+  // Build time slots — every 30 min
+  const slots=[];
+  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+30); }
 
-  let hourRows = '';
-  for(let h = HOUR_START; h < HOUR_END; h++){
-    const label = h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h-12}pm`;
-    const startMin = h * 60;
-    hourRows += `<div class="tb-hour-row" style="height:60px;" 
-      ondragover="event.preventDefault();event.currentTarget.classList.add('tb-drop-target');"
-      ondragleave="event.currentTarget.classList.remove('tb-drop-target');"
-      ondrop="event.preventDefault();event.currentTarget.classList.remove('tb-drop-target');
-              const tid=event.dataTransfer.getData('taskId');
-              const removeFrom=event.dataTransfer.getData('removeFrom');
-              if(removeFrom && removeFrom!=='${date}') removeTbBlock(removeFrom,tid);
-              if(tid) addTbBlock('${date}',${startMin},tid);">
-      <div class="tb-hour-label">${label}</div>
-      <div class="tb-hour-slot" onclick="tbSlotClick('${date}',${startMin})"></div>
-    </div>`;
-  }
+  // Map startMin → block for quick lookup
+  const blockByStart={};
+  for(const b of blocks) blockByStart[b.startMin]=b;
 
-  // Render blocks as absolutely positioned overlays
-  let blockHtml = '';
-  for(const b of blocks){
-    const t = tasks.find(x=>x.id===b.taskId);
-    if(!t) continue;
-    const topPx  = (b.startMin - HOUR_START*60);
-    const height = Math.max(24, b.durMin);
-    const textColor = '#fff';
-    const endMin = b.startMin + b.durMin;
-    blockHtml += `<div class="tb-block"
-      draggable="true"
-      data-date="${date}"
-      data-taskid="${t.id}"
-      ondragstart="event.dataTransfer.setData('taskId',this.dataset.taskid);event.dataTransfer.setData('removeFrom',this.dataset.date);this.style.opacity='0.4';"
-      ondragend="this.style.opacity='1';"
-      style="top:${topPx}px;height:${height}px;background:${b.color};left:52px;right:4px;">
-      <div class="tb-block-content" onclick="event.stopPropagation();const bl=this.closest('.tb-block');openTbBlockActions(bl.dataset.date,bl.dataset.taskid,${b.startMin})">
-        <div class="tb-block-title">${esc(t.title)}</div>
-        <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
-      </div>
-      <div class="tb-block-actions">
-        <button class="tb-block-remove"
-          onclick="event.stopPropagation();const bl=this.closest('.tb-block');removeTbBlock(bl.dataset.date,bl.dataset.taskid);"
-          title="Unschedule">✕</button>
-      </div>
-    </div>`;
-  }
-
-  // Current time line
-  const now = new Date();
-  let nowLine = '';
-  if(date === today()){
-    const nowMins = now.getHours()*60 + now.getMinutes();
-    if(nowMins >= HOUR_START*60 && nowMins <= HOUR_END*60){
-      const topPx = nowMins - HOUR_START*60;
-      nowLine = `<div class="tb-now-line" style="top:${topPx}px;"></div>
-                 <div class="tb-now-dot"  style="top:${topPx-4}px;"></div>`;
-    }
-  }
-
-  // Unscheduled chips
-  const chipHtml = unscheduled.length === 0
-    ? `<div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);padding:8px 4px;font-style:italic;">All tasks scheduled!</div>`
-    : unscheduled.map(t => {
-        const proj = projects.find(p=>p.id===t.projectId);
-        const c = proj?.color||'#E8A838';
-        return `<div class="tb-task-chip"
-          draggable="true"
-          data-taskid="${t.id}"
-          ondragstart="event.dataTransfer.setData('taskId','${t.id}');this.classList.add('tb-dragging');"
-          ondragend="this.classList.remove('tb-dragging');"
-          onclick="tbChipClick('${date}','${t.id}')">
-          <div class="tb-chip-est" style="color:${c};">${t.estimate}</div>
-          <div class="tb-chip-title">${esc(t.title)}</div>
+  // Render scheduled blocks list
+  const scheduledHtml = blocks.length===0
+    ? `<div style="padding:16px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">No tasks scheduled yet — tap a time slot below to add one.</div>`
+    : blocks.map(b=>{
+        const t=tasks.find(x=>x.id===b.taskId); if(!t) return '';
+        const proj=projects.find(p=>p.id===t.projectId);
+        const endMin=b.startMin+b.durMin;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+          <div style="width:3px;align-self:stretch;border-radius:2px;background:${b.color};flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">
+              ${minsToTime(b.startMin)} – ${minsToTime(endMin)}
+              ${proj?`<span style="color:${proj.color};margin-left:6px;">◈ ${esc(proj.name)}</span>`:''}
+            </div>
+          </div>
+          <button onclick="openTbReschedule('${date}','${t.id}')"
+            style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">🕐</button>
+          <button onclick="removeTbBlock('${date}','${t.id}')"
+            style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>
         </div>`;
       }).join('');
 
-  // Total scheduled time
-  const totalScheduled = blocks.reduce((s,b)=>s+b.durMin, 0);
-  const totalH = Math.floor(totalScheduled/60);
-  const totalM = totalScheduled % 60;
-  const totalLabel = totalScheduled > 0
-    ? (totalH > 0 ? `${totalH}h${totalM>0?' '+totalM+'m':''}` : `${totalM}m`) + ' planned'
-    : 'Nothing planned yet';
-
-  container.innerHTML = `<div id="tb-wrap">
-    <div id="tb-header">
-      <div id="tb-date-nav">
-        <button class="tb-nav-btn" onclick="tbNavDate(-1)">‹</button>
-        <div id="tb-date-label">${dayLabel}</div>
-        <button class="tb-nav-btn" onclick="tbNavDate(1)">›</button>
-        <button class="tb-nav-btn" onclick="tbNavDate(0)" title="Today" style="font-size:11px;width:auto;padding:0 8px;">Today</button>
-      </div>
-      <div style="flex:1;"></div>
-      <div style="font-family:var(--font-ui);font-size:11px;color:var(--text3);">${totalLabel}</div>
-    </div>
-    <button id="tb-auto-btn" onclick="autoSchedule('${date}')">⚡ Auto-schedule unscheduled tasks</button>
-    <div id="tb-body">
-      <div id="tb-grid-wrap">
-        <div id="tb-grid" style="position:relative;height:${gridHeight}px;">
-          ${hourRows}
-          <div style="position:absolute;top:0;left:0;right:0;height:${gridHeight}px;">
-            ${blockHtml}
-            ${nowLine}
-          </div>
+  // Render time slot grid — tap any slot to assign
+  const slotHtml = slots.map(startMin=>{
+    const b=blockByStart[startMin];
+    const t=b?tasks.find(x=>x.id===b.taskId):null;
+    const isNow = date===today() && (() => {
+      const now=new Date(); const cur=now.getHours()*60+now.getMinutes();
+      return cur>=startMin && cur<startMin+30;
+    })();
+    const label=minsToTime(startMin);
+    if(t){
+      const proj=projects.find(p=>p.id===t.projectId);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:${b.color}18;${isNow?'border-left:3px solid #ff6060;':''}">
+        <div style="width:44px;font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text3);flex-shrink:0;">${label}</div>
+        <div style="width:3px;height:28px;border-radius:2px;background:${b.color};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;cursor:pointer;" onclick="openTbReschedule('${date}','${t.id}')">
+          <div style="font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
         </div>
+        <button onclick="removeTbBlock('${date}','${t.id}')"
+          style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;">✕</button>
+      </div>`;
+    } else {
+      return `<div onclick="openTbSlotPicker('${date}',${startMin})"
+        style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;${isNow?'border-left:3px solid #ff6060;background:rgba(255,80,80,0.04);':''}transition:background 0.1s;"
+        onmouseenter="this.style.background='rgba(232,168,56,0.05)'" onmouseleave="this.style.background='${isNow?'rgba(255,80,80,0.04)':'transparent'}'">
+        <div style="width:44px;font-family:var(--font-ui);font-size:10px;font-weight:700;color:${isNow?'#ff6060':'var(--text4)'};flex-shrink:0;">${label}</div>
+        <div style="flex:1;font-family:var(--font-ui);font-size:11px;color:var(--text4);">— tap to assign</div>
+        <div style="font-size:14px;color:var(--border2);">+</div>
+      </div>`;
+    }
+  }).join('');
+
+  const totalMins=blocks.reduce((s,b)=>s+b.durMin,0);
+  const totalLabel=totalMins>0
+    ? `${Math.floor(totalMins/60)?Math.floor(totalMins/60)+'h ':''} ${totalMins%60?totalMins%60+'m':''} planned`.trim()
+    : '';
+
+  container.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);">
+      <button class="tb-nav-btn" onclick="tbNavDate(-1)">‹</button>
+      <div style="flex:1;font-family:var(--font-ui);font-size:15px;font-weight:800;color:var(--text);text-align:center;">${dayLabel}</div>
+      <button class="tb-nav-btn" onclick="tbNavDate(1)">›</button>
+      <button class="tb-nav-btn" onclick="tbNavDate(0)" style="font-size:10px;width:auto;padding:0 8px;">Today</button>
+    </div>
+
+    <!-- Scheduled tasks summary -->
+    <div style="flex-shrink:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">SCHEDULED${totalLabel?' · '+totalLabel:''}</div>
+        <button onclick="openTbAddTask('${date}')"
+          style="padding:4px 12px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ Add task</button>
       </div>
-      <div id="tb-sidebar"
-      ondragover="event.preventDefault();this.style.background='rgba(232,168,56,0.08)';"
-      ondragleave="this.style.background='';"
-      ondrop="event.preventDefault();this.style.background='';
-              const tid=event.dataTransfer.getData('taskId');
-              const removeFrom=event.dataTransfer.getData('removeFrom');
-              if(tid && removeFrom) removeTbBlock(removeFrom, tid);">
-        <div id="tb-sidebar-hdr">UNSCHEDULED (${unscheduled.length})<div style="font-size:9px;font-weight:400;color:var(--text4);margin-top:2px;letter-spacing:0;">tap to schedule</div></div>
-        <div id="tb-unscheduled">${chipHtml}</div>
+      <div style="margin:0 10px 8px;border-radius:8px;border:1px solid var(--border);overflow:hidden;background:var(--surface);">
+        ${scheduledHtml}
       </div>
     </div>
-  </div>`;
 
-  // Scroll to current time or 8am
+    <!-- Time slot grid -->
+    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:4px 14px 4px;">TIME SLOTS — tap any to assign</div>
+    <div id="tb-slot-grid" style="flex:1;overflow-y:auto;margin:0 10px 10px;border-radius:8px;border:1px solid var(--border);overflow:hidden;background:var(--surface);">
+      ${slotHtml}
+    </div>`;
+
+  // Scroll to current time
   requestAnimationFrame(()=>{
-    const wrap = document.getElementById('tb-grid-wrap');
-    if(!wrap) return;
-    const now = new Date();
-    const scrollTo = date === today()
-      ? Math.max(0, (now.getHours()*60 + now.getMinutes()) - HOUR_START*60 - 60)
-      : (8 - HOUR_START) * 60;
-    wrap.scrollTop = scrollTo;
+    const grid=document.getElementById('tb-slot-grid');
+    if(!grid) return;
+    const now=new Date();
+    const curMin=now.getHours()*60+now.getMinutes();
+    const idx=Math.max(0,Math.floor((curMin-HS*60)/30)-2);
+    grid.scrollTop=idx*41;
   });
 }
 
-function tbNavDate(delta){
-  if(delta === 0){ tbDate = today(); }
-  else {
-    const d = new Date(tbDate + 'T00:00:00');
-    d.setDate(d.getDate() + delta);
-    tbDate = d.toISOString().slice(0,10);
-  }
-  renderAll();
-}
-
-function openTbBlockActions(date, taskId, startMin){
-  const t = tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  const old = document.getElementById('modal-tb-actions');
-  if(old) old.remove();
-  const m = document.createElement('div');
-  m.id = 'modal-tb-actions';
-  m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="padding:0;">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(t.title)}</div>
-      <button class="modal-close" onclick="closeModal('modal-tb-actions')">✕</button>
-    </div>
-    <div style="padding:0 14px 6px;font-family:var(--font-ui);font-size:11px;color:var(--text3);">Scheduled at ${minsToTime(startMin)} · ${t.estimate||'no estimate'}</div>
-    <div style="display:flex;flex-direction:column;gap:0;padding-bottom:8px;">
-      <button onclick="closeModal('modal-tb-actions');_tbPendingSlot={date,startMin,rescheduleTaskId:'${taskId}'};openTbTaskPickerReschedule('${date}','${taskId}');"
-        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
-        🕐 Reschedule — pick a new time
-      </button>
-      <button onclick="closeModal('modal-tb-actions');removeTbBlock('${date}','${taskId}');"
-        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
-        ↩ Unschedule — send back to sidebar
-      </button>
-      <button onclick="closeModal('modal-tb-actions');openEditTask('${taskId}');"
-        style="text-align:left;padding:14px 18px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:14px;cursor:pointer;">
-        ✏ Edit task details
-      </button>
-    </div>
-  </div>`;
-  m.onclick = e => { if(e.target===m) closeModal('modal-tb-actions'); };
-  document.body.appendChild(m);
-  openModal('modal-tb-actions');
-}
-
-function openTbTaskPickerReschedule(date, existingTaskId){
-  // Same as slot click but replaces the existing block
-  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
-  const old = document.getElementById('modal-tb-picker');
-  if(old) old.remove();
-  const m = document.createElement('div');
-  m.id = 'modal-tb-picker';
-  m.className = 'modal-overlay';
-  // Show all hours as options
-  let timeOptions = '';
-  for(let h=HOUR_START; h<HOUR_END; h++){
-    const startMin = h*60;
-    const label = h===12?'12pm':h<12?`${h}:00am`:`${h-12}:00pm`;
-    timeOptions += `<div onclick="removeTbBlock('${date}','${existingTaskId}');addTbBlock('${date}',${startMin},'${existingTaskId}');closeModal('modal-tb-picker');"
-      style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-family:var(--font-ui);font-size:14px;color:var(--text);">
-      ${label}
-    </div>
-    <div style="padding:0 8px 8px;">
-      <div onclick="removeTbBlock('${date}','${existingTaskId}');addTbBlock('${date}',${startMin}+30,'${existingTaskId}');closeModal('modal-tb-picker');"
-        style="padding:8px 12px;cursor:pointer;font-family:var(--font-ui);font-size:13px;color:var(--text3);">
-        ${h===12?'12:30pm':h<12?`${h}:30am`:`${h-12}:30pm`}
-      </div>
-    </div>`;
-  }
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">🕐 Pick new time</div>
-      <button class="modal-close" onclick="closeModal('modal-tb-picker')">✕</button>
-    </div>
-    <div style="overflow-y:auto;flex:1;">${timeOptions}</div>
-  </div>`;
-  m.onclick = e => { if(e.target===m) closeModal('modal-tb-picker'); };
-  document.body.appendChild(m);
-  openModal('modal-tb-picker');
-}
-
-function tbSlotClick(date, startMin){
-  // Open task picker to assign a task to this slot
-  _tbPendingSlot = {date, startMin};
-  openTbTaskPicker();
-}
-
-let _tbPendingSlot = null;
-
-function tbChipClick(date, taskId){
-  const HOUR_START=getTbHourStart(),HOUR_END=getTbHourEnd();
-  // Find next free slot and schedule there
-  const blocks = getTbBlocksForDate(date);
-  const occupied = new Set();
-  for(const b of blocks){
-    for(let m=b.startMin; m<b.startMin+b.durMin; m++) occupied.add(m);
-  }
-  const t = tasks.find(x=>x.id===taskId);
-  if(!t) return;
-  const dur = estToMins(t.estimate);
-  // Find first free gap
-  let slot = HOUR_START * 60;
-  const LUNCH_START = 12*60, LUNCH_END = 13*60, DAY_END = HOUR_END*60;
-  while(slot + dur <= DAY_END){
-    if(slot >= LUNCH_START && slot < LUNCH_END){ slot = LUNCH_END; continue; }
-    let fits = true;
-    for(let m=slot; m<slot+dur; m++){ if(occupied.has(m)){fits=false;break;} }
-    if(fits) break;
-    slot++;
-  }
-  if(slot + dur > DAY_END){ showToast('No free slot found — try a different day'); return; }
-  addTbBlock(date, slot, taskId);
-  showToast(`📌 Added at ${minsToTime(slot)}`);
-}
-
-function openTbTaskPicker(){
-  const slot = _tbPendingSlot;
-  if(!slot) return;
-  const available = tasks
-    .filter(t => t.status !== 'done' && t.status !== 'blocked')
-    .sort((a,b) => {
-      const aEst = a.estimate ? 0 : 1;
-      const bEst = b.estimate ? 0 : 1;
-      if(aEst !== bEst) return aEst - bEst;
-      const pOrd = {high:0,medium:1,low:2};
+// Pick a task then assign to a specific slot
+function openTbSlotPicker(date, startMin){
+  const scheduledIds=new Set(getTbBlocksForDate(date).map(b=>b.taskId));
+  const available=tasks
+    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
+    .sort((a,b)=>{
+      const pOrd={high:0,medium:1,low:2};
       return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);
     });
-
-  const old = document.getElementById('modal-tb-picker');
-  if(old) old.remove();
-  const m = document.createElement('div');
-  m.id = 'modal-tb-picker';
-  m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
+  const old=document.getElementById('modal-tb-slot'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='modal-tb-slot'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">📌 ${minsToTime(slot.startMin)} — pick a task</div>
-      <button class="modal-close" onclick="closeModal('modal-tb-picker')">✕</button>
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">📌 ${minsToTime(startMin)} — assign task</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-slot')">✕</button>
     </div>
     <div style="overflow-y:auto;flex:1;">
-      ${available.map(t => {
-        const proj = projects.find(p=>p.id===t.projectId);
-        const c = proj?.color||'#E8A838';
-        return `<div onclick="addTbBlock('${slot.date}',${slot.startMin},'${t.id}');closeModal('modal-tb-picker');"
-          style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-            <div style="display:flex;gap:6px;margin-top:2px;">
-              ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
-              ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:''}
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
+      ${available.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No unscheduled tasks available.</div>`
+        : available.map(t=>{
+            const proj=projects.find(p=>p.id===t.projectId);
+            const c=proj?.color||'#E8A838';
+            return `<div onclick="addTbBlock('${date}',${startMin},'${t.id}');closeModal('modal-tb-slot');"
+              style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+                <div style="display:flex;gap:6px;margin-top:2px;">
+                  ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+                  ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:'<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">no estimate</span>'}
+                </div>
+              </div>
+            </div>`;
+          }).join('')
+      }
     </div>
   </div>`;
-  m.onclick = e => { if(e.target===m) closeModal('modal-tb-picker'); };
-  document.body.appendChild(m);
-  openModal('modal-tb-picker');
+  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-slot');};
+  document.body.appendChild(m); openModal('modal-tb-slot');
 }
+
+// Pick a task first, then pick a time
+function openTbAddTask(date){
+  const scheduledIds=new Set(getTbBlocksForDate(date).map(b=>b.taskId));
+  const available=tasks
+    .filter(t=>t.status!=='done'&&t.status!=='blocked'&&!scheduledIds.has(t.id))
+    .sort((a,b)=>{const pOrd={high:0,medium:1,low:2};return (pOrd[a.priority]||1)-(pOrd[b.priority]||1);});
+  const old=document.getElementById('modal-tb-add'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='modal-tb-add'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:75vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">➕ Add to schedule</div>
+      <button class="modal-close" onclick="closeModal('modal-tb-add')">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">
+      ${available.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const c=proj?.color||'#E8A838';
+          return `<div onclick="closeModal('modal-tb-add');openTbTimePicker('${date}','${t.id}');"
+            style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              <div style="display:flex;gap:6px;margin-top:2px;">
+                ${proj?`<span style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+                ${t.estimate?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">⏱ ${t.estimate}</span>`:''}
+              </div>
+            </div>
+            <span style="color:var(--text4);font-size:13px;">›</span>
+          </div>`;
+        }).join('') || `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No unscheduled tasks.</div>`
+      }
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-add');};
+  document.body.appendChild(m); openModal('modal-tb-add');
+}
+
+// Pick a time for a specific task
+function openTbTimePicker(date, taskId, isReschedule){
+  const HS=getTbHourStart(), HE=getTbHourEnd();
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const slots=[];
+  for(let h=HS;h<HE;h++){ slots.push(h*60); slots.push(h*60+30); }
+  const old=document.getElementById('modal-tb-time'); if(old) old.remove();
+  const m=document.createElement('div');
+  m.id='modal-tb-time'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="min-width:0;flex:1;">
+        <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        <div style="font-family:var(--font-ui);font-size:11px;color:var(--text3);margin-top:2px;">${isReschedule?'Pick new time':'Pick a time slot'}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-tb-time')">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">
+      ${slots.map(startMin=>{
+          const label=minsToTime(startMin);
+          const endLabel=minsToTime(startMin+estToMins(t.estimate||'30m'));
+          return `<div onclick="addTbBlock('${date}',${startMin},'${taskId}');closeModal('modal-tb-time');"
+            style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
+            <span style="font-family:var(--font-ui);font-size:14px;font-weight:600;color:var(--text);">${label}</span>
+            <span style="font-family:var(--font-ui);font-size:11px;color:var(--text4);">until ${endLabel}</span>
+          </div>`;
+        }).join('')}
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-tb-time');};
+  document.body.appendChild(m); openModal('modal-tb-time');
+}
+
+// Reschedule — pick new time for already-scheduled task
+function openTbReschedule(date, taskId){
+  openTbTimePicker(date, taskId, true);
+}
+
 
 
 // ── Today picker — fluid task selector for Today screen ─────────
