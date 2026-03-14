@@ -2132,6 +2132,7 @@ async function loadAll(){
   try { if(data.weeklyIntentions){ weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); } } catch(e){}
   try { if(data.somedayList)     { somedayList = data.somedayList;          localStorage.setItem('hub-someday',    JSON.stringify(somedayList));     } } catch(e){}
   try { if(data.peopleList)      { peopleList = data.peopleList;            localStorage.setItem('hub-people',     JSON.stringify(peopleList));      } } catch(e){}
+  try { if(data.contactsList)    { contactsList = data.contactsList;          localStorage.setItem('hub-contacts',   JSON.stringify(contactsList));    } } catch(e){}
   try { if(data.meetingLog)      { meetingLog = data.meetingLog;            localStorage.setItem('hub-meetings',   JSON.stringify(meetingLog));      } } catch(e){}
   // Raven email settings — sync across devices
   try { if(data.ravenSettings){
@@ -2175,6 +2176,7 @@ function getCloudStats(){
     weeklyIntentions: weeklyIntentions,
     somedayList:      somedayList,
     peopleList:       peopleList,
+    contactsList:     contactsList,
     meetingLog:       meetingLog,
     ravenSettings: {
       email:   localStorage.getItem('hub-raven-email')||'',
@@ -4975,7 +4977,8 @@ function saveHubData(key, val){ localStorage.setItem(key, JSON.stringify(val)); 
 let waitingFor     = loadHubData('hub-waiting', []);    // [{id,person,what,dueDate,taskId,done,createdAt}]
 let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']}); // {week, wins:[3 strings]}
 let somedayList    = loadHubData('hub-someday', []);    // [{id,title,createdAt}]
-let peopleList     = loadHubData('hub-people', []);     // [{id,name,lastContact,nudgeDays,notes}]
+let peopleList     = loadHubData('hub-people', []);     // [{id,name,role}] — meeting/waiting-for contacts
+let contactsList   = loadHubData('hub-contacts', []);   // [{id,name,role,lastContact,nudgeDays}] — relationship nudges
 let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,attendees,decisions,notes,myCommits,theirCommits}]
 
 function saveSlots(){ /* legacy — no-op */ }
@@ -5543,7 +5546,7 @@ function showResetStep(n){
   // Step 6: show people nudges
   if(n===6){
     const nudgeEl = document.getElementById('reset-people-nudges');
-    if(nudgeEl && peopleList.length>0){
+    if(nudgeEl && contactsList.length>0){
       const nudges = getPeopleNudges();
       nudgeEl.innerHTML = nudges.length>0
         ? `<div style="padding:10px;border-radius:8px;border:1px solid rgba(232,168,56,0.3);background:rgba(232,168,56,0.05);">
@@ -5712,35 +5715,63 @@ function renderWaitingPage(container){
 
 function renderPeoplePage(container){
   const nudges = getPeopleNudges();
-  const rest   = peopleList.filter(p=>!nudges.find(n=>n.id===p.id));
+  const restContacts = contactsList.filter(c=>!nudges.find(n=>n.id===c.id));
   const todayStr = today();
 
-  const row = (p, isNudge) => {
-    const daysSince = p.lastContact ? Math.floor((new Date(todayStr)-new Date(p.lastContact))/86400000) : null;
+  const contactRow = (c, isNudge) => {
+    const daysSince = c.lastContact ? Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000) : null;
     return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);${isNudge?'background:rgba(232,168,56,0.04);':''}">
-      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
         <div style="font-size:11px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);margin-top:2px;">
-          ${daysSince===null?'Never contacted — reach out!':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · overdue for a check-in':''}
-          · nudge every ${p.nudgeDays}d
+          ${c.role?esc(c.role)+' · ':''}${daysSince===null?'Never contacted':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · reach out':''} · every ${c.nudgeDays}d
         </div>
       </div>
-      <button onclick="logContact('${p.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
-      <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+      <button onclick="logContact('${c.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
+      <button onclick="openAddContactModal('${c.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
+      <button onclick="deleteContact('${c.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
 
+  const meetingPersonRow = (p) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+    <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.name)}</div>
+      ${p.role?`<div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</div>`:''}
+    </div>
+    <button onclick="openAddPersonModal('${p.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
+    <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+  </div>`;
+
   container.innerHTML = `
-    <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">👥 People</div>
-      <button onclick="openAddPersonModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
+    <!-- Relationship contacts — with nudge reminders -->
+    <div style="padding:12px 14px 6px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">👥 Relationship Contacts</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">People you want to stay in touch with</div>
+      </div>
+      <button onclick="openAddContactModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
     </div>
     ${nudges.length>0?`<div style="margin:0 10px 4px;padding:6px 12px;border-radius:8px;background:rgba(232,168,56,0.08);border:1px solid rgba(232,168,56,0.2);font-family:var(--font-ui);font-size:11px;color:var(--accent);">⚡ ${nudges.length} person${nudges.length>1?'s':''} to reach out to</div>`:''}
-    <div style="margin:4px 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+    <div style="margin:0 10px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+      ${contactsList.length===0
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add people you want regular reminders to contact.</div>`
+        : nudges.map(c=>contactRow(c,true)).join('') + restContacts.map(c=>contactRow(c,false)).join('')
+      }
+    </div>
+    <!-- Meeting contacts — attendees for meetings/waiting for -->
+    <div style="padding:0 14px 6px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 Meeting Contacts</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">People who appear in meetings and waiting for</div>
+      </div>
+      <button onclick="openAddPersonModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
+    </div>
+    <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
       ${peopleList.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add people you want to stay in touch with.</div>`
-        : nudges.map(p=>row(p,true)).join('') + rest.map(p=>row(p,false)).join('')
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add people you meet with regularly.</div>`
+        : peopleList.map(p=>meetingPersonRow(p)).join('')
       }
     </div>`;
 }
@@ -6035,20 +6066,39 @@ function renderSomedaySection(){
 // ═══════════════════════════════════════════════════════════════
 // PEOPLE / RELATIONSHIP NUDGES
 // ═══════════════════════════════════════════════════════════════
+// ── Meeting/WaitingFor people (no nudges) ───────────────────────
 function savePeople(){ saveHubData('hub-people', peopleList); }
 
-function addPerson(name, role, nudgeDays){
+function addPerson(name, role){
   if(!name.trim()) return;
-  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14, notes:'' });
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim() });
   savePeople(); renderAll();
 }
 
-function updatePerson(id, name, role, nudgeDays){
+function updatePerson(id, name, role){
   const p = peopleList.find(x=>x.id===id); if(!p) return;
-  p.name = name.trim(); p.role = (role||'').trim(); p.nudgeDays = nudgeDays||14;
+  p.name = name.trim(); p.role = (role||'').trim();
   savePeople(); renderAll();
   showToast('✓ Updated ' + p.name);
 }
+
+// ── Relationship contacts (nudge reminders) ──────────────────────
+function saveContacts(){ saveHubData('hub-contacts', contactsList); }
+
+function addContact(name, role, nudgeDays){
+  if(!name.trim()) return;
+  contactsList.push({ id:'c'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14 });
+  saveContacts(); renderAll();
+}
+
+function updateContact(id, name, role, nudgeDays){
+  const c = contactsList.find(x=>x.id===id); if(!c) return;
+  c.name = name.trim(); c.role = (role||'').trim(); c.nudgeDays = nudgeDays||14;
+  saveContacts(); renderAll();
+  showToast('✓ Updated ' + c.name);
+}
+
+function deleteContact(id){ contactsList=contactsList.filter(x=>x.id!==id); saveContacts(); renderAll(); }
 
 // Build person picker HTML for use in modals
 function buildPersonPickerHTML(selectedIds, inputId){
@@ -6098,25 +6148,26 @@ function getPersonNamesByIds(ids){
 }
 
 function logContact(id){
-  const p=peopleList.find(x=>x.id===id); if(!p) return;
-  p.lastContact=today(); savePeople(); renderAll();
-  showToast('✓ Contact logged for ' + p.name);
+  const c=contactsList.find(x=>x.id===id); if(!c) return;
+  c.lastContact=today(); saveContacts(); renderAll();
+  showToast('✓ Contact logged for ' + c.name);
 }
 
 function deletePerson(id){ peopleList=peopleList.filter(x=>x.id!==id); savePeople(); renderAll(); }
 
+
 function getPeopleNudges(){
   const todayStr=today();
-  return peopleList.filter(p=>{
-    if(!p.lastContact) return true;
-    const days=Math.floor((new Date(todayStr)-new Date(p.lastContact))/86400000);
-    return days >= p.nudgeDays;
+  return contactsList.filter(c=>{
+    if(!c.lastContact) return true;
+    const days=Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000);
+    return days >= c.nudgeDays;
   });
 }
 
 function renderPeopleSection(){
   const nudges = getPeopleNudges();
-  const rest   = peopleList.filter(p=>!nudges.find(n=>n.id===p.id));
+  const rest   = contactsList.filter(c=>!nudges.find(n=>n.id===c.id));
   const todayStr=today();
 
   const personRow = (p, isNudge) => {
@@ -6139,11 +6190,71 @@ function renderPeopleSection(){
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:${nudges.length>0?'var(--accent)':'var(--text3)'};letter-spacing:1px;">👥 PEOPLE ${nudges.length>0?`· ${nudges.length} to reach out to`:''}</div>
       <button onclick="openAddPersonModal()" style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ ADD</button>
     </div>
-    ${peopleList.length===0
-      ? `<div style="padding:12px 14px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Add people you want to stay in touch with.</div>`
+    ${contactsList.length===0
+      ? `<div style="padding:12px 14px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Add contacts you want to stay in touch with.</div>`
       : nudges.map(p=>personRow(p,true)).join('') + rest.map(p=>personRow(p,false)).join('')
     }
   </div>`;
+}
+
+function openAddContactModal(editId){
+  const existing = editId ? contactsList.find(c=>c.id===editId) : null;
+  const old = document.getElementById('modal-contact');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-contact'; m.className='modal-overlay fullscreen';
+  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">👥 Relationship Contacts</div>
+      <button class="modal-close" onclick="closeModal('modal-contact')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT CONTACT':'ADD CONTACT'}</div>
+      <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
+      <input id="contact-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
+        <input id="contact-days" type="number" class="field-input" value="${existing?existing.nudgeDays:14}" min="1" max="365" style="flex:1;"/>
+        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);">days</span>
+      </div>
+      <input type="hidden" id="contact-edit-id" value="${editId||''}"/>
+      <button onclick="submitAddContact()" style="width:100%;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Contact'}</button>
+      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">ALL CONTACTS (${contactsList.length})</div>
+        ${contactsList.length===0
+          ? `<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);font-style:italic;padding:8px 0;">No contacts yet.</div>`
+          : contactsList.map(c=>{
+              const nudges = getPeopleNudges();
+              const isNudge = nudges.find(n=>n.id===c.id);
+              return `<div class="people-list-item">
+                <div style="width:36px;height:36px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
+                  <div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${c.role?esc(c.role)+' · ':''}every ${c.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}</div>
+                </div>
+                <button onclick="openAddContactModal('${c.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;margin-right:4px;">edit</button>
+                <button onclick="deleteContact('${c.id}');openAddContactModal();" style="padding:5px 7px;border-radius:5px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+              </div>`;
+            }).join('')
+        }
+      </div>
+    </div>
+  </div>`;
+  m.onclick=e=>{ if(e.target===m) closeModal('modal-contact'); };
+  document.body.appendChild(m);
+  openModal('modal-contact');
+  setTimeout(()=>document.getElementById('contact-name').focus(),150);
+}
+
+function submitAddContact(){
+  const name=document.getElementById('contact-name')?.value||'';
+  const role=document.getElementById('contact-role')?.value||'';
+  const days=parseInt(document.getElementById('contact-days')?.value||'14');
+  const editId=document.getElementById('contact-edit-id')?.value||'';
+  if(!name.trim()){ showToast('Need a name'); return; }
+  if(editId){ updateContact(editId, name, role, days); }
+  else { addContact(name, role, days); showToast('👤 Added ' + name.trim()); }
+  openAddContactModal();
 }
 
 function openAddPersonModal(editId){
@@ -6161,11 +6272,6 @@ function openAddPersonModal(editId){
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
       <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
       <input id="person-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
-        <input id="person-days" type="number" class="field-input" value="${existing?existing.nudgeDays:14}" min="1" max="365" style="flex:1;"/>
-        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);">days</span>
-      </div>
       <input type="hidden" id="person-edit-id" value="${editId||''}"/>
       <button onclick="submitAddPerson()" style="width:100%;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Person'}</button>
       <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
@@ -6200,11 +6306,10 @@ function openAddPersonModal(editId){
 function submitAddPerson(){
   const name=document.getElementById('person-name')?.value||'';
   const role=document.getElementById('person-role')?.value||'';
-  const days=parseInt(document.getElementById('person-days')?.value||'14');
   const editId=document.getElementById('person-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updatePerson(editId, name, role, days); }
-  else { addPerson(name, role, days); showToast('👤 Added ' + name.trim()); }
+  if(editId){ updatePerson(editId, name, role); }
+  else { addPerson(name, role); showToast('👤 Added ' + name.trim()); }
   openAddPersonModal(); // refresh modal to show updated list
 }
 
