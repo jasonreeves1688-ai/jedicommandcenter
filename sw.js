@@ -11,7 +11,7 @@
 // │  This tells installed apps to fetch the latest version.     │
 // └─────────────────────────────────────────────────────────────┘
 
-const CACHE_NAME = 'command-center-v4'; // ← BUMP THIS ON EVERY DEPLOY
+const CACHE_NAME = 'command-center-v5'; // ← BUMP THIS ON EVERY DEPLOY
 const APP_SHELL = ['/'];
 
 // ── Install: cache the app shell ────────────────────────────────
