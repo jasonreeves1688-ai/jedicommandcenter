@@ -754,18 +754,30 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 .tb-hour-slot.tb-drop-target{background:rgba(232,168,56,0.12);outline:2px dashed rgba(232,168,56,0.5);}
 .tb-block{
   position:absolute;left:4px;right:4px;
-  border-radius:8px;padding:5px 8px;
+  border-radius:8px;padding:4px 6px 4px 8px;
   font-family:var(--font-ui);font-size:11px;font-weight:700;
   cursor:pointer;overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,0.3);
-  display:flex;flex-direction:column;justify-content:flex-start;
+  box-shadow:0 2px 8px rgba(0,0,0,0.35);
+  display:flex;flex-direction:row;align-items:flex-start;gap:2px;
   transition:opacity 0.1s;
-  min-height:24px;
+  min-height:28px;
+  color:#fff !important;
+  text-shadow:0 1px 3px rgba(0,0,0,0.5);
 }
-.tb-block:active{opacity:0.7;}
-.tb-block-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;}
-.tb-block-time{font-size:10px;opacity:0.75;margin-top:2px;}
-.tb-block-remove{position:absolute;top:3px;right:5px;background:none;border:none;color:inherit;font-size:13px;cursor:pointer;opacity:0.6;padding:0;line-height:1;}
+.tb-block:active{opacity:0.75;}
+.tb-block-content{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start;padding-top:1px;}
+.tb-block-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3;color:#fff;}
+.tb-block-time{font-size:10px;opacity:0.85;margin-top:1px;color:#fff;}
+.tb-block-actions{display:flex;flex-direction:column;gap:2px;flex-shrink:0;margin-top:-1px;}
+.tb-block-remove{
+  background:rgba(0,0,0,0.25);border:none;color:#fff;
+  font-size:11px;cursor:pointer;
+  width:22px;height:22px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+}
+.tb-block-remove:active{background:rgba(0,0,0,0.5);}
 /* Unscheduled sidebar */
 #tb-sidebar{width:160px;flex-shrink:0;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 #tb-sidebar-hdr{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:8px 10px 6px;border-bottom:1px solid var(--border);flex-shrink:0;}
@@ -5279,7 +5291,11 @@ function renderTodayView(container){
     <div style="display:flex;gap:6px;align-items:center;">
       <button onclick="overwhelmMode=true;renderAll();" title="Just show me one thing" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">🧘</button>
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
-        style="padding:6px 8px;border-radius:6px;border:1px solid ${todayViewMode==='timeblock'?'rgba(232,168,56,0.5)':'var(--border)'};background:${todayViewMode==='timeblock'?'var(--accent-soft)':'var(--surface2)'};color:${todayViewMode==='timeblock'?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;cursor:pointer;" title="Time block view">🗓</button>
+        style="padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-ui);
+        border:1px solid ${todayViewMode==='timeblock'?'rgba(232,168,56,0.6)':'rgba(232,168,56,0.3)'};
+        background:${todayViewMode==='timeblock'?'var(--accent)':'rgba(232,168,56,0.08)'};
+        color:${todayViewMode==='timeblock'?'#1a1f2e':'var(--accent)'};"
+        title="Time block view">🗓 ${todayViewMode==='timeblock'?'List view':'Plan day'}</button>
       <button onclick="openReset()" style="padding:6px 11px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 Reset</button>
     </div>
   </div>`;
@@ -5662,17 +5678,14 @@ function renderWaitingPage(container){
   // Person filter
   const allActive = waitingFor.filter(w=>!w.done);
   const active = waitingPersonFilter
-    ? allActive.filter(w=>w.personId===waitingPersonFilter || w.person===getPersonNameById(waitingPersonFilter))
+    ? allActive.filter(w=>w.personId===waitingPersonFilter)
     : allActive;
   const done = (waitingPersonFilter
-    ? waitingFor.filter(w=>w.done && (w.personId===waitingPersonFilter || w.person===getPersonNameById(waitingPersonFilter)))
+    ? waitingFor.filter(w=>w.done && w.personId===waitingPersonFilter)
     : waitingFor.filter(w=>w.done)).slice(0,10);
-  // Unique people in waiting for list for filter bar
-  const wfPeople = [...new Set(waitingFor.map(w=>w.personId||w.person).filter(Boolean))]
-    .map(idOrName => {
-      const p = peopleList.find(x=>x.id===idOrName);
-      return p ? p : { id:idOrName, name:idOrName };
-    }).slice(0,8);
+  // Filter bar — only show people from peopleList who actually appear in waitingFor
+  const wfPersonIds = new Set(waitingFor.map(w=>w.personId).filter(Boolean));
+  const wfPeople = peopleList.filter(p=>wfPersonIds.has(p.id));
 
   const row = (w, isDone) => {
     const overdue = w.dueDate && w.dueDate < todayStr;
@@ -5692,7 +5705,7 @@ function renderWaitingPage(container){
     </div>`;
   };
 
-  const filterBar = wfPeople.length > 1 ? `
+  const filterBar = wfPeople.length > 0 ? `
     <div class="person-filter-bar">
       <button class="person-chip ${!waitingPersonFilter?'selected':''}" onclick="waitingPersonFilter='';renderAll();">All</button>
       ${wfPeople.map(p=>`<button class="person-chip ${waitingPersonFilter===p.id?'selected':''}" onclick="waitingPersonFilter='${p.id}';renderAll();">${p.name}</button>`).join('')}
@@ -5782,9 +5795,10 @@ function renderMeetingsPage(container){
     ? meetingLog.filter(m=>(m.personIds||'').split(',').includes(meetingPersonFilter))
     : meetingLog;
   // Unique people who appear in meetings
-  const mtgPeople = [...new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)))]
-    .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean).slice(0,8);
-  const filterBar = mtgPeople.length > 1 ? `
+  // Filter bar — only people from peopleList who appear in at least one meeting
+  const mtgPersonIds = new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)));
+  const mtgPeople = peopleList.filter(p=>mtgPersonIds.has(p.id));
+  const filterBar = mtgPeople.length > 0 ? `
     <div class="person-filter-bar">
       <button class="person-chip ${!meetingPersonFilter?'selected':''}" onclick="meetingPersonFilter='';renderAll();">All</button>
       ${mtgPeople.map(p=>`<button class="person-chip ${meetingPersonFilter===p.id?'selected':''}" onclick="meetingPersonFilter='${p.id}';renderAll();">${p.name}</button>`).join('')}
@@ -5896,7 +5910,6 @@ function openWaitingModal(prefillTaskId){
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO?</div>
         ${buildPersonPickerHTML('', 'wf-person-id')}
-        <input id="wf-person-free" class="field-input" placeholder="Or type a name not in your list…" autocomplete="off" style="margin-top:8px;"/>
       </div>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">WHAT ARE YOU WAITING ON?</div>
@@ -5920,13 +5933,13 @@ function openWaitingModal(prefillTaskId){
 
 function submitWaitingFor(){
   const personId = document.getElementById('wf-person-id')?.value||'';
-  const personFree = document.getElementById('wf-person-free')?.value.trim()||'';
-  const person = personId ? getPersonNameById(personId) : personFree;
-  const what   = document.getElementById('wf-what')?.value.trim()||'';
-  const due    = document.getElementById('wf-due')?.value||'';
-  const taskId = document.getElementById('wf-task-id')?.value||'';
-  if(!person||!what){ showToast('Need a person and what you\'re waiting on'); return; }
-  waitingFor.unshift({ id:'wf'+Date.now(), person, personId:personId||'', what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
+  const what     = document.getElementById('wf-what')?.value.trim()||'';
+  const due      = document.getElementById('wf-due')?.value||'';
+  const taskId   = document.getElementById('wf-task-id')?.value||'';
+  if(!personId){ showToast('Select a person first'); return; }
+  if(!what){ showToast('Describe what you\'re waiting on'); return; }
+  const person = getPersonNameById(personId);
+  waitingFor.unshift({ id:'wf'+Date.now(), person, personId, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
   saveWaiting(); renderAll();
   closeModal('modal-waiting');
   showToast('⏳ Added to Waiting For');
@@ -6345,7 +6358,7 @@ function openMeetingCapture(existingId){
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO WAS THERE?</div>
         ${buildPersonPickerHTML(existingPersonIds, 'mtg-person-ids')}
-        <input id="mtg-attendees-free" class="field-input" placeholder="Others not in your list…" autocomplete="off" style="margin-top:8px;" value="${existing?esc(existing.attendees||''):''}"/>
+
       </div>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:6px;">✅ DECISIONS MADE</div>
@@ -6379,10 +6392,7 @@ function saveMeetingCapture(){
   const title     = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
   const date      = document.getElementById('mtg-date')?.value||today();
   const personIds = document.getElementById('mtg-person-ids')?.value||'';
-  const attendeesFree = document.getElementById('mtg-attendees-free')?.value.trim()||'';
-  // Build combined attendees string for display
-  const namedAttendees = getPersonNamesByIds(personIds);
-  const attendees = [namedAttendees, attendeesFree].filter(Boolean).join(', ');
+  const attendees = getPersonNamesByIds(personIds);
   const decisions = document.getElementById('mtg-decisions')?.value.trim()||'';
   const notes     = document.getElementById('mtg-notes')?.value.trim()||'';
   const myCommits = document.getElementById('mtg-mycommits')?.value.trim()||'';
@@ -6571,6 +6581,8 @@ function renderTimeBlock(container){
       ondragleave="event.currentTarget.classList.remove('tb-drop-target');"
       ondrop="event.preventDefault();event.currentTarget.classList.remove('tb-drop-target');
               const tid=event.dataTransfer.getData('taskId');
+              const removeFrom=event.dataTransfer.getData('removeFrom');
+              if(removeFrom && removeFrom!=='${date}') removeTbBlock(removeFrom,tid);
               if(tid) addTbBlock('${date}',${startMin},tid);">
       <div class="tb-hour-label">${label}</div>
       <div class="tb-hour-slot" ></div>
@@ -6586,12 +6598,18 @@ function renderTimeBlock(container){
     const height = Math.max(24, b.durMin);
     const textColor = '#fff';
     const endMin = b.startMin + b.durMin;
-    blockHtml += `<div class="tb-block" 
-      style="top:${topPx}px;height:${height}px;background:${b.color};color:${textColor};left:52px;right:4px;"
-      onclick="openEditTask('${t.id}')">
-      <button class="tb-block-remove" onclick="event.stopPropagation();removeTbBlock('${date}','${t.id}')" title="Remove">✕</button>
-      <div class="tb-block-title">${esc(t.title)}</div>
-      <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
+    blockHtml += `<div class="tb-block"
+      draggable="true"
+      ondragstart="event.dataTransfer.setData('taskId','${t.id}');event.dataTransfer.setData('removeFrom','${date}');this.style.opacity='0.4';"
+      ondragend="this.style.opacity='1';"
+      style="top:${topPx}px;height:${height}px;background:${b.color};left:52px;right:4px;">
+      <div class="tb-block-content" onclick="openEditTask('${t.id}')">
+        <div class="tb-block-title">${esc(t.title)}</div>
+        <div class="tb-block-time">${minsToTime(b.startMin)} – ${minsToTime(endMin)}</div>
+      </div>
+      <div class="tb-block-actions">
+        <button class="tb-block-remove" onclick="event.stopPropagation();removeTbBlock('${date}','${t.id}')" title="Remove from schedule">✕</button>
+      </div>
     </div>`;
   }
 
@@ -6652,7 +6670,13 @@ function renderTimeBlock(container){
           </div>
         </div>
       </div>
-      <div id="tb-sidebar">
+      <div id="tb-sidebar"
+      ondragover="event.preventDefault();this.style.background='rgba(232,168,56,0.08)';"
+      ondragleave="this.style.background='';"
+      ondrop="event.preventDefault();this.style.background='';
+              const tid=event.dataTransfer.getData('taskId');
+              const removeFrom=event.dataTransfer.getData('removeFrom');
+              if(tid && removeFrom) removeTbBlock(removeFrom, tid);">
         <div id="tb-sidebar-hdr">UNSCHEDULED (${unscheduled.length})</div>
         <div id="tb-unscheduled">${chipHtml}</div>
       </div>
