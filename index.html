@@ -743,6 +743,69 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 .tb-nav-btn:active{background:var(--surface3);}
 #tb-slot-grid{scroll-behavior:smooth;}
 
+
+/* ── MASS EDIT SPREADSHEET ── */
+#mass-edit-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+#mass-edit-toolbar{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;
+  flex-shrink:0;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-wrap:wrap;
+}
+#mass-edit-count{font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);white-space:nowrap;}
+.me-action-btn{
+  padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);
+  font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;
+  white-space:nowrap;
+}
+.me-action-btn:active{background:var(--surface3);}
+.me-action-btn.danger{border-color:rgba(239,83,80,0.4);color:#EF5350;}
+.me-action-btn.disabled{opacity:0.35;pointer-events:none;}
+#mass-edit-table-wrap{flex:1;overflow:auto;}
+#mass-edit-table{
+  width:100%;border-collapse:collapse;
+  font-family:var(--font-ui);font-size:12px;
+  min-width:600px;
+}
+#mass-edit-table th{
+  position:sticky;top:0;z-index:5;
+  background:var(--surface2);border-bottom:2px solid var(--border2);
+  padding:7px 10px;text-align:left;
+  font-size:10px;font-weight:800;color:var(--text3);
+  letter-spacing:0.8px;text-transform:uppercase;
+  white-space:nowrap;
+}
+#mass-edit-table th:first-child{width:36px;padding:7px 6px;}
+#mass-edit-table td{
+  padding:6px 8px;border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.me-row:hover td{background:rgba(232,168,56,0.04);}
+.me-row.selected td{background:rgba(232,168,56,0.08);}
+.me-row.done-row td{opacity:0.45;}
+.me-check{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+.me-title-cell{min-width:180px;max-width:280px;}
+.me-title-input{
+  width:100%;background:transparent;border:none;
+  font-family:var(--font-ui);font-size:12px;color:var(--text);
+  padding:2px 4px;border-radius:4px;outline:none;
+}
+.me-title-input:focus{background:var(--surface2);border:1px solid var(--accent);}
+.me-select{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-ui);font-size:11px;
+  border-radius:5px;padding:3px 6px;cursor:pointer;
+}
+.me-date{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-ui);font-size:11px;
+  border-radius:5px;padding:3px 6px;cursor:pointer;
+  color-scheme:dark;
+}
+.me-priority-high{color:#EF5350;}
+.me-priority-medium{color:#E8A838;}
+.me-priority-low{color:#888;}
+
 /* ── AI LOADING RING ── */
 @keyframes loadingRing{to{transform:rotate(360deg);}}
 
@@ -753,6 +816,36 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
   width:100%;max-width:520px;
   height:85vh;display:flex;flex-direction:column;overflow:hidden;
   box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+/* Side-by-side meeting capture */
+.modal-sidebyside{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:14px 14px 0 0;
+  width:100%;max-width:900px;
+  height:90vh;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto 1fr auto;
+  overflow:hidden;
+  box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+}
+.sbs-prev{
+  display:flex;flex-direction:column;overflow:hidden;
+  border-right:1px solid var(--border);
+}
+.sbs-new{
+  display:flex;flex-direction:column;overflow:hidden;
+}
+/* On mobile — stack vertically */
+@media(max-width:600px){
+  .modal-sidebyside{
+    grid-template-columns:1fr;
+    grid-template-rows:auto auto 1fr auto;
+    max-width:520px;
+  }
+  .sbs-prev{ border-right:none; border-bottom:1px solid var(--border); max-height:35vh; }
+  .modal-sidebyside .modal-footer{ grid-column:1; }
+  .modal-sidebyside .modal-header{ grid-column:1; }
 }
 
 /* ── MODALS ── */
@@ -2001,7 +2094,7 @@ async function loadAll(){
   try{
     const data=await apiCall("getAll");
     // Check deployed Code.gs version
-    if(data.__version !== 'v27-sheets'){
+    if(data.__version !== 'v33-tbblocks-sync'){
       console.warn('Old Code.gs deployed — hub data will not sync. Please redeploy.');
     }
     const sheetProjects=(data.projects||[]).map(p=>({
@@ -2121,7 +2214,8 @@ async function loadAll(){
   try { if(data.somedayList)     { somedayList = data.somedayList;          localStorage.setItem('hub-someday',    JSON.stringify(somedayList));     } } catch(e){}
   try { if(data.peopleList)      { peopleList = data.peopleList;            localStorage.setItem('hub-people',     JSON.stringify(peopleList));      } } catch(e){}
   try { if(data.contactsList)    { contactsList = data.contactsList;          localStorage.setItem('hub-contacts',   JSON.stringify(contactsList));    } } catch(e){}
-  try { if(data.meetingLog)      { meetingLog = data.meetingLog;            localStorage.setItem('hub-meetings',   JSON.stringify(meetingLog));      } } catch(e){}
+  try { if(data.meetingLog)      { meetingLog = data.meetingLog;            localStorage.setItem('hub-meetings',        JSON.stringify(meetingLog));      } } catch(e){}
+  try { if(data.meetingSeries)   { meetingSeries = data.meetingSeries;      localStorage.setItem('hub-meeting-series',  JSON.stringify(meetingSeries));   } } catch(e){}
   // Raven email settings — sync across devices
   try { if(data.ravenSettings){
     const rs = data.ravenSettings;
@@ -2166,6 +2260,7 @@ function getCloudStats(){
     peopleList:       peopleList,
     contactsList:     contactsList,
     meetingLog:       meetingLog,
+    meetingSeries:    meetingSeries,
     ravenSettings: {
       email:   localStorage.getItem('hub-raven-email')||'',
       hour:    localStorage.getItem('hub-raven-hour')||'7',
@@ -2532,7 +2627,6 @@ function getFilteredTasks(projectId){
 function renderTaskList(container){
   const q=(document.getElementById("search-input")?.value||"").toLowerCase();
   updateAllFddBtns();
-
   const visibleTasks=tasks.filter(t=>{
     const proj=projects.find(p=>p.id===t.projectId);
     if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
@@ -2581,6 +2675,17 @@ function renderTaskList(container){
   let html=globalMetrics
     ?`<div style="background:rgba(212,192,148,0.45);border:1px solid rgba(58,68,104,0.25);border-radius:3px;margin-bottom:6px;padding:4px 10px;">${globalMetrics}</div>`
     :"";
+
+  // Mass edit toggle strip
+  html += `<div style="display:flex;align-items:center;justify-content:flex-end;padding:4px 10px 2px;">
+    <button onclick="toggleMassEdit()"
+      style="padding:4px 12px;border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;
+      border:1px solid ${massEditMode?'var(--accent)':'var(--border)'};
+      background:${massEditMode?'rgba(232,168,56,0.12)':'transparent'};
+      color:${massEditMode?'var(--accent)':'var(--text3)'};">
+      ⊞ ${massEditMode?'Exit bulk edit':'Bulk edit'}
+    </button>
+  </div>`;
 
   if(visibleTasks.length===0){
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-family:var(--font-ui);letter-spacing:0.5px;font-style:italic;">— All clear, Commander —</div>`;
@@ -2703,7 +2808,17 @@ function renderTaskRow(task,proj){
   // Priority button
   const pLabels={high:"🔴 Urgent",medium:"🟠 High",low:"🟡 Normal"};
   const pClass={high:"active-high",medium:"active-medium",low:"active-low"}[task.priority]||"";
-  const priorityBtn=`<button class="tctl-btn ${pClass}" onclick="event.stopPropagation();cycleTaskPriority('${task.id}')" title="Change priority">${pLabels[task.priority]||"Priority"}</button>`;
+  const { suggested: sugPri, reasons: sugReasons } = scorePriority(task);
+  const hasMismatch = sugPri !== (task.priority||'medium');
+  const mismatchDot = hasMismatch
+    ? `<span onclick="event.stopPropagation();applySmartPriority('${task.id}')"
+        title="Smart priority suggests: ${sugPri} (${sugReasons.join(', ')}) — tap to apply"
+        style="cursor:pointer;display:inline-block;width:7px;height:7px;border-radius:50%;
+               background:${sugPri==='high'?'#EF5350':sugPri==='low'?'#888':'#E8A838'};
+               margin-left:4px;vertical-align:middle;box-shadow:0 0 0 2px rgba(255,255,255,0.3);
+               flex-shrink:0;" ></span>`
+    : '';
+  const priorityBtn=`<button class="tctl-btn ${pClass}" onclick="event.stopPropagation();cycleTaskPriority('${task.id}')" title="Change priority">${pLabels[task.priority]||"Priority"}${mismatchDot}</button>`;
 
   // Status button
   const sLabels={todo:"○ Open",inprogress:"● Active",blocked:"⊘ Blocked",done:"✓ Done"};
@@ -3038,6 +3153,11 @@ function showJasonPrizeBanner(prize, type){
     </button>`;
   document.body.appendChild(el);
   setTimeout(()=>{ const e=document.getElementById('jason-prize-banner'); if(e) e.remove(); }, 15000);
+}
+
+function renderJasonRewardsTab(){
+  // Wrapper that fits the kids game tab panel style
+  return `<div style="padding:12px 14px;">${renderJasonRewardsSection()}</div>`;
 }
 
 function renderJasonRewardsSection(){
@@ -3422,9 +3542,6 @@ function renderFocusPanel(container){
     <!-- BLOCKED WARNING -->
     ${blockedHtml}
 
-    <!-- JASON REWARDS -->
-    ${renderJasonRewardsSection()}
-
     <!-- TODAY PANEL -->
     <div style="background:var(--surface);border:1px solid rgba(58,68,104,0.4);border-radius:4px;padding:14px;margin-top:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -3597,6 +3714,14 @@ function renderCalendar(container){
     if(!byDate[k]) byDate[k]=[];
     byDate[k].push(t);
   });
+  // Build date→meetings map
+  const meetingsByDate={};
+  meetingLog.forEach(m=>{
+    if(!m.date) return;
+    const k=m.date.slice(0,10);
+    if(!meetingsByDate[k]) meetingsByDate[k]=[];
+    meetingsByDate[k].push(m);
+  });
 
   // ── Grid ──
   let gridHtml = DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
@@ -3617,20 +3742,26 @@ function renderCalendar(container){
 
     const numCls=isToday||isSelected?"today":isOverdue?"overdue":"";
 
-    // Dots — one per task, colored by project, max 6 then show count
+    // Dots — tasks (project color) + meetings (blue)
     let dotHtml="";
-    if(dt.length>0){
-      const shown=dt.slice(0,6);
-      dotHtml=`<div class="cal-dots-row">${shown.map(t=>{
-        const proj=projects.find(p=>p.id===t.projectId);
-        const c=proj?.color||"#E8A838";
-        return `<div class="cal-dot" style="background:${c};"></div>`;
-      }).join("")}</div>`;
-      if(dt.length>6) dotHtml+=`<div class="cal-count-badge">+${dt.length-6}</div>`;
-      else if(dt.length>1) dotHtml+=`<div class="cal-count-badge">${dt.length}</div>`;
+    const dm=meetingsByDate[ds]||[];
+    if(dt.length>0||dm.length>0){
+      const shownTasks=dt.slice(0,5);
+      const shownMtgs=dm.slice(0,2);
+      dotHtml=`<div class="cal-dots-row">
+        ${shownTasks.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const c=proj?.color||"#E8A838";
+          return `<div class="cal-dot" style="background:${c};"></div>`;
+        }).join("")}
+        ${shownMtgs.map(()=>`<div class="cal-dot" style="background:#64B5F6;border-radius:2px;"></div>`).join("")}
+      </div>`;
+      const total=dt.length+dm.length;
+      if(total>7) dotHtml+=`<div class="cal-count-badge">+${total-7}</div>`;
+      else if(total>1) dotHtml+=`<div class="cal-count-badge">${total}</div>`;
     }
 
-    const onclick=dt.length>0||isToday?`calDayClick('${ds}')`:"";
+    const onclick=dt.length>0||dm.length>0||isToday?`calDayClick('${ds}')`:"";
     gridHtml+=`<div class="${cls}" onclick="${onclick}">
       <div class="cal-day-num ${numCls}">${d}</div>
       ${dotHtml}
@@ -3647,13 +3778,14 @@ function renderCalendar(container){
     const isT=calSelectedDay===todayStr;
     const heading=isT?"Today · "+label:isOv?"⚠ Overdue · "+label:label;
 
-    if(dt.length===0){
+    const dm2=meetingsByDate[calSelectedDay]||[];
+    if(dt.length===0 && dm2.length===0){
       dayPanelHtml=`<div class="cal-day-panel">
         <div class="cal-day-panel-hdr">
           <span class="cal-day-panel-title">${heading}</span>
           <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
         </div>
-        <div style="padding:18px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No tasks due this day.</div>
+        <div style="padding:18px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;">Nothing scheduled this day.</div>
       </div>`;
     } else {
       const rows=dt.map(t=>{
@@ -3670,12 +3802,32 @@ function renderCalendar(container){
           <span style="font-size:11px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
         </div>`;
       }).join("");
+      // Meeting rows for this day
+      const mtgRows=dm2.map(m=>{
+        const mPersonChips=(m.personIds||'').split(',').filter(Boolean)
+          .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
+          .map(p=>p.name).join(', ');
+        const timeLabel=m.startTime?m.startTime+(m.duration?' · '+
+          (m.duration>=60?Math.floor(m.duration/60)+'h'+(m.duration%60?m.duration%60+'m':''):m.duration+'min'):''):'';
+        return `<div onclick="openMeetingCapture('${m.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:rgba(100,181,246,0.04);">
+          <div style="width:8px;height:8px;border-radius:2px;background:#64B5F6;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
+            <div style="font-size:11px;color:#64B5F6;font-family:var(--font-ui);margin-top:1px;">
+              ${timeLabel?timeLabel+' · ':''}📝 Meeting${mPersonChips?' with '+esc(mPersonChips.slice(0,40)):''}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const totalCount=dt.length+dm2.length;
       dayPanelHtml=`<div class="cal-day-panel">
         <div class="cal-day-panel-hdr">
-          <span class="cal-day-panel-title">${heading} · ${dt.length} task${dt.length>1?"s":""}</span>
+          <span class="cal-day-panel-title">${heading}${totalCount>0?' · '+totalCount+' item'+(totalCount>1?'s':''):''}</span>
           <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
         </div>
-        ${rows}
+        ${dm2.length>0?`<div style="padding:4px 14px 2px;font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;">MEETINGS</div>${mtgRows}`:''}
+        ${dt.length>0?`<div style="padding:4px 14px 2px;font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">TASKS DUE</div>${rows}`:''}
       </div>`;
     }
   }
@@ -4168,10 +4320,25 @@ function renderSettings(container){
       <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="requestNotifPermission().then(g=>showToast(g?'🔔 Notifications enabled!':'Notifications blocked — check browser settings'))">🔔 Enable Notifications</button>
       <details style="margin-bottom:8px;">
         <summary style="font-family:var(--font-ui);font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);list-style:none;display:flex;align-items:center;gap:6px;">
-          🧪 Test Notifications
+          🧪 Notifications
         </summary>
         <div style="padding:10px 4px 0;display:flex;flex-direction:column;gap:6px;">
-          <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);letter-spacing:0.5px;margin-bottom:2px;">Fires immediately — no time/day check. Requires notifications to be enabled.</div>
+          <div id="notif-status-panel" style="padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="color:var(--text3);">Permission</span>
+              <span style="font-weight:800;color:${'Notification' in window && Notification.permission==='granted'?'var(--green)':Notification.permission==='denied'?'#EF5350':'var(--accent)'};">${'Notification' in window ? Notification.permission : 'not supported'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="color:var(--text3);">Service Worker</span>
+              <span style="font-weight:800;color:${typeof _swReg !== 'undefined'&&_swReg?'var(--green)':'#EF5350'};">${typeof _swReg !== 'undefined'&&_swReg?'✓ active':'✗ not registered'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:var(--text3);">Email</span>
+              <span style="font-weight:700;color:${localStorage.getItem('hub-raven-email')?'var(--text)':'#EF5350'};">${localStorage.getItem('hub-raven-email')||'⚠ not set'}</span>
+            </div>
+          </div>
+          <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'✓ Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable / re-enable notifications</button>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;margin-bottom:2px;">Test — fires immediately regardless of time:</div>
           <button class="hbtn" style="width:100%;" onclick="testNotif('morning')">☀ Test Morning Nudge</button>
           <button class="hbtn" style="width:100%;" onclick="testNotif('overdue')">⚠ Test Overdue Reminder</button>
           <button class="hbtn" style="width:100%;" onclick="testNotif('eod')">🌙 Test EOD Nudge</button>
@@ -4651,7 +4818,7 @@ function saveTask(){
     t.subtasks=_modalSubtasks;
     showToast("Task UPDATED ✓");
   }else{
-    tasks.push({id:genId(),title,projectId,
+    const newTask = {id:genId(),title,projectId,
       priority:document.getElementById("task-priority-input").value,
       status:document.getElementById("task-status-input").value,
       dueDate:document.getElementById("task-due-input").value,
@@ -4662,7 +4829,8 @@ function saveTask(){
       energy:document.getElementById("task-energy-input")?.value||"",
       personIds:document.getElementById("task-person-ids")?.value||"",
       subtasks:_modalSubtasks,
-      createdAt:Date.now()});
+      createdAt:Date.now()};
+    tasks.push(newTask);
     showToast("Task LOGGED ✓");
   }
   saveAllDebounced();closeModal("modal-task");renderAll();
@@ -4987,6 +5155,7 @@ let resetStep = 1;
 let somedayExpanded = false;
 let tbDate = today();              // date being planned
 let todayViewMode = 'list';        // 'list' | 'timeblock' — toggle on Today screen
+let massEditMode  = false;         // spreadsheet edit mode on Tasks
 let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
 let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilter = ''; // person id or '' for all
@@ -5001,7 +5170,8 @@ let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']});
 let somedayList    = loadHubData('hub-someday', []);    // [{id,title,createdAt}]
 let peopleList     = loadHubData('hub-people', []);     // [{id,name,role}] — meeting/waiting-for contacts
 let contactsList   = loadHubData('hub-contacts', []);   // [{id,name,role,lastContact,nudgeDays}] — relationship nudges
-let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,attendees,decisions,notes,myCommits,theirCommits}]
+let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,personIds,attendees,decisions,notes,myCommits,theirCommits,seriesId?}]
+let meetingSeries  = loadHubData('hub-meeting-series', []); // [{id,name,cadence,personIds,collapsed}]
 
 function saveSlots(){ /* legacy — no-op */ }
 
@@ -5726,6 +5896,7 @@ function renderWaitingPage(container){
           <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">added ${w.createdAt.slice(5)}</span>
         </div>
       </div>
+      <button onclick="openWaitingModal(null,'${w.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">edit</button>
       <button onclick="deleteWaiting('${w.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
@@ -5756,14 +5927,17 @@ function renderPeoplePage(container){
   const restContacts = contactsList.filter(c=>!nudges.find(n=>n.id===c.id));
   const todayStr = today();
 
+  const catColors={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
   const contactRow = (c, isNudge) => {
     const daysSince = c.lastContact ? Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000) : null;
+    const catC = catColors[c.role]||'var(--text4)';
     return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);${isNudge?'background:rgba(232,168,56,0.04);':''}">
-      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
+      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':catColors[c.role]?catColors[c.role]+'22':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':catColors[c.role]||'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
-        <div style="font-size:11px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);margin-top:2px;">
-          ${c.role?esc(c.role)+' · ':''}${daysSince===null?'Never contacted':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · reach out':''} · every ${c.nudgeDays}d
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">
+          ${c.role?`<span style="font-size:10px;font-weight:700;font-family:var(--font-ui);color:${catC};padding:1px 7px;border-radius:10px;border:1px solid ${catC}44;">${esc(c.role)}</span>`:''}
+          <span style="font-size:11px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);">${daysSince===null?'Never contacted':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · reach out':''} · every ${c.nudgeDays}d</span>
         </div>
       </div>
       <button onclick="logContact('${c.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
@@ -5772,15 +5946,21 @@ function renderPeoplePage(container){
     </div>`;
   };
 
-  const meetingPersonRow = (p) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
-    <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--text3);flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.name)}</div>
-      ${p.role?`<div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</div>`:''}
-    </div>
-    <button onclick="openAddPersonModal('${p.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
-    <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
-  </div>`;
+  const meetingPersonRow = (p) => {
+    const pc = p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+      <div style="width:32px;height:32px;border-radius:50%;background:${pc}22;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${pc};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.name)}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+          ${p.role?`<span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</span>`:''}
+          <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${pc};padding:1px 6px;border-radius:4px;border:1px solid ${pc}44;">${p.priority||'Medium'}</span>
+        </div>
+      </div>
+      <button onclick="openAddPersonModal('${p.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
+      <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+    </div>`;
+  };
 
   container.innerHTML = `
     <!-- Relationship contacts — with nudge reminders -->
@@ -5815,54 +5995,144 @@ function renderPeoplePage(container){
 }
 
 function renderMeetingsPage(container){
-  // Person filter for meetings
   const filteredMeetings = meetingPersonFilter
     ? meetingLog.filter(m=>(m.personIds||'').split(',').includes(meetingPersonFilter))
     : meetingLog;
-  // Unique people who appear in meetings
-  // Filter bar — only people from peopleList who appear in at least one meeting
+
+  // Filter bar
   const mtgPersonIds = new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)));
   const mtgPeople = peopleList.filter(p=>mtgPersonIds.has(p.id));
   const filterBar = mtgPeople.length > 0 ? `
     <div class="person-filter-bar">
       <button class="person-chip ${!meetingPersonFilter?'selected':''}" onclick="meetingPersonFilter='';renderAll();">All</button>
-      ${mtgPeople.map(p=>`<button class="person-chip ${meetingPersonFilter===p.id?'selected':''}" onclick="meetingPersonFilter='${p.id}';renderAll();">${p.name}</button>`).join('')}
+      ${mtgPeople
+        .sort((a,b)=>{ const o={High:0,Medium:1,Low:2}; return (o[a.priority]||1)-(o[b.priority]||1); })
+        .map(p=>{
+          const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+          return `<button class="person-chip ${meetingPersonFilter===p.id?'selected':''}"
+            onclick="meetingPersonFilter='${p.id}';renderAll();">
+            <span style="width:6px;height:6px;border-radius:50%;background:${pc};display:inline-block;margin-right:4px;flex-shrink:0;"></span>${p.name}
+          </button>`;
+        }).join('')}
     </div>` : '';
+
+  // Separate meetings into series and standalone
+  const seriesIds = new Set(meetingSeries.map(s=>s.id));
+  const standaloneMeetings = filteredMeetings.filter(m=>!m.seriesId);
+  const meetingsBySeriesId = {};
+  for(const m of filteredMeetings){
+    if(m.seriesId){
+      if(!meetingsBySeriesId[m.seriesId]) meetingsBySeriesId[m.seriesId]=[];
+      meetingsBySeriesId[m.seriesId].push(m);
+    }
+  }
+
+  // Render a single meeting occurrence row
+  const renderOccurrence = (m, isChild=false) => {
+    const hasCommits = m.myCommits?.trim();
+    const hasWaiting = m.theirCommits?.trim();
+    const mPersonChips = (m.personIds||'').split(',').filter(Boolean)
+      .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
+      .map(p=>`<span style="font-size:11px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:var(--font-ui);">${p.name}</span>`).join('');
+    return `<div style="padding:${isChild?'10px 14px 10px 28px':'12px 14px'};border-bottom:1px solid var(--border);cursor:pointer;${isChild?'background:rgba(0,0,0,0.1);':''}" onclick="openMeetingCapture('${m.id}')">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          ${!isChild?`<div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>`:''}
+          ${!isChild&&mPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${mPersonChips}</div>`:''}
+          ${m.notes?`<div style="font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${isChild?'0':'4px'};">${m.notes.replace(/<[^>]+>/g,' ').trim().slice(0,80)}</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);">${m.date}</div>
+          <button onclick="event.stopPropagation();deleteMeeting('${m.id}')"
+            style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;line-height:1;" title="Delete">✕</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
+        ${hasCommits?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⚡ my commits</span>`:''}
+        ${hasWaiting?`<span style="font-size:10px;background:rgba(100,181,246,0.1);color:#64B5F6;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⏳ waiting for</span>`:''}
+        ${m.decisions?`<span style="font-size:10px;background:rgba(102,187,106,0.1);color:#66BB6A;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">✅ decisions</span>`:''}
+      </div>
+    </div>`;
+  };
+
+  // Render series blocks
+  const seriesHtml = meetingSeries.map(s=>{
+    const occurrences = (meetingsBySeriesId[s.id]||[]).sort((a,b)=>b.date.localeCompare(a.date));
+    if(occurrences.length===0 && meetingPersonFilter) return ''; // hide empty series when filtering
+    const latest = occurrences[0];
+    const history = occurrences.slice(1);
+    const sPersonChips = (s.personIds||'').split(',').filter(Boolean)
+      .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
+      .map(p=>`<span style="font-size:11px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:var(--font-ui);">${p.name}</span>`).join('');
+    const cadenceColor = {Weekly:'#64B5F6','Bi-weekly':'#81C784',Monthly:'#E8A838','Ad-hoc':'#888'}[s.cadence]||'#888';
+    return `<div style="margin-bottom:0;border-bottom:2px solid var(--border2);">
+      <!-- Series header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px;background:var(--surface2);">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="font-size:14px;font-weight:800;color:var(--text);">🔁 ${esc(s.name)}</div>
+            <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${cadenceColor};padding:2px 7px;border-radius:10px;border:1px solid ${cadenceColor}44;">${s.cadence}</span>
+          </div>
+          ${sPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${sPersonChips}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <button onclick="captureSeriesMeeting('${s.id}')"
+            style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">+ Capture</button>
+          <button onclick="editMeetingSeries('${s.id}')"
+            style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">⚙</button>
+          <button onclick="deleteMeetingSeries('${s.id}')"
+            style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <!-- Latest occurrence -->
+      ${latest ? renderOccurrence(latest, false) : `<div style="padding:12px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;font-style:italic;">No meetings captured yet — tap + Capture to start.</div>`}
+      <!-- History (collapsible) -->
+      ${history.length>0?`
+        <div onclick="toggleSeriesHistory('${s.id}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;background:rgba(0,0,0,0.08);">
+          <span style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:0.5px;">HISTORY (${history.length})</span>
+          <span id="series-caret-${s.id}" style="font-size:10px;color:var(--text4);">${s.collapsed?'▸':'▾'}</span>
+        </div>
+        <div id="series-history-${s.id}" style="display:${s.collapsed?'none':'block'};">
+          ${history.map(m=>renderOccurrence(m,true)).join('')}
+        </div>`:''}
+    </div>`;
+  }).join('');
+
+  // Standalone meetings
+  const standaloneHtml = standaloneMeetings.length===0 ? '' : `
+    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:8px 14px 4px;">ONE-OFF MEETINGS</div>
+    <div style="margin:0 0 10px;border-radius:0;border-top:1px solid var(--border);background:var(--surface);overflow:hidden;">
+      ${standaloneMeetings.map(m=>renderOccurrence(m,false)).join('')}
+    </div>`;
 
   container.innerHTML = `
     <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 Meetings</div>
-      <button onclick="openMeetingCapture()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Capture</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="openMeetingSeriesModal()" style="padding:6px 12px;border-radius:7px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">🔁 New Series</button>
+        <button onclick="openMeetingCapture()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ One-off</button>
+      </div>
     </div>
     ${filterBar}
-    <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
-      ${filteredMeetings.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">${meetingLog.length===0?'No meetings captured yet.':'No meetings with this person.'}</div>`
-        : filteredMeetings.map(m=>{
-            const hasCommits = m.myCommits?.trim();
-            const hasWaiting = m.theirCommits?.trim();
-            const mPersonChips = (m.personIds||'').split(',').filter(Boolean)
-                .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
-                .map(p=>`<span style="font-size:11px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:10px;font-family:var(--font-ui);">${p.name}</span>`).join('');
-            return `<div style="padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openMeetingCapture('${m.id}')">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:14px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
-                  ${mPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${mPersonChips}</div>`:''}
-                  ${m.attendees&&!mPersonChips?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">with ${esc(m.attendees.slice(0,50))}</div>`:''}
-                </div>
-                <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);flex-shrink:0;">${m.date}</div>
-              </div>
-              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-                ${hasCommits?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⚡ my commits</span>`:''}
-                ${hasWaiting?`<span style="font-size:10px;background:rgba(100,181,246,0.1);color:#64B5F6;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⏳ waiting for</span>`:''}
-                ${m.decisions?`<span style="font-size:10px;background:rgba(102,187,106,0.1);color:#66BB6A;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">✅ decisions</span>`:''}
-              </div>
-            </div>`;
-          }).join('')
+    <div style="flex:1;overflow-y:auto;">
+      ${meetingSeries.length===0&&meetingLog.length===0
+        ? `<div style="padding:30px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No meetings yet. Create a recurring series or capture a one-off.</div>`
+        : seriesHtml + standaloneHtml
       }
     </div>`;
 }
+
+function toggleSeriesHistory(seriesId){
+  const s = meetingSeries.find(x=>x.id===seriesId); if(!s) return;
+  s.collapsed = !s.collapsed;
+  saveMeetingSeries();
+  // Toggle DOM directly without full re-render
+  const hist = document.getElementById('series-history-'+seriesId);
+  const caret = document.getElementById('series-caret-'+seriesId);
+  if(hist) hist.style.display = s.collapsed ? 'none' : 'block';
+  if(caret) caret.textContent = s.collapsed ? '▸' : '▾';
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 // WAITING FOR
@@ -5920,34 +6190,36 @@ function renderWaitingFor(){
   </div>`;
 }
 
-function openWaitingModal(prefillTaskId){
+function openWaitingModal(prefillTaskId, editId){
   const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
+  const existing   = editId ? waitingFor.find(w=>w.id===editId) : null;
   const old = document.getElementById('modal-waiting');
   if(old) old.remove();
   const el = document.createElement('div');
   el.id='modal-waiting'; el.className='modal-overlay fullscreen';
   el.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">⏳ Waiting For</div>
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">${existing?'✏ Edit Waiting For':'⏳ Waiting For'}</div>
       <button class="modal-close" onclick="closeModal('modal-waiting')">✕</button>
     </div>
     <div class="modal-body">
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO?</div>
-        ${buildPersonPickerHTML('', 'wf-person-id')}
+        ${buildPersonPickerHTML(existing?.personId||'', 'wf-person-id')}
       </div>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">WHAT ARE YOU WAITING ON?</div>
-        <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${linkedTask?esc(linkedTask.title):''}"/>
+        <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${existing?esc(existing.what):linkedTask?esc(linkedTask.title):''}"/>
       </div>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">EXPECTED BY (OPTIONAL)</div>
-        <input id="wf-due" type="date" class="field-input"/>
+        <input id="wf-due" type="date" class="field-input" value="${existing?.dueDate||''}" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
       </div>
-      <input id="wf-task-id" type="hidden" value="${prefillTaskId||''}"/>
+      <input id="wf-task-id" type="hidden" value="${existing?.taskId||prefillTaskId||''}"/>
+      <input id="wf-edit-id" type="hidden" value="${editId||''}"/>
     </div>
     <div class="modal-footer">
-      <button onclick="submitWaitingFor()" style="width:100%;padding:14px;border-radius:10px;border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">+ Add to Waiting For</button>
+      <button onclick="submitWaitingFor()" style="width:100%;padding:14px;border-radius:10px;border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add to Waiting For'}</button>
     </div>
   </div>`;
   el.onclick = e => { if(e.target===el) closeModal('modal-waiting'); };
@@ -5961,13 +6233,20 @@ function submitWaitingFor(){
   const what     = document.getElementById('wf-what')?.value.trim()||'';
   const due      = document.getElementById('wf-due')?.value||'';
   const taskId   = document.getElementById('wf-task-id')?.value||'';
+  const editId   = document.getElementById('wf-edit-id')?.value||'';
   if(!personId){ showToast('Select a person first'); return; }
   if(!what){ showToast('Describe what you\'re waiting on'); return; }
   const person = getPersonNameById(personId);
-  waitingFor.unshift({ id:'wf'+Date.now(), person, personId, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
+  if(editId){
+    const w = waitingFor.find(x=>x.id===editId);
+    if(w){ w.person=person; w.personId=personId; w.what=what; w.dueDate=due; w.taskId=taskId; }
+    showToast('✓ Updated');
+  } else {
+    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
+    showToast('⏳ Added to Waiting For');
+  }
   saveWaiting(); renderAll();
   closeModal('modal-waiting');
-  showToast('⏳ Added to Waiting For');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -6107,15 +6386,15 @@ function renderSomedaySection(){
 // ── Meeting/WaitingFor people (no nudges) ───────────────────────
 function savePeople(){ saveHubData('hub-people', peopleList); }
 
-function addPerson(name, role){
+function addPerson(name, role, priority){
   if(!name.trim()) return;
-  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim() });
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), priority:priority||'Medium' });
   savePeople(); renderAll();
 }
 
-function updatePerson(id, name, role){
+function updatePerson(id, name, role, priority){
   const p = peopleList.find(x=>x.id===id); if(!p) return;
-  p.name = name.trim(); p.role = (role||'').trim();
+  p.name = name.trim(); p.role = (role||'').trim(); p.priority = priority||'Medium';
   savePeople(); renderAll();
   showToast('✓ Updated ' + p.name);
 }
@@ -6147,12 +6426,15 @@ function buildPersonPickerHTML(selectedIds, inputId){
   }
   const sel = new Set(Array.isArray(selectedIds) ? selectedIds : [selectedIds].filter(Boolean));
   return `<div style="display:flex;flex-wrap:wrap;gap:6px;" id="${inputId}-chips">
-    ${peopleList.map(p=>`<button type="button" class="person-chip ${sel.has(p.id)?'selected':''}"
-      onclick="togglePersonChip('${p.id}','${inputId}-chips')"
-      data-pid="${p.id}">
-      <span>${p.name.slice(0,1).toUpperCase()}</span>
-      <span>${p.name}${p.role?` <span style='color:var(--text4);font-weight:400;'>(${p.role})</span>`:''}</span>
-    </button>`).join('')}
+    ${peopleList.map(p=>{
+      const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+      return `<button type="button" class="person-chip ${sel.has(p.id)?'selected':''}"
+        onclick="togglePersonChip('${p.id}','${inputId}-chips')"
+        data-pid="${p.id}">
+        <span style="width:6px;height:6px;border-radius:50%;background:${pc};flex-shrink:0;display:inline-block;margin-right:2px;"></span>
+        <span>${p.name}${p.role?` <span style='color:var(--text4);font-weight:400;font-size:10px;'>(${p.role})</span>`:''}</span>
+      </button>`;
+    }).join('')}
   </div>
   <input type="hidden" id="${inputId}" value="${[...sel].join(',')}"/>`;
 }
@@ -6249,7 +6531,22 @@ function openAddContactModal(editId){
     <div class="modal-body">
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT CONTACT':'ADD CONTACT'}</div>
       <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
-      <input id="contact-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
+      <div style="margin-bottom:8px;">
+        <div class="chip-label">Category</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${['Family','Friend','Mentor','Colleague','Professional','Other'].map(cat=>{
+            const colors={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
+            const c=colors[cat];
+            const cur=existing?.role||'Friend';
+            const sel=cur===cat;
+            return `<button type="button"
+              onclick="document.querySelectorAll('.cat-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('contact-role').value='${cat}';"
+              class="cat-chip"
+              style="padding:6px 12px;border-radius:20px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.1s;">${cat}</button>`;
+          }).join('')}
+        </div>
+        <input type="hidden" id="contact-role" value="${existing?.role||'Friend'}"/>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
         <input id="contact-days" type="number" class="field-input" value="${existing?existing.nudgeDays:14}" min="1" max="365" style="flex:1;"/>
@@ -6310,6 +6607,21 @@ function openAddPersonModal(editId){
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
       <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
       <input id="person-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
+      <div style="margin-bottom:8px;">
+        <div class="chip-label">Priority</div>
+        <div style="display:flex;gap:6px;">
+          ${['High','Medium','Low'].map(lvl=>{
+            const c = lvl==='High'?'#ff6060':lvl==='Medium'?'#E8A838':'#888';
+            const cur = existing?.priority||'Medium';
+            const sel = cur===lvl;
+            return `<button type="button"
+              onclick="document.querySelectorAll('.pp-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('person-priority').value='${lvl}';"
+              class="pp-chip"
+              style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">${lvl}</button>`;
+          }).join('')}
+        </div>
+        <input type="hidden" id="person-priority" value="${existing?.priority||'Medium'}"/>
+      </div>
       <input type="hidden" id="person-edit-id" value="${editId||''}"/>
       <button onclick="submitAddPerson()" style="width:100%;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Person'}</button>
       <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
@@ -6344,35 +6656,141 @@ function openAddPersonModal(editId){
 function submitAddPerson(){
   const name=document.getElementById('person-name')?.value||'';
   const role=document.getElementById('person-role')?.value||'';
+  const priority=document.getElementById('person-priority')?.value||'Medium';
   const editId=document.getElementById('person-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updatePerson(editId, name, role); }
-  else { addPerson(name, role); showToast('👤 Added ' + name.trim()); }
-  openAddPersonModal(); // refresh modal to show updated list
+  if(editId){ updatePerson(editId, name, role, priority); }
+  else { addPerson(name, role, priority); showToast('👤 Added ' + name.trim()); }
+  openAddPersonModal();
 }
 
 // ═══════════════════════════════════════════════════════════════
 // MEETING CAPTURE
 // ═══════════════════════════════════════════════════════════════
 function saveMeetings(){ saveHubData('hub-meetings', meetingLog); }
+function saveMeetingSeries(){ saveHubData('hub-meeting-series', meetingSeries); }
 
-function openMeetingCapture(existingId){
+function openMeetingSeriesModal(editId){
+  const existing = editId ? meetingSeries.find(s=>s.id===editId) : null;
+  const old = document.getElementById('modal-series'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-series'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--text);">${existing?'Edit Series':'🔁 New Recurring Series'}</div>
+      <button class="modal-close" onclick="closeModal('modal-series')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1;">
+      <input id="series-name" class="field-input" placeholder="Meeting name e.g. 1:1 with James…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
+      <div style="margin-bottom:8px;">
+        <div class="chip-label">Cadence</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${['Weekly','Bi-weekly','Monthly','Ad-hoc'].map(c=>{
+            const sel=(existing?.cadence||'Weekly')===c;
+            return `<button type="button" class="cadence-chip"
+              onclick="document.querySelectorAll('.cadence-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='rgba(232,168,56,0.15)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';document.getElementById('series-cadence').value='${c}';"
+              style="padding:6px 14px;border-radius:7px;border:1px solid ${sel?'var(--accent)':'var(--border)'};background:${sel?'rgba(232,168,56,0.15)':'transparent'};color:${sel?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">${c}</button>`;
+          }).join('')}
+        </div>
+        <input type="hidden" id="series-cadence" value="${existing?.cadence||'Weekly'}"/>
+      </div>
+      <div>
+        <div class="chip-label">Attendees</div>
+        ${buildPersonPickerHTML(existing?.personIds||'', 'series-person-ids')}
+      </div>
+      <input type="hidden" id="series-edit-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-footer">
+      <button onclick="submitMeetingSeries()" style="width:100%;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Create Series'}</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-series');};
+  document.body.appendChild(m); openModal('modal-series');
+  setTimeout(()=>document.getElementById('series-name')?.focus(),150);
+}
+
+function editMeetingSeries(id){ openMeetingSeriesModal(id); }
+
+function submitMeetingSeries(){
+  const name   = document.getElementById('series-name')?.value.trim()||'';
+  const cadence= document.getElementById('series-cadence')?.value||'Weekly';
+  const personIds = document.getElementById('series-person-ids')?.value||'';
+  const editId = document.getElementById('series-edit-id')?.value||'';
+  if(!name){ showToast('Series needs a name'); return; }
+  if(editId){
+    const s=meetingSeries.find(x=>x.id===editId);
+    if(s){ s.name=name; s.cadence=cadence; s.personIds=personIds; }
+    showToast('✓ Series updated');
+  } else {
+    meetingSeries.push({id:'s'+Date.now(), name, cadence, personIds, collapsed:false});
+    showToast('🔁 Series created');
+  }
+  saveMeetingSeries(); closeModal('modal-series'); renderAll();
+}
+
+function deleteMeetingSeries(id){
+  if(!confirm('Delete this series? Individual meeting records will become standalone.')) return;
+  // Detach meetings from series rather than delete them
+  meetingLog.forEach(m=>{ if(m.seriesId===id) delete m.seriesId; });
+  meetingSeries = meetingSeries.filter(s=>s.id!==id);
+  saveMeetingSeries(); saveMeetings(); renderAll();
+}
+
+function captureSeriesMeeting(seriesId){
+  const s = meetingSeries.find(x=>x.id===seriesId); if(!s) return;
+  // Find last occurrence to copy forward outstanding items
+  const prev = [...meetingLog]
+    .filter(m=>m.seriesId===seriesId)
+    .sort((a,b)=>b.date.localeCompare(a.date))[0];
+  // Open the capture modal pre-filled with series defaults
+  openMeetingCapture(null, seriesId, prev);
+}
+
+
+
+function deleteMeeting(id){
+  if(!confirm('Delete this meeting record?')) return;
+  meetingLog = meetingLog.filter(m=>m.id!==id);
+  saveMeetings(); renderAll();
+}
+
+function openMeetingCapture(existingId, seriesId, prevMeeting){
   const existing = existingId ? meetingLog.find(m=>m.id===existingId) : null;
+  const series   = seriesId ? meetingSeries.find(s=>s.id===seriesId) : null;
   const old = document.getElementById('modal-meeting');
   if(old) old.remove();
-  const existingPersonIds = existing?.personIds || '';
+  const existingPersonIds = existing?.personIds || series?.personIds || '';
+  const captureTitle = existing?.title || series?.name || '';
   const m=document.createElement('div');
   m.id='modal-meeting'; m.className='modal-overlay fullscreen';
-  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 ${existing?'Edit Meeting':'Meeting Capture'}</div>
+  // Side-by-side when capturing a new series occurrence with a previous meeting
+  const isSideBySide = !existing && prevMeeting;
+  m.innerHTML=`<div class="${isSideBySide?'modal-sidebyside':'modal-fullscreen'}" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;${isSideBySide?'grid-column:1/-1;':''}">
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">📝 ${existing?'Edit Meeting':isSideBySide?'New Occurrence':'Meeting Capture'}</div>
       <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
     </div>
-    <div class="modal-body">
+    ${isSideBySide?`
+    <!-- LEFT: previous meeting read-only -->
+    <div class="sbs-prev">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:1px;padding:8px 14px 6px;border-bottom:1px solid var(--border);background:var(--surface2);">⏮ LAST MEETING — ${prevMeeting.date}</div>
+      <div style="overflow-y:auto;flex:1;padding:12px 14px;">
+        ${prevMeeting.decisions?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:4px;">✅ DECISIONS</div><div style="font-size:12px;color:var(--text3);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.decisions)}</div></div>`:''}
+        ${prevMeeting.notes?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:4px;">📋 NOTES</div><div style="font-size:12px;color:var(--text3);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.notes)}</div></div>`:''}
+        ${prevMeeting.myCommits?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">⚡ MY COMMITS</div><div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.myCommits)}</div></div>`:''}
+        ${prevMeeting.theirCommits?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;margin-bottom:4px;">⏳ THEIR COMMITS</div><div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.theirCommits)}</div></div>`:''}
+        ${!prevMeeting.decisions&&!prevMeeting.notes&&!prevMeeting.myCommits&&!prevMeeting.theirCommits?`<div style="font-size:12px;color:var(--text4);font-style:italic;">No notes recorded for last meeting.</div>`:''}
+      </div>
+    </div>
+    <!-- RIGHT: new meeting form -->
+    <div class="sbs-new">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;padding:8px 14px 6px;border-bottom:1px solid var(--border);background:var(--surface2);">✏ TODAY'S MEETING</div>
+      <div class="modal-body" style="overflow-y:auto;flex:1;">`
+    :'<div class="modal-body">'}
       <input type="hidden" id="mtg-id" value="${existingId||''}"/>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">MEETING</div>
-        <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off" value="${existing?esc(existing.title):''}"/>
+        <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off" value="${existing?esc(existing.title):captureTitle?esc(captureTitle):''}"/>
       </div>
       <div style="display:flex;gap:8px;">
         <div style="flex:1;">
@@ -6397,7 +6815,8 @@ function openMeetingCapture(existingId){
         <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.decisions||''):''}</textarea>
       </div>
       <div>
-        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">📋 KEY NOTES</div>
+  
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">📋 KEY NOTES</div>
         <textarea id="mtg-notes" class="field-input" placeholder="Context, important points…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.notes||''):''}</textarea>
       </div>
       <div>
@@ -6409,7 +6828,8 @@ function openMeetingCapture(existingId){
         <textarea id="mtg-theircommits" class="field-input" placeholder="Name: they said they would…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;border-color:rgba(100,181,246,0.35);">${existing?esc(existing.theirCommits||''):''}</textarea>
       </div>
     </div>
-    <div class="modal-footer">
+    ${isSideBySide?'</div>':''}
+    <div class="modal-footer" style="${isSideBySide?'grid-column:1/-1;':''}">
       <button onclick="saveMeetingCapture()" style="width:100%;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">✓ Save Meeting</button>
     </div>
   </div>`;
@@ -6423,6 +6843,8 @@ function saveMeetingCapture(){
   const id        = document.getElementById('mtg-id')?.value;
   const title     = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
   const date      = document.getElementById('mtg-date')?.value||today();
+  const startTime = document.getElementById('mtg-start-time')?.value||'';
+  const duration  = document.getElementById('mtg-duration')?.value||'';
   const personIds = document.getElementById('mtg-person-ids')?.value||'';
   const attendees = getPersonNamesByIds(personIds);
   const decisions = document.getElementById('mtg-decisions')?.value.trim()||'';
@@ -6430,7 +6852,8 @@ function saveMeetingCapture(){
   const myCommits = document.getElementById('mtg-mycommits')?.value.trim()||'';
   const theirCommits=document.getElementById('mtg-theircommits')?.value.trim()||'';
 
-  const meeting = { id:id||'m'+Date.now(), title, date, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today() };
+  const capSeriesId = document.getElementById('mtg-series-id')?.value||'';
+  const meeting = { id:id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today(), ...(capSeriesId?{seriesId:capSeriesId}:{}) };
 
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
@@ -6912,6 +7335,8 @@ function aiContext(){
   const pinned = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
   const activeWaiting = waitingFor.filter(w=>!w.done).slice(0,10);
   const recentMeetings = meetingLog.slice(0,5);
+  // Enrich with attendee priorities for AI context
+  const highPriorityPeople = peopleList.filter(p=>p.priority==='High').map(p=>p.name);
   const nudges = getPeopleNudges().slice(0,5);
   return {todayStr, overdue, dueToday, pinned, activeWaiting, recentMeetings, nudges};
 }
@@ -6940,6 +7365,7 @@ OVERDUE (${ctx.overdue.length}): ${ctx.overdue.slice(0,5).map(t=>`"${t.title}"${
 DUE TODAY (${ctx.dueToday.length}): ${ctx.dueToday.slice(0,5).map(t=>`"${t.title}"`).join(', ')||'none'}
 PINNED TODAY: ${ctx.pinned.slice(0,5).map(t=>`"${t.title}"`).join(', ')||'none'}
 WAITING FOR: ${ctx.activeWaiting.slice(0,5).map(w=>`${w.person} — "${w.what}"`).join('; ')||'none'}
+HIGH PRIORITY CONTACTS: ${ctx.highPriorityPeople?.join(', ')||'none'}
 RECENT MEETINGS: ${ctx.recentMeetings.slice(0,3).map(m=>`"${m.title}" (${m.date})`).join(', ')||'none'}
 ${tomorrowHint?`YESTERDAY'S INTENTION FOR TODAY: "${tomorrowHint}"`:''}
 
@@ -6986,6 +7412,7 @@ async function openTaskAI(taskId){
         <button onclick="runTaskAI('${taskId}','estimate')" class="modal-btn" style="flex:1;min-width:120px;">⏱ Suggest estimate</button>
         <button onclick="runTaskAI('${taskId}','notes')" class="modal-btn" style="flex:1;min-width:120px;">📋 Draft notes</button>
         <button onclick="runTaskAI('${taskId}','people')" class="modal-btn" style="flex:1;min-width:120px;">👤 Suggest people</button>
+        <button onclick="runTaskAI('${taskId}','priority')" class="modal-btn" style="flex:1;min-width:120px;">✨ Explain priority</button>
       </div>
     </div>
     <div id="task-ai-result" style="flex:1;overflow-y:auto;padding:14px;"></div>
@@ -7055,6 +7482,23 @@ Notes: ${t.notes?t.notes.replace(/<[^>]+>/g,' ').trim().slice(0,300):'none'}`;
       el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">SUGGESTED NOTES</div>
         <div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;margin-bottom:14px;">${esc(result)}</div>
         <button onclick="applyAINotes('${taskId}','${encodeURIComponent(result)}')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">Apply notes to task</button>`;
+    } else if(mode==='priority'){
+      let obj; try{ obj=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ obj={priority:result,reasoning:'',signals:[]}; }
+      const ruleResult = scorePriority(t);
+      const pColors = {high:'#EF5350',medium:'#E8A838',low:'#888'};
+      const pc = pColors[obj.priority]||'var(--text3)';
+      el.innerHTML=`<div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">PRIORITY ASSESSMENT</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="font-size:28px;font-weight:900;color:${pc};">${(obj.priority||'?').toUpperCase()}</div>
+          <div style="font-size:11px;color:var(--text3);">AI recommendation</div>
+        </div>
+        <div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px;">${esc(obj.reasoning||'')}</div>
+        ${obj.signals?.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">${obj.signals.map(s=>`<span style="font-size:10px;background:var(--surface2);color:var(--text3);padding:2px 8px;border-radius:10px;font-family:var(--font-ui);">${esc(s)}</span>`).join('')}</div>`:''}
+        <div style="font-size:11px;color:var(--text4);margin-bottom:10px;">Rule score: ${ruleResult.score} → ${ruleResult.suggested} (${ruleResult.reasons.join(', ')||'no signals'})</div>
+        <button onclick="applyAIEstimate('${t.id}');t.priority='${obj.priority}';saveAllDebounced();closeModal('modal-task-ai');renderAll();showToast('Priority → ${obj.priority}');"
+          style="width:100%;padding:10px;border-radius:8px;border:none;background:${pc};color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">
+          Apply ${(obj.priority||'').toUpperCase()} priority
+        </button>`;
     } else if(mode==='people'){
       let names; try{ names=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ names=[]; }
       const matched = names.map(n=>peopleList.find(p=>p.name.toLowerCase()===n.toLowerCase())).filter(Boolean);
@@ -7118,6 +7562,7 @@ function applyAIPerson(taskId, personId){
 async function runMeetingAI(){
   const rawNotes = document.getElementById('mtg-notes')?.value.trim();
   const title    = document.getElementById('mtg-title')?.value.trim()||'this meeting';
+  const personIds= document.getElementById('mtg-person-ids')?.value||'';
   if(!rawNotes){ showToast('Paste your raw notes first'); return; }
 
   const btn = document.getElementById('mtg-ai-btn');
@@ -7170,7 +7615,7 @@ WEEK AHEAD: ${ahead||'(none)'}
 COMPLETED LAST 7 DAYS (${done.length}): ${done.slice(0,8).map(t=>t.title).join(', ')||'none'}
 OVERDUE (${ctx.overdue.length}): ${ctx.overdue.slice(0,5).map(t=>t.title).join(', ')||'none'}
 WAITING FOR: ${ctx.activeWaiting.slice(0,5).map(w=>`${w.person} — ${w.what}`).join('; ')||'none'}
-PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name).join(', ')||'none'}`,
+PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name+(p.priority?' ('+p.priority+')':'')).join(', ')||'none'}`,
       600
     );
 
@@ -7194,6 +7639,392 @@ PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name).join(', ')||'none'}`,
   } catch(e){
     el.innerHTML=`<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;">AI unavailable — carry on manually.</div>`;
   }
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// MASS EDIT — spreadsheet view
+// ════════════════════════════════════════════════════════════════
+
+let meSelected = new Set(); // selected task IDs
+
+function toggleMassEdit(){
+  massEditMode = !massEditMode;
+  meSelected.clear();
+  renderAll();
+}
+
+function renderMassEdit(container){
+  // Apply same filters as task list
+  const q = (document.getElementById('search-input')?.value||'').toLowerCase();
+  const allTasks = tasks.filter(t => {
+    const proj = projects.find(p=>p.id===t.projectId);
+    if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
+    if(partyActive()&&!filterParty.has(t.projectId)) return false;
+    if(filterStatus.size>0&&!filterStatus.has(t.status)) return false;
+    if(priorityActive()&&!filterPriority.has(t.priority)) return false;
+    if(q&&!t.title.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>{
+    const pOrd={high:0,medium:1,low:2};
+    return (pOrd[a.priority]??1)-(pOrd[b.priority]??1)||
+           (a.dueDate&&b.dueDate?a.dueDate.localeCompare(b.dueDate):a.dueDate?-1:b.dueDate?1:0);
+  });
+
+  const selCount = meSelected.size;
+  const allChecked = allTasks.length > 0 && allTasks.every(t=>meSelected.has(t.id));
+
+  // Toolbar actions — only enabled when something selected
+  const dis = selCount===0 ? 'disabled' : '';
+  const toolbar = `
+    <div id="mass-edit-toolbar">
+      <span id="mass-edit-count">${selCount>0?selCount+' selected':'Select rows to edit'}</span>
+      <select class="me-select" onchange="meBulkStatus(this.value);this.value=''" ${selCount===0?'disabled':''}>
+        <option value="">Status…</option>
+        <option value="todo">○ Open</option>
+        <option value="inprogress">● Active</option>
+        <option value="blocked">⊘ Blocked</option>
+        <option value="done">✓ Complete</option>
+      </select>
+      <select class="me-select" onchange="meBulkPriority(this.value);this.value=''" ${selCount===0?'disabled':''}>
+        <option value="">Priority…</option>
+        <option value="high">🔴 High</option>
+        <option value="medium">🟡 Medium</option>
+        <option value="low">⚪ Low</option>
+      </select>
+      <select class="me-select" onchange="meBulkProject(this.value);this.value=''" ${selCount===0?'disabled':''}>
+        <option value="">Move to project…</option>
+        ${projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+      </select>
+      <input type="date" class="me-date" title="Set due date for selected"
+        ${selCount===0?'disabled':''}
+        style="color-scheme:dark;"
+        onchange="meBulkDueDate(this.value);this.value=''"/>
+      <button class="me-action-btn" onclick="meBulkClearDate()" ${selCount===0?'disabled':''} title="Clear due dates">✕ Dates</button>
+      <select class="me-select" onchange="meBulkPerson(this.value,'add');this.value=''" ${selCount===0?'disabled':''}>
+        <option value="">+ Add person…</option>
+        ${peopleList.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+      </select>
+      <select class="me-select" onchange="meBulkPerson(this.value,'remove');this.value=''" ${selCount===0?'disabled':''}>
+        <option value="">− Remove person…</option>
+        ${peopleList.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+      </select>
+      <button class="me-action-btn" onclick="meBulkSmartPriority()" ${selCount===0?'disabled':''} title="Apply smart priority to selected tasks">✨ Smart priority</button>
+      <button class="me-action-btn danger" onclick="meBulkDelete()" ${selCount===0?'disabled':''}>🗑 Delete</button>
+      <button onclick="toggleMassEdit()"
+        style="margin-left:auto;padding:5px 10px;border-radius:6px;border:1px solid var(--accent);background:rgba(232,168,56,0.1);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">
+        ✕ Done
+      </button>
+    </div>`;
+
+  // Table rows
+  const rows = allTasks.map(t => {
+    const proj = projects.find(p=>p.id===t.projectId);
+    const pColor = t.priority==='high'?'#EF5350':t.priority==='low'?'#888':'#E8A838';
+    const sel = meSelected.has(t.id);
+    const isDone = t.status==='done';
+    return `<tr class="me-row${sel?' selected':''}${isDone?' done-row':''}" onclick="meToggleRow('${t.id}',event)">
+      <td onclick="event.stopPropagation()">
+        <input type="checkbox" class="me-check" ${sel?'checked':''}
+          onchange="meToggleRow('${t.id}',null,this.checked)"/>
+      </td>
+      <td class="me-title-cell">
+        <input class="me-title-input" value="${esc(t.title)}"
+          onclick="event.stopPropagation()"
+          onblur="meUpdateTitle('${t.id}',this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur();}"/>
+      </td>
+      <td>
+        <select class="me-select" onclick="event.stopPropagation()"
+          onchange="meUpdateField('${t.id}','status',this.value)">
+          <option value="todo"       ${t.status==='todo'?'selected':''}>○ Open</option>
+          <option value="inprogress" ${t.status==='inprogress'?'selected':''}>● Active</option>
+          <option value="blocked"    ${t.status==='blocked'?'selected':''}>⊘ Blocked</option>
+          <option value="done"       ${t.status==='done'?'selected':''}>✓ Done</option>
+        </select>
+      </td>
+      <td>
+        <select class="me-select" onclick="event.stopPropagation()"
+          onchange="meUpdateField('${t.id}','priority',this.value)"
+          style="color:${pColor};">
+          <option value="high"   ${t.priority==='high'?'selected':''}  style="color:#EF5350;">🔴 High</option>
+          <option value="medium" ${t.priority==='medium'?'selected':''} style="color:#E8A838;">🟡 Medium</option>
+          <option value="low"    ${t.priority==='low'?'selected':''}   style="color:#888;">⚪ Low</option>
+        </select>
+      </td>
+      <td onclick="event.stopPropagation()">
+        ${(()=>{
+          const {suggested:sp, reasons:sr} = scorePriority(t);
+          const match = sp===(t.priority||'medium');
+          const c = sp==='high'?'#EF5350':sp==='low'?'#888':'#E8A838';
+          return match
+            ? `<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">✓ ok</span>`
+            : `<button onclick="meUpdateField('${t.id}','priority','${sp}');renderAll();"
+                title="${sr.join(', ')}"
+                style="padding:3px 8px;border-radius:5px;border:1px solid ${c}44;background:${c}15;
+                       color:${c};font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                → ${sp}
+              </button>`;
+        })()}
+      </td>
+      <td>
+        <select class="me-select" onclick="event.stopPropagation()"
+          onchange="meUpdateField('${t.id}','projectId',this.value)"
+          style="color:${proj?.color||'var(--text3)'};">
+          <option value="">— none —</option>
+          ${projects.map(p=>`<option value="${p.id}" ${t.projectId===p.id?'selected':''} style="color:${p.color||'var(--text)'};">${esc(p.name)}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <input type="date" class="me-date" value="${t.dueDate||''}"
+          onclick="event.stopPropagation()"
+          onchange="meUpdateField('${t.id}','dueDate',this.value)"
+          style="color-scheme:dark;min-width:120px;"/>
+      </td>
+      <td onclick="event.stopPropagation()" style="min-width:140px;">
+        <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:center;">
+          ${(t.personIds||'').split(',').filter(Boolean).map(pid=>{
+            const p=peopleList.find(x=>x.id===pid);
+            return p?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 6px;border-radius:10px;white-space:nowrap;cursor:pointer;"
+              onclick="meRemovePersonFromTask('${t.id}','${pid}')" title="Click to remove">${esc(p.name)} ✕</span>`:'';
+          }).join('')}
+          <select class="me-select" style="font-size:10px;padding:2px 4px;"
+            onchange="meAddPersonToTask('${t.id}',this.value);this.value=''">
+            <option value="">+ add</option>
+            ${peopleList.filter(p=>!(t.personIds||'').split(',').includes(p.id))
+              .map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `<div id="mass-edit-wrap">
+    ${toolbar}
+    <div id="mass-edit-table-wrap">
+      <table id="mass-edit-table">
+        <thead><tr>
+          <th><input type="checkbox" class="me-check" ${allChecked?'checked':''}
+            onchange="meToggleAll(this.checked,${JSON.stringify(allTasks.map(t=>t.id))})"/></th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Priority</th>
+          <th title="Smart priority suggestion based on due date and people">✨ Suggested</th>
+          <th>Project</th>
+          <th>Due Date</th>
+          <th>People</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${allTasks.length===0?`<div style="padding:30px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No tasks match current filters.</div>`:''}
+    </div>
+  </div>`;
+}
+
+function meToggleRow(id, event, forcedState){
+  // Don't toggle if clicking a control
+  if(event && (event.target.tagName==='INPUT'||event.target.tagName==='SELECT')) return;
+  if(forcedState===true){ meSelected.add(id); }
+  else if(forcedState===false){ meSelected.delete(id); }
+  else { meSelected.has(id) ? meSelected.delete(id) : meSelected.add(id); }
+  // Re-render just the toolbar and row highlight without full re-render
+  const row = document.querySelector(`#mass-edit-table tbody tr[onclick*="'${id}'"]`);
+  if(row){
+    const chk = row.querySelector('.me-check');
+    const sel = meSelected.has(id);
+    if(chk) chk.checked = sel;
+    row.classList.toggle('selected', sel);
+  }
+  // Update toolbar count
+  const cnt = document.getElementById('mass-edit-count');
+  if(cnt) cnt.textContent = meSelected.size>0?meSelected.size+' selected':'Select rows to edit';
+  // Update toolbar button states
+  const dis = meSelected.size===0;
+  document.querySelectorAll('#mass-edit-toolbar .me-select, #mass-edit-toolbar .me-date, #mass-edit-toolbar .me-action-btn')
+    .forEach(el=>{ el.disabled=dis; el.classList.toggle('disabled',dis); });
+}
+
+function meToggleAll(checked, ids){
+  ids.forEach(id => checked ? meSelected.add(id) : meSelected.delete(id));
+  renderAll();
+}
+
+function meUpdateTitle(id, newTitle){
+  const t = tasks.find(x=>x.id===id);
+  if(!t||!newTitle.trim()) return;
+  if(t.title===newTitle.trim()) return;
+  t.title = newTitle.trim();
+  saveAllDebounced();
+}
+
+function meUpdateField(id, field, value){
+  const t = tasks.find(x=>x.id===id); if(!t) return;
+  t[field] = value;
+  saveAllDebounced();
+  // Re-render just that row's visuals (color etc.) via full render
+  renderAll();
+}
+
+// Bulk operations
+function meBulkStatus(status){
+  if(!status||meSelected.size===0) return;
+  tasks.forEach(t=>{ if(meSelected.has(t.id)){ t.status=status; if(status==='done') t.completedAt=Date.now(); } });
+  saveAllDebounced(); showToast(`✓ ${meSelected.size} tasks → ${status}`); renderAll();
+}
+
+function meBulkPriority(priority){
+  if(!priority||meSelected.size===0) return;
+  tasks.forEach(t=>{ if(meSelected.has(t.id)) t.priority=priority; });
+  saveAllDebounced(); showToast(`✓ ${meSelected.size} tasks → ${priority}`); renderAll();
+}
+
+function meBulkProject(projectId){
+  if(!projectId||meSelected.size===0) return;
+  tasks.forEach(t=>{ if(meSelected.has(t.id)) t.projectId=projectId; });
+  const proj=projects.find(p=>p.id===projectId);
+  saveAllDebounced(); showToast(`✓ Moved ${meSelected.size} tasks to ${proj?.name||'project'}`); renderAll();
+}
+
+function meBulkDueDate(date){
+  if(!date||meSelected.size===0) return;
+  tasks.forEach(t=>{ if(meSelected.has(t.id)) t.dueDate=date; });
+  saveAllDebounced(); showToast(`✓ ${meSelected.size} tasks → due ${date}`); renderAll();
+}
+
+function meBulkClearDate(){
+  if(meSelected.size===0) return;
+  tasks.forEach(t=>{ if(meSelected.has(t.id)) t.dueDate=''; });
+  saveAllDebounced(); showToast(`✓ Cleared dates on ${meSelected.size} tasks`); renderAll();
+}
+
+function meBulkPerson(personId, action){
+  if(!personId||meSelected.size===0) return;
+  const p=peopleList.find(x=>x.id===personId); if(!p) return;
+  tasks.forEach(t=>{
+    if(!meSelected.has(t.id)) return;
+    const cur=new Set((t.personIds||'').split(',').filter(Boolean));
+    action==='add' ? cur.add(personId) : cur.delete(personId);
+    t.personIds=[...cur].join(',');
+  });
+  saveAllDebounced();
+  showToast(`${action==='add'?'+ Added':'- Removed'} ${p.name} ${action==='add'?'to':'from'} ${meSelected.size} tasks`);
+  renderAll();
+}
+
+function meAddPersonToTask(taskId, personId){
+  if(!personId) return;
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const cur=new Set((t.personIds||'').split(',').filter(Boolean));
+  cur.add(personId);
+  t.personIds=[...cur].join(',');
+  saveAllDebounced(); renderAll();
+}
+
+function meRemovePersonFromTask(taskId, personId){
+  const t=tasks.find(x=>x.id===taskId); if(!t) return;
+  const cur=new Set((t.personIds||'').split(',').filter(Boolean));
+  cur.delete(personId);
+  t.personIds=[...cur].join(',');
+  saveAllDebounced(); renderAll();
+}
+
+function meBulkDelete(){
+  if(meSelected.size===0) return;
+  if(!confirm(`Delete ${meSelected.size} task${meSelected.size>1?'s':''}? This cannot be undone.`)) return;
+  tasks = tasks.filter(t=>!meSelected.has(t.id));
+  meSelected.clear();
+  saveAllDebounced(); showToast(`🗑 Deleted`); renderAll();
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// SMART PRIORITY ENGINE
+// ════════════════════════════════════════════════════════════════
+
+function scorePriority(task){
+  const todayStr = today();
+  let score = 0;
+  const reasons = [];
+
+  // Due date signals
+  if(task.dueDate){
+    const daysUntil = Math.ceil((new Date(task.dueDate) - new Date(todayStr)) / 86400000);
+    if(daysUntil < 0){
+      score += 40; reasons.push('overdue');
+    } else if(daysUntil === 0){
+      score += 30; reasons.push('due today');
+    } else if(daysUntil <= 3){
+      score += 20; reasons.push(`due in ${daysUntil}d`);
+    } else if(daysUntil <= 7){
+      score += 10; reasons.push('due this week');
+    } else {
+      score += 5;
+    }
+  } else {
+    // No due date — slight penalty if also no estimate or notes
+    if(!task.estimate && !(task.notes||'').trim()) score -= 5;
+  }
+
+  // People signals — use meeting contacts priority
+  const personIds = (task.personIds||'').split(',').filter(Boolean);
+  let highPerson = false, medPerson = false;
+  for(const pid of personIds){
+    const p = peopleList.find(x=>x.id===pid);
+    if(!p) continue;
+    if(p.priority === 'High' && !highPerson){
+      score += 25; reasons.push(`${p.name} (High)`); highPerson = true;
+    } else if(p.priority === 'Medium' && !medPerson && !highPerson){
+      score += 10; reasons.push(`${p.name} (Medium)`); medPerson = true;
+    }
+  }
+
+  // Derive priority
+  let suggested;
+  if(score >= 35)      suggested = 'high';
+  else if(score >= 15) suggested = 'medium';
+  else                 suggested = 'low';
+
+  return { score, suggested, reasons };
+}
+
+function getSuggestedPriority(task){
+  return scorePriority(task).suggested;
+}
+
+function priorityMismatch(task){
+  const { suggested } = scorePriority(task);
+  return suggested !== (task.priority || 'medium');
+}
+
+// Apply suggestion to a single task
+function applySmartPriority(taskId){
+  const t = tasks.find(x=>x.id===taskId); if(!t) return;
+  const { suggested } = scorePriority(t);
+  t.priority = suggested;
+  saveAllDebounced(); renderAll();
+  showToast(`Priority → ${suggested}`);
+}
+
+// Apply to all selected in bulk edit
+function meBulkSmartPriority(){
+  if(meSelected.size===0) return;
+  let changed = 0;
+  tasks.forEach(t=>{
+    if(!meSelected.has(t.id)) return;
+    const { suggested } = scorePriority(t);
+    if(t.priority !== suggested){ t.priority = suggested; changed++; }
+  });
+  saveAllDebounced();
+  showToast(`✨ ${changed} task${changed!==1?'s':''} re-prioritised`);
+  renderAll();
+}
+
+// Auto-apply when creating a new task (priority not manually set)
+function autoApplyPriority(task){
+  const { suggested } = scorePriority(task);
+  task.priority = suggested;
 }
 
 
@@ -7667,7 +8498,7 @@ let _swReg = null; // global SW registration
 async function registerServiceWorker(){
   if(!('serviceWorker' in navigator)) return null;
   try{
-    const reg = await navigator.serviceWorker.register('/sw.js', {scope:'/'});
+    const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
     _swReg = reg;
     console.log('[SW] Registered:', reg.scope);
 
@@ -7914,7 +8745,7 @@ function scheduleNotifChecks(){
       }
     }
     scheduleAlarmsWithSW();
-  }, 5 * 60 * 1000);
+  }, 60 * 1000); // check every minute
 }
 
 function getISOWeek(date){
@@ -8239,6 +9070,7 @@ function renderKidsGame(container) {
     {id:1, label:'📋 Actions'},
     {id:2, label:'🎡 Spin'},
     {id:3, label:'🎁 Prizes'},
+    {id:4, label:'⚔ My Rewards'},
   ];
 
   let html = `<div class="kids-wrap">`;
@@ -8254,11 +9086,17 @@ function renderKidsGame(container) {
   else if (kidsActiveTab === 1) html += renderKidsCats(d);
   else if (kidsActiveTab === 2) html += renderKidsSpin(d);
   else if (kidsActiveTab === 3) html += renderKidsPrizeLog(d);
+  else if (kidsActiveTab === 4) html += renderJasonRewardsTab();
 
   html += `</div>`;
   container.innerHTML = html;
 
   if (kidsActiveTab === 2) initWheelCanvas(d);
+  if (kidsActiveTab === 4) {
+    // Init Jason's wheel canvas if it's showing
+    const jCanvas = document.getElementById('jason-wheel-canvas');
+    if(jCanvas) initJasonWheelCanvas();
+  }
 }
 
 function kidsSetTab(t) {
