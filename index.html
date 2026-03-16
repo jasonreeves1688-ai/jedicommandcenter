@@ -2501,6 +2501,7 @@ function renderAll(){
   if(activeNav==="settings"){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
   if(activeNav==="charts"){renderCharts(main);return;}
+  if(massEditMode){ renderMassEdit(main); return; }
   renderTaskList(main);
 }
 
