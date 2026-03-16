@@ -7656,6 +7656,8 @@ PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name+(p.priority?' ('+p.priori
 // ════════════════════════════════════════════════════════════════
 
 let meSelected = new Set(); // selected task IDs
+let meSortCol  = '';        // column being sorted: 'title'|'status'|'priority'|'project'|'due'
+let meSortDir  = 1;         // 1=asc, -1=desc
 
 function toggleMassEdit(){
   massEditMode = !massEditMode;
@@ -7666,6 +7668,21 @@ function toggleMassEdit(){
 function renderMassEdit(container){
   // Apply same filters as task list
   const q = (document.getElementById('search-input')?.value||'').toLowerCase();
+  // Apply column sort
+  const pOrdMe = {high:0,medium:1,low:2};
+  const sortFn = (a,b) => {
+    let av, bv;
+    if(meSortCol==='title')   { av=(a.title||'').toLowerCase(); bv=(b.title||'').toLowerCase(); }
+    else if(meSortCol==='status')  { av=a.status||''; bv=b.status||''; }
+    else if(meSortCol==='priority'){ av=pOrdMe[a.priority]??1; bv=pOrdMe[b.priority]??1; }
+    else if(meSortCol==='project') { const pa=projects.find(p=>p.id===a.projectId); const pb=projects.find(p=>p.id===b.projectId); av=(pa?.name||'').toLowerCase(); bv=(pb?.name||'').toLowerCase(); }
+    else if(meSortCol==='due')     { av=a.dueDate||'9999'; bv=b.dueDate||'9999'; }
+    else return 0;
+    if(av<bv) return -1*meSortDir;
+    if(av>bv) return  1*meSortDir;
+    return 0;
+  };
+
   const allTasks = tasks.filter(t => {
     const proj = projects.find(p=>p.id===t.projectId);
     if(realmActive()&&!(proj?filterRealm.has(proj.domain):false)) return false;
@@ -7674,7 +7691,7 @@ function renderMassEdit(container){
     if(priorityActive()&&!filterPriority.has(t.priority)) return false;
     if(q&&!t.title.toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=>{
+  }).sort(meSortCol ? sortFn : (a,b)=>{
     const pOrd={high:0,medium:1,low:2};
     return (pOrd[a.priority]??1)-(pOrd[b.priority]??1)||
            (a.dueDate&&b.dueDate?a.dueDate.localeCompare(b.dueDate):a.dueDate?-1:b.dueDate?1:0);
@@ -7734,7 +7751,7 @@ function renderMassEdit(container){
     const isDone = t.status==='done';
     return `<tr class="me-row${sel?' selected':''}${isDone?' done-row':''}" onclick="meToggleRow('${t.id}',event)">
       <td onclick="event.stopPropagation()">
-        <input type="checkbox" class="me-check" ${sel?'checked':''}
+        <input type="checkbox" class="me-check" data-id="${t.id}" ${sel?'checked':''}
           onchange="meToggleRow('${t.id}',null,this.checked)"/>
       </td>
       <td class="me-title-cell">
@@ -7813,15 +7830,15 @@ function renderMassEdit(container){
     <div id="mass-edit-table-wrap">
       <table id="mass-edit-table">
         <thead><tr>
-          <th><input type="checkbox" class="me-check" ${allChecked?'checked':''}
-            onchange="meToggleAll(this.checked,${JSON.stringify(allTasks.map(t=>t.id))})"/></th>
-          <th>Title</th>
-          <th>Status</th>
-          <th>Priority</th>
-          <th title="Smart priority suggestion based on due date and people">✨ Suggested</th>
-          <th>Project</th>
-          <th>Due Date</th>
-          <th>People</th>
+          <th id="me-select-all-th"><input type="checkbox" class="me-check" id="me-select-all-chk" ${allChecked?'checked':''}
+            onchange="meToggleAll(this.checked)"/></th>
+          ${['title','status','priority','suggested','project','due','people'].map(col=>{
+            const labels={title:'Title',status:'Status',priority:'Priority',suggested:'✨ Suggested',project:'Project',due:'Due Date',people:'People'};
+            const isSorted = meSortCol===col;
+            const arrow = isSorted ? (meSortDir===1?' ▲':' ▼') : '';
+            const sortable = col !== 'suggested' && col !== 'people';
+            return `<th ${sortable?`onclick="meSortBy('${col}')" style="cursor:pointer;user-select:none;" title="Sort by ${labels[col]}"`:''}>${labels[col]}${arrow}</th>`;
+          }).join('')}
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -7853,8 +7870,28 @@ function meToggleRow(id, event, forcedState){
     .forEach(el=>{ el.disabled=dis; el.classList.toggle('disabled',dis); });
 }
 
-function meToggleAll(checked, ids){
-  ids.forEach(id => checked ? meSelected.add(id) : meSelected.delete(id));
+function meToggleAll(checked){
+  // Get current visible task IDs from the table rather than inline HTML
+  const rows = document.querySelectorAll('#mass-edit-table tbody tr');
+  rows.forEach(row => {
+    const chk = row.querySelector('.me-check');
+    if(!chk) return;
+    const id = chk.dataset.id;
+    if(!id) return;
+    checked ? meSelected.add(id) : meSelected.delete(id);
+    chk.checked = checked;
+    row.classList.toggle('selected', checked);
+  });
+  const cnt = document.getElementById('mass-edit-count');
+  if(cnt) cnt.textContent = meSelected.size > 0 ? meSelected.size + ' selected' : 'Select rows to edit';
+  const dis = meSelected.size === 0;
+  document.querySelectorAll('#mass-edit-toolbar .me-select, #mass-edit-toolbar .me-date, #mass-edit-toolbar .me-action-btn')
+    .forEach(el => { el.disabled = dis; el.classList.toggle('disabled', dis); });
+}
+
+function meSortBy(col){
+  if(meSortCol === col){ meSortDir *= -1; }
+  else { meSortCol = col; meSortDir = 1; }
   renderAll();
 }
 
