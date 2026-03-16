@@ -11,7 +11,7 @@
 // │  This tells installed apps to fetch the latest version.     │
 // └─────────────────────────────────────────────────────────────┘
 
-const CACHE_NAME = 'command-center-v34'; // ← BUMP THIS ON EVERY DEPLOY
+const CACHE_NAME = 'command-center-v35'; // ← BUMP THIS ON EVERY DEPLOY
 const APP_SHELL = ['/'];
 
 // ── Install: cache the app shell ────────────────────────────────
@@ -32,25 +32,43 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// ── Fetch: serve from cache, fall back to network ───────────────
+// ── Fetch: network first for HTML, cache first for assets ────────
 self.addEventListener('fetch', event => {
-  // Only cache same-origin GET requests
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fresh = fetch(event.request).then(response => {
+  const isHTML = event.request.headers.get('accept')?.includes('text/html')
+              || url.pathname === '/'
+              || url.pathname.endsWith('.html');
+
+  if (isHTML) {
+    // HTML: always try network first, fall back to cache
+    // This ensures new deployments are picked up immediately
+    event.respondWith(
+      fetch(event.request).then(response => {
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      });
-      return cached || fresh;
-    })
-  );
+      }).catch(() => caches.match(event.request))
+    );
+  } else {
+    // Static assets (icons, sw.js etc): cache first, update in background
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        const fresh = fetch(event.request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        }).catch(() => null);
+        return cached || fresh;
+      })
+    );
+  }
 });
 
 // ── Push: handle server-sent push notifications ─────────────────
