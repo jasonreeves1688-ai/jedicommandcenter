@@ -2091,8 +2091,9 @@ async function apiCall(action,data={}){
 }
 
 async function loadAll(){
+  let data = null;
   try{
-    const data=await apiCall("getAll");
+    data=await apiCall("getAll");
     // Check deployed Code.gs version
     if(data.__version !== 'v35-safe-save'){
       console.warn('Old Code.gs deployed — hub data will not sync. Please redeploy.');
@@ -2209,6 +2210,7 @@ async function loadAll(){
   } catch(e){}
 
   // Load hub data from cloud — cloud always wins on load
+  if(!data){ return; } // API call failed — keep whatever is in localStorage
   // Save side uses _cloudLoaded to prevent empty saves (see getCloudStats)
   try { if(data.waitingFor   !== undefined){ waitingFor   = data.waitingFor;   localStorage.setItem('hub-waiting',          JSON.stringify(waitingFor));   if(waitingFor.length>0)   _cloudLoaded.add('waitingFor');   }} catch(e){ console.error('load waitingFor',e); }
   try { if(data.weeklyIntentions)          { weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); }} catch(e){}
