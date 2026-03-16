@@ -2208,40 +2208,15 @@ async function loadAll(){
     }
   } catch(e){}
 
-  // Load new hub data from cloud (cloud wins if present)
-  try { if(data.waitingFor !== undefined){
-    if(data.waitingFor.length > 0 || _cloudLoaded.has('waitingFor')){
-      waitingFor = data.waitingFor; localStorage.setItem('hub-waiting', JSON.stringify(waitingFor));
-    }
-    if(data.waitingFor.length > 0) _cloudLoaded.add('waitingFor');
-  }} catch(e){}
-  try { if(data.weeklyIntentions){ weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); } } catch(e){}
-  try { if(data.somedayList)     { somedayList = data.somedayList;          localStorage.setItem('hub-someday',    JSON.stringify(somedayList));     } } catch(e){}
-  try { if(data.peopleList !== undefined){
-    if(data.peopleList.length > 0 || _cloudLoaded.has('peopleList')){
-      peopleList = data.peopleList; localStorage.setItem('hub-people', JSON.stringify(peopleList));
-    }
-    if(data.peopleList.length > 0) _cloudLoaded.add('peopleList');
-  }} catch(e){}
-  try { if(data.contactsList !== undefined){
-    if(data.contactsList.length > 0 || _cloudLoaded.has('contactsList')){
-      contactsList = data.contactsList; localStorage.setItem('hub-contacts', JSON.stringify(contactsList));
-    }
-    if(data.contactsList.length > 0) _cloudLoaded.add('contactsList');
-  }} catch(e){}
-  // Cloud wins if it has data — never let an empty cloud array wipe local data
-  try { if(data.meetingLog !== undefined){
-    if(data.meetingLog.length > 0 || _cloudLoaded.has('meetingLog')){
-      meetingLog = data.meetingLog; localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
-    }
-    if(data.meetingLog.length > 0) _cloudLoaded.add('meetingLog');
-  }} catch(e){}
-  try { if(data.meetingSeries !== undefined){
-    if(data.meetingSeries.length > 0 || _cloudLoaded.has('meetingSeries')){
-      meetingSeries = data.meetingSeries; localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
-    }
-    if(data.meetingSeries.length > 0) _cloudLoaded.add('meetingSeries');
-  }} catch(e){}
+  // Load hub data from cloud — cloud always wins on load
+  // Save side uses _cloudLoaded to prevent empty saves (see getCloudStats)
+  try { if(data.waitingFor   !== undefined){ waitingFor   = data.waitingFor;   localStorage.setItem('hub-waiting',          JSON.stringify(waitingFor));   if(waitingFor.length>0)   _cloudLoaded.add('waitingFor');   }} catch(e){ console.error('load waitingFor',e); }
+  try { if(data.weeklyIntentions)          { weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); }} catch(e){}
+  try { if(data.somedayList  !== undefined){ somedayList  = data.somedayList;  localStorage.setItem('hub-someday',          JSON.stringify(somedayList));  }} catch(e){}
+  try { if(data.peopleList   !== undefined){ peopleList   = data.peopleList;   localStorage.setItem('hub-people',           JSON.stringify(peopleList));   if(peopleList.length>0)   _cloudLoaded.add('peopleList');   }} catch(e){ console.error('load peopleList',e); }
+  try { if(data.contactsList !== undefined){ contactsList = data.contactsList; localStorage.setItem('hub-contacts',         JSON.stringify(contactsList)); if(contactsList.length>0) _cloudLoaded.add('contactsList'); }} catch(e){ console.error('load contactsList',e); }
+  try { if(data.meetingLog   !== undefined){ meetingLog   = data.meetingLog;   localStorage.setItem('hub-meetings',         JSON.stringify(meetingLog));   if(meetingLog.length>0)   _cloudLoaded.add('meetingLog');   }} catch(e){ console.error('load meetingLog',e); }
+  try { if(data.meetingSeries!== undefined){ meetingSeries= data.meetingSeries;localStorage.setItem('hub-meeting-series',   JSON.stringify(meetingSeries));if(meetingSeries.length>0)_cloudLoaded.add('meetingSeries'); }} catch(e){ console.error('load meetingSeries',e); }
   // Raven email settings — sync across devices
   try { if(data.ravenSettings){
     const rs = data.ravenSettings;
