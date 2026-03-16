@@ -11,64 +11,28 @@
 // │  This tells installed apps to fetch the latest version.     │
 // └─────────────────────────────────────────────────────────────┘
 
-const CACHE_NAME = 'command-center-v35'; // ← BUMP THIS ON EVERY DEPLOY
-const APP_SHELL = ['/'];
+const CACHE_NAME = 'command-center-v36'; // ← bump to force SW update
 
-// ── Install: cache the app shell ────────────────────────────────
+// ── Install: skip waiting, activate immediately ──────────────────
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
-  );
   self.skipWaiting();
 });
 
-// ── Activate: clean old caches ──────────────────────────────────
+// ── Activate: claim clients immediately ─────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    // Clear any previously cached content
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
   );
   self.clients.claim();
 });
 
-// ── Fetch: network first for HTML, cache first for assets ────────
+// ── Fetch: pass-through — no caching, always network ────────────
+// Caching removed to prevent stale HTML after deployments.
+// The SW exists solely for push notifications and badge updates.
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
-
-  const isHTML = event.request.headers.get('accept')?.includes('text/html')
-              || url.pathname === '/'
-              || url.pathname.endsWith('.html');
-
-  if (isHTML) {
-    // HTML: always try network first, fall back to cache
-    // This ensures new deployments are picked up immediately
-    event.respondWith(
-      fetch(event.request).then(response => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => caches.match(event.request))
-    );
-  } else {
-    // Static assets (icons, sw.js etc): cache first, update in background
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        const fresh = fetch(event.request).then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          }
-          return response;
-        }).catch(() => null);
-        return cached || fresh;
-      })
-    );
-  }
+  // Let the browser handle all requests normally
+  return;
 });
 
 // ── Push: handle server-sent push notifications ─────────────────
