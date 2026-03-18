@@ -1428,9 +1428,6 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
     <button class="nav-btn" id="nav-today" onclick="setNav('today')">
       <span class="nav-icon">☀</span><span class="nav-label">Today</span>
     </button>
-    <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
-      <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
-    </button>
     <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
       <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
     </button>
@@ -1559,9 +1556,6 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
     <button class="nav-btn" id="nav-today" onclick="setNav('today')">
       <span class="nav-icon">☀</span><span class="nav-label">Today</span>
     </button>
-    <button class="nav-btn" id="nav-focus" onclick="setNav('focus')">
-      <span class="nav-icon">⏱</span><span class="nav-label">Focus</span>
-    </button>
     <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
       <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
     </button>
@@ -1589,9 +1583,6 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       </button>
       <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
         <span class="nav-grid-tile-icon">☰</span><span>Tasks</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-focus" onclick="todayFocusMode=true;setNav('today');closeNavGrid()">
-        <span class="nav-grid-tile-icon">⏱</span><span>Focus</span>
       </button>
       <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
         <span class="nav-grid-tile-icon">📝</span><span>Meetings</span>
@@ -5112,7 +5103,7 @@ function closeNavGrid(){
 
 function updateNavGridActive(){
   document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(el=>el.classList.remove('active'));
-  const map = {today:'grid-today',tasks:'grid-tasks',focus:'grid-focus',
+  const map = {today:'grid-today',tasks:'grid-tasks',
     meetings:'grid-meetings',kids:'grid-kids',waiting:'grid-waiting',
     cal:'grid-cal',people:'grid-people',charts:'grid-charts',settings:'grid-settings'};
   const el = document.getElementById(map[activeNav]);
@@ -5134,14 +5125,9 @@ function setNav(nav){
   // Highlight matching button in BOTH nav bars (only one is visible at a time)
   const btn = document.getElementById(`nav-${nav}`);
   if(btn) btn.classList.add("active");
-  // Also highlight Focus nav btn when in focus mode
-  const focusBtn = document.getElementById('nav-focus');
-  if(focusBtn){
-    if(todayFocusMode) focusBtn.classList.add('active');
-    else focusBtn.classList.remove('active');
-  }
+
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
-  const primaryTabs = ['today','tasks','focus','meetings','kids'];
+  const primaryTabs = ['today','tasks','meetings','kids'];
   const gridBtn = document.getElementById('nav-grid-btn');
   if(gridBtn){
     if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
@@ -5634,14 +5620,24 @@ function renderTodayView(container){
   }
 
   // ── Someday section ──────────────────────────────────────────
-  html += renderSomedaySection();
-
   container.innerHTML = html;
 }
 
 // ── Focus mode within Today ───────────────────────────────────────
 function renderTodayFocusMode(container){
   const todayStr = today();
+
+  // If selected mission is done, auto-exit focus mode
+  if(selectedMissionId){
+    const t = tasks.find(t=>t.id===selectedMissionId);
+    if(!t || t.status==='done'){
+      todayFocusMode = false;
+      selectedMissionId = null;
+      renderAll();
+      return;
+    }
+  }
+
   const pomoColor = pomoState.mode==='work'?'#7A1818':pomoState.mode==='shortBreak'?'#1A5C28':'#1A4A8A';
   const pomoLabel = pomoState.mode==='work'?'FOCUSED':pomoState.mode==='shortBreak'?'RESTING':'DEEP REST';
   const totalDur  = pomoState.mode==='work'?pomoState.customWork*60:pomoState.mode==='shortBreak'?300:900;
@@ -5653,32 +5649,42 @@ function renderTodayFocusMode(container){
   const dots = Array.from({length:4}).map((_,i)=>i<(pomoState.sessions%4));
 
   // Active mission
-  const sel = selectedMissionId ? tasks.find(t=>t.id===selectedMissionId) : null;
+  const sel     = selectedMissionId ? tasks.find(t=>t.id===selectedMissionId) : null;
   const selProj = sel ? projects.find(p=>p.id===sel.projectId) : null;
 
-  // Task queue — pinned first, then overdue, then priority
-  const allActive = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked').sort((a,b)=>{
-    const aPinned=todayPinned.has(a.id)?1:0, bPinned=todayPinned.has(b.id)?1:0;
-    if(aPinned!==bPinned) return bPinned-aPinned;
-    const aOver=a.dueDate&&a.dueDate<todayStr?1:0, bOver=b.dueDate&&b.dueDate<todayStr?1:0;
-    if(aOver!==bOver) return bOver-aOver;
-    return ({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1);
-  });
+  container.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
 
-  // Blocked tasks
-  const blocked = tasks.filter(t=>t.status==='blocked');
-
-  container.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
-
-    <!-- Focus header — minimal, exit button -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;flex-shrink:0;">
-      <div style="font-family:var(--font-ui);font-size:12px;font-weight:800;color:${pomoColor};letter-spacing:1px;">${pomoLabel}</div>
+    <!-- Minimal header — just exit -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 0;flex-shrink:0;">
+      <div style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:${pomoColor};letter-spacing:1.5px;opacity:0.8;">${pomoLabel}</div>
       <button onclick="todayFocusMode=false;selectedMissionId=null;renderAll();"
-        style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✕ Back to Today</button>
+        style="padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✕ Exit Focus</button>
+    </div>
+
+    <!-- Active task — centre of attention -->
+    <div style="flex-shrink:0;padding:16px 14px 10px;">
+      ${sel ? `
+        <div style="border-radius:12px;border:2px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.06);padding:16px;">
+          <div style="font-size:18px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:10px;">${esc(sel.title)}</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+            ${selProj?`<span style="font-size:11px;color:${selProj.color};font-family:var(--font-ui);">◈ ${esc(selProj.name)}</span>`:''}
+            ${sel.dueDate?`<span style="font-size:11px;color:${sel.dueDate<todayStr?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${sel.dueDate<todayStr?'⚠ Overdue':'📅'} ${sel.dueDate.slice(5)}</span>`:''}
+            ${sel.estimate?`<span style="font-size:11px;color:var(--text3);font-family:var(--font-ui);">⏱ ${sel.estimate}</span>`:''}
+          </div>
+          <button onclick="completeTask('${sel.id}',event)"
+            style="width:100%;padding:13px;border-radius:9px;border:none;background:var(--green);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;letter-spacing:0.3px;">
+            ✓ Done — I finished this
+          </button>
+        </div>
+      ` : `
+        <div style="padding:20px;text-align:center;border-radius:10px;border:1px dashed var(--border2);">
+          <div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);">No task selected — exit and pick one from Today.</div>
+        </div>
+      `}
     </div>
 
     <!-- Pomodoro timer -->
-    <div class="pomo-card" style="border-color:${pomoColor}44;flex-shrink:0;">
+    <div class="pomo-card" style="border-color:${pomoColor}44;flex-shrink:0;margin:0 10px;">
       <div class="pomo-header">
         <div class="pomo-title">⏳ Timer</div>
         <div class="pomo-mode-btns">
@@ -5720,55 +5726,10 @@ function renderTodayFocusMode(container){
           <div class="pomo-next">${pomoState.mode==='work'?`NEXT: ${pomoState.sessions%4===3?'LONG REST 🛋️':'SHORT REST ☕'}`:'NEXT: Work 🎯'}</div>
         </div>
       </div>
-      <!-- Active mission -->
-      ${sel
-        ?`<div style="background:rgba(122,74,16,0.10);border:1px solid rgba(232,168,56,0.35);border-radius:4px;padding:8px 11px;margin-top:8px;display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;color:var(--accent);font-family:var(--font-ui);flex-shrink:0;">⚔</span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sel.title)}</div>
-              ${selProj?`<div style="font-size:9px;color:${selProj.color};font-family:var(--font-ui);">◈ ${esc(selProj.name)}</div>`:''}
-            </div>
-            <button onclick="completeTask('${sel.id}',event)" style="padding:5px 10px;border-radius:5px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">✓ Done</button>
-            <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
-          </div>`
-        :`<div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--font-ui);text-align:center;">↓ Select a task below</div>`
-      }
     </div>
 
-    <!-- Blocked warning -->
-    ${blocked.length>0?`
-      <div style="margin:6px 10px 0;background:rgba(122,24,24,0.08);border:1px solid rgba(122,24,24,0.35);border-radius:6px;padding:8px 12px;">
-        <div style="font-size:10px;font-family:var(--font-ui);font-weight:700;color:#C0392B;letter-spacing:0.5px;margin-bottom:4px;">⊘ BLOCKED — ${blocked.length}</div>
-        ${blocked.slice(0,2).map(t=>`<div style="font-size:11px;color:var(--text2);cursor:pointer;padding:2px 0;" onclick="openEditTask('${t.id}')">${esc(t.title)}</div>`).join('')}
-      </div>`:''
-    }
-
-    <!-- Task queue — scrollable -->
-    <div style="flex:1;overflow-y:auto;padding:6px 10px 12px;">
-      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:6px 2px 4px;">QUEUE</div>
-      ${allActive.length===0
-        ?`<div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--font-ui);font-size:12px;font-style:italic;">All clear — nothing active 🎉</div>`
-        :allActive.slice(0,12).map(t=>{
-          const proj=projects.find(p=>p.id===t.projectId);
-          const overdue=t.dueDate&&t.dueDate<todayStr;
-          const isSel=selectedMissionId===t.id;
-          return `<div onclick="selectMission('${t.id}')"
-            style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;border:1px solid ${isSel?'rgba(232,168,56,0.45)':'var(--border2)'};margin-bottom:5px;cursor:pointer;background:${isSel?'var(--accent-soft)':'transparent'};">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:12px;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
-              <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">
-                ${overdue?`<span style="font-size:9px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 5px;border-radius:2px;font-family:var(--font-ui);">⚠ OVERDUE</span>`:todayPinned.has(t.id)?`<span style="font-size:9px;color:var(--accent);font-family:var(--font-ui);">📌 TODAY</span>`:''}
-                ${proj?`<span style="font-size:9px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
-              </div>
-            </div>
-            ${isSel?`<span style="font-size:13px;flex-shrink:0;margin-top:1px;">⚔</span>`:''}
-          </div>`;
-        }).join('')
-      }
-    </div>
   </div>`;
 }
-
 
 
 function renderDomain(title, slots){
