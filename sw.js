@@ -147,6 +147,12 @@ async function checkAlarms() {
     } else if (alarm.tag === 'eod') {
       const done = await getStore('hub-eod-done');
       shouldFire = done !== dateStr;
+    } else if (alarm.tag === 'nudge') {
+      const count = alarm.nudgeCount || 0;
+      shouldFire = count > 0 && alarm.title; // only fire if there are overdue contacts
+    } else if (alarm.tag === 'kids-prizes') {
+      const count = alarm.unclaimedCount || 0;
+      shouldFire = count > 0;
     }
 
     if (shouldFire) {
