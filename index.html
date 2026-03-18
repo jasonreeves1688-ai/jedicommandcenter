@@ -1422,20 +1422,17 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 
   <!-- Side rail — always visible on left edge -->
   <div id="side-rail">
-    <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
-      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
-    </button>
     <button class="nav-btn" id="nav-today" onclick="setNav('today')">
       <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+    </button>
+    <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
+      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
     </button>
     <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
       <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
     </button>
     <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
       <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
-    </button>
-    <button class="nav-btn" id="nav-cal" onclick="setNav('cal')">
-      <span class="nav-icon">📅</span><span class="nav-label">Cal</span>
     </button>
     <button class="nav-btn" id="nav-people" onclick="setNav('people')">
       <span class="nav-icon">👥</span><span class="nav-label">People</span>
@@ -1550,11 +1547,11 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 
   <!-- Mobile bottom nav (hidden on desktop via media query) -->
   <div id="bottom-nav">
-    <button class="nav-btn active" id="nav-tasks" onclick="setNav('tasks')">
-      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
-    </button>
     <button class="nav-btn" id="nav-today" onclick="setNav('today')">
       <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+    </button>
+    <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
+      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
     </button>
     <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
       <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
@@ -1592,9 +1589,6 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       </button>
       <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
         <span class="nav-grid-tile-icon">⏳</span><span>Waiting For</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-cal" onclick="setNav('cal');closeNavGrid()">
-        <span class="nav-grid-tile-icon">📅</span><span>Calendar</span>
       </button>
       <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
         <span class="nav-grid-tile-icon">👥</span><span>People</span>
@@ -2051,7 +2045,7 @@ let filterPriority=new Set();    // "high"|"medium"|"low"
 let filterDue=new Set();         // "overdue"|"today"|"week"|"month"|"none"
 let filterPerson=new Set();      // person IDs
 let todayPinned=new Set();       // task IDs pinned to Today view
-let viewMode="list", activeNav="tasks";
+let viewMode="list", activeNav="today";
 
 // Derived helpers
 const realmActive=()=>filterRealm.size>0;
@@ -2172,7 +2166,22 @@ async function loadAll(){
         showToast("✓ All tasks uploaded ✓");
       }
     }else{
-      projects=sheetProjects;tasks=sheetTasks;
+      projects=sheetProjects;
+      // Merge sheet tasks with local cache — preserve personIds from local
+      // if the sheet row has an empty value (column added after row was created)
+      const lt2 = localStorage.getItem('hub-tasks');
+      const localTaskMap = {};
+      if(lt2){ try{ JSON.parse(lt2).forEach(t=>{ if(t.id) localTaskMap[t.id]=t; }); }catch(e){} }
+      tasks = sheetTasks.map(t => {
+        const local = localTaskMap[t.id];
+        if(!local) return t;
+        // For fields that may be missing from old sheet rows, prefer local if sheet is blank
+        return {
+          ...t,
+          personIds: t.personIds || local.personIds || '',
+          subtasks:  (t.subtasks&&t.subtasks.length>0) ? t.subtasks : (local.subtasks||[]),
+        };
+      });
     }
   }catch(e){
     const lp=localStorage.getItem("hub-projects");
@@ -2930,10 +2939,24 @@ function renderTaskRow(task,proj){
       <div class="task-body-wrap">
         <div class="task-body" style="flex:1;min-width:0;">
           <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-          <div class="task-meta">${projChip}${subPill}${ageBadge}</div>
+          <div class="task-meta">${projChip}${subPill}${ageBadge}${(()=>{
+            if(!task.source||!task.source.startsWith('meeting:')) return '';
+            const mtgId = task.source.split(':')[1];
+            const mtg = meetingLog.find(m=>m.id===mtgId);
+            if(!mtg) return '';
+            return `<span onclick="event.stopPropagation();openMeetingCapture('${mtgId}')"
+              style="font-size:10px;font-family:var(--font-ui);padding:2px 7px;border-radius:4px;
+                     background:rgba(100,181,246,0.1);color:#64B5F6;border:1px solid rgba(100,181,246,0.25);
+                     cursor:pointer;flex-shrink:0;white-space:nowrap;" title="From: ${esc(mtg.title)}">
+              📝 ${esc(mtg.title.length>20?mtg.title.slice(0,20)+'…':mtg.title)}
+            </span>`;
+          })()}</div>
         </div>
         ${!isExpanded ? estimateBadge : ''}
         ${!isExpanded ? dueBadge : ''}
+        <button onclick="event.stopPropagation();toggleTodayPin('${task.id}')"
+          title="${isPinned?'Unpin from Today':'Pin to Today'}"
+          style="flex-shrink:0;width:28px;height:28px;border-radius:6px;border:1px solid ${isPinned?'var(--accent)':'var(--border)'};background:${isPinned?'var(--accent-soft)':'transparent'};color:${isPinned?'var(--accent)':'var(--text4)'};font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">📌</button>
         <span style="font-size:11px;color:var(--text4);padding-right:4px;flex-shrink:0;transition:transform 0.15s;display:inline-block;transform:rotate(${isExpanded?'90':'0'}deg);">▶</span>
       </div>
     </div>
@@ -4331,18 +4354,27 @@ function renderSettings(container){
         </summary>
         <div style="padding:10px 4px 0;display:flex;flex-direction:column;gap:6px;">
           <div id="notif-status-panel" style="padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;margin-bottom:4px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-              <span style="color:var(--text3);">Permission</span>
-              <span style="font-weight:800;color:${'Notification' in window && Notification.permission==='granted'?'var(--green)':Notification.permission==='denied'?'#EF5350':'var(--accent)'};">${'Notification' in window ? Notification.permission : 'not supported'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-              <span style="color:var(--text3);">Service Worker</span>
-              <span style="font-weight:800;color:${typeof _swReg !== 'undefined'&&_swReg?'var(--green)':'#EF5350'};">${typeof _swReg !== 'undefined'&&_swReg?'✓ active':'✗ not registered'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:var(--text3);">Email</span>
-              <span style="font-weight:700;color:${localStorage.getItem('hub-raven-email')?'var(--text)':'#EF5350'};">${localStorage.getItem('hub-raven-email')||'⚠ not set'}</span>
-            </div>
+            ${(()=>{
+              const perm = 'Notification' in window ? Notification.permission : 'not supported';
+              const permColor = perm==='granted'?'var(--green)':perm==='denied'?'#EF5350':'var(--accent)';
+              const swOk = typeof _swReg !== 'undefined' && _swReg && _swReg.active;
+              const swColor = swOk ? 'var(--green)' : '#EF5350';
+              const swLabel = swOk ? '✓ active' : _swReg ? '⚠ installing…' : '✗ not registered';
+              const email = localStorage.getItem('hub-raven-email')||'';
+              return `
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:var(--text3);">Notifications</span>
+                  <span style="font-weight:800;color:${permColor};">${perm}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                  <span style="color:var(--text3);">Service Worker</span>
+                  <span style="font-weight:800;color:${swColor};">${swLabel}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text3);">Email</span>
+                  <span style="font-weight:700;color:${email?'var(--text)':'#EF5350'};">${email||'⚠ not set — save in settings'}</span>
+                </div>`;
+            })()}
           </div>
           <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'✓ Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable / re-enable notifications</button>
           <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;margin-bottom:2px;">Test — fires immediately regardless of time:</div>
@@ -4361,6 +4393,7 @@ function renderSettings(container){
         </summary>
         <div style="padding:10px 4px 0;">
           <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+          <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="recoverMeetingTasks()">🔁 Recover Meeting Tasks</button>
           <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
           <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
           <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
@@ -5105,7 +5138,7 @@ function updateNavGridActive(){
   document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(el=>el.classList.remove('active'));
   const map = {today:'grid-today',tasks:'grid-tasks',
     meetings:'grid-meetings',kids:'grid-kids',waiting:'grid-waiting',
-    cal:'grid-cal',people:'grid-people',charts:'grid-charts',settings:'grid-settings'};
+    people:'grid-people',charts:'grid-charts',settings:'grid-settings'};
   const el = document.getElementById(map[activeNav]);
   if(el) el.classList.add('active');
 }
@@ -7189,20 +7222,22 @@ function saveMeetingCapture(){
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
 
-  // Auto-create tasks from my commitments
+  // Auto-create tasks from my commitments — ONLY on first save, not on edits
   let tasksCreated=0;
-  if(myCommits){
+  const isNewMeeting = !id; // id is populated when editing existing meeting
+  if(isNewMeeting && myCommits){
     myCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
       const t={ id:'t'+Date.now()+Math.random().toString(36).slice(2,6), projectId:'', title:line,
         priority:'medium', status:'todo', dueDate:'', notes:'From meeting: '+title+' ('+date+')',
-        source:'', recur:'none', effort:'', estimate:'', energy:'medium', createdAt:today(), completedAt:null, subtasks:[] };
+        source:'meeting:'+meeting.id, recur:'none', effort:'', estimate:'', energy:'medium',
+        createdAt:today(), completedAt:null, subtasks:[] };
       tasks.push(t); tasksCreated++;
     });
   }
 
-  // Auto-create Waiting For from their commitments
+  // Auto-create Waiting For from their commitments — ONLY on first save
   let waitingCreated=0;
-  if(theirCommits){
+  if(isNewMeeting && theirCommits){
     theirCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
       // Try to parse "[Name]: what" format
       const match = line.match(/^([^:]+):\s*(.+)$/);
@@ -8230,8 +8265,12 @@ function meUpdateField(id, field, value){
   const t = tasks.find(x=>x.id===id); if(!t) return;
   t[field] = value;
   saveAllDebounced();
-  // Re-render just that row's visuals (color etc.) via full render
-  renderAll();
+  // Update row color visuals without rebuilding entire table
+  const row = document.querySelector(`#mass-edit-table tbody tr td select[onchange*="'${id}'"]`);
+  if(row) {
+    const tr = row.closest('tr');
+    if(tr) tr.classList.toggle('done-row', value === 'done');
+  }
 }
 
 // Bulk operations
@@ -8444,6 +8483,42 @@ async function pickContactPhoto(inputId, previewId, hiddenId){
   input.click();
 }
 
+
+// ── Recover tasks from meeting commits ───────────────────────────
+// Call this when meeting-sourced tasks have been lost
+function recoverMeetingTasks(){
+  let recovered = 0;
+  meetingLog.forEach(mtg => {
+    if(!mtg.myCommits) return;
+    const lines = mtg.myCommits.split('\n').map(s=>s.trim()).filter(Boolean);
+    lines.forEach(line => {
+      // Check if a task with this title and meeting source already exists
+      const alreadyExists = tasks.some(t =>
+        t.title === line &&
+        (t.source === 'meeting:'+mtg.id || t.notes?.includes('From meeting: '+mtg.title))
+      );
+      if(alreadyExists) return;
+      // Check if it was completed (don't re-create done tasks)
+      const isDone = tasks.some(t => t.title === line && t.status === 'done');
+      if(isDone) return;
+      tasks.push({
+        id: 't'+Date.now()+Math.random().toString(36).slice(2,6),
+        projectId:'', title:line, priority:'medium', status:'todo', dueDate:'',
+        notes:'From meeting: '+mtg.title+' ('+mtg.date+')',
+        source:'meeting:'+mtg.id, recur:'none', effort:'', estimate:'', energy:'medium',
+        createdAt:mtg.date||today(), completedAt:null, subtasks:[]
+      });
+      recovered++;
+    });
+  });
+  if(recovered > 0){
+    saveAllDebounced();
+    renderAll();
+    showToast('✓ Recovered ' + recovered + ' task' + (recovered!==1?'s':'') + ' from meetings');
+  } else {
+    showToast('No missing tasks found — all meeting commits already exist');
+  }
+}
 
 function savePinned(){
   // Pins persist to cloud via saveAllDebounced — no localStorage needed
@@ -8773,7 +8848,16 @@ function checkPassword(){
   if(input.value===GATE_PASSWORD){
     localStorage.setItem("hub-auth",Date.now().toString());
     document.getElementById("gate").style.display="none";
-    bootApp();
+    bootApp().then(async ()=>{
+      // Start SW + notifications after gate unlock (same as init fast-path)
+      await registerServiceWorker();
+      const notifGranted = await requestNotifPermission();
+      if(notifGranted){
+        scheduleNotifChecks();
+        scheduleAlarmsWithSW();
+        updateAppBadge();
+      }
+    });
   } else {
     err.style.display="block";
     input.value="";
