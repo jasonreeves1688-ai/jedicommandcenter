@@ -806,6 +806,18 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 .me-priority-medium{color:#E8A838;}
 .me-priority-low{color:#888;}
 
+/* ── CONTACT AVATARS ── */
+.avatar-wrap{position:relative;flex-shrink:0;cursor:pointer;}
+.avatar-wrap img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;}
+.avatar-edit-btn{
+  position:absolute;bottom:-2px;right:-2px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--surface);
+  color:#1a1f2e;font-size:9px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;line-height:1;
+}
+
 /* ── AI LOADING RING ── */
 @keyframes loadingRing{to{transform:rotate(360deg);}}
 
@@ -1578,7 +1590,7 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
         <span class="nav-grid-tile-icon">☰</span><span>Tasks</span>
       </button>
-      <button class="nav-grid-tile" id="grid-focus" onclick="setNav('focus');closeNavGrid()">
+      <button class="nav-grid-tile" id="grid-focus" onclick="todayFocusMode=true;setNav('today');closeNavGrid()">
         <span class="nav-grid-tile-icon">⏱</span><span>Focus</span>
       </button>
       <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
@@ -2058,6 +2070,7 @@ const personActive=()=>filterPerson.size>0;
 const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
 let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
+let todayFocusMode=false;  // true = focus mode within Today screen
 let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null, kidsSyncTimeout=null;
 let selectedProjColor=PROJECT_COLORS[0], importPreviewData=null;
@@ -2495,8 +2508,7 @@ function renderAll(){
   checkEodBanner();
   updateAppBadge();
   const main=document.getElementById("main");
-  if(activeNav==="today"){renderTodayView(main);return;}
-  if(activeNav==="focus"||focusOn){renderFocusPanel(main);return;}
+  if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
   if(activeNav==="cal"){renderCalendar(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
   if(activeNav==="people"){  renderPeoplePage(main);  return; }
@@ -3001,7 +3013,7 @@ function showJasonSpinPrompt(type){
     <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">
       ${isBig ? '100 tasks completed — time for a big reward!' : '25 tasks done — go spin your wheel!'}
     </div>
-    <button onclick="document.getElementById('jason-spin-prompt').remove();setNav('focus');setTimeout(()=>openJasonWheel('${type}'),200);"
+    <button onclick="document.getElementById('jason-spin-prompt').remove();todayFocusMode=true;setNav('today');setTimeout(()=>openJasonWheel('${type}'),200);"
       style="width:100%;padding:11px;border-radius:8px;border:none;background:${isBig?'#FFD700':'var(--accent)'};color:#1a1f2e;font-weight:900;font-size:14px;cursor:pointer;font-family:var(--font-ui);">
       🎡 Spin Now!
     </button>
@@ -4346,6 +4358,7 @@ function renderSettings(container){
           <button class="hbtn" style="width:100%;" onclick="testNotif('morning')">☀ Test Morning Nudge</button>
           <button class="hbtn" style="width:100%;" onclick="testNotif('overdue')">⚠ Test Overdue Reminder</button>
           <button class="hbtn" style="width:100%;" onclick="testNotif('eod')">🌙 Test EOD Nudge</button>
+          <button class="hbtn" style="width:100%;" onclick="testNotif('nudge')">👥 Test Contact Nudge</button>
           <button class="hbtn" style="width:100%;" onclick="testNotif('kids-prizes')">🎁 Test Kids Prize Reminder</button>
         </div>
       </details>
@@ -5115,10 +5128,18 @@ function setNav(nav){
   closeFdd();
   closeNavGrid();
   activeNav=nav;focusOn=nav==="focus";
+  if(nav==="focus"){ activeNav='today'; todayFocusMode=true; }
+  else if(nav==="today"){ todayFocusMode=false; }
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
   // Highlight matching button in BOTH nav bars (only one is visible at a time)
   const btn = document.getElementById(`nav-${nav}`);
   if(btn) btn.classList.add("active");
+  // Also highlight Focus nav btn when in focus mode
+  const focusBtn = document.getElementById('nav-focus');
+  if(focusBtn){
+    if(todayFocusMode) focusBtn.classList.add('active');
+    else focusBtn.classList.remove('active');
+  }
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
   const primaryTabs = ['today','tasks','focus','meetings','kids'];
   const gridBtn = document.getElementById('nav-grid-btn');
@@ -5143,7 +5164,7 @@ function setNav(nav){
   renderAll();
 }
 
-function toggleFocus(){if(activeNav==="focus") setNav("tasks"); else setNav("focus");}
+function toggleFocus(){if(todayFocusMode){todayFocusMode=false;setNav('today');} else {todayFocusMode=true;setNav('today');}}
 
 // ═══════════════════════════════════════════════════════════════
 // TODAY'S TaskS — 3-THINGS FRAMEWORK
@@ -5395,168 +5416,145 @@ function brainDump(text){
   showToast('⚡ CAPTURED TO PARKING LOT');
 }
 
+
 function renderTodayView(container){
-  const todayStr=today();
-  const hour=new Date().getHours();
-  const greeting=hour<12?'☀ MORNING BRIEFING':hour<17?'⚔ MID-DAY CHECK-IN':'🌙 EVENING CAPTURE';
+  // If Focus Mode is active within Today, render that instead
+  if(todayFocusMode || activeNav==='focus' || focusOn){
+    renderTodayFocusMode(container);
+    return;
+  }
 
-  // Count pinned done/total for header
-  const pinnedAll = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
-  const doneCount = pinnedAll.filter(t=>t.status==='done').length;
-  const totalAssigned = pinnedAll.length;
-
-  const parking=getParkingLot();
-
-  // ── Compute "Next Up" task ──────────────────────────────────
-  const _nextActive = tasks.filter(t => t.status !== 'done' && t.status !== 'blocked').sort((a,b) => {
-    if(todayPinned.has(a.id) !== todayPinned.has(b.id)) return todayPinned.has(a.id) ? -1 : 1;
-    const aOver = a.dueDate && a.dueDate < todayStr ? 1 : 0;
-    const bOver = b.dueDate && b.dueDate < todayStr ? 1 : 0;
-    if(aOver !== bOver) return bOver - aOver;
-    const pOrd = {high:0,medium:1,low:2};
-    const pd = (pOrd[a.priority]??1)-(pOrd[b.priority]??1);
-    if(pd !== 0) return pd;
-    if(a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-    if(a.dueDate) return -1;
-    if(b.dueDate) return 1;
-    return 0;
-  });
-  const _nextTask = _nextActive[0] || null;
-  const _nextProj = _nextTask ? projects.find(p => p.id === _nextTask.projectId) : null;
-
-  let html=``;
-
-  // Time block view mode
+  // Time block mode
   if(todayViewMode === 'timeblock'){
-    tbDate = todayStr;
-    container.innerHTML = html;
-    // Render timeblock inline — reuse renderTimeBlock but inside today container
+    tbDate = today();
     renderTimeBlock(container);
     return;
   }
 
-  // Overwhelm mode — just one thing
-  if(overwhelmMode){
-    html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--accent);">🧘 One Thing Mode</div>
-      <button onclick="overwhelmMode=false;renderAll();" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕ Back to normal</button>
-    </div>`;
-    // Brain dump bar
-    html+=`<div class="brain-dump-bar">
-      <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought…"
-        onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value=''}" autocomplete="off" autocorrect="off" spellcheck="false"/>
-      <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
-      <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
-    </div>`;
-    // Show Next Up in overwhelm mode
-    if(_nextTask){
-      const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
-      const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
-      const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:11px;">⚠ OVERDUE</span>`
-                       : _isToday   ? `<span style="color:var(--accent);font-size:11px;">📅 TODAY</span>`
-                       : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:11px;">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
-      const _np = _nextProj;
-      html+=`<div style="margin:8px 10px;padding:20px;border-radius:12px;border:2px solid var(--accent);background:rgba(232,168,56,0.07);text-align:center;">
-        <div style="font-size:11px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:10px;">⚔ YOUR ONE THING</div>
-        <div style="font-size:18px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.4;margin-bottom:8px;">${esc(_nextTask.title)}</div>
-        <div style="display:flex;justify-content:center;gap:8px;margin-bottom:16px;">${_np?`<span style="font-size:11px;color:${_np.color};">◈ ${esc(_np.name)}</span>`:''}${_dueLabel}</div>
-        <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">▶ Start Focus Session</button>
-        <button onclick="updateTaskField('${_nextTask.id}','status','done');renderAll();" style="width:100%;padding:9px;margin-top:8px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">✓ Already done — what's next?</button>
-      </div>`;
-    } else {
-      html+=`<div style="margin:40px 20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">🎉 No active tasks — you're all clear!</div>`;
-    }
-    container.innerHTML=html;
-    return;
-  }
+  const todayStr = today();
+  const hour = new Date().getHours();
 
-  // Header
-  html+=`<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
+  // Pinned task counts for header
+  const pinnedAll = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
+  const doneCount = pinnedAll.filter(t=>t.status==='done').length;
+  const totalAssigned = pinnedAll.length;
+
+  // Next recommended task (pinned first, then overdue, then priority)
+  const _nextActive = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked').sort((a,b)=>{
+    if(todayPinned.has(a.id)!==todayPinned.has(b.id)) return todayPinned.has(a.id)?-1:1;
+    const aOver=a.dueDate&&a.dueDate<todayStr?1:0, bOver=b.dueDate&&b.dueDate<todayStr?1:0;
+    if(aOver!==bOver) return bOver-aOver;
+    const pOrd={high:0,medium:1,low:2};
+    const pd=(pOrd[a.priority]??1)-(pOrd[b.priority]??1);
+    if(pd!==0) return pd;
+    if(a.dueDate&&b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    return a.dueDate?-1:b.dueDate?1:0;
+  });
+  const _nextTask = _nextActive[0]||null;
+  const _nextProj = _nextTask?projects.find(p=>p.id===_nextTask.projectId):null;
+
+  let html = '';
+
+  // ── Header ───────────────────────────────────────────────────
+  const greeting = hour<12?'☀ Today':hour<17?'⚔ Today':'🌙 Today';
+  html += `<div style="padding:10px 12px 6px;display:flex;align-items:center;justify-content:space-between;">
     <div>
-      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);letter-spacing:0.5px;">${greeting}</div>
-      ${totalAssigned>0?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done today</div>`:'<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Tap <strong style="color:var(--accent);">+ ADD</strong> on any slot to assign a task</div>'}
+      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--accent);">${greeting}</div>
+      ${totalAssigned>0
+        ?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${doneCount} of ${totalAssigned} done</div>`
+        :`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">Pin tasks to start your day</div>`}
     </div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <button onclick="overwhelmMode=true;renderAll();" title="Just show me one thing" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">🧘</button>
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
-        style="padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-ui);
+        style="padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-ui);
         border:1px solid ${todayViewMode==='timeblock'?'rgba(232,168,56,0.6)':'rgba(232,168,56,0.3)'};
         background:${todayViewMode==='timeblock'?'var(--accent)':'rgba(232,168,56,0.08)'};
-        color:${todayViewMode==='timeblock'?'#1a1f2e':'var(--accent)'};"
-        title="Time block view">🗓 ${todayViewMode==='timeblock'?'List view':'Plan day'}</button>
-      <button onclick="openReset()" style="padding:6px 11px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;letter-spacing:0.5px;">🌅 Reset</button>
+        color:${todayViewMode==='timeblock'?'#1a1f2e':'var(--accent)'};">🗓</button>
+      <button onclick="openReset()" style="padding:5px 9px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;">🌅</button>
+      ${_nextTask
+        ?`<button onclick="selectMission('${_nextTask.id}');todayFocusMode=true;renderAll();"
+          style="padding:5px 12px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;">▶ Focus</button>`
+        :''}
     </div>
   </div>`;
 
-  // ── Next Up banner ──────────────────────────────────────────
-  if(_nextTask){
-    const _isOverdue = _nextTask.dueDate && _nextTask.dueDate < todayStr;
-    const _isToday   = _nextTask.dueDate && _nextTask.dueDate === todayStr;
-    const _dueLabel  = _isOverdue ? `<span style="color:#ff6060;font-size:10px;font-family:var(--font-ui);">⚠ OVERDUE</span>`
-                     : _isToday   ? `<span style="color:var(--accent);font-size:10px;font-family:var(--font-ui);">📅 TODAY</span>`
-                     : _nextTask.dueDate ? `<span style="color:var(--text4);font-size:10px;font-family:var(--font-ui);">📅 ${_nextTask.dueDate.slice(5)}</span>` : '';
-    html += `<div style="margin:4px 10px 10px;padding:12px 14px;border-radius:10px;border:2px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.07);">
-      <div style="font-size:11px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⚔ NEXT UP</div>
-      <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--font-ui);line-height:1.3;margin-bottom:6px;">${esc(_nextTask.title)}</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        ${_nextProj ? `<span style="font-size:10px;color:${_nextProj.color};font-family:var(--font-ui);">◈ ${esc(_nextProj.name)}</span>` : ''}
-        ${_dueLabel}
-      </div>
-      <button onclick="selectMission('${_nextTask.id}');setNav('focus');" style="width:100%;padding:9px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.5px;">▶ Start Focus Session</button>
-    </div>`;
-  }
-
-  // Brain dump bar
-  html+=`<div class="brain-dump-bar">
-    <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought… (goes straight to Parking Lot)"
+  // ── Brain dump bar (always visible — quick capture) ───────────
+  html += `<div class="brain-dump-bar">
+    <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought…"
       onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
     <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
   </div>`;
 
-  // ── Weekly intentions ───────────────────────────────────────
-  html += renderWeeklyIntentions();
+  // ── Relationship nudges — overdue contacts only ───────────────
+  const nudges = getPeopleNudges();
+  if(nudges.length > 0){
+    const catColors={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
+    html += `<div style="margin:0 10px 10px;border-radius:10px;border:1px solid rgba(129,199,132,0.3);background:var(--surface);overflow:hidden;">
+      <div style="padding:8px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#81C784;letter-spacing:1px;">👥 REACH OUT (${nudges.length})</div>
+        <button onclick="setNav('people')" style="padding:3px 9px;border-radius:5px;border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">See all</button>
+      </div>
+      ${nudges.slice(0,3).map(c=>{
+        const catC = catColors[c.role]||'#888';
+        const daysSince = c.lastContact?Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000):null;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border);">
+          ${renderAvatar(c.name,c.photo,32,catC+'22',catC,false)}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(c.name)}</div>
+            <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${daysSince===null?'Never contacted':`${daysSince}d ago`} · every ${c.nudgeDays}d</div>
+          </div>
+          <button onclick="logContact('${c.id}');renderAll();" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Done</button>
+        </div>`;
+      }).join('')}
+      ${nudges.length>3?`<div style="padding:6px 12px;font-size:11px;color:var(--text4);font-family:var(--font-ui);text-align:center;">+${nudges.length-3} more on People page</div>`:''}
+    </div>`;
+  }
 
-  // ── Waiting For (overdue/active only — compact) ──────────────
-  const activeWaiting = waitingFor.filter(w=>!w.done);
-  if(activeWaiting.length > 0) html += renderWaitingFor();
+  // ── Waiting For — overdue + due today only ───────────────────
+  const urgentWaiting = waitingFor.filter(w=>{
+    if(w.done) return false;
+    if(!w.dueDate) return false;
+    return w.dueDate <= todayStr;
+  });
+  if(urgentWaiting.length > 0){
+    html += `<div style="margin:0 10px 10px;border-radius:10px;border:1px solid rgba(100,181,246,0.3);background:var(--surface);overflow:hidden;">
+      <div style="padding:8px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;">⏳ WAITING FOR — DUE (${urgentWaiting.length})</div>
+        <button onclick="setNav('waiting')" style="padding:3px 9px;border-radius:5px;border:1px solid rgba(100,181,246,0.4);background:transparent;color:#64B5F6;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">See all</button>
+      </div>
+      ${urgentWaiting.map(w=>{
+        const overdue = w.dueDate < todayStr;
+        const p = w.personId ? peopleList.find(x=>x.id===w.personId) : null;
+        return `<div onclick="openWaitingModal(null,'${w.id}')" style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="font-size:12px;font-weight:700;color:#64B5F6;">${esc(p?p.name:w.person||'')}</div>
+          <div style="font-size:13px;color:var(--text);margin-top:1px;">${esc(w.what)}</div>
+          <div style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);margin-top:2px;">${overdue?'⚠ Overdue':'📅 Due today'} · ${w.dueDate.slice(5)}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
 
-  // ── Today List ──────────────────────────────────────────────
-  // Overdue (unpinned) — surface automatically
-  const overdueUnpinned = tasks.filter(t =>
-    t.status !== 'done' && t.status !== 'blocked' &&
-    t.dueDate && t.dueDate < todayStr &&
-    !todayPinned.has(t.id)
+  // ── Today's task list ─────────────────────────────────────────
+  const overdueUnpinned = tasks.filter(t=>
+    t.status!=='done'&&t.status!=='blocked'&&
+    t.dueDate&&t.dueDate<todayStr&&!todayPinned.has(t.id)
   );
-
-  // Pinned tasks
-  const pinnedTasks = [...new Set([
-    ...todayPinned,
-    ...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)
-  ])]
-    .map(id => tasks.find(t => t.id === id))
-    .filter(t => t && t.status !== 'done');
-
-  // Pinned done tasks (show struck-through for satisfaction)
-  const pinnedDone = [...todayPinned]
-    .map(id => tasks.find(t => t.id === id))
-    .filter(t => t && t.status === 'done');
-
+  const pinnedTasks = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])]
+    .map(id=>tasks.find(t=>t.id===id))
+    .filter(t=>t&&t.status!=='done');
+  const pinnedDone = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
   const totalToday = overdueUnpinned.length + pinnedTasks.length;
-  const doneToday  = pinnedDone.length + tasks.filter(t =>
-    t.status === 'done' && t.dueDate === todayStr && !todayPinned.has(t.id)
-  ).length;
 
-  // Section header
   html += `<div style="padding:4px 12px 2px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">TODAY'S LIST</div>
     <div style="display:flex;gap:6px;align-items:center;">
-      ${totalToday > 0 ? `<span style="font-family:var(--font-ui);font-size:10px;color:var(--text3);">${pinnedDone.length} of ${totalToday + pinnedDone.length} done</span>` : ''}
+      ${totalToday>0?`<span style="font-family:var(--font-ui);font-size:10px;color:var(--text3);">${pinnedDone.length} of ${totalToday+pinnedDone.length} done</span>`:''}
       <button onclick="openTodayPicker()" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ ADD</button>
     </div>
   </div>`;
 
-  if(overdueUnpinned.length === 0 && pinnedTasks.length === 0 && pinnedDone.length === 0){
+  if(overdueUnpinned.length===0&&pinnedTasks.length===0&&pinnedDone.length===0){
     html += `<div style="margin:8px 10px 4px;padding:14px 16px;border-radius:10px;border:1px dashed var(--border2);text-align:center;">
       <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">No tasks picked for today yet.</div>
       <button onclick="openTodayPicker()" style="margin-top:8px;padding:7px 16px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">Pick your tasks →</button>
@@ -5564,129 +5562,214 @@ function renderTodayView(container){
   } else {
     html += `<div style="margin:4px 10px 8px;border-radius:10px;border:1px solid var(--border);overflow:hidden;">`;
 
-    // Overdue first — red tint, auto-surfaced
-    overdueUnpinned.forEach((t, i) => {
-      const proj = projects.find(p => p.id === t.projectId);
+    // Overdue (auto-surfaced, not pinned)
+    overdueUnpinned.forEach((t,i)=>{
+      const proj=projects.find(p=>p.id===t.projectId);
       html += `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(255,80,80,0.06);border-bottom:1px solid var(--border);cursor:pointer;">
         <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid #ff6060;background:transparent;color:#ff6060;font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
             <span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);font-weight:700;">⚠ OVERDUE ${t.dueDate.slice(5)}</span>
-            ${proj ? `<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>` : ''}
+            ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
           </div>
         </div>
-        <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin to today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">📌</button>
+        <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" title="Focus on this" style="padding:4px 8px;border-radius:5px;border:none;background:var(--accent);color:#1a1f2e;font-size:11px;font-weight:800;cursor:pointer;">▶</button>
       </div>`;
     });
 
-    // Pinned active tasks
-    pinnedTasks.forEach((t, i) => {
-      const proj = projects.find(p => p.id === t.projectId);
-      const isOverdue = t.dueDate && t.dueDate < todayStr;
-      const isToday   = t.dueDate && t.dueDate === todayStr;
-      const duePill   = isOverdue ? `<span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);">⚠ overdue</span>`
-                      : isToday   ? `<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);">📅 today</span>`
-                      : t.dueDate ? `<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">📅 ${t.dueDate.slice(5)}</span>` : '';
-      const isLast = i === pinnedTasks.length - 1 && pinnedDone.length === 0;
+    // Pinned active
+    pinnedTasks.forEach((t,i)=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      const isOverdue=t.dueDate&&t.dueDate<todayStr;
+      const isToday=t.dueDate&&t.dueDate===todayStr;
+      const duePill=isOverdue?`<span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);">⚠ overdue</span>`
+        :isToday?`<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);">📅 today</span>`
+        :t.dueDate?`<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">📅 ${t.dueDate.slice(5)}</span>`:'';
+      const isLast=i===pinnedTasks.length-1&&pinnedDone.length===0;
       html += `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;${isLast?'':'border-bottom:1px solid var(--border);'}cursor:pointer;">
         <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
           <div style="display:flex;gap:6px;align-items:center;margin-top:2px;flex-wrap:wrap;">
-            ${proj ? `<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>` : ''}
+            ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
             ${duePill}
           </div>
         </div>
-        <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove from today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">✕</button>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" title="Focus on this" style="padding:4px 8px;border-radius:5px;border:none;background:var(--accent);color:#1a1f2e;font-size:11px;font-weight:800;cursor:pointer;">▶</button>
+          <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove from today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">✕</button>
+        </div>
       </div>`;
     });
 
-    // Pinned done tasks — struck through at the bottom
-    if(pinnedDone.length > 0){
-      html += `<div style="padding:6px 12px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">DONE</div>`;
-      pinnedDone.forEach((t, i) => {
-        const proj = projects.find(p => p.id === t.projectId);
+    // Done tasks at bottom
+    if(pinnedDone.length>0){
+      html += `<div style="padding:5px 12px 3px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">DONE</div>`;
+      pinnedDone.forEach((t,i)=>{
+        const proj=projects.find(p=>p.id===t.projectId);
         html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;opacity:0.5;${i<pinnedDone.length-1?'border-bottom:1px solid var(--border);':''}">
-          <button onclick="completeTask('${t.id}',event)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--green);background:rgba(100,200,100,0.1);color:var(--green);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Undo completion">✓</button>
+          <button onclick="completeTask('${t.id}',event)" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--green);background:rgba(100,200,100,0.1);color:var(--green);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">✓</button>
           <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
-            <div style="font-size:13px;font-weight:500;color:var(--text3);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-            ${proj ? `<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);opacity:0.7;">◈ ${esc(proj.name)}</div>` : ''}
+            <div style="font-size:13px;color:var(--text3);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
           </div>
-          <button onclick="toggleTodayPin('${t.id}')" title="Remove from today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font-size:11px;cursor:pointer;">✕</button>
+          <button onclick="toggleTodayPin('${t.id}')" title="Remove" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font-size:11px;cursor:pointer;">✕</button>
         </div>`;
       });
     }
-
     html += `</div>`;
   }
 
-  // Parking Lot
-  const plCount=parking.length;
-  const plPreview=parking.slice(0,3);
-  const plRest=parking.slice(3);
-  html+=`<div class="parking-lot">
-    <div class="parking-lot-header" onclick="parkingExpanded=!parkingExpanded;renderAll();">
-      <span class="parking-lot-title">🅿 Inbox — ${plCount} task${plCount!==1?'s':''}</span>
-      <span style="font-size:11px;color:var(--text3);">${parkingExpanded?'▾':'▸'}</span>
-    </div>`;
-
-  if(plCount===0){
-    html+=`<div style="padding:10px 12px;font-size:12px;color:var(--text3);font-family:var(--font-ui);font-style:italic;">Inbox empty — all clear.</div>`;
-  } else {
-    // Always show top 3
-    html+=plPreview.map(t=>{
-      const proj=projects.find(p=>p.id===t.projectId);
-      // Find first available slot to suggest
-      const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
-      const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
-      return `<div class="parking-lot-item" onclick="openEditTask('${t.id}')" style="border-bottom:1px solid var(--border);cursor:pointer;">
-        <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Mark complete">✓</button>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">${esc(t.title)}</div>
-          ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
-        </div>
-        <button class="parking-lot-assign" onclick="event.stopPropagation();openTodayPicker();" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">+ Today</button>
-      </div>`;
-    }).join('');
-    // Remaining tasks expandable
-    if(plRest.length>0){
-      if(parkingExpanded){
-        html+=plRest.map(t=>{
-          const proj=projects.find(p=>p.id===t.projectId);
-          const SLOT_IDS=['w1','w2','w3','h1','f1','f2','f3'];
-          const firstEmpty=SLOT_IDS.find(s=>!threeSlots[s]);
-          return `<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
-            <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Mark complete">✓</button>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-              ${proj?`<div style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:''}
-            </div>
-            <button class="parking-lot-assign" onclick="event.stopPropagation();openSlotAssign('${firstEmpty||'w1'}','Today slot')" style="background:rgba(232,168,56,0.12);border-color:rgba(232,168,56,0.4);color:var(--accent);font-weight:700;">→ Assign</button>
-          </div>`;
-        }).join('');
-      } else {
-        html+=`<div onclick="parkingExpanded=true;renderAll();" style="padding:8px 12px;font-size:11px;color:var(--text3);font-family:var(--font-ui);cursor:pointer;text-align:center;">+ ${plRest.length} more — tap to expand</div>`;
-      }
-    }
-  }
-  html+=`</div>`;
-
-  // Evening capture nudge + EOD ritual
-  if(hour>=17){
-    const eodDone = localStorage.getItem('hub-eod-done') === today();
-    html+=`<div style="margin:0 6px 10px;padding:12px 14px;border-radius:10px;border:1px solid rgba(58,68,104,0.3);background:rgba(34,40,64,0.4);">
+  // ── EOD ritual nudge (evening only) ─────────────────────────
+  if(hour >= 17){
+    const eodDone = localStorage.getItem('hub-eod-done') === todayStr;
+    html += `<div style="margin:0 10px 10px;padding:12px 14px;border-radius:10px;border:1px solid rgba(58,68,104,0.3);background:rgba(34,40,64,0.4);">
       <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 CLOSE THE DAY</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Capture anything that came up, then do your 60-second close.</div>
       ${eodDone
-        ? `<div style="font-size:11px;color:var(--green);font-family:var(--font-ui);font-weight:700;">✓ Day closed — well done.</div>`
-        : `<button onclick="openEodRitual()" style="width:100%;padding:9px;border-radius:7px;border:none;background:rgba(58,68,104,0.4);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">🌙 Close the Day (60 sec)</button>`
+        ?`<div style="font-size:11px;color:var(--green);font-family:var(--font-ui);font-weight:700;">✓ Day closed — well done.</div>`
+        :`<button onclick="openEodRitual()" style="width:100%;padding:9px;border-radius:7px;border:none;background:rgba(58,68,104,0.4);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">🌙 Close the Day (60 sec)</button>`
       }
     </div>`;
   }
 
-  container.innerHTML=html;
+  // ── Someday section ──────────────────────────────────────────
+  html += renderSomedaySection();
+
+  container.innerHTML = html;
 }
+
+// ── Focus mode within Today ───────────────────────────────────────
+function renderTodayFocusMode(container){
+  const todayStr = today();
+  const pomoColor = pomoState.mode==='work'?'#7A1818':pomoState.mode==='shortBreak'?'#1A5C28':'#1A4A8A';
+  const pomoLabel = pomoState.mode==='work'?'FOCUSED':pomoState.mode==='shortBreak'?'RESTING':'DEEP REST';
+  const totalDur  = pomoState.mode==='work'?pomoState.customWork*60:pomoState.mode==='shortBreak'?300:900;
+  const pct       = 1-(pomoState.timeLeft/totalDur);
+  const R=44, circ=2*Math.PI*R;
+  const tipAngle  = pct*2*Math.PI-Math.PI/2;
+  const tipX=52+R*Math.cos(tipAngle), tipY=52+R*Math.sin(tipAngle);
+  const fmt = s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  const dots = Array.from({length:4}).map((_,i)=>i<(pomoState.sessions%4));
+
+  // Active mission
+  const sel = selectedMissionId ? tasks.find(t=>t.id===selectedMissionId) : null;
+  const selProj = sel ? projects.find(p=>p.id===sel.projectId) : null;
+
+  // Task queue — pinned first, then overdue, then priority
+  const allActive = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked').sort((a,b)=>{
+    const aPinned=todayPinned.has(a.id)?1:0, bPinned=todayPinned.has(b.id)?1:0;
+    if(aPinned!==bPinned) return bPinned-aPinned;
+    const aOver=a.dueDate&&a.dueDate<todayStr?1:0, bOver=b.dueDate&&b.dueDate<todayStr?1:0;
+    if(aOver!==bOver) return bOver-aOver;
+    return ({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1);
+  });
+
+  // Blocked tasks
+  const blocked = tasks.filter(t=>t.status==='blocked');
+
+  container.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+
+    <!-- Focus header — minimal, exit button -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;flex-shrink:0;">
+      <div style="font-family:var(--font-ui);font-size:12px;font-weight:800;color:${pomoColor};letter-spacing:1px;">${pomoLabel}</div>
+      <button onclick="todayFocusMode=false;selectedMissionId=null;renderAll();"
+        style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">✕ Back to Today</button>
+    </div>
+
+    <!-- Pomodoro timer -->
+    <div class="pomo-card" style="border-color:${pomoColor}44;flex-shrink:0;">
+      <div class="pomo-header">
+        <div class="pomo-title">⏳ Timer</div>
+        <div class="pomo-mode-btns">
+          <button class="pomo-mbtn ${pomoState.mode==='work'?'active-work':''}" onclick="setPomoMode('work')">FOCUS</button>
+          <button class="pomo-mbtn ${pomoState.mode==='shortBreak'?'active-shortBreak':''}" onclick="setPomoMode('shortBreak')">SHORT</button>
+          <button class="pomo-mbtn ${pomoState.mode==='longBreak'?'active-longBreak':''}" onclick="setPomoMode('longBreak')">LONG</button>
+        </div>
+      </div>
+      <div class="pomo-body">
+        <div class="pomo-ring-wrap">
+          <svg width="104" height="104" viewBox="0 0 104 104">
+            <circle cx="52" cy="52" r="${R}" fill="none" stroke="rgba(140,100,50,0.15)" stroke-width="5"/>
+            <circle cx="52" cy="52" r="${R-8}" fill="none" stroke="rgba(140,100,50,0.10)" stroke-width="1" stroke-dasharray="3 5"/>
+            <circle cx="52" cy="52" r="${R}" fill="none" stroke="${pomoColor}" stroke-width="5"
+              stroke-linecap="round" stroke-dasharray="${circ*pct} ${circ}"
+              transform="rotate(-90 52 52)" style="filter:drop-shadow(0 0 5px ${pomoColor});"/>
+            ${pct>0.01&&pomoState.running?`<circle cx="${tipX}" cy="${tipY}" r="4" fill="${pomoColor}" style="filter:drop-shadow(0 0 6px ${pomoColor});"/>`:''}
+            <line x1="52" y1="8" x2="52" y2="96" stroke="${pomoColor}22" stroke-width="0.5"/>
+            <line x1="8" y1="52" x2="96" y2="52" stroke="${pomoColor}22" stroke-width="0.5"/>
+          </svg>
+          <div class="pomo-time">
+            <div class="pomo-digits" style="color:${pomoColor};text-shadow:0 0 10px ${pomoColor}99;">${fmt(pomoState.timeLeft)}</div>
+            <div class="pomo-mode-lbl" style="color:${pomoColor};text-shadow:0 0 6px ${pomoColor}66;">${pomoLabel}</div>
+          </div>
+        </div>
+        <div class="pomo-controls">
+          <div class="pomo-dots">
+            ${dots.map(f=>`<div class="pomo-dot ${f?'filled':''}"></div>`).join('')}
+            <span class="pomo-sessions">${pomoState.sessions} sessions</span>
+          </div>
+          <div class="pomo-btns">
+            <button class="pomo-start" id="pomo-start-btn"
+              style="background:${pomoState.running?'rgba(20,0,0,0.8)':`${pomoColor}18`};border:1px solid ${pomoColor};color:${pomoColor};text-shadow:0 0 8px ${pomoColor}99;box-shadow:${pomoState.running?'none':`0 0 14px ${pomoColor}33`};"
+              onclick="togglePomo()">
+              ${pomoState.timeLeft===0?'↺ RESET':pomoState.running?'⏸ HOLD':'▶ Start'}
+            </button>
+            <button class="pomo-reset" onclick="resetPomo()">↺</button>
+          </div>
+          <div class="pomo-next">${pomoState.mode==='work'?`NEXT: ${pomoState.sessions%4===3?'LONG REST 🛋️':'SHORT REST ☕'}`:'NEXT: Work 🎯'}</div>
+        </div>
+      </div>
+      <!-- Active mission -->
+      ${sel
+        ?`<div style="background:rgba(122,74,16,0.10);border:1px solid rgba(232,168,56,0.35);border-radius:4px;padding:8px 11px;margin-top:8px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:var(--accent);font-family:var(--font-ui);flex-shrink:0;">⚔</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sel.title)}</div>
+              ${selProj?`<div style="font-size:9px;color:${selProj.color};font-family:var(--font-ui);">◈ ${esc(selProj.name)}</div>`:''}
+            </div>
+            <button onclick="completeTask('${sel.id}',event)" style="padding:5px 10px;border-radius:5px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">✓ Done</button>
+            <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+          </div>`
+        :`<div style="margin-top:6px;font-size:11px;color:var(--text3);font-family:var(--font-ui);text-align:center;">↓ Select a task below</div>`
+      }
+    </div>
+
+    <!-- Blocked warning -->
+    ${blocked.length>0?`
+      <div style="margin:6px 10px 0;background:rgba(122,24,24,0.08);border:1px solid rgba(122,24,24,0.35);border-radius:6px;padding:8px 12px;">
+        <div style="font-size:10px;font-family:var(--font-ui);font-weight:700;color:#C0392B;letter-spacing:0.5px;margin-bottom:4px;">⊘ BLOCKED — ${blocked.length}</div>
+        ${blocked.slice(0,2).map(t=>`<div style="font-size:11px;color:var(--text2);cursor:pointer;padding:2px 0;" onclick="openEditTask('${t.id}')">${esc(t.title)}</div>`).join('')}
+      </div>`:''
+    }
+
+    <!-- Task queue — scrollable -->
+    <div style="flex:1;overflow-y:auto;padding:6px 10px 12px;">
+      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:6px 2px 4px;">QUEUE</div>
+      ${allActive.length===0
+        ?`<div style="text-align:center;padding:20px;color:var(--text3);font-family:var(--font-ui);font-size:12px;font-style:italic;">All clear — nothing active 🎉</div>`
+        :allActive.slice(0,12).map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const overdue=t.dueDate&&t.dueDate<todayStr;
+          const isSel=selectedMissionId===t.id;
+          return `<div onclick="selectMission('${t.id}')"
+            style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:6px;border:1px solid ${isSel?'rgba(232,168,56,0.45)':'var(--border2)'};margin-bottom:5px;cursor:pointer;background:${isSel?'var(--accent-soft)':'transparent'};">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
+              <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;">
+                ${overdue?`<span style="font-size:9px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 5px;border-radius:2px;font-family:var(--font-ui);">⚠ OVERDUE</span>`:todayPinned.has(t.id)?`<span style="font-size:9px;color:var(--accent);font-family:var(--font-ui);">📌 TODAY</span>`:''}
+                ${proj?`<span style="font-size:9px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+              </div>
+            </div>
+            ${isSel?`<span style="font-size:13px;flex-shrink:0;margin-top:1px;">⚔</span>`:''}
+          </div>`;
+        }).join('')
+      }
+    </div>
+  </div>`;
+}
+
+
 
 function renderDomain(title, slots){
   let html=`<div class="three-domain">
@@ -5939,8 +6022,9 @@ function renderPeoplePage(container){
   const contactRow = (c, isNudge) => {
     const daysSince = c.lastContact ? Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000) : null;
     const catC = catColors[c.role]||'var(--text4)';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);${isNudge?'background:rgba(232,168,56,0.04);':''}">
-      <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':catColors[c.role]?catColors[c.role]+'22':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':catColors[c.role]||'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
+    return `<div onclick="openPersonDetail('${c.id}','contact')"
+      style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;${isNudge?'background:rgba(232,168,56,0.04);':''}">
+      ${renderAvatar(c.name, c.photo, 38, isNudge?'rgba(232,168,56,0.2)':(catColors[c.role]||'var(--surface2)')+'', isNudge?'var(--accent)':(catColors[c.role]||'var(--text3)'), false)}
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">
@@ -5948,16 +6032,17 @@ function renderPeoplePage(container){
           <span style="font-size:11px;color:${isNudge?'var(--accent)':'var(--text4)'};font-family:var(--font-ui);">${daysSince===null?'Never contacted':daysSince===0?'Contacted today ✓':`${daysSince}d ago`}${isNudge&&daysSince!==null?' · reach out':''} · every ${c.nudgeDays}d</span>
         </div>
       </div>
-      <button onclick="logContact('${c.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
-      <button onclick="openAddContactModal('${c.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
+      <button onclick="event.stopPropagation();logContact('${c.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
+      <button onclick="event.stopPropagation();openAddContactModal('${c.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
       <button onclick="deleteContact('${c.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
 
   const meetingPersonRow = (p) => {
     const pc = p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
-      <div style="width:32px;height:32px;border-radius:50%;background:${pc}22;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${pc};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+    return `<div onclick="openPersonDetail('${p.id}','person')"
+      style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+      ${renderAvatar(p.name, p.photo, 32, pc+'22', pc, false)}
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(p.name)}</div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
@@ -5965,8 +6050,8 @@ function renderPeoplePage(container){
           <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${pc};padding:1px 6px;border-radius:4px;border:1px solid ${pc}44;">${p.priority||'Medium'}</span>
         </div>
       </div>
-      <button onclick="openAddPersonModal('${p.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
-      <button onclick="deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+      <button onclick="event.stopPropagation();openAddPersonModal('${p.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">edit</button>
+      <button onclick="event.stopPropagation();deletePerson('${p.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
 
@@ -6394,15 +6479,16 @@ function renderSomedaySection(){
 // ── Meeting/WaitingFor people (no nudges) ───────────────────────
 function savePeople(){ saveHubData('hub-people', peopleList); }
 
-function addPerson(name, role, priority){
+function addPerson(name, role, priority, photo){
   if(!name.trim()) return;
-  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), priority:priority||'Medium' });
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), priority:priority||'Medium', photo:photo||'' });
   savePeople(); renderAll();
 }
 
-function updatePerson(id, name, role, priority){
+function updatePerson(id, name, role, priority, photo){
   const p = peopleList.find(x=>x.id===id); if(!p) return;
   p.name = name.trim(); p.role = (role||'').trim(); p.priority = priority||'Medium';
+  if(photo !== undefined) p.photo = photo;
   savePeople(); renderAll();
   showToast('✓ Updated ' + p.name);
 }
@@ -6410,15 +6496,16 @@ function updatePerson(id, name, role, priority){
 // ── Relationship contacts (nudge reminders) ──────────────────────
 function saveContacts(){ saveHubData('hub-contacts', contactsList); }
 
-function addContact(name, role, nudgeDays){
+function addContact(name, role, nudgeDays, photo){
   if(!name.trim()) return;
-  contactsList.push({ id:'c'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14 });
+  contactsList.push({ id:'c'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14, photo:photo||'' });
   saveContacts(); renderAll();
 }
 
-function updateContact(id, name, role, nudgeDays){
+function updateContact(id, name, role, nudgeDays, photo){
   const c = contactsList.find(x=>x.id===id); if(!c) return;
   c.name = name.trim(); c.role = (role||'').trim(); c.nudgeDays = nudgeDays||14;
+  if(photo !== undefined) c.photo = photo;
   saveContacts(); renderAll();
   showToast('✓ Updated ' + c.name);
 }
@@ -6432,37 +6519,143 @@ function buildPersonPickerHTML(selectedIds, inputId){
       No people added yet — <button onclick="setNav('people');closeModal('modal-waiting');closeModal('modal-meeting');" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:12px;cursor:pointer;text-decoration:underline;">add people first</button>
     </div>`;
   }
-  const sel = new Set(Array.isArray(selectedIds) ? selectedIds : [selectedIds].filter(Boolean));
-  return `<div style="display:flex;flex-wrap:wrap;gap:6px;" id="${inputId}-chips">
-    ${peopleList.map(p=>{
-      const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
-      return `<button type="button" class="person-chip ${sel.has(p.id)?'selected':''}"
-        onclick="togglePersonChip('${p.id}','${inputId}-chips')"
-        data-pid="${p.id}">
-        <span style="width:6px;height:6px;border-radius:50%;background:${pc};flex-shrink:0;display:inline-block;margin-right:2px;"></span>
-        <span>${p.name}${p.role?` <span style='color:var(--text4);font-weight:400;font-size:10px;'>(${p.role})</span>`:''}</span>
-      </button>`;
-    }).join('')}
-  </div>
-  <input type="hidden" id="${inputId}" value="${[...sel].join(',')}"/>`;
+  const isMulti = inputId.includes('mtg') || inputId.includes('series') || inputId.includes('person-ids');
+  const selArr = Array.isArray(selectedIds) ? selectedIds : (selectedIds||'').split(',').filter(Boolean);
+  const selIds = selArr.join(',');
+  // Render compact search picker — selected shown as chips, rest hidden until searched
+  return `<div id="${inputId}-picker-wrap" style="position:relative;">
+    <!-- Selected chips row -->
+    <div id="${inputId}-selected-chips" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;margin-bottom:6px;">
+      ${selArr.map(id=>{
+        const p=peopleList.find(x=>x.id===id);
+        if(!p) return '';
+        const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+        return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
+          ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"/>`:`<span style="width:16px;height:16px;border-radius:50%;background:${pc}22;color:${pc};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${p.name.slice(0,1)}</span>`}
+          ${esc(p.name)}
+          <span onclick="ppRemove('${id}','${inputId}','${isMulti}')" style="cursor:pointer;opacity:0.6;margin-left:2px;font-size:13px;line-height:1;">×</span>
+        </span>`;
+      }).join('')}
+    </div>
+    <!-- Search input -->
+    <div style="position:relative;">
+      <input id="${inputId}-search" type="text" class="field-input"
+        placeholder="${isMulti?'Search to add people…':'Search to select a person…'}"
+        autocomplete="off" style="margin:0;"
+        oninput="ppSearch(this.value,'${inputId}','${isMulti}')"
+        onfocus="ppSearch(this.value,'${inputId}','${isMulti}')"
+        onblur="setTimeout(()=>ppClose('${inputId}'),150)"/>
+      <!-- Dropdown -->
+      <div id="${inputId}-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
+        background:var(--surface);border:1px solid var(--border2);border-radius:0 0 8px 8px;
+        box-shadow:0 4px 16px rgba(0,0,0,0.3);max-height:180px;overflow-y:auto;"></div>
+    </div>
+    <input type="hidden" id="${inputId}" value="${selIds}"/>
+  </div>`;
 }
 
+function ppSearch(query, inputId, isMulti){
+  const dropdown = document.getElementById(inputId+'-dropdown');
+  const hidden   = document.getElementById(inputId);
+  if(!dropdown||!hidden) return;
+  const sel = new Set((hidden.value||'').split(',').filter(Boolean));
+  const q = (query||'').toLowerCase().trim();
+  const matches = peopleList.filter(p=>{
+    if(!isMulti && sel.has(p.id)) return false; // single-select: hide already selected
+    if(q && !p.name.toLowerCase().includes(q) && !(p.role||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  if(matches.length===0){
+    dropdown.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:var(--text4);font-family:var(--font-ui);">No matches</div>`;
+    dropdown.style.display='block';
+    return;
+  }
+  dropdown.innerHTML = matches.map(p=>{
+    const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+    const isSel = sel.has(p.id);
+    return `<div onmousedown="ppSelect('${p.id}','${inputId}','${isMulti}')"
+      style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+             background:${isSel?'rgba(232,168,56,0.08)':'transparent'};
+             border-bottom:1px solid var(--border);">
+      ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;"/>`:`<span style="width:24px;height:24px;border-radius:50%;background:${pc}22;color:${pc};font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${p.name.slice(0,1)}</span>`}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name)}</div>
+        ${p.role?`<div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</div>`:''}
+      </div>
+      ${isSel?`<span style="color:var(--accent);font-size:12px;font-weight:800;">✓</span>`:`<span style="font-size:10px;color:${pc};font-weight:800;font-family:var(--font-ui);">${p.priority||'Med'}</span>`}
+    </div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+}
+
+function ppSelect(personId, inputId, isMulti){
+  const hidden   = document.getElementById(inputId);
+  const chipsDiv = document.getElementById(inputId+'-selected-chips');
+  const search   = document.getElementById(inputId+'-search');
+  if(!hidden) return;
+  const sel = new Set((hidden.value||'').split(',').filter(Boolean));
+  if(isMulti==='true'||isMulti===true){
+    sel.has(personId) ? sel.delete(personId) : sel.add(personId);
+  } else {
+    sel.clear(); sel.add(personId);
+  }
+  hidden.value = [...sel].join(',');
+  // Rebuild chips
+  if(chipsDiv){
+    chipsDiv.innerHTML = [...sel].map(id=>{
+      const p=peopleList.find(x=>x.id===id); if(!p) return '';
+      const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
+        ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"/>`:`<span style="width:16px;height:16px;border-radius:50%;background:${pc}22;color:${pc};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${p.name.slice(0,1)}</span>`}
+        ${esc(p.name)}
+        <span onmousedown="ppRemove('${id}','${inputId}','${isMulti}')" style="cursor:pointer;opacity:0.6;margin-left:2px;font-size:13px;line-height:1;">×</span>
+      </span>`;
+    }).join('');
+  }
+  if(isMulti==='true'||isMulti===true){
+    if(search) search.value='';
+    ppSearch('', inputId, isMulti); // refresh dropdown
+  } else {
+    if(search) search.value = peopleList.find(x=>x.id===personId)?.name||'';
+    ppClose(inputId);
+  }
+}
+
+function ppRemove(personId, inputId, isMulti){
+  const hidden = document.getElementById(inputId);
+  if(!hidden) return;
+  const sel = new Set((hidden.value||'').split(',').filter(Boolean));
+  sel.delete(personId);
+  hidden.value = [...sel].join(',');
+  ppSelect('__rebuild__', inputId, isMulti); // trigger chip rebuild
+  const hidden2 = document.getElementById(inputId);
+  if(hidden2) hidden2.value = [...sel].join(','); // restore after rebuild
+  // Rebuild chips directly
+  const chipsDiv = document.getElementById(inputId+'-selected-chips');
+  if(chipsDiv){
+    chipsDiv.innerHTML = [...sel].map(id=>{
+      const p=peopleList.find(x=>x.id===id); if(!p) return '';
+      const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
+        ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"/>`:`<span style="width:16px;height:16px;border-radius:50%;background:${pc}22;color:${pc};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${p.name.slice(0,1)}</span>`}
+        ${esc(p.name)}
+        <span onmousedown="ppRemove('${id}','${inputId}','${isMulti}')" style="cursor:pointer;opacity:0.6;margin-left:2px;font-size:13px;line-height:1;">×</span>
+      </span>`;
+    }).join('');
+    if(hidden2) hidden2.value = [...sel].join(',');
+  }
+}
+
+function ppClose(inputId){
+  const dropdown = document.getElementById(inputId+'-dropdown');
+  if(dropdown) dropdown.style.display='none';
+}
+
+// Legacy shim — togglePersonChip no longer used but may be referenced elsewhere
 function togglePersonChip(personId, chipsContainerId){
-  const container = document.getElementById(chipsContainerId);
-  if(!container) return;
-  const hiddenId = chipsContainerId.replace('-chips','');
-  const hidden = document.getElementById(hiddenId);
-  const chips = container.querySelectorAll('[data-pid]');
-  const chip = container.querySelector(`[data-pid="${personId}"]`);
-  if(!chip) return;
-  const isSelected = chip.classList.contains('selected');
-  // For waiting-for — single select. For meeting — multi select
-  const isMulti = chipsContainerId.includes('mtg');
-  if(!isMulti) chips.forEach(c=>c.classList.remove('selected'));
-  chip.classList.toggle('selected', !isSelected);
-  // Update hidden value
-  const selected = [...container.querySelectorAll('.selected')].map(c=>c.dataset.pid);
-  if(hidden) hidden.value = selected.join(',');
+  const inputId = chipsContainerId.replace('-chips','');
+  const isMulti = inputId.includes('mtg')||inputId.includes('series')||inputId.includes('person-ids');
+  ppSelect(personId, inputId, isMulti);
 }
 
 function getPersonNameById(id){
@@ -6474,6 +6667,149 @@ function getPersonNamesByIds(ids){
   if(!ids) return '';
   return ids.split(',').filter(Boolean).map(id=>getPersonNameById(id)).join(', ');
 }
+
+
+function openPersonDetail(id, type){
+  // type = 'contact' (relationship) or 'person' (meeting)
+  const record = type==='contact'
+    ? contactsList.find(x=>x.id===id)
+    : peopleList.find(x=>x.id===id);
+  if(!record) return;
+
+  const todayStr = today();
+
+  // Tasks assigned to this person
+  const personTasks = tasks.filter(t =>
+    t.status !== 'done' &&
+    (t.personIds||'').split(',').filter(Boolean).includes(id)
+  );
+  const doneTasks = tasks.filter(t =>
+    t.status === 'done' &&
+    (t.personIds||'').split(',').filter(Boolean).includes(id)
+  ).slice(0,5);
+
+  // Meetings with this person
+  const personMeetings = meetingLog
+    .filter(m => (m.personIds||'').split(',').includes(id))
+    .sort((a,b) => b.date.localeCompare(a.date))
+    .slice(0,8);
+
+  // Waiting for from this person
+  const personWaiting = waitingFor
+    .filter(w => w.personId === id || w.person === record.name)
+    .sort((a,b) => (a.done?1:0)-(b.done?1:0));
+
+  const pc = type==='contact'
+    ? ({'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'}[record.role]||'#888')
+    : (record.priority==='High'?'#ff6060':record.priority==='Low'?'#888':'#E8A838');
+
+  const old = document.getElementById('modal-person-detail'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-person-detail'; m.className = 'modal-overlay';
+
+  const taskHtml = personTasks.length===0 && doneTasks.length===0
+    ? `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;font-style:italic;">No tasks assigned</div>`
+    : [
+        ...personTasks.map(t => {
+          const proj = projects.find(p=>p.id===t.projectId);
+          const overdue = t.dueDate && t.dueDate < todayStr;
+          return `<div onclick="closeModal('modal-person-detail');openEditTask('${t.id}');"
+            style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
+                ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+                ${t.dueDate?`<span style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ ':'📅 '}${t.dueDate.slice(5)}</span>`:''}
+                <span style="font-size:10px;font-family:var(--font-ui);color:${t.priority==='high'?'#EF5350':t.priority==='low'?'#888':'#E8A838'};">${t.priority||'med'}</span>
+              </div>
+            </div>
+            <span style="color:var(--text4);font-size:11px;">›</span>
+          </div>`;
+        }),
+        ...doneTasks.map(t => `<div style="padding:6px 0;border-bottom:1px solid var(--border);opacity:0.45;">
+          <div style="font-size:12px;color:var(--text3);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        </div>`)
+      ].join('');
+
+  const meetingHtml = personMeetings.length===0
+    ? `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;font-style:italic;">No meetings recorded</div>`
+    : personMeetings.map(mtg => `<div onclick="closeModal('modal-person-detail');openMeetingCapture('${mtg.id}');"
+        style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(mtg.title)}</div>
+          <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;">${mtg.date}${mtg.startTime?' · '+mtg.startTime:''}</div>
+        </div>
+        ${mtg.myCommits?`<span style="font-size:9px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 5px;border-radius:4px;font-family:var(--font-ui);white-space:nowrap;">⚡ commits</span>`:''}
+        <span style="color:var(--text4);font-size:11px;">›</span>
+      </div>`).join('');
+
+  const waitHtml = personWaiting.length===0
+    ? `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;font-style:italic;">Nothing waiting</div>`
+    : personWaiting.map(w => `<div onclick="closeModal('modal-person-detail');openWaitingModal(null,'${w.id}');"
+        style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;${w.done?'opacity:0.45;':''}">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:${w.done?'var(--text3)':'var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+          <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-top:2px;">
+            ${w.dueDate?`<span style="color:${w.dueDate<todayStr&&!w.done?'#ff6060':'var(--text4)'};">${w.dueDate<todayStr&&!w.done?'⚠ ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
+            ${w.done?'<span style="color:var(--green);">✓ resolved</span>':''}
+          </div>
+        </div>
+        <span style="color:var(--text4);font-size:11px;">›</span>
+      </div>`).join('');
+
+  const subtitle = type==='contact'
+    ? (record.role||'') + (record.lastContact ? ` · last contact ${record.lastContact}` : ' · never contacted')
+    : (record.role||'') + (record.priority ? ` · ${record.priority} priority` : '');
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;gap:12px;padding-bottom:12px;">
+      ${renderAvatar(record.name, record.photo, 44, pc+'22', pc, false)}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:17px;font-weight:900;color:var(--text);">${esc(record.name)}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">${subtitle}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-person-detail')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:0;overflow-y:auto;flex:1;">
+
+      <!-- Active tasks -->
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">
+          TASKS (${personTasks.length} active${doneTasks.length>0?' · '+doneTasks.length+' done':''})
+        </div>
+        ${taskHtml}
+      </div>
+
+      <!-- Meetings -->
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">
+          MEETINGS (${personMeetings.length})
+        </div>
+        ${meetingHtml}
+      </div>
+
+      <!-- Waiting for -->
+      <div style="margin-bottom:8px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">
+          WAITING FOR (${personWaiting.filter(w=>!w.done).length} open)
+        </div>
+        ${waitHtml}
+      </div>
+
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${type==='contact'?`<button onclick="logContact('${id}');closeModal('modal-person-detail');"
+        style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">✓ Log contact</button>`:''}
+      <button onclick="closeModal('modal-person-detail');${type==='contact'?`openAddContactModal('${id}')`:`openAddPersonModal('${id}')`};"
+        style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">✏ Edit</button>
+    </div>
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) closeModal('modal-person-detail'); };
+  document.body.appendChild(m);
+  openModal('modal-person-detail');
+}
+
 
 function logContact(id){
   const c=contactsList.find(x=>x.id===id); if(!c) return;
@@ -6538,7 +6874,18 @@ function openAddContactModal(editId){
     </div>
     <div class="modal-body">
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT CONTACT':'ADD CONTACT'}</div>
-      <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <div onclick="pickContactPhoto('','contact-photo-preview','contact-photo')"
+          style="width:60px;height:60px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;position:relative;">
+          <img id="contact-photo-preview" src="${existing?.photo||''}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
+          <span style="font-size:22px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">Tap photo to change</div>
+          <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}" style="margin:0;"/>
+        </div>
+      </div>
+      <input type="hidden" id="contact-photo" value="${existing?.photo||''}"/>
       <div style="margin-bottom:8px;">
         <div class="chip-label">Category</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
@@ -6570,7 +6917,7 @@ function openAddContactModal(editId){
               const nudges = getPeopleNudges();
               const isNudge = nudges.find(n=>n.id===c.id);
               return `<div class="people-list-item">
-                <div style="width:36px;height:36px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${c.name.slice(0,1).toUpperCase()}</div>
+                ${renderAvatar(c.name, c.photo, 36, isNudge?'rgba(232,168,56,0.2)':'var(--surface2)', isNudge?'var(--accent)':'var(--text3)', false)}
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
                   <div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${c.role?esc(c.role)+' · ':''}every ${c.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}</div>
@@ -6593,10 +6940,11 @@ function submitAddContact(){
   const name=document.getElementById('contact-name')?.value||'';
   const role=document.getElementById('contact-role')?.value||'';
   const days=parseInt(document.getElementById('contact-days')?.value||'14');
+  const photo=document.getElementById('contact-photo')?.value||'';
   const editId=document.getElementById('contact-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updateContact(editId, name, role, days); }
-  else { addContact(name, role, days); showToast('👤 Added ' + name.trim()); }
+  if(editId){ updateContact(editId, name, role, days, photo); }
+  else { addContact(name, role, days, photo); showToast('👤 Added ' + name.trim()); }
   openAddContactModal();
 }
 
@@ -6613,7 +6961,18 @@ function openAddPersonModal(editId){
     </div>
     <div class="modal-body">
       <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
-      <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}"/>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <div onclick="pickContactPhoto('','person-photo-preview','person-photo')"
+          style="width:60px;height:60px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;position:relative;">
+          <img id="person-photo-preview" src="${existing?.photo||''}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
+          <span style="font-size:22px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-bottom:4px;">Tap photo to change</div>
+          <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}" style="margin:0;"/>
+        </div>
+      </div>
+      <input type="hidden" id="person-photo" value="${existing?.photo||''}"/>
       <input id="person-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
       <div style="margin-bottom:8px;">
         <div class="chip-label">Priority</div>
@@ -6638,13 +6997,15 @@ function openAddPersonModal(editId){
           ${peopleList.length===0
             ? `<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);font-style:italic;padding:8px 0;">No people added yet.</div>`
             : peopleList.map(p=>{
-                const nudges = getPeopleNudges();
-                const isNudge = nudges.find(n=>n.id===p.id);
+                const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
                 return `<div class="people-list-item">
-                  <div style="width:38px;height:38px;border-radius:50%;background:${isNudge?'rgba(232,168,56,0.2)':'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${isNudge?'var(--accent)':'var(--text3)'};flex-shrink:0;">${p.name.slice(0,1).toUpperCase()}</div>
+                  ${renderAvatar(p.name, p.photo, 38, pc+'22', pc, false)}
                   <div style="flex:1;min-width:0;">
                     <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
-                    <div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${p.role?esc(p.role)+' · ':''} every ${p.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}</div>
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+                      ${p.role?`<span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</span>`:''}
+                      <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${pc};padding:1px 6px;border-radius:4px;border:1px solid ${pc}44;">${p.priority||'Medium'}</span>
+                    </div>
                   </div>
                   <button onclick="openAddPersonModal('${p.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;margin-right:4px;">edit</button>
                   <button onclick="deletePerson('${p.id}');openAddPersonModal();" style="padding:6px 8px;border-radius:6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;">✕</button>
@@ -6665,10 +7026,11 @@ function submitAddPerson(){
   const name=document.getElementById('person-name')?.value||'';
   const role=document.getElementById('person-role')?.value||'';
   const priority=document.getElementById('person-priority')?.value||'Medium';
+  const photo=document.getElementById('person-photo')?.value||'';
   const editId=document.getElementById('person-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updatePerson(editId, name, role, priority); }
-  else { addPerson(name, role, priority); showToast('👤 Added ' + name.trim()); }
+  if(editId){ updatePerson(editId, name, role, priority, photo); }
+  else { addPerson(name, role, priority, photo); showToast('👤 Added ' + name.trim()); }
   openAddPersonModal();
 }
 
@@ -8073,6 +8435,55 @@ function autoApplyPriority(task){
 }
 
 
+
+// ── Avatar helper — renders photo or initial badge ───────────────
+function renderAvatar(name, photo, size, bgColor, textColor, showEdit, onClickFn){
+  size = size || 38;
+  const initial = (name||'?').slice(0,1).toUpperCase();
+  if(photo && photo.length > 10){  // ignore empty strings and stubs
+    return `<div class="avatar-wrap" style="width:${size}px;height:${size}px;" ${onClickFn?`onclick="${onClickFn}"`:''}">
+      <img src="${photo}" alt="${esc(name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;"/>
+      ${showEdit?`<div class="avatar-edit-btn">✎</div>`:''}
+    </div>`;
+  }
+  return `<div class="avatar-wrap" style="width:${size}px;height:${size}px;border-radius:50%;background:${bgColor||'var(--surface2)'};display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.42)}px;font-weight:700;color:${textColor||'var(--text3)'};" ${onClickFn?`onclick="${onClickFn}"`:''}">
+    ${initial}
+    ${showEdit?`<div class="avatar-edit-btn">✎</div>`:''}
+  </div>`;
+}
+
+// Compress and store a photo from a file input
+async function pickContactPhoto(inputId, previewId, hiddenId){
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async e => {
+    const file = e.target.files[0]; if(!file) return;
+    // Resize to max 120px using canvas
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 120;
+      const scale = Math.min(max/img.width, max/img.height, 1);
+      const w = Math.round(img.width*scale);
+      const h = Math.round(img.height*scale);
+      const canvas = document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      URL.revokeObjectURL(url);
+      // Update hidden field and preview
+      const hidden = document.getElementById(hiddenId);
+      const preview = document.getElementById(previewId);
+      if(hidden) hidden.value = dataUrl;
+      if(preview) preview.src = dataUrl;
+      if(preview) preview.style.display = 'block';
+    };
+    img.src = url;
+  };
+  input.click();
+}
+
+
 function savePinned(){
   // Pins persist to cloud via saveAllDebounced — no localStorage needed
   saveAllDebounced();
@@ -8473,6 +8884,8 @@ function skipMorningRitual(){
 }
 
 function checkMorningRitual(){
+  // Morning ritual is now opt-in — no auto-popup on load
+  // Still accessible via the 🌅 Reset button on Today
   const done = localStorage.getItem('hub-morning-done');
   if(done !== today()){
     const hour = new Date().getHours();
@@ -8482,7 +8895,7 @@ function checkMorningRitual(){
     const el = document.getElementById('morning-greeting');
     if(el) el.textContent = greet;
     _morningEnergy = '';
-    setTimeout(() => openModal('modal-morning'), 800);
+    // No longer auto-opens — removed disruptive modal on launch
   }
 }
 
@@ -8564,6 +8977,8 @@ async function registerServiceWorker(){
           renderAll();
         } else if(tag === 'overdue' && action !== 'later'){
           activateFocusNow(); setNav('tasks');
+        } else if(tag === 'nudge' && action !== 'later'){
+          setNav('people');
         }
       }
 
@@ -8618,6 +9033,10 @@ const NOTIF_ACTIONS = {
   eod: [
     { action: 'close',  title: 'Close Day 🌙' },
     { action: 'done',   title: 'Done ✓'       }
+  ],
+  nudge: [
+    { action: 'open',   title: 'See contacts 👥' },
+    { action: 'later',  title: 'Later →'          }
   ]
 };
 
@@ -8631,7 +9050,8 @@ function testNotif(tag){
     'morning':     { title:'☀ Ready to focus?',           body:'Tap to set your one thing — takes 60 seconds.' },
     'overdue':     { title:'⚠ ' + od + ' task'+(od!==1?'s':'')+' need you', body:'Due today and overdue — tap to see them.' },
     'eod':         { title:'🌙 Almost there',              body:'Quick close before you log off?' },
-    'kids-prizes': { title: kidsUnclaimedTitle(),          body: kidsUnclaimedBody() }
+    'kids-prizes': { title: kidsUnclaimedTitle(),          body: kidsUnclaimedBody() },
+    'nudge': (()=>{ const n=getPeopleNudges(); return { title:`👥 ${n.length||0} contact${(n.length||0)!==1?'s':''} to reach out to`, body:n.length?n.slice(0,3).map(p=>p.name).join(', '):'No overdue contacts right now' }; })()
   };
   const n = map[tag];
   if(!n) return;
@@ -8689,6 +9109,13 @@ function scheduleAlarmsWithSW(){
         body:  kidsUnclaimedBody(),
         unclaimedCount: kidsUnclaimedCount(),
         actions:[{action:'open',title:'Let\u2019s celebrate 🎉'},{action:'later',title:'Later →'}]
+      },
+      {
+        tag:'nudge', hour:9,
+        title: (()=>{ const n=getPeopleNudges(); return n.length>0?`👥 ${n.length} contact${n.length>1?'s':''} to reach out to`:''; })(),
+        body:  (()=>{ const n=getPeopleNudges(); return n.length>0?n.slice(0,3).map(p=>p.name).join(', ')+(n.length>3?` +${n.length-3} more`:''):''; })(),
+        nudgeCount: getPeopleNudges().length,
+        actions:[{action:'open',title:'See contacts 👥'},{action:'later',title:'Later →'}]
       }
     ]
   });
@@ -8777,6 +9204,23 @@ function scheduleNotifChecks(){
       }
     }
     updateAppBadge();
+    // Contact nudges — 9am daily
+    if(h===9 && m<10){
+      const lastNudgeNotif = localStorage.getItem('hub-notif-nudge');
+      if(lastNudgeNotif !== todayStr){
+        const nudges = getPeopleNudges();
+        if(nudges.length > 0){
+          const names = nudges.slice(0,3).map(p=>p.name).join(', ');
+          const more = nudges.length > 3 ? ` +${nudges.length-3} more` : '';
+          fireNotif(
+            `👥 ${nudges.length} contact${nudges.length>1?'s':''} to reach out to`,
+            names + more,
+            'nudge'
+          );
+          localStorage.setItem('hub-notif-nudge', todayStr);
+        }
+      }
+    }
     // Kids prizes — Friday 6pm
     if(now.getDay()===5 && h===18 && m<10){
       const thisWeek = dateStr.slice(0,7) + '-W' + getISOWeek(now);
