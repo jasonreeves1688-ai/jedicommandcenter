@@ -2209,11 +2209,17 @@ async function loadAll(){
       tasks = sheetTasks.map(t => {
         const local = localTaskMap[t.id];
         if(!local) return t;
-        // For fields that may be missing from old sheet rows, prefer local if sheet is blank
+        // Sheet is source of truth for most fields
+        // Exception: prefer local 'done' status — local completion is always intentional
+        // and protects against cross-device race conditions where sheet has stale todo
+        const useLocalStatus = local.status === 'done' && t.status !== 'done';
         return {
           ...t,
-          personIds: t.personIds || local.personIds || '',
-          subtasks:  (t.subtasks&&t.subtasks.length>0) ? t.subtasks : (local.subtasks||[]),
+          personIds:   t.personIds || local.personIds || '',
+          subtasks:    (t.subtasks&&t.subtasks.length>0) ? t.subtasks : (local.subtasks||[]),
+          discoveryId: t.discoveryId || local.discoveryId || '',
+          status:      useLocalStatus ? 'done' : t.status,
+          completedAt: useLocalStatus ? local.completedAt : t.completedAt,
         };
       });
     }
