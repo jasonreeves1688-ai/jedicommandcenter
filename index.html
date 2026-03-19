@@ -2735,14 +2735,26 @@ function renderTaskList(container){
     ?`<div style="background:rgba(212,192,148,0.45);border:1px solid rgba(58,68,104,0.25);border-radius:3px;margin-bottom:6px;padding:4px 10px;">${globalMetrics}</div>`
     :"";
 
-  // Mass edit toggle strip
-  html += `<div style="display:flex;align-items:center;justify-content:flex-end;padding:4px 10px 2px;">
-    <button onclick="toggleMassEdit()"
-      style="padding:4px 12px;border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;
+  // View mode + bulk edit toggle strip
+  const vmBtns = [
+    {v:'priority',   icon:'⚡', label:'Priority'},
+    {v:'initiative', icon:'🔭', label:'Initiative'},
+    {v:'project',    icon:'◈',  label:'Project'},
+    {v:'person',     icon:'👤', label:'Person'},
+  ].map(b=>`<button onclick="taskViewMode='${b.v}';renderAll();"
+    style="padding:4px 10px;border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+    border:1px solid ${taskViewMode===b.v?'var(--accent)':'var(--border)'};
+    background:${taskViewMode===b.v?'rgba(232,168,56,0.12)':'transparent'};
+    color:${taskViewMode===b.v?'var(--accent)':'var(--text3)'};">
+    ${b.icon} ${b.label}
+  </button>`).join('');
+  html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px 4px;overflow-x:auto;flex-shrink:0;">
+    ${vmBtns}
+    <button onclick="toggleMassEdit()" style="margin-left:auto;padding:4px 10px;border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
       border:1px solid ${massEditMode?'var(--accent)':'var(--border)'};
       background:${massEditMode?'rgba(232,168,56,0.12)':'transparent'};
       color:${massEditMode?'var(--accent)':'var(--text3)'};">
-      ⊞ ${massEditMode?'Exit bulk edit':'Bulk edit'}
+      ⊞ ${massEditMode?'Exit':'Bulk edit'}
     </button>
   </div>`;
 
@@ -2752,61 +2764,171 @@ function renderTaskList(container){
     return;
   }
 
-  // Group by domain section (Work alpha, Personal alpha), unassigned last
-  const grouped=new Map();
-  for(const t of visibleTasks){
-    const key=t.projectId||"__none__";
-    if(!grouped.has(key)) grouped.set(key,{proj:projects.find(p=>p.id===t.projectId)||null,tasks:[]});
-    grouped.get(key).tasks.push(t);
-  }
+  // ── Render by selected view mode ──────────────────────────────
+  const todayStr=today();
 
-  const byDomain=(domain)=>projects
-    .filter(p=>(p.domain||"work")===domain && grouped.has(p.id))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-  const workProjs=byDomain("work");
-  const persProjs=byDomain("personal");
+  // Shared: smart sort for flat views
+  const smartSort=(a,b)=>{
+    const aOver=a.dueDate&&a.dueDate<todayStr&&a.status!=="done";
+    const bOver=b.dueDate&&b.dueDate<todayStr&&b.status!=="done";
+    if(aOver&&!bOver) return -1; if(!aOver&&bOver) return 1;
+    const pOrd={high:0,medium:1,low:2};
+    const pd=(pOrd[a.priority]??1)-(pOrd[b.priority]??1);
+    if(pd!==0) return pd;
+    if(a.dueDate&&b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    return a.dueDate?-1:b.dueDate?1:0;
+  };
 
-  function renderProjGroup(key){
-    const {proj,tasks:grpTasks}=grouped.get(key);
-    const isCollapsed=proj?(proj.collapsed===true||proj.collapsed==="true")
-      :(localStorage.getItem("hub-unassigned-collapsed")==="true");
-    const projColor=proj?.color||"var(--text3)";
-    const projName=proj?esc(proj.name):"No Assigned Project";
-    const count=grpTasks.length;
-    const doneCount=grpTasks.filter(t=>t.status==="done").length;
-    const collapseCall=proj?`toggleProjectCollapse('${proj.id}')`:"toggleProjectCollapse('__none__')";
-    let g=`<div class="proj-group">
-      <div class="proj-group-header" onclick="${collapseCall}">
-        <span class="proj-group-chevron ${isCollapsed?"":"open"}">▶</span>
-        <span class="proj-group-dot" style="background:${projColor};box-shadow:0 0 5px ${proj?projColor:"transparent"};"></span>
-        <span class="proj-group-name" style="color:${projColor};">${projName}</span>
-        <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
+  // Shared: render a group section
+  function renderGroup(label, color, taskArr, icon, collapsible, collapseKey){
+    if(!taskArr.length) return '';
+    const isCollapsed = collapsible && localStorage.getItem('hub-grp-'+collapseKey)==='true';
+    const count = taskArr.filter(t=>t.status!=='done').length;
+    const doneN = taskArr.filter(t=>t.status==='done').length;
+    const chevron = collapsible
+      ? `<span style="font-size:10px;color:var(--text4);display:inline-block;transform:rotate(${isCollapsed?'0':'90'}deg);transition:transform 0.15s;margin-right:4px;">▶</span>`
+      : '';
+    let g = `<div style="margin-bottom:6px;">
+      <div ${collapsible?`onclick="localStorage.setItem('hub-grp-${collapseKey}',localStorage.getItem('hub-grp-${collapseKey}')==='true'?'false':'true');renderAll();"`:''} 
+        style="display:flex;align-items:center;gap:6px;padding:5px 8px 4px;${collapsible?'cursor:pointer;':''}border-bottom:1px solid var(--border);margin-bottom:3px;">
+        ${chevron}
+        ${icon?`<span style="font-size:12px;">${icon}</span>`:''}
+        <span style="font-size:10px;font-family:var(--font-ui);font-weight:800;color:${color};letter-spacing:0.5px;">${esc(label)}</span>
+        <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${count} active${doneN?` · ${doneN} done`:''}</span>
       </div>`;
     if(!isCollapsed){
-      g+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
-      for(const task of grpTasks) g+=renderTaskRow(task,proj);
-      g+=`</div></div>`;
+      g += `<div class="task-list">`;
+      for(const t of taskArr) g += renderTaskRow(t, projects.find(p=>p.id===t.projectId)||null);
+      g += `</div>`;
     }
-    return g+`</div>`;
+    return g + `</div>`;
   }
 
-  function renderDomainSection(label,icon,projList){
-    if(!projList.length) return "";
-    const storeKey="hub-tasklist-"+label+"-collapsed";
-    const isCollapsed=localStorage.getItem(storeKey)==="true";
-    let s=`<div style="margin-bottom:2px;">
-      <div onclick="toggleTasklistDomain('${label}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);margin-bottom:4px;">
-        <span style="font-size:10px;color:var(--text4);display:inline-block;transform:rotate(${isCollapsed?"0deg":"90deg"});transition:transform 0.15s;">▶</span>
-        <span style="font-size:10px;font-family:var(--font-ui);font-weight:700;letter-spacing:1px;color:var(--text3);">${icon} ${label.toUpperCase()}</span>
-        <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${projList.length} project${projList.length!==1?"s":""}</span>
-      </div>`;
-    if(!isCollapsed) s+=projList.map(p=>renderProjGroup(p.id)).join("");
-    return s+"</div>";
+  if(taskViewMode==='priority'){
+    // ── FLAT — smart priority sorted, no grouping ──
+    // Split into overdue, high, medium, low buckets for visual breathing room
+    const overdue  = visibleTasks.filter(t=>t.dueDate&&t.dueDate<todayStr&&t.status!=='done');
+    const high     = visibleTasks.filter(t=>!overdue.includes(t)&&t.priority==='high'&&t.status!=='done').sort(smartSort);
+    const medium   = visibleTasks.filter(t=>!overdue.includes(t)&&(t.priority==='medium'||!t.priority)&&t.status!=='done').sort(smartSort);
+    const low      = visibleTasks.filter(t=>!overdue.includes(t)&&t.priority==='low'&&t.status!=='done').sort(smartSort);
+    const done     = visibleTasks.filter(t=>t.status==='done').slice(0,5);
+    if(overdue.length) html += renderGroup('⚠ OVERDUE','#ff6060',overdue,'',false,'');
+    if(high.length)    html += renderGroup('🔴 HIGH','#EF5350',high,'',false,'');
+    if(medium.length)  html += renderGroup('🟡 MEDIUM','#E8A838',medium,'',true,'priority-med');
+    if(low.length)     html += renderGroup('⚪ LOW','#888',low,'',true,'priority-low');
+    if(done.length)    html += renderGroup('✓ DONE','var(--text4)',done,'',true,'priority-done');
+
+  } else if(taskViewMode==='initiative'){
+    // ── BY DISCOVERY INITIATIVE ──
+    const initiativeTasks = {};
+    visibleTasks.forEach(t=>{
+      const key = t.discoveryId||'__none__';
+      if(!initiativeTasks[key]) initiativeTasks[key]=[];
+      initiativeTasks[key].push(t);
+    });
+    // Initiatives that have tasks, sorted by status then name
+    const activeInits = discoveryList
+      .filter(i=>initiativeTasks[i.id]&&initiativeTasks[i.id].length>0)
+      .sort((a,b)=>{
+        const sOrd={building:0,validating:1,scoped:2,discovery:3,launched:4,paused:5,killed:6};
+        return (sOrd[a.status]??3)-(sOrd[b.status]??3)||a.title.localeCompare(b.title);
+      });
+    activeInits.forEach(ini=>{
+      const st = DISC_STATUS[ini.status]||DISC_STATUS.discovery;
+      html += renderGroup(
+        ini.title,
+        st.color,
+        initiativeTasks[ini.id].sort(smartSort),
+        '🔭',
+        true,
+        'init-'+ini.id
+      );
+    });
+    if(initiativeTasks['__none__']?.length){
+      html += renderGroup('Unlinked tasks','var(--text4)',initiativeTasks['__none__'].sort(smartSort),'',true,'init-none');
+    }
+
+  } else if(taskViewMode==='project'){
+    // ── ORIGINAL PROJECT GROUPED VIEW ──
+    const grouped=new Map();
+    for(const t of visibleTasks){
+      const key=t.projectId||"__none__";
+      if(!grouped.has(key)) grouped.set(key,{proj:projects.find(p=>p.id===t.projectId)||null,tasks:[]});
+      grouped.get(key).tasks.push(t);
+    }
+    const byDomain=(domain)=>projects
+      .filter(p=>(p.domain||"work")===domain && grouped.has(p.id))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    const workProjs=byDomain("work");
+    const persProjs=byDomain("personal");
+    function renderProjGroup(key){
+      const {proj,tasks:grpTasks}=grouped.get(key);
+      const isCollapsed=proj?(proj.collapsed===true||proj.collapsed==="true")
+        :(localStorage.getItem("hub-unassigned-collapsed")==="true");
+      const projColor=proj?.color||"var(--text3)";
+      const projName=proj?esc(proj.name):"No Assigned Project";
+      const count=grpTasks.length;
+      const doneCount=grpTasks.filter(t=>t.status==="done").length;
+      const collapseCall=proj?`toggleProjectCollapse('${proj.id}')`:"toggleProjectCollapse('__none__')";
+      let g=`<div class="proj-group">
+        <div class="proj-group-header" onclick="${collapseCall}">
+          <span class="proj-group-chevron ${isCollapsed?"":"open"}">▶</span>
+          <span class="proj-group-dot" style="background:${projColor};box-shadow:0 0 5px ${proj?projColor:"transparent"};"></span>
+          <span class="proj-group-name" style="color:${projColor};">${projName}</span>
+          <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
+        </div>`;
+      if(!isCollapsed){
+        g+=`<div class="proj-group-tasks"><div class="task-list" style="background:rgba(34,40,64,0.6);border:1px solid rgba(58,68,104,0.3);border-radius:4px;">`;
+        for(const task of grpTasks) g+=renderTaskRow(task,proj);
+        g+=`</div></div>`;
+      }
+      return g+`</div>`;
+    }
+    function renderDomainSection(label,icon,projList){
+      if(!projList.length) return "";
+      const storeKey="hub-tasklist-"+label+"-collapsed";
+      const isCollapsed=localStorage.getItem(storeKey)==="true";
+      let s=`<div style="margin-bottom:2px;">
+        <div onclick="toggleTasklistDomain('${label}')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;user-select:none;border-bottom:1px solid var(--border);margin-bottom:4px;">
+          <span style="font-size:10px;color:var(--text4);display:inline-block;transform:rotate(${isCollapsed?"0deg":"90deg"});transition:transform 0.15s;">▶</span>
+          <span style="font-size:10px;font-family:var(--font-ui);font-weight:700;letter-spacing:1px;color:var(--text3);">${icon} ${label.toUpperCase()}</span>
+          <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${projList.length} project${projList.length!==1?"s":""}</span>
+        </div>`;
+      if(!isCollapsed) s+=projList.map(p=>renderProjGroup(p.id)).join("");
+      return s+"</div>";
+    }
+    html+=renderDomainSection("work","⚔",workProjs);
+    html+=renderDomainSection("personal","🏡",persProjs);
+    if(grouped.has("__none__")) html+=renderProjGroup("__none__");
+
+  } else if(taskViewMode==='person'){
+    // ── BY PERSON ──
+    const personTasks={};
+    visibleTasks.forEach(t=>{
+      const ids=(t.personIds||'').split(',').filter(Boolean);
+      if(ids.length===0){
+        if(!personTasks['__none__']) personTasks['__none__']=[];
+        personTasks['__none__'].push(t);
+      } else {
+        ids.forEach(pid=>{
+          if(!personTasks[pid]) personTasks[pid]=[];
+          personTasks[pid].push(t);
+        });
+      }
+    });
+    // Sort people by priority then name
+    const activePeople = peopleList
+      .filter(p=>personTasks[p.id]?.length>0)
+      .sort((a,b)=>{const o={High:0,Medium:1,Low:2};return (o[a.priority]??1)-(o[b.priority]??1)||a.name.localeCompare(b.name);});
+    activePeople.forEach(p=>{
+      const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+      html += renderGroup(p.name, pc, personTasks[p.id].sort(smartSort), '👤', true, 'person-'+p.id);
+    });
+    if(personTasks['__none__']?.length){
+      html += renderGroup('No person assigned','var(--text4)',personTasks['__none__'].sort(smartSort),'',true,'person-none');
+    }
   }
 
-  html+=renderDomainSection("work","⚔",workProjs);
-  html+=renderDomainSection("personal","🏡",persProjs);
-  if(grouped.has("__none__")) html+=renderProjGroup("__none__");
   container.innerHTML=html;
 }
 
@@ -5295,6 +5417,7 @@ let somedayExpanded = false;
 let tbDate = today();              // date being planned
 let todayViewMode = 'list';        // 'list' | 'timeblock' — toggle on Today screen
 let massEditMode  = false;         // spreadsheet edit mode on Tasks
+let taskViewMode  = 'priority';    // 'priority'|'initiative'|'project'|'person'
 let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
 let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilter = ''; // person id or '' for all
