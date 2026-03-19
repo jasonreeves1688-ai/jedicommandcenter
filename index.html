@@ -818,6 +818,34 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
   cursor:pointer;line-height:1;
 }
 
+
+/* ════════════════════════════════════════════════════════════════
+   DISCOVERY MODULE
+   ════════════════════════════════════════════════════════════════ */
+.disc-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color 0.15s;}
+.disc-card:hover{border-color:rgba(232,168,56,0.4);}
+.disc-card.active{border-color:rgba(232,168,56,0.5);background:rgba(232,168,56,0.04);}
+.disc-status-badge{font-size:10px;font-weight:800;font-family:var(--font-ui);padding:2px 8px;border-radius:10px;letter-spacing:0.5px;}
+.disc-track-bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;flex:1;}
+.disc-track-fill{height:100%;border-radius:3px;transition:width 0.4s;}
+.disc-signal-row{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+.disc-signal-row:last-child{border-bottom:none;}
+.disc-sentiment-chip{font-size:10px;font-weight:800;font-family:var(--font-ui);padding:2px 8px;border-radius:10px;flex-shrink:0;white-space:nowrap;}
+.disc-section-hdr{font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;padding:10px 14px 6px;}
+.disc-confidence-pip{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:3px;}
+.disc-prd-area{width:100%;min-height:200px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:var(--font-body);font-size:13px;color:var(--text);line-height:1.6;resize:vertical;outline:none;box-sizing:border-box;}
+.disc-prd-area:focus{border-color:var(--accent);}
+.disc-oq-row{display:flex;align-items:flex-start;gap:8px;padding:8px 14px;border-bottom:1px solid var(--border);}
+.disc-timeline{display:flex;gap:0;overflow-x:auto;padding:10px 14px;}
+.disc-q-block{flex:1;min-width:70px;text-align:center;position:relative;}
+.disc-q-block::before{content:'';position:absolute;top:12px;left:50%;right:-50%;height:2px;background:var(--border);z-index:0;}
+.disc-q-block:last-child::before{display:none;}
+.disc-q-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:var(--surface);margin:5px auto 4px;position:relative;z-index:1;}
+.disc-q-dot.eng{border-color:#64B5F6;}
+.disc-q-dot.mkt{border-color:#81C784;}
+.disc-q-dot.filled-eng{background:#64B5F6;border-color:#64B5F6;}
+.disc-q-dot.filled-mkt{background:#81C784;border-color:#81C784;}
+
 /* ── AI LOADING RING ── */
 @keyframes loadingRing{to{transform:rotate(360deg);}}
 
@@ -1434,6 +1462,9 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
     <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
       <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
     </button>
+    <button class="nav-btn" id="nav-discovery" onclick="setNav('discovery')">
+      <span class="nav-icon">🔭</span><span class="nav-label">Discovery</span>
+    </button>
     <button class="nav-btn" id="nav-people" onclick="setNav('people')">
       <span class="nav-icon">👥</span><span class="nav-label">People</span>
     </button>
@@ -1589,6 +1620,9 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       </button>
       <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
         <span class="nav-grid-tile-icon">⏳</span><span>Waiting For</span>
+      </button>
+      <button class="nav-grid-tile" id="grid-discovery" onclick="setNav('discovery');closeNavGrid()">
+        <span class="nav-grid-tile-icon">🔭</span><span>Discovery</span>
       </button>
       <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
         <span class="nav-grid-tile-icon">👥</span><span>People</span>
@@ -2093,7 +2127,7 @@ async function loadAll(){
   try{
     data=await apiCall("getAll");
     // Check deployed Code.gs version
-    if(data.__version !== 'v35-safe-save'){
+    if(data.__version !== 'v37-discovery'){
       console.warn('Old Code.gs deployed — hub data will not sync. Please redeploy.');
     }
     const sheetProjects=(data.projects||[]).map(p=>({
@@ -2234,6 +2268,8 @@ async function loadAll(){
   try { if(data.meetingSeries!== undefined){ meetingSeries= data.meetingSeries;localStorage.setItem('hub-meeting-series',   JSON.stringify(meetingSeries));if(meetingSeries.length>0)_cloudLoaded.add('meetingSeries'); }} catch(e){ console.error('load meetingSeries',e); }
   try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
   try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
+  try { if(data.discoveryList !== undefined){ discoveryList = data.discoveryList; localStorage.setItem('hub-discovery', JSON.stringify(discoveryList)); if(discoveryList.length>0) _cloudLoaded.add('discoveryList'); }} catch(e){ console.error('load discoveryList',e); }
+  try { if(data.signalList    !== undefined){ signalList    = data.signalList;    localStorage.setItem('hub-signals',   JSON.stringify(signalList));    if(signalList.length>0)    _cloudLoaded.add('signalList');    }} catch(e){ console.error('load signalList',e); }
   // Raven email settings — sync across devices
   try { if(data.ravenSettings){
     const rs = data.ravenSettings;
@@ -2290,7 +2326,9 @@ function getCloudStats(){
     dailyLog:    JSON.parse(localStorage.getItem('hub-daily-log')||'[]'),
     weeklyJournal: JSON.parse(localStorage.getItem('hub-journal')||'[]'),
     tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||'',
-    tbBlocks: tbBlocks
+    tbBlocks:         tbBlocks,
+    discoveryList:    discoveryList,
+    signalList:       signalList
   };
 }
 
@@ -2515,6 +2553,7 @@ function renderAll(){
   if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
   if(activeNav==="cal"){renderCalendar(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
+  if(activeNav==="discovery"){ renderDiscoveryPage(main); return; }
   if(activeNav==="people"){  renderPeoplePage(main);  return; }
   if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
   if(activeNav==="settings"){renderSettings(main);return;}
@@ -2944,6 +2983,16 @@ function renderTaskRow(task,proj){
         <div class="task-body" style="flex:1;min-width:0;">
           <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
           <div class="task-meta">${projChip}${subPill}${ageBadge}${(()=>{
+            if(!task.discoveryId) return '';
+            const ini = discoveryList.find(i=>i.id===task.discoveryId);
+            if(!ini) return '';
+            return `<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')"
+              style="font-size:10px;font-family:var(--font-ui);padding:2px 7px;border-radius:4px;
+                     background:rgba(186,104,200,0.1);color:#BA68C8;border:1px solid rgba(186,104,200,0.25);
+                     cursor:pointer;flex-shrink:0;white-space:nowrap;" title="Discovery: ${esc(ini.title)}">
+              🔭 ${esc(ini.title.length>18?ini.title.slice(0,18)+'…':ini.title)}
+            </span>`;
+          })()}${(()=>{
             if(!task.source||!task.source.startsWith('meeting:')) return '';
             const mtgId = task.source.split(':')[1];
             const mtg = meetingLog.find(m=>m.id===mtgId);
@@ -4781,6 +4830,7 @@ function openEditTask(id){
   const estEl=document.getElementById("task-estimate-input");if(estEl) estEl.value=t.estimate||"";
   const enEl=document.getElementById("task-energy-input");if(enEl) enEl.value=t.energy||"";
   renderTaskPeoplePicker(t.personIds||'');
+  const discSel=document.getElementById('task-discovery-id'); if(discSel) discSel.value=t.discoveryId||'';
   renderRecurChips(t.recur||"none");renderEffortChips(t.effort||"");
   document.getElementById("task-delete-wrap").style.display="block";
   document.getElementById("task-save-btn").textContent="UPDATE";
@@ -4897,7 +4947,10 @@ function saveTask(){
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
     t.energy=document.getElementById("task-energy-input")?.value||"";
     t.personIds=document.getElementById("task-person-ids")?.value||"";
+    t.discoveryId=document.getElementById("task-discovery-id")?.value||"";
     t.subtasks=_modalSubtasks;
+    // Sync discoveryId change to initiative linkedTaskIds
+    syncTaskDiscoveryLink(t.id, t.discoveryId);
     showToast("Task UPDATED ✓");
   }else{
     const newTask = {id:genId(),title,projectId,
@@ -4910,6 +4963,7 @@ function saveTask(){
       estimate:document.getElementById("task-estimate-input")?.value||"",
       energy:document.getElementById("task-energy-input")?.value||"",
       personIds:document.getElementById("task-person-ids")?.value||"",
+      discoveryId:document.getElementById("task-discovery-id")?.value||"",
       subtasks:_modalSubtasks,
       createdAt:Date.now()};
     tasks.push(newTask);
@@ -5259,6 +5313,8 @@ let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,perso
 let meetingSeries  = loadHubData('hub-meeting-series', []); // [{id,name,cadence,personIds,collapsed}]
 let habitList      = loadHubData('hub-habits', []);          // [{id,name,icon,reminderHour}]
 let habitLog       = loadHubData('hub-habit-log', {});       // {YYYY-MM-DD: [habitId,...]}
+let discoveryList  = loadHubData('hub-discovery', []);    // [{id,title,status,...}]
+let signalList     = loadHubData('hub-signals', []);      // [{id,initiativeId,type,sentiment,...}]
 let habitsExpanded = false;
 
 // Track which collections were confirmed loaded from cloud this session
@@ -5593,7 +5649,13 @@ function renderTodayView(container){
         const overdue = w.dueDate < todayStr;
         const p = w.personId ? peopleList.find(x=>x.id===w.personId) : null;
         return `<div onclick="openWaitingModal(null,'${w.id}')" style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;">
-          <div style="font-size:12px;font-weight:700;color:#64B5F6;">${esc(p?p.name:w.person||'')}</div>
+          <div style="font-size:12px;font-weight:700;color:#64B5F6;">${(()=>{
+              if(w.personIds){
+                const names=w.personIds.split(',').filter(Boolean).map(id=>{const px=peopleList.find(x=>x.id===id);return px?px.name:null;}).filter(Boolean);
+                return esc(names.length?names.join(', '):w.person||'');
+              }
+              return esc(p?p.name:w.person||'');
+            })()}</div>
           <div style="font-size:13px;color:var(--text);margin-top:1px;">${esc(w.what)}</div>
           <div style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);margin-top:2px;">${overdue?'⚠ Overdue':'📅 Due today'} · ${w.dueDate.slice(5)}</div>
         </div>`;
@@ -6300,7 +6362,13 @@ function renderWaitingFor(){
     return `<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
       <button onclick="toggleWaitingDone('${w.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:10px;cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:700;color:#64B5F6;font-family:var(--font-ui);">${esc(w.person)}</div>
+        <div style="font-size:12px;font-weight:700;color:#64B5F6;font-family:var(--font-ui);">${(()=>{
+            if(w.personIds){
+              const names=w.personIds.split(',').filter(Boolean).map(id=>{const p=peopleList.find(x=>x.id===id);return p?p.name:null;}).filter(Boolean);
+              return esc(names.length?names.join(', '):w.person||'');
+            }
+            return esc(w.person||'');
+          })()}</div>
         <div style="font-size:13px;color:var(--text);line-height:1.4;">${esc(w.what)}</div>
         <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
@@ -6339,7 +6407,7 @@ function openWaitingModal(prefillTaskId, editId){
     <div class="modal-body">
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">WHO?</div>
-        ${buildPersonPickerHTML(existing?.personId||'', 'wf-person-id')}
+        ${buildPersonPickerHTML(existing?.personIds||existing?.personId||'', 'wf-person-ids', true)}
       </div>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">WHAT ARE YOU WAITING ON?</div>
@@ -6363,20 +6431,23 @@ function openWaitingModal(prefillTaskId, editId){
 }
 
 function submitWaitingFor(){
-  const personId = document.getElementById('wf-person-id')?.value||'';
-  const what     = document.getElementById('wf-what')?.value.trim()||'';
-  const due      = document.getElementById('wf-due')?.value||'';
-  const taskId   = document.getElementById('wf-task-id')?.value||'';
-  const editId   = document.getElementById('wf-edit-id')?.value||'';
-  if(!personId){ showToast('Select a person first'); return; }
+  const personIds = document.getElementById('wf-person-ids')?.value||'';
+  const what      = document.getElementById('wf-what')?.value.trim()||'';
+  const due       = document.getElementById('wf-due')?.value||'';
+  const taskId    = document.getElementById('wf-task-id')?.value||'';
+  const editId    = document.getElementById('wf-edit-id')?.value||'';
+  if(!personIds){ showToast('Select at least one person'); return; }
   if(!what){ showToast('Describe what you\'re waiting on'); return; }
-  const person = getPersonNameById(personId);
+  // Build display name from ids (first person name for legacy compat)
+  const ids = personIds.split(',').filter(Boolean);
+  const person = ids.map(id=>getPersonNameById(id)).filter(Boolean).join(', ');
+  const personId = ids[0]||''; // legacy single-id compat
   if(editId){
     const w = waitingFor.find(x=>x.id===editId);
-    if(w){ w.person=person; w.personId=personId; w.what=what; w.dueDate=due; w.taskId=taskId; }
+    if(w){ w.person=person; w.personId=personId; w.personIds=personIds; w.what=what; w.dueDate=due; w.taskId=taskId; }
     showToast('✓ Updated');
   } else {
-    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
+    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, personIds, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
     showToast('⏳ Added to Waiting For');
   }
   saveWaiting(); renderAll();
@@ -6554,13 +6625,13 @@ function updateContact(id, name, role, nudgeDays, photo){
 function deleteContact(id){ contactsList=contactsList.filter(x=>x.id!==id); saveContacts(); renderAll(); }
 
 // Build person picker HTML for use in modals
-function buildPersonPickerHTML(selectedIds, inputId){
+function buildPersonPickerHTML(selectedIds, inputId, forceMulti){
   if(peopleList.length === 0){
     return `<div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);padding:4px 0;">
       No people added yet — <button onclick="setNav('people');closeModal('modal-waiting');closeModal('modal-meeting');" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:12px;cursor:pointer;text-decoration:underline;">add people first</button>
     </div>`;
   }
-  const isMulti = inputId.includes('mtg') || inputId.includes('series') || inputId.includes('person-ids');
+  const isMulti = forceMulti || inputId.includes('mtg') || inputId.includes('series') || inputId.includes('person-ids');
   const selArr = Array.isArray(selectedIds) ? selectedIds : (selectedIds||'').split(',').filter(Boolean);
   const selIds = selArr.join(',');
   // Render compact search picker — selected shown as chips, rest hidden until searched
@@ -6737,7 +6808,7 @@ function openPersonDetail(id, type){
 
   // Waiting for from this person
   const personWaiting = waitingFor
-    .filter(w => w.personId === id || w.person === record.name)
+    .filter(w => (w.personIds||'').split(',').includes(id) || w.personId === id || w.person === record.name)
     .sort((a,b) => (a.done?1:0)-(b.done?1:0));
 
   const pc = type==='contact'
@@ -7199,6 +7270,7 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
       <div class="modal-body" style="overflow-y:auto;flex:1;">`
     :'<div class="modal-body">'}
       <input type="hidden" id="mtg-id" value="${existingId||''}"/>
+      <input type="hidden" id="mtg-series-id" value="${existing?.seriesId||seriesId||''}"/>
       <div>
         <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">MEETING</div>
         <input id="mtg-title" class="field-input" placeholder="Meeting title…" autocomplete="off" value="${existing?esc(existing.title):captureTitle?esc(captureTitle):''}"/>
@@ -7720,20 +7792,16 @@ function toggleTodayPin(taskId){
 // ════════════════════════════════════════════════════════════════
 
 async function aiCall(systemPrompt, userPrompt, maxTokens=800){
+  // Routes through Apps Script proxy — API key stored securely in Script Properties
   try{
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages:[{role:'user', content: userPrompt}]
-      })
+    const data = await apiCall('aiProxy', {
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens,
+      system:     systemPrompt,
+      messages:   [{role:'user', content: userPrompt}]
     });
-    const data = await res.json();
-    if(data.error) throw new Error(data.error.message);
-    return data.content?.[0]?.text || '';
+    if(data.error) throw new Error(data.error);
+    return data.text || '';
   } catch(e){
     console.error('AI call failed:', e);
     throw e;
@@ -8751,6 +8819,861 @@ function pruneHabitLog(){
   if(changed) saveHabitLog();
 }
 
+
+
+// ════════════════════════════════════════════════════════════════
+// DISCOVERY MODULE
+// ════════════════════════════════════════════════════════════════
+
+const DISC_STATUS = {
+  discovery:  { label:'Discovery',  color:'#BA68C8' },
+  validating: { label:'Validating', color:'#64B5F6' },
+  scoped:     { label:'Scoped',     color:'#E8A838' },
+  building:   { label:'Building',   color:'#FF8A65' },
+  launched:   { label:'Launched',   color:'#81C784' },
+  paused:     { label:'Paused',     color:'#888'    },
+  killed:     { label:'Killed',     color:'#EF5350' }
+};
+
+const ENG_STEPS  = ['none','scoped','estimated','queued','in-flight','shipped'];
+const MKT_STEPS  = ['signal-gathering','pattern-emerging','validated','aligned','ready'];
+const ENG_LABELS = {none:'Not Scoped',scoped:'Scoped',estimated:'Estimated',queued:'Queued','in-flight':'In Flight',shipped:'Shipped'};
+const MKT_LABELS = {'signal-gathering':'Gathering','pattern-emerging':'Patterns','validated':'Validated',aligned:'Aligned',ready:'Ready'};
+
+const SIGNAL_TYPES = ['client','market','internal','data','competitor','regulatory','assumption'];
+const SIGNAL_SENTIMENTS = [
+  {v:'confirms',    label:'Confirms',     color:'#81C784'},
+  {v:'contradicts', label:'Contradicts',  color:'#EF5350'},
+  {v:'new-angle',   label:'New Angle',    color:'#64B5F6'},
+  {v:'neutral',     label:'Neutral',      color:'#888'}
+];
+
+let discActiveId   = null;  // currently open initiative
+let discView       = 'list'; // 'list' | 'detail'
+let discSignalFilter = { type:'', sentiment:'' };
+
+function saveDiscovery(){ saveHubData('hub-discovery', discoveryList); }
+function saveSignals(){   saveHubData('hub-signals',   signalList);    }
+
+// ── Helpers ──────────────────────────────────────────────────────
+function getInitiativeSignals(id){
+  return signalList.filter(s=>s.initiativeId===id).sort((a,b)=>b.date.localeCompare(a.date));
+}
+function discStatusBadge(status){
+  const s = DISC_STATUS[status]||DISC_STATUS.discovery;
+  return `<span class="disc-status-badge" style="background:${s.color}22;color:${s.color};border:1px solid ${s.color}44;">${s.label}</span>`;
+}
+function discConfidencePips(conf){
+  const map = {low:1,medium:2,high:3};
+  const n = map[conf]||1;
+  const color = conf==='high'?'#81C784':conf==='medium'?'#E8A838':'#888';
+  return [1,2,3].map(i=>`<span class="disc-confidence-pip" style="background:${i<=n?color:'var(--border)'}"></span>`).join('');
+}
+function discTrackPct(steps, current){
+  const idx = steps.indexOf(current);
+  return idx<0?0:Math.round((idx/(steps.length-1))*100);
+}
+function discQuarters(){
+  const now = new Date(); const y = now.getFullYear();
+  return [`Q1 ${y}`,`Q2 ${y}`,`Q3 ${y}`,`Q4 ${y}`,`Q1 ${y+1}`,`Q2 ${y+1}`,`Q3 ${y+1}`,`Q4 ${y+1}`];
+}
+
+// ── List view ────────────────────────────────────────────────────
+function renderDiscoveryPage(container){
+  if(discView==='detail' && discActiveId){
+    renderDiscoveryDetail(container); return;
+  }
+  const statusFilter = container._discStatusFilter||'';
+  const quarterFilter= container._discQFilter||'';
+
+  let items = [...discoveryList].sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  if(statusFilter) items = items.filter(i=>i.status===statusFilter);
+  if(quarterFilter) items = items.filter(i=>
+    i.engineeringTrack?.targetQuarter===quarterFilter ||
+    i.marketTrack?.targetQuarter===quarterFilter);
+
+  const statusCounts = {};
+  discoveryList.forEach(i=>{ statusCounts[i.status]=(statusCounts[i.status]||0)+1; });
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+      <!-- Header -->
+      <div style="padding:12px 14px 8px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div>
+          <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:var(--text);">🔭 Discovery</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:1px;">${discoveryList.length} initiatives · ${signalList.length} signals</div>
+        </div>
+        <button onclick="openDiscoveryModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ New</button>
+      </div>
+      <!-- Status filter chips -->
+      <div style="display:flex;gap:6px;padding:0 14px 8px;overflow-x:auto;flex-shrink:0;">
+        <button onclick="renderDiscoveryWithFilter(document.getElementById('main-content'),'')" style="padding:4px 10px;border-radius:20px;border:1px solid ${!statusFilter?'var(--accent)':'var(--border)'};background:${!statusFilter?'rgba(232,168,56,0.1)':'transparent'};color:${!statusFilter?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">All (${discoveryList.length})</button>
+        ${Object.entries(DISC_STATUS).map(([k,v])=>{
+          const count = statusCounts[k]||0;
+          if(!count) return '';
+          return `<button onclick="renderDiscoveryWithFilter(document.getElementById('main-content'),'${k}')"
+            style="padding:4px 10px;border-radius:20px;border:1px solid ${statusFilter===k?v.color:v.color+'44'};background:${statusFilter===k?v.color+'22':'transparent'};color:${v.color};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${v.label} (${count})</button>`;
+        }).join('')}
+      </div>
+      <!-- Cards -->
+      <div style="flex:1;overflow-y:auto;padding:0 10px 20px;">
+        ${items.length===0
+          ?`<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No initiatives yet.<br><br><button onclick="openDiscoveryModal()" style="padding:8px 16px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">Create your first →</button></div>`
+          :items.map(ini=>renderDiscoveryCard(ini)).join('')
+        }
+      </div>
+    </div>`;
+}
+
+function renderDiscoveryWithFilter(container, status){
+  container._discStatusFilter = status;
+  renderDiscoveryPage(container);
+}
+
+function renderDiscoveryCard(ini){
+  const signals = getInitiativeSignals(ini.id);
+  const engPct  = discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none');
+  const mktPct  = discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering');
+  const owner   = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
+  const lastSig = signals[0];
+  const confirmsN = signals.filter(s=>s.sentiment==='confirms').length;
+  const contradictsN = signals.filter(s=>s.sentiment==='contradicts').length;
+
+  return `<div class="disc-card" onclick="openDiscoveryDetail('${ini.id}')">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.title)}</div>
+        ${ini.problemStatement?`<div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.problemStatement)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+        ${discStatusBadge(ini.status)}
+        <div>${discConfidencePips(ini.confidence||'low')}</div>
+      </div>
+    </div>
+    <!-- Two-track progress -->
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;font-family:var(--font-ui);color:#64B5F6;font-weight:700;width:20px;">ENG</span>
+        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${engPct}%;background:#64B5F6;"></div></div>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-ui);width:70px;text-align:right;">${ENG_LABELS[ini.engineeringTrack?.status||'none']||''}</span>
+        ${ini.engineeringTrack?.targetQuarter?`<span style="font-size:9px;color:#64B5F644;font-family:var(--font-ui);">${ini.engineeringTrack.targetQuarter}</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;font-family:var(--font-ui);color:#81C784;font-weight:700;width:20px;">MKT</span>
+        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${mktPct}%;background:#81C784;"></div></div>
+        <span style="font-size:10px;color:var(--text3);font-family:var(--font-ui);width:70px;text-align:right;">${MKT_LABELS[ini.marketTrack?.status||'signal-gathering']||''}</span>
+        ${ini.marketTrack?.targetQuarter?`<span style="font-size:9px;color:#81C78444;font-family:var(--font-ui);">${ini.marketTrack.targetQuarter}</span>`:''}
+      </div>
+    </div>
+    <!-- Footer stats -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">📡 ${signals.length} signals</span>
+      ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
+      ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
+      ${owner?`<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">👤 ${esc(owner.name)}</span>`:''}
+      ${lastSig?`<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-left:auto;">${lastSig.date.slice(5)}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function openDiscoveryDetail(id){
+  discActiveId = id; discView = 'detail';
+  const main = document.getElementById('main-content');
+  if(main) renderDiscoveryDetail(main);
+}
+
+
+// ── Detail view ───────────────────────────────────────────────────
+function renderDiscoveryDetail(container){
+  const ini = discoveryList.find(i=>i.id===discActiveId);
+  if(!ini){ discView='list'; renderDiscoveryPage(container); return; }
+
+  const signals = getInitiativeSignals(ini.id);
+  const filtered = signals.filter(s=>{
+    if(discSignalFilter.type && s.type!==discSignalFilter.type) return false;
+    if(discSignalFilter.sentiment && s.sentiment!==discSignalFilter.sentiment) return false;
+    return true;
+  });
+
+  const engPct = discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none');
+  const mktPct = discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering');
+  const owner  = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
+  const linkedMeetings = (ini.linkedMeetingIds||[]).map(id=>meetingLog.find(m=>m.id===id)).filter(Boolean);
+  const linkedPeople   = (ini.linkedPersonIds||[]).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const linkedTasks    = (ini.linkedTaskIds||[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean).filter(t=>t.status!=='done');
+  const openQuestions  = (ini.openQuestions||[]).filter(q=>!q.resolved);
+
+  const sentimentCounts = {};
+  signals.forEach(s=>{ sentimentCounts[s.sentiment]=(sentimentCounts[s.sentiment]||0)+1; });
+
+  container.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+
+    <!-- Header -->
+    <div style="padding:10px 14px 8px;flex-shrink:0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <button onclick="discView='list';discActiveId=null;renderAll();"
+          style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">← All</button>
+        ${discStatusBadge(ini.status)}
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button onclick="openDiscoveryModal('${ini.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✏ Edit</button>
+          <button onclick="openSignalModal('${ini.id}')" style="padding:5px 12px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ Signal</button>
+        </div>
+      </div>
+      <div style="font-size:17px;font-weight:900;color:var(--text);margin-bottom:4px;">${esc(ini.title)}</div>
+      ${ini.problemStatement?`<div style="font-size:12px;color:var(--text3);margin-bottom:4px;">${esc(ini.problemStatement)}</div>`:''}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div>${discConfidencePips(ini.confidence||'low')} <span style="font-size:11px;color:var(--text3);font-family:var(--font-ui);">${(ini.confidence||'low')} confidence</span></div>
+        ${owner?`<span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">👤 ${esc(owner.name)}</span>`:''}
+        ${ini.targetSegment?`<span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">🎯 ${esc(ini.targetSegment)}</span>`:''}
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div style="flex:1;overflow-y:auto;">
+
+      <!-- Hypothesis -->
+      ${ini.hypothesis?`<div style="margin:10px 14px;padding:10px 12px;border-radius:8px;background:rgba(232,168,56,0.07);border:1px solid rgba(232,168,56,0.2);">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:4px;">💡 HYPOTHESIS</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.5;">${esc(ini.hypothesis)}</div>
+      </div>`:''}
+
+      <!-- Two-track progress -->
+      <div class="disc-section-hdr">PROGRESS TRACKS</div>
+      <div style="padding:4px 14px 12px;display:flex;flex-direction:column;gap:10px;">
+        ${renderTrackRow('ENG','#64B5F6',ENG_STEPS,ENG_LABELS,ini.engineeringTrack||{},'eng',ini.id)}
+        ${renderTrackRow('MKT','#81C784',MKT_STEPS,MKT_LABELS,ini.marketTrack||{},'mkt',ini.id)}
+      </div>
+
+      <!-- AI Brief -->
+      <div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+        <span>AI BRIEF</span>
+        <div style="display:flex;gap:6px;">
+          <button onclick="runDiscoverySynthesis('${ini.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:800;cursor:pointer;">✨ Synthesize</button>
+          <button onclick="runMarketPull('${ini.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.08);color:#64B5F6;font-family:var(--font-ui);font-size:10px;font-weight:800;cursor:pointer;">🌐 Market Pull</button>
+          ${ini.prd?`<button onclick="runPRDEvaluation('${ini.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font-family:var(--font-ui);font-size:10px;font-weight:800;cursor:pointer;">📋 Eval PRD</button>`:''}
+        </div>
+      </div>
+      <div id="disc-ai-brief-${ini.id}" style="padding:0 14px 10px;">
+        ${ini.lastSynthesis ? renderDiscAIBrief(ini.lastSynthesis) : `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;padding:4px 0;">No synthesis yet — tap ✨ Synthesize to generate.</div>`}
+      </div>
+      ${ini.lastMarketPull ? `<div id="disc-market-brief-${ini.id}" style="padding:0 14px 10px;">${renderMarketBrief(ini.lastMarketPull)}</div>` : ''}
+
+      <!-- Signal feed -->
+      <div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+        <span>SIGNALS (${signals.length})</span>
+        <div style="display:flex;gap:4px;">
+          ${SIGNAL_SENTIMENTS.map(s=>`<button onclick="discSignalFilter.sentiment=discSignalFilter.sentiment==='${s.v}'?'':'${s.v}';renderAll();"
+            style="padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;font-family:var(--font-ui);cursor:pointer;
+            border:1px solid ${discSignalFilter.sentiment===s.v?s.color:s.color+'44'};
+            background:${discSignalFilter.sentiment===s.v?s.color+'22':'transparent'};
+            color:${s.color};">${s.label}</button>`).join('')}
+        </div>
+      </div>
+      <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);overflow:hidden;">
+        ${filtered.length===0
+          ?`<div style="padding:14px;font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;text-align:center;">No signals yet — tap + Signal to add your first.<br><br><button onclick="openSignalModal('${ini.id}')" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add Signal</button></div>`
+          :filtered.map(s=>renderSignalRow(s)).join('')
+        }
+      </div>
+
+      <!-- Open questions -->
+      ${openQuestions.length>0||true?`
+      <div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+        <span>OPEN QUESTIONS (${openQuestions.length})</span>
+        <button onclick="openQuestionModal('${ini.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">+ Add</button>
+      </div>
+      <div style="margin:0 10px 10px;border-radius:10px;border:1px solid var(--border);overflow:hidden;">
+        ${openQuestions.length===0
+          ?`<div style="padding:10px 14px;font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;">No open questions — add what you still need to learn.</div>`
+          :openQuestions.map(q=>`<div class="disc-oq-row">
+              <span style="font-size:13px;color:var(--text);flex:1;line-height:1.4;">${esc(q.question)}</span>
+              <button onclick="resolveQuestion('${ini.id}','${q.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:10px;cursor:pointer;flex-shrink:0;">✓ Resolved</button>
+            </div>`).join('')
+        }
+      </div>`:''}
+
+      <!-- PRD -->
+      <div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+        <span>PRD</span>
+        <button onclick="savePRD('${ini.id}')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">💾 Save</button>
+      </div>
+      <div style="padding:0 14px 10px;">
+        <textarea id="disc-prd-${ini.id}" class="disc-prd-area" placeholder="Paste or write your PRD here… supports markdown. Use AI → Eval PRD to evaluate against your signals.">${esc(ini.prd||'')}</textarea>
+      </div>
+
+      <!-- Linked objects -->
+      <div class="disc-section-hdr">LINKED</div>
+      <div style="padding:0 14px 10px;display:flex;flex-direction:column;gap:8px;">
+        <!-- Meetings -->
+        <div>
+          <div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-bottom:4px;">MEETINGS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${linkedMeetings.map(m=>`<span onclick="openMeetingCapture('${m.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;background:rgba(100,181,246,0.1);color:#64B5F6;border:1px solid rgba(100,181,246,0.25);cursor:pointer;">📝 ${esc(m.title.slice(0,25))}</span>`).join('')}
+            <button onclick="openLinkMeetingModal('${ini.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Link meeting</button>
+          </div>
+        </div>
+        <!-- People -->
+        <div>
+          <div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-bottom:4px;">PEOPLE</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${linkedPeople.map(p=>`<span onclick="openPersonDetail('${p.id}','person')" style="font-size:11px;padding:3px 9px;border-radius:6px;background:rgba(232,168,56,0.08);color:var(--accent);border:1px solid rgba(232,168,56,0.2);cursor:pointer;">👤 ${esc(p.name)}</span>`).join('')}
+            <button onclick="openLinkPersonModal('${ini.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Link person</button>
+          </div>
+        </div>
+        <!-- Tasks -->
+        <div>
+          <div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-bottom:4px;">TASKS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${linkedTasks.map(t=>`<span onclick="openEditTask('${t.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer;">☐ ${esc(t.title.slice(0,25))}</span>`).join('')}
+            <button onclick="openAddTask();/* TODO link */" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Add task</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /scroll -->
+  </div>`;
+}
+
+function renderTrackRow(label, color, steps, labels, track, type, iniId){
+  const pct = discTrackPct(steps, track.status||steps[0]);
+  return `<div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+      <span style="font-size:11px;font-weight:800;font-family:var(--font-ui);color:${color};width:28px;">${label}</span>
+      <div class="disc-track-bar" style="height:8px;"><div class="disc-track-fill" style="width:${pct}%;background:${color};"></div></div>
+      <select onchange="updateTrackStatus('${iniId}','${type}',this.value)"
+        style="font-size:11px;font-family:var(--font-ui);padding:3px 6px;border-radius:5px;border:1px solid ${color}44;background:var(--surface2);color:${color};cursor:pointer;">
+        ${steps.map(s=>`<option value="${s}" ${(track.status||steps[0])===s?'selected':''}>${labels[s]}</option>`).join('')}
+      </select>
+      ${track.targetQuarter?`<span style="font-size:10px;color:${color}88;font-family:var(--font-ui);">📅 ${track.targetQuarter}</span>`:''}
+    </div>
+    ${track.notes?`<div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);padding-left:36px;">${esc(track.notes)}</div>`:''}
+  </div>`;
+}
+
+function renderSignalRow(s){
+  const sent = SIGNAL_SENTIMENTS.find(x=>x.v===s.sentiment)||SIGNAL_SENTIMENTS[3];
+  const p = s.linkedPersonId ? peopleList.find(x=>x.id===s.linkedPersonId) : null;
+  const m = s.linkedMeetingId ? meetingLog.find(x=>x.id===s.linkedMeetingId) : null;
+  return `<div class="disc-signal-row">
+    <div style="flex-shrink:0;margin-top:1px;">
+      <span class="disc-sentiment-chip" style="background:${sent.color}22;color:${sent.color};border:1px solid ${sent.color}44;">${sent.label}</span>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:4px;">${esc(s.content)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:10px;background:var(--surface2);color:var(--text3);padding:1px 6px;border-radius:4px;font-family:var(--font-ui);">${s.type}</span>
+        ${s.source?`<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">📌 ${esc(s.source)}</span>`:''}
+        ${p?`<span onclick="openPersonDetail('${p.id}','person')" style="font-size:10px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;">👤 ${esc(p.name)}</span>`:''}
+        ${m?`<span onclick="openMeetingCapture('${m.id}')" style="font-size:10px;color:#64B5F6;font-family:var(--font-ui);cursor:pointer;">📝 ${esc(m.title.slice(0,20))}</span>`:''}
+        <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);margin-left:auto;">${s.date.slice(5)}</span>
+      </div>
+    </div>
+    <button onclick="deleteSignal('${s.id}')" style="flex-shrink:0;padding:3px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;">✕</button>
+  </div>`;
+}
+
+function renderDiscAIBrief(syn){
+  if(!syn) return '';
+  return `<div style="background:rgba(232,168,56,0.05);border:1px solid rgba(232,168,56,0.2);border-radius:8px;padding:12px;">
+    <div style="font-size:10px;font-family:var(--font-ui);color:var(--accent);font-weight:800;letter-spacing:1px;margin-bottom:8px;">✨ AI SYNTHESIS · ${syn.ts ? new Date(syn.ts).toLocaleDateString() : ''}</div>
+    ${syn.confirmed?`<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#81C784;font-family:var(--font-ui);margin-bottom:3px;">✓ CONFIRMED</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.confirmed)}</div></div>`:''}
+    ${syn.emerging?`<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#64B5F6;font-family:var(--font-ui);margin-bottom:3px;">◉ EMERGING</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.emerging)}</div></div>`:''}
+    ${syn.contradicted?`<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#EF5350;font-family:var(--font-ui);margin-bottom:3px;">✗ CONTRADICTED</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.contradicted)}</div></div>`:''}
+    ${syn.hypothesisUpdate?`<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:var(--accent);font-family:var(--font-ui);margin-bottom:3px;">💡 HYPOTHESIS UPDATE</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.hypothesisUpdate)}</div></div>`:''}
+    ${syn.biggestGap?`<div style="margin-bottom:8px;"><div style="font-size:10px;font-weight:700;color:#BA68C8;font-family:var(--font-ui);margin-bottom:3px;">❓ BIGGEST GAP</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.biggestGap)}</div></div>`:''}
+    ${syn.nextAction?`<div><div style="font-size:10px;font-weight:700;color:#FF8A65;font-family:var(--font-ui);margin-bottom:3px;">→ NEXT ACTION</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(syn.nextAction)}</div></div>`:''}
+  </div>`;
+}
+
+function renderMarketBrief(pull){
+  if(!pull) return '';
+  return `<div style="background:rgba(100,181,246,0.05);border:1px solid rgba(100,181,246,0.2);border-radius:8px;padding:12px;">
+    <div style="font-size:10px;font-family:var(--font-ui);color:#64B5F6;font-weight:800;letter-spacing:1px;margin-bottom:8px;">🌐 MARKET INTEL · ${pull.ts ? new Date(pull.ts).toLocaleDateString() : ''}</div>
+    <div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap;">${esc(pull.summary||'')}</div>
+  </div>`;
+}
+
+
+// ── Initiative modal (create/edit) ───────────────────────────────
+function openDiscoveryModal(editId){
+  const ini = editId ? discoveryList.find(i=>i.id===editId) : null;
+  const old = document.getElementById('modal-discovery'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-discovery'; m.className='modal-overlay fullscreen';
+  const quarters = discQuarters();
+  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--text);">${ini?'✏ Edit Initiative':'🔭 New Initiative'}</div>
+      <button class="modal-close" onclick="closeModal('modal-discovery')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1;">
+      <input id="disc-f-title" class="field-input" placeholder="Initiative title…" value="${ini?esc(ini.title):''}"/>
+      <textarea id="disc-f-problem" class="field-input" placeholder="Problem statement — one sentence describing the pain this solves…" style="resize:none;min-height:60px;">${ini?esc(ini.problemStatement||''):''}</textarea>
+      <textarea id="disc-f-hypothesis" class="field-input" placeholder="Hypothesis — your current best belief about the solution…" style="resize:none;min-height:70px;">${ini?esc(ini.hypothesis||''):''}</textarea>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div class="chip-label">Status</div>
+          <select id="disc-f-status" class="field-select">
+            ${Object.entries(DISC_STATUS).map(([k,v])=>`<option value="${k}" ${(ini?.status||'discovery')===k?'selected':''}>${v.label}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label">Confidence</div>
+          <select id="disc-f-confidence" class="field-select">
+            <option value="low"    ${(ini?.confidence||'low')==='low'?'selected':''}>Low</option>
+            <option value="medium" ${ini?.confidence==='medium'?'selected':''}>Medium</option>
+            <option value="high"   ${ini?.confidence==='high'?'selected':''}>High</option>
+          </select>
+        </div>
+      </div>
+      <input id="disc-f-segment" class="field-input" placeholder="Target segment (e.g. Regional health plans, VP Network Ops)…" value="${ini?esc(ini.targetSegment||''):''}"/>
+      <div class="chip-label">Owner</div>
+      ${buildPersonPickerHTML(ini?.owner||'', 'disc-f-owner')}
+      <div class="chip-label" style="margin-top:10px;">Engineering Track</div>
+      <div style="display:flex;gap:8px;">
+        <select id="disc-f-eng-status" class="field-select" style="flex:2;">
+          ${ENG_STEPS.map(s=>`<option value="${s}" ${(ini?.engineeringTrack?.status||'none')===s?'selected':''}>${ENG_LABELS[s]}</option>`).join('')}
+        </select>
+        <select id="disc-f-eng-q" class="field-select" style="flex:1;">
+          <option value="">Quarter…</option>
+          ${quarters.map(q=>`<option value="${q}" ${ini?.engineeringTrack?.targetQuarter===q?'selected':''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <input id="disc-f-eng-date" type="date" class="field-input" style="color-scheme:dark;" value="${ini?.engineeringTrack?.targetDate||''}"/>
+      <div class="chip-label">Market Track</div>
+      <div style="display:flex;gap:8px;">
+        <select id="disc-f-mkt-status" class="field-select" style="flex:2;">
+          ${MKT_STEPS.map(s=>`<option value="${s}" ${(ini?.marketTrack?.status||'signal-gathering')===s?'selected':''}>${MKT_LABELS[s]}</option>`).join('')}
+        </select>
+        <select id="disc-f-mkt-q" class="field-select" style="flex:1;">
+          <option value="">Quarter…</option>
+          ${quarters.map(q=>`<option value="${q}" ${ini?.marketTrack?.targetQuarter===q?'selected':''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <input id="disc-f-mkt-date" type="date" class="field-input" style="color-scheme:dark;" value="${ini?.marketTrack?.targetDate||''}"/>
+      <input type="hidden" id="disc-f-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${ini?`<button onclick="deleteDiscoveryInitiative('${ini.id}')" style="padding:12px 16px;border-radius:9px;border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">Delete</button>`:''}
+      <button onclick="submitDiscoveryModal()" style="flex:1;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${ini?'✓ Save':'+ Create'}</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-discovery');};
+  document.body.appendChild(m); openModal('modal-discovery');
+  setTimeout(()=>document.getElementById('disc-f-title')?.focus(),150);
+}
+
+function submitDiscoveryModal(){
+  const title = document.getElementById('disc-f-title')?.value.trim()||'';
+  if(!title){ showToast('Initiative needs a title'); return; }
+  const id = document.getElementById('disc-f-id')?.value||'';
+  const obj = {
+    id: id||'di'+Date.now(),
+    title,
+    problemStatement: document.getElementById('disc-f-problem')?.value.trim()||'',
+    hypothesis:       document.getElementById('disc-f-hypothesis')?.value.trim()||'',
+    status:           document.getElementById('disc-f-status')?.value||'discovery',
+    confidence:       document.getElementById('disc-f-confidence')?.value||'low',
+    targetSegment:    document.getElementById('disc-f-segment')?.value.trim()||'',
+    owner:            document.getElementById('disc-f-owner')?.value||'',
+    engineeringTrack: {
+      status:        document.getElementById('disc-f-eng-status')?.value||'none',
+      targetQuarter: document.getElementById('disc-f-eng-q')?.value||'',
+      targetDate:    document.getElementById('disc-f-eng-date')?.value||'',
+    },
+    marketTrack: {
+      status:        document.getElementById('disc-f-mkt-status')?.value||'signal-gathering',
+      targetQuarter: document.getElementById('disc-f-mkt-q')?.value||'',
+      targetDate:    document.getElementById('disc-f-mkt-date')?.value||'',
+    },
+    linkedMeetingIds: id ? (discoveryList.find(i=>i.id===id)?.linkedMeetingIds||[]) : [],
+    linkedPersonIds:  id ? (discoveryList.find(i=>i.id===id)?.linkedPersonIds||[])  : [],
+    linkedTaskIds:    id ? (discoveryList.find(i=>i.id===id)?.linkedTaskIds||[])    : [],
+    openQuestions:    id ? (discoveryList.find(i=>i.id===id)?.openQuestions||[])    : [],
+    prd:              id ? (discoveryList.find(i=>i.id===id)?.prd||'')              : '',
+    lastSynthesis:    id ? (discoveryList.find(i=>i.id===id)?.lastSynthesis||null)  : null,
+    lastMarketPull:   id ? (discoveryList.find(i=>i.id===id)?.lastMarketPull||null) : null,
+    createdAt:        id ? (discoveryList.find(i=>i.id===id)?.createdAt||today())   : today(),
+    updatedAt:        today()
+  };
+  if(id){ const idx=discoveryList.findIndex(i=>i.id===id); if(idx>-1) discoveryList[idx]=obj; else discoveryList.unshift(obj); }
+  else   { discoveryList.unshift(obj); }
+  saveDiscovery(); closeModal('modal-discovery');
+  showToast(id?'✓ Initiative updated':'🔭 Initiative created');
+  renderAll();
+}
+
+function deleteDiscoveryInitiative(id){
+  if(!confirm('Delete this initiative and all its signals?')) return;
+  discoveryList = discoveryList.filter(i=>i.id!==id);
+  signalList    = signalList.filter(s=>s.initiativeId!==id);
+  saveDiscovery(); saveSignals();
+  discView='list'; discActiveId=null;
+  closeModal('modal-discovery'); renderAll();
+  showToast('🗑 Deleted');
+}
+
+// ── Signal modal ─────────────────────────────────────────────────
+function openSignalModal(initiativeId, editId){
+  const sig = editId ? signalList.find(s=>s.id===editId) : null;
+  const ini = discoveryList.find(i=>i.id===initiativeId);
+  const old = document.getElementById('modal-signal'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-signal'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--text);">📡 ${sig?'Edit Signal':'Add Signal'}</div>
+      <div style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${ini?esc(ini.title.slice(0,30)):''}</div>
+      <button class="modal-close" onclick="closeModal('modal-signal')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1;">
+      <!-- Sentiment — most important, shown first -->
+      <div class="chip-label">What does this signal do?</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        ${SIGNAL_SENTIMENTS.map(s=>`<button type="button" class="sig-sent-chip"
+          onclick="document.querySelectorAll('.sig-sent-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${s.color}22';this.style.borderColor='${s.color}';this.style.color='${s.color}';document.getElementById('sig-f-sentiment').value='${s.v}';"
+          style="padding:7px 14px;border-radius:20px;border:1px solid ${(sig?.sentiment||'neutral')===s.v?s.color:'var(--border)'};background:${(sig?.sentiment||'neutral')===s.v?s.color+'22':'transparent'};color:${(sig?.sentiment||'neutral')===s.v?s.color:'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">${s.label}</button>`).join('')}
+      </div>
+      <input type="hidden" id="sig-f-sentiment" value="${sig?.sentiment||'neutral'}"/>
+      <!-- Signal content -->
+      <textarea id="sig-f-content" class="field-input" placeholder="What was said or observed? Use direct quotes where possible…" style="resize:none;min-height:90px;">${sig?esc(sig.content||''):''}</textarea>
+      <!-- Type and source -->
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div class="chip-label">Type</div>
+          <select id="sig-f-type" class="field-select">
+            ${SIGNAL_TYPES.map(t=>`<option value="${t}" ${(sig?.type||'client')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label">Date</div>
+          <input id="sig-f-date" type="date" class="field-input" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);" value="${sig?.date||today()}"/>
+        </div>
+      </div>
+      <input id="sig-f-source" class="field-input" placeholder="Source — company, person name, article, conference…" value="${sig?esc(sig.source||''):''}"/>
+      <!-- Link to person -->
+      <div class="chip-label">Link to person (optional)</div>
+      ${buildPersonPickerHTML(sig?.linkedPersonId||'', 'sig-f-person')}
+      <!-- Link to meeting -->
+      <div class="chip-label" style="margin-top:8px;">Link to meeting (optional)</div>
+      <select id="sig-f-meeting" class="field-select">
+        <option value="">— no meeting —</option>
+        ${[...meetingLog].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).map(mtg=>`<option value="${mtg.id}" ${sig?.linkedMeetingId===mtg.id?'selected':''}>${esc(mtg.date+' · '+mtg.title.slice(0,35))}</option>`).join('')}
+      </select>
+      <input type="hidden" id="sig-f-id" value="${editId||''}"/>
+      <input type="hidden" id="sig-f-initiative" value="${initiativeId}"/>
+    </div>
+    <div class="modal-footer">
+      <button onclick="submitSignalModal()" style="width:100%;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${sig?'✓ Save':'+ Add Signal'}</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-signal');};
+  document.body.appendChild(m); openModal('modal-signal');
+  setTimeout(()=>document.getElementById('sig-f-content')?.focus(),150);
+}
+
+function submitSignalModal(){
+  const content = document.getElementById('sig-f-content')?.value.trim()||'';
+  if(!content){ showToast('Signal needs content'); return; }
+  const id          = document.getElementById('sig-f-id')?.value||'';
+  const iniId       = document.getElementById('sig-f-initiative')?.value||'';
+  const sig = {
+    id:              id||'sig'+Date.now(),
+    initiativeId:    iniId,
+    type:            document.getElementById('sig-f-type')?.value||'client',
+    sentiment:       document.getElementById('sig-f-sentiment')?.value||'neutral',
+    source:          document.getElementById('sig-f-source')?.value.trim()||'',
+    content,
+    date:            document.getElementById('sig-f-date')?.value||today(),
+    linkedPersonId:  document.getElementById('sig-f-person')?.value||'',
+    linkedMeetingId: document.getElementById('sig-f-meeting')?.value||'',
+    createdAt:       today()
+  };
+  if(id){ const idx=signalList.findIndex(s=>s.id===id); if(idx>-1) signalList[idx]=sig; else signalList.unshift(sig); }
+  else   { signalList.unshift(sig); }
+  // Touch initiative updatedAt
+  const ini = discoveryList.find(i=>i.id===iniId);
+  if(ini) ini.updatedAt = today();
+  saveSignals(); saveDiscovery(); closeModal('modal-signal');
+  showToast('📡 Signal added'); renderAll();
+}
+
+function deleteSignal(id){
+  signalList = signalList.filter(s=>s.id!==id);
+  saveSignals(); renderAll();
+}
+
+// ── Open question modal ──────────────────────────────────────────
+function openQuestionModal(iniId){
+  const q = prompt('What do you still need to learn?');
+  if(!q||!q.trim()) return;
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.openQuestions) ini.openQuestions=[];
+  ini.openQuestions.push({id:'oq'+Date.now(), question:q.trim(), resolved:false, answer:''});
+  ini.updatedAt = today();
+  saveDiscovery(); renderAll();
+}
+
+function resolveQuestion(iniId, qId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const q = (ini.openQuestions||[]).find(x=>x.id===qId); if(!q) return;
+  q.resolved = true;
+  ini.updatedAt = today();
+  saveDiscovery(); renderAll();
+  showToast('✓ Question resolved');
+}
+
+// ── PRD save ─────────────────────────────────────────────────────
+function savePRD(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const el = document.getElementById('disc-prd-'+iniId);
+  if(!el) return;
+  ini.prd = el.value;
+  ini.updatedAt = today();
+  saveDiscovery();
+  showToast('✓ PRD saved');
+}
+
+// ── Track status update ──────────────────────────────────────────
+function updateTrackStatus(iniId, type, status){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(type==='eng'){
+    if(!ini.engineeringTrack) ini.engineeringTrack={};
+    ini.engineeringTrack.status = status;
+  } else {
+    if(!ini.marketTrack) ini.marketTrack={};
+    ini.marketTrack.status = status;
+  }
+  ini.updatedAt = today();
+  saveDiscovery();
+  showToast('✓ Track updated');
+}
+
+// ── Link modals ──────────────────────────────────────────────────
+function openLinkMeetingModal(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const old = document.getElementById('modal-disc-link'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-disc-link'; m.className='modal-overlay';
+  const sorted = [...meetingLog].sort((a,b)=>b.date.localeCompare(a.date));
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;">Link Meeting</div>
+      <button class="modal-close" onclick="closeModal('modal-disc-link')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1;">
+      ${sorted.slice(0,40).map(mtg=>{
+        const linked = (ini.linkedMeetingIds||[]).includes(mtg.id);
+        return `<div onclick="toggleDiscMeeting('${iniId}','${mtg.id}',this)"
+          style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${linked?'rgba(100,181,246,0.06)':''};">
+          <div style="width:16px;height:16px;border-radius:4px;border:2px solid ${linked?'#64B5F6':'var(--border)'};background:${linked?'#64B5F6':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;">${linked?'✓':''}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(mtg.title)}</div>
+            <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${mtg.date}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-disc-link')" style="width:100%;padding:12px;border-radius:9px;border:none;background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer;">Done</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-disc-link');};
+  document.body.appendChild(m); openModal('modal-disc-link');
+}
+
+function toggleDiscMeeting(iniId, meetingId, rowEl){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.linkedMeetingIds) ini.linkedMeetingIds=[];
+  const idx = ini.linkedMeetingIds.indexOf(meetingId);
+  if(idx>-1){ ini.linkedMeetingIds.splice(idx,1); }
+  else       { ini.linkedMeetingIds.push(meetingId); }
+  ini.updatedAt = today();
+  saveDiscovery();
+  // Update row visually
+  const linked = ini.linkedMeetingIds.includes(meetingId);
+  const chk = rowEl.querySelector('div');
+  if(chk){ chk.style.borderColor=linked?'#64B5F6':'var(--border)'; chk.style.background=linked?'#64B5F6':'transparent'; chk.textContent=linked?'✓':''; }
+  rowEl.style.background = linked?'rgba(100,181,246,0.06)':'';
+}
+
+function openLinkPersonModal(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const old = document.getElementById('modal-disc-person'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-disc-person'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;">Link People</div>
+      <button class="modal-close" onclick="closeModal('modal-disc-person')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1;">
+      ${peopleList.map(p=>{
+        const linked = (ini.linkedPersonIds||[]).includes(p.id);
+        const pc = p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+        return `<div onclick="toggleDiscPerson('${iniId}','${p.id}',this)"
+          style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${linked?'rgba(232,168,56,0.06)':''};">
+          <div style="width:16px;height:16px;border-radius:4px;border:2px solid ${linked?'var(--accent)':'var(--border)'};background:${linked?'var(--accent)':'transparent'};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1a1f2e;">${linked?'✓':''}</div>
+          ${renderAvatar(p.name,p.photo,28,pc+'22',pc,false)}
+          <div style="flex:1;"><div style="font-size:13px;color:var(--text);">${esc(p.name)}</div>${p.role?`<div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${esc(p.role)}</div>`:''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-disc-person')" style="width:100%;padding:12px;border-radius:9px;border:none;background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer;">Done</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-disc-person');};
+  document.body.appendChild(m); openModal('modal-disc-person');
+}
+
+function toggleDiscPerson(iniId, personId, rowEl){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.linkedPersonIds) ini.linkedPersonIds=[];
+  const idx = ini.linkedPersonIds.indexOf(personId);
+  if(idx>-1){ ini.linkedPersonIds.splice(idx,1); }
+  else       { ini.linkedPersonIds.push(personId); }
+  ini.updatedAt = today();
+  saveDiscovery();
+  const linked = ini.linkedPersonIds.includes(personId);
+  const chk = rowEl.querySelector('div');
+  if(chk){ chk.style.borderColor=linked?'var(--accent)':'var(--border)'; chk.style.background=linked?'var(--accent)':'transparent'; chk.textContent=linked?'✓':''; chk.style.color='#1a1f2e'; }
+  rowEl.style.background = linked?'rgba(232,168,56,0.06)':'';
+}
+
+
+// ── AI: Synthesis ─────────────────────────────────────────────────
+async function runDiscoverySynthesis(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const signals = getInitiativeSignals(iniId);
+  const briefEl = document.getElementById('disc-ai-brief-'+iniId);
+  if(briefEl) briefEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;color:var(--text3);font-family:var(--font-ui);font-size:12px;"><div style="width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>Synthesising ${signals.length} signals…</div>`;
+
+  const sigSummary = signals.map(s=>`[${s.sentiment.toUpperCase()}][${s.type}] ${s.source?s.source+': ':''}${s.content}`).join('\n');
+
+  try {
+    const raw = await aiCall(
+      `You are a senior product strategist. Synthesise discovery signals for a PM leader.
+Return ONLY valid JSON with these exact keys:
+{"confirmed":"what patterns are validated by 2+ signals","emerging":"single signals worth watching","contradicted":"signals that challenge the hypothesis","hypothesisUpdate":"should the hypothesis change and how","biggestGap":"what question would most change confidence if answered","nextAction":"the single most important thing to do next"}
+Be specific and direct. Reference actual signal content. No bullet points within fields — use plain sentences.`,
+      `Initiative: "${ini.title}"
+Problem: ${ini.problemStatement||'not defined'}
+Current hypothesis: ${ini.hypothesis||'not defined'}
+Confidence: ${ini.confidence||'low'}
+
+SIGNALS (${signals.length} total):
+${sigSummary||'No signals yet.'}
+
+${ini.prd?'PRD exists — note any contradictions between PRD assumptions and signals.':''}`,
+      1000
+    );
+    let obj; try{ obj=JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(e){ throw new Error('Parse failed'); }
+    ini.lastSynthesis = { ts: Date.now(), ...obj };
+    ini.updatedAt = today();
+    saveDiscovery();
+    if(briefEl) briefEl.innerHTML = renderDiscAIBrief(ini.lastSynthesis);
+    showToast('✨ Synthesis complete');
+  } catch(e){
+    if(briefEl) briefEl.innerHTML=`<div style="font-size:12px;color:#EF5350;font-family:var(--font-ui);">Synthesis failed — check AI connection</div>`;
+    showToast('AI call failed');
+  }
+}
+
+// ── AI: Market Pull ───────────────────────────────────────────────
+async function runMarketPull(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  const briefEl = document.getElementById('disc-ai-brief-'+iniId);
+  showToast('🌐 Searching market intelligence…');
+
+  try {
+    // Use the web search via AI call
+    const searchQuery = `${ini.title} ${ini.targetSegment||''} market trends 2025 2026`;
+    const raw = await aiCall(
+      `You are a market intelligence analyst. Search for and summarize publicly available information about this product initiative area.
+Focus on: competitor moves, analyst reports, regulatory changes, customer adoption signals, job posting trends.
+Return a clear 3-4 paragraph summary with specific named sources where possible. Be factual and cite dates.`,
+      `Initiative: "${ini.title}"
+Problem area: ${ini.problemStatement||ini.title}
+Target segment: ${ini.targetSegment||'healthcare technology'}
+Search focus: ${searchQuery}
+
+Provide market intelligence summary based on publicly available information as of your knowledge cutoff. Note any areas where you'd recommend doing additional web research.`,
+      800
+    );
+    ini.lastMarketPull = { ts: Date.now(), summary: raw };
+    ini.updatedAt = today();
+    saveDiscovery();
+    renderAll();
+    showToast('🌐 Market intel updated');
+  } catch(e){
+    showToast('Market pull failed');
+  }
+}
+
+// ── AI: PRD Evaluation ────────────────────────────────────────────
+async function runPRDEvaluation(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.prd){ showToast('No PRD to evaluate — add one first'); return; }
+  const signals = getInitiativeSignals(iniId);
+  const briefEl = document.getElementById('disc-ai-brief-'+iniId);
+  if(briefEl) briefEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;color:var(--text3);font-family:var(--font-ui);font-size:12px;"><div style="width:16px;height:16px;border-radius:50%;border:2px solid #BA68C8;border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>Evaluating PRD against ${signals.length} signals…</div>`;
+
+  const sigSummary = signals.map(s=>`[${s.sentiment.toUpperCase()}][${s.type}] ${s.content}`).join('\n');
+
+  try {
+    const raw = await aiCall(
+      `You are a senior PM reviewer. Evaluate a PRD against discovery signals.
+Return ONLY valid JSON with these exact keys:
+{"confirmed":"PRD assumptions validated by signals","unsupported":"PRD assumptions with no signal evidence","contradicted":"PRD assumptions directly challenged by signals","missing":"important topics signals reveal that the PRD doesn't address","verdict":"overall assessment and whether PRD is ready to move forward"}`,
+      `PRD:
+${ini.prd.slice(0, 3000)}
+
+DISCOVERY SIGNALS (${signals.length}):
+${sigSummary||'No signals captured yet.'}`,
+      1000
+    );
+    let obj; try{ obj=JSON.parse(raw.replace(/```json|```/g,'').trim()); }catch(e){ throw new Error('Parse failed'); }
+    // Show as synthesis-style brief
+    const evalBrief = {
+      ts: Date.now(),
+      confirmed:        obj.confirmed,
+      emerging:         obj.unsupported ? `⚠ Unsupported: ${obj.unsupported}` : '',
+      contradicted:     obj.contradicted,
+      hypothesisUpdate: obj.missing ? `Missing from PRD: ${obj.missing}` : '',
+      nextAction:       obj.verdict,
+      biggestGap:       ''
+    };
+    if(briefEl) briefEl.innerHTML = `<div style="font-size:10px;font-family:var(--font-ui);color:#BA68C8;font-weight:800;letter-spacing:1px;margin-bottom:6px;padding:0 0 4px;border-bottom:1px solid rgba(186,104,200,0.2);">📋 PRD EVALUATION</div>` + renderDiscAIBrief(evalBrief);
+    showToast('📋 PRD evaluation complete');
+  } catch(e){
+    if(briefEl) briefEl.innerHTML=`<div style="font-size:12px;color:#EF5350;font-family:var(--font-ui);">Evaluation failed</div>`;
+    showToast('AI call failed');
+  }
+}
+
+
+
+function syncTaskDiscoveryLink(taskId, newDiscoveryId){
+  // Remove this task from any initiative it was previously linked to
+  discoveryList.forEach(ini=>{
+    if(!ini.linkedTaskIds) return;
+    const idx = ini.linkedTaskIds.indexOf(taskId);
+    if(idx > -1 && ini.id !== newDiscoveryId){
+      ini.linkedTaskIds.splice(idx, 1);
+    }
+  });
+  // Add to new initiative if set
+  if(newDiscoveryId){
+    const ini = discoveryList.find(i=>i.id===newDiscoveryId);
+    if(ini){
+      if(!ini.linkedTaskIds) ini.linkedTaskIds=[];
+      if(!ini.linkedTaskIds.includes(taskId)) ini.linkedTaskIds.push(taskId);
+      ini.updatedAt = today();
+    }
+  }
+  saveDiscovery();
+}
 
 function savePinned(){
   // Pins persist to cloud via saveAllDebounced — no localStorage needed
