@@ -2232,6 +2232,8 @@ async function loadAll(){
   try { if(data.contactsList !== undefined){ contactsList = data.contactsList; localStorage.setItem('hub-contacts',         JSON.stringify(contactsList)); if(contactsList.length>0) _cloudLoaded.add('contactsList'); }} catch(e){ console.error('load contactsList',e); }
   try { if(data.meetingLog   !== undefined){ meetingLog   = data.meetingLog;   localStorage.setItem('hub-meetings',         JSON.stringify(meetingLog));   if(meetingLog.length>0)   _cloudLoaded.add('meetingLog');   }} catch(e){ console.error('load meetingLog',e); }
   try { if(data.meetingSeries!== undefined){ meetingSeries= data.meetingSeries;localStorage.setItem('hub-meeting-series',   JSON.stringify(meetingSeries));if(meetingSeries.length>0)_cloudLoaded.add('meetingSeries'); }} catch(e){ console.error('load meetingSeries',e); }
+  try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
+  try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
   // Raven email settings — sync across devices
   try { if(data.ravenSettings){
     const rs = data.ravenSettings;
@@ -2277,6 +2279,8 @@ function getCloudStats(){
     contactsList:     contactsList,
     meetingLog:       meetingLog,
     meetingSeries:    meetingSeries,
+    habitList:        habitList,
+    habitLog:         habitLog,
     ravenSettings: {
       email:   localStorage.getItem('hub-raven-email')||'',
       hour:    localStorage.getItem('hub-raven-hour')||'7',
@@ -4572,12 +4576,49 @@ function cycleStatus(id,evt){
   }
 }
 
+function advanceDailyTasks(){
+  // For daily recurring tasks that are overdue and not done:
+  // roll their due date forward to today instead of letting them pile up.
+  // This treats daily habits as "fresh each day" — missing yesterday
+  // doesn't create a backlog of guilt.
+  const todayStr = today();
+  let changed = false;
+  tasks.forEach(t => {
+    if(t.recur !== 'daily') return;         // only daily tasks
+    if(t.status === 'done') return;          // already done
+    if(!t.dueDate) return;                   // no due date set
+    if(t.dueDate >= todayStr) return;        // not overdue — leave alone
+    // Check no other active copy already exists for today
+    const todaysCopy = tasks.some(x =>
+      x.id !== t.id &&
+      x.title === t.title &&
+      x.dueDate === todayStr &&
+      x.status !== 'done' &&
+      x.recur === 'daily'
+    );
+    if(!todaysCopy){
+      t.dueDate = todayStr;  // roll forward to today
+      changed = true;
+    }
+  });
+  if(changed) saveAllDebounced();
+}
+
 function spawnRecurringCopy(t){
-  const nextDue=calcNextDue(t.dueDate||today(),t.recur);
+  // Daily habits: always schedule from today so they never fall behind
+  // Weekly/monthly: schedule from the original due date to preserve cadence
+  const baseDate = t.recur==='daily' ? today() : (t.dueDate||today());
+  const nextDue = calcNextDue(baseDate, t.recur);
+  // Don't spawn if a copy already exists for that date (prevents duplicates)
+  const alreadyExists = tasks.some(x =>
+    x.title===t.title && x.dueDate===nextDue && x.status!=='done' && x.id!==t.id
+  );
+  if(alreadyExists) return;
   tasks.push({id:genId(),projectId:t.projectId,title:t.title,priority:t.priority,
     status:"todo",notes:t.notes||"",dueDate:nextDue,
-    recur:t.recur,effort:t.effort||"",estimate:t.estimate||"",createdAt:Date.now()});
-  showToast("🔁 NEXT Task SCHEDULED: "+nextDue.slice(5));
+    recur:t.recur,effort:t.effort||"",estimate:t.estimate||"",
+    energy:t.energy||"",personIds:t.personIds||"",createdAt:Date.now()});
+  showToast("🔁 "+nextDue.slice(5));
 }
 
 function calcNextDue(fromDate,recur){
@@ -5216,6 +5257,9 @@ let peopleList     = loadHubData('hub-people', []);     // [{id,name,role}] — 
 let contactsList   = loadHubData('hub-contacts', []);   // [{id,name,role,lastContact,nudgeDays}] — relationship nudges
 let meetingLog     = loadHubData('hub-meetings', []);   // [{id,title,date,personIds,attendees,decisions,notes,myCommits,theirCommits,seriesId?}]
 let meetingSeries  = loadHubData('hub-meeting-series', []); // [{id,name,cadence,personIds,collapsed}]
+let habitList      = loadHubData('hub-habits', []);          // [{id,name,icon,reminderHour}]
+let habitLog       = loadHubData('hub-habit-log', {});       // {YYYY-MM-DD: [habitId,...]}
+let habitsExpanded = false;
 
 // Track which collections were confirmed loaded from cloud this session
 // Prevents a device with empty localStorage from overwriting real cloud data
@@ -5504,6 +5548,9 @@ function renderTodayView(container){
     <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice input">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">CAPTURE</button>
   </div>`;
+
+  // ── Habits strip ─────────────────────────────────────────────
+  html += renderHabitsSection();
 
   // ── Relationship nudges — overdue contacts only ───────────────
   const nudges = getPeopleNudges();
@@ -8520,6 +8567,191 @@ function recoverMeetingTasks(){
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// HABITS — daily self-care tracker, separate from tasks
+// ════════════════════════════════════════════════════════════════
+
+function saveHabits(){ saveHubData('hub-habits', habitList); }
+function saveHabitLog(){ saveHubData('hub-habit-log', habitLog); }
+
+function getTodayHabits(){
+  const d = today();
+  return habitLog[d] || [];
+}
+
+function toggleHabit(habitId){
+  const d = today();
+  if(!habitLog[d]) habitLog[d] = [];
+  const idx = habitLog[d].indexOf(habitId);
+  if(idx > -1) habitLog[d].splice(idx, 1);
+  else habitLog[d].push(habitId);
+  saveHabitLog();
+  renderAll();
+}
+
+function renderHabitsSection(){
+  if(habitList.length === 0 && !habitsExpanded){
+    // Show a subtle "set up habits" prompt instead of nothing
+    return `<div style="margin:0 10px 10px;">
+      <button onclick="openHabitModal()"
+        style="width:100%;padding:8px;border-radius:8px;border:1px dashed var(--border);
+               background:transparent;color:var(--text4);font-family:var(--font-ui);
+               font-size:11px;cursor:pointer;text-align:left;">
+        🫀 + Add daily habits (medication, water, self-care…)
+      </button>
+    </div>`;
+  }
+
+  const done = getTodayHabits();
+  const doneCount = habitList.filter(h => done.includes(h.id)).length;
+  const allDone = habitList.length > 0 && doneCount === habitList.length;
+
+  return `<div style="margin:0 10px 10px;border-radius:10px;border:1px solid ${allDone?'rgba(100,200,100,0.3)':'var(--border)'};background:${allDone?'rgba(100,200,100,0.04)':'var(--surface)'};overflow:hidden;transition:border-color 0.3s;">
+    <!-- Header — tappable to collapse/expand -->
+    <div onclick="habitsExpanded=!habitsExpanded;renderAll();"
+      style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;">🫀</span>
+        <span style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:${allDone?'var(--green)':'var(--text3)'};letter-spacing:0.8px;">
+          HABITS${habitList.length>0?' — '+doneCount+'/'+habitList.length:''}
+        </span>
+        ${allDone ? '<span style="font-size:11px;color:var(--green);">✓ all done</span>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${habitsExpanded ? `<button onclick="event.stopPropagation();openHabitModal()"
+          style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;">+ Add</button>` : ''}
+        <span style="font-size:11px;color:var(--text4);">${habitsExpanded?'▾':'▸'}</span>
+      </div>
+    </div>
+
+    ${habitsExpanded ? `
+    <!-- Habit circles -->
+    <div style="padding:4px 12px 14px;display:flex;flex-wrap:wrap;gap:10px;">
+      ${habitList.map(h => {
+        const isDone = done.includes(h.id);
+        return `<div onclick="toggleHabit('${h.id}')"
+          style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:52px;">
+          <div style="width:48px;height:48px;border-radius:50%;
+            border:2px solid ${isDone?'var(--green)':'var(--border)'};
+            background:${isDone?'rgba(100,200,100,0.15)':'var(--surface2)'};
+            display:flex;align-items:center;justify-content:center;
+            font-size:20px;transition:all 0.2s;
+            box-shadow:${isDone?'0 0 10px rgba(100,200,100,0.3)':'none'};">
+            ${isDone ? '✓' : esc(h.icon||'🫀')}
+          </div>
+          <div style="font-size:9px;font-family:var(--font-ui);font-weight:700;
+            color:${isDone?'var(--green)':'var(--text3)'};text-align:center;
+            max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+            letter-spacing:0.3px;">
+            ${esc(h.name)}
+          </div>
+        </div>`;
+      }).join('')}
+      <div onclick="openHabitModal()"
+        style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:52px;opacity:0.4;">
+        <div style="width:48px;height:48px;border-radius:50%;border:2px dashed var(--border);
+          background:transparent;display:flex;align-items:center;justify-content:center;font-size:20px;">+</div>
+        <div style="font-size:9px;font-family:var(--font-ui);font-weight:700;color:var(--text3);text-align:center;">Add</div>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function openHabitModal(editId){
+  const existing = editId ? habitList.find(h=>h.id===editId) : null;
+  const old = document.getElementById('modal-habit'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-habit'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:340px;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--text);">
+        ${existing ? '✏ Edit Habit' : '🫀 New Habit'}
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-habit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:4px;">
+        <div style="flex-shrink:0;">
+          <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:4px;">ICON</div>
+          <input id="habit-icon" class="field-input" value="${existing?.icon||'🫀'}"
+            style="width:56px;text-align:center;font-size:22px;padding:6px;" maxlength="2"/>
+        </div>
+        <div style="flex:1;">
+          <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:4px;">NAME</div>
+          <input id="habit-name" class="field-input" placeholder="e.g. Medication, Water, Walk…"
+            value="${existing?esc(existing.name):''}" autocomplete="off"/>
+        </div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">COMMON HABITS</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${[['💊','Meds'],['💧','Water'],['🚿','Shower'],['🏃','Move'],['🧘','Breathe'],['😴','Sleep'],['🥗','Eat well'],['☀️','Outside'],['📞','Check in'],['💆','Self care']].map(([icon,name])=>`
+            <button type="button" onclick="document.getElementById('habit-icon').value='${icon}';document.getElementById('habit-name').value='${name}';"
+              style="padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);
+                     color:var(--text2);font-family:var(--font-ui);font-size:11px;cursor:pointer;">${icon} ${name}</button>`).join('')}
+        </div>
+      </div>
+      <input type="hidden" id="habit-edit-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${existing ? `<button onclick="deleteHabit('${editId}')"
+        style="padding:11px 14px;border-radius:8px;border:none;background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:13px;cursor:pointer;">🗑 Delete</button>` : ''}
+      <button onclick="submitHabit()"
+        style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">
+        ${existing ? '✓ Save' : '+ Add Habit'}
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-habit'); };
+  document.body.appendChild(m);
+  openModal('modal-habit');
+  setTimeout(()=>document.getElementById('habit-name')?.focus(), 150);
+}
+
+function submitHabit(){
+  const name   = document.getElementById('habit-name')?.value.trim()||'';
+  const icon   = document.getElementById('habit-icon')?.value.trim()||'🫀';
+  const editId = document.getElementById('habit-edit-id')?.value||'';
+  if(!name){ showToast('Give it a name'); return; }
+  if(editId){
+    const h = habitList.find(x=>x.id===editId);
+    if(h){ h.name=name; h.icon=icon; }
+    showToast('✓ Habit updated');
+  } else {
+    habitList.push({ id:'h'+Date.now(), name, icon });
+    showToast('🫀 Habit added');
+  }
+  saveHabits();
+  closeModal('modal-habit');
+  habitsExpanded = true;
+  renderAll();
+}
+
+function deleteHabit(id){
+  if(!confirm('Remove this habit?')) return;
+  habitList = habitList.filter(h=>h.id!==id);
+  // Clean from log
+  Object.keys(habitLog).forEach(d=>{
+    habitLog[d] = habitLog[d].filter(hid=>hid!==id);
+  });
+  saveHabits(); saveHabitLog();
+  closeModal('modal-habit');
+  renderAll();
+}
+
+// Prune habit log entries older than 90 days on boot
+function pruneHabitLog(){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-90);
+  const cutStr = cutoff.toISOString().slice(0,10);
+  let changed = false;
+  Object.keys(habitLog).forEach(d=>{
+    if(d < cutStr){ delete habitLog[d]; changed=true; }
+  });
+  if(changed) saveHabitLog();
+}
+
+
 function savePinned(){
   // Pins persist to cloud via saveAllDebounced — no localStorage needed
   saveAllDebounced();
@@ -8982,6 +9214,9 @@ async function bootApp(){
   await loadAll();
   document.getElementById("loading").style.display="none";
   document.getElementById("app").style.display="flex";
+  // Auto-advance daily recurring tasks — no pile-up for habit-style tasks
+  advanceDailyTasks();
+  pruneHabitLog();
   renderAll();
   checkMorningRitual();
 }
