@@ -1,65 +1,85 @@
 // ═══════════════════════════════════════════════════════════════
-// Jason's Command Center — Service Worker
-// Handles: push notifications, background alarms, offline cache,
-//          app badge updates
+// Jason's Command Center — Service Worker v37
+// Handles: push notifications (both server-sent VAPID + in-app alarms)
+//          background badge updates
 // ═══════════════════════════════════════════════════════════════
-//
-// ┌─────────────────────────────────────────────────────────────┐
-// │  DEPLOY CHECKLIST                                           │
-// │  Every time you update index.html, bump the version below:  │
-// │  v1 → v2 → v3 etc.                                         │
-// │  This tells installed apps to fetch the latest version.     │
-// └─────────────────────────────────────────────────────────────┘
 
-const CACHE_NAME = 'command-center-v36'; // ← bump to force SW update
+const CACHE_NAME = 'command-center-v37'; // ← bump to force SW update on all devices
 
 // ── Install: skip waiting, activate immediately ──────────────────
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// ── Activate: claim clients immediately ─────────────────────────
+// ── Activate: claim clients, clear old caches ───────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    // Clear any previously cached content
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(k => k !== 'sw-store-v1') // keep the alarm store cache
+          .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// ── Fetch: pass-through — no caching, always network ────────────
-// Caching removed to prevent stale HTML after deployments.
-// The SW exists solely for push notifications and badge updates.
+// ── Fetch: pass-through — no HTML caching ───────────────────────
 self.addEventListener('fetch', event => {
-  // Let the browser handle all requests normally
-  return;
+  return; // always network
 });
 
-// ── Push: handle server-sent push notifications ─────────────────
-// (Used when you set up a VAPID push server later)
+// ── Push: handle server-sent VAPID push notifications ───────────
+// Payload from Apps Script (Code.gs sendWebPush):
+// { title, body, tag, url, icon, badge, vibrate, actions? }
 self.addEventListener('push', event => {
-  let data = { title: '⚔ Command Center', body: 'You have an update.' };
-  try { data = event.data.json(); } catch(e) {
-    try { data.body = event.data.text(); } catch(e2) {}
+  let data = {
+    title:   '⚔ Command Center',
+    body:    'Tap to open.',
+    tag:     'command-center',
+    url:     '/',
+    icon:    '/icon-192.svg',
+    badge:   '/icon-192.svg',
+    vibrate: [200, 100, 200]
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      Object.assign(data, parsed);
+    } catch(e) {
+      try { data.body = event.data.text(); } catch(e2) {}
+    }
   }
+
+  // Default action buttons per tag if not provided in payload
+  const defaultActions = {
+    morning: [{ action: 'open', title: '☀ Open Today' }, { action: 'skip', title: 'Skip' }],
+    midday:  [{ action: 'open', title: '⚔ Check in'  }, { action: 'later', title: 'Later' }],
+    eod:     [{ action: 'open', title: '🌙 Close day' }, { action: 'done',  title: 'Done ✓' }],
+    nudge:   [{ action: 'open', title: '👥 See contacts' }, { action: 'later', title: 'Later' }],
+  };
+
+  const actions = data.actions || defaultActions[data.tag] || [
+    { action: 'open', title: 'Open App' },
+    { action: 'dismiss', title: 'Dismiss' }
+  ];
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body:    data.body,
-      icon:    data.icon    || '/icon-192.svg',
-      badge:   data.badge   || '/icon-192.svg',
-      tag:     data.tag     || 'command-center',
+      icon:    data.icon  || '/icon-192.svg',
+      badge:   data.badge || '/icon-192.svg',
+      tag:     data.tag,
       data:    { tag: data.tag, url: data.url || '/' },
-      vibrate: [150, 80, 150],
-      actions: data.actions || [
-        { action: 'open',    title: 'Open App' },
-        { action: 'dismiss', title: 'Dismiss'  }
-      ]
+      vibrate: data.vibrate || [200, 100, 200],
+      actions: actions,
+      requireInteraction: data.tag === 'morning' || data.tag === 'eod'
     })
   );
 });
 
-// ── Notification click: open/focus the app ──────────────────────
+// ── Notification click: open app at the correct deep link ────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
@@ -68,9 +88,8 @@ self.addEventListener('notificationclick', event => {
   const data   = event.notification.data || {};
   const url    = data.url || '/';
 
-  // Action button: skip morning — just dismiss, mark done via message
-  if (action === 'skip' || action === 'later' || action === 'done') {
-    // Tell app to mark the ritual/eod as skipped for today if open
+  // Dismissive actions — tell app to mark as handled, don't open
+  if (action === 'skip' || action === 'later' || action === 'dismiss') {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
       for (const client of clients) {
         if (client.url.includes(self.location.origin)) {
@@ -81,9 +100,26 @@ self.addEventListener('notificationclick', event => {
     return;
   }
 
-  // All other actions (open, focus, close, default tap) → open/focus app
+  // 'done' on EOD — mark done without opening if app is open
+  if (action === 'done' && tag === 'eod') {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin)) {
+          client.postMessage({ type: 'NOTIF_ACTION', action, tag });
+          return;
+        }
+      }
+      // App not open — open it so the action can be handled
+      if (self.clients.openWindow) self.clients.openWindow(url);
+    });
+    return;
+  }
+
+  // All other actions (open, default tap) → open/focus app at the correct URL
+  // For server-sent push, url carries the deep link from Code.gs payload
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      // If app is already open, focus it and post navigation message
       for (const client of clients) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.focus();
@@ -91,68 +127,66 @@ self.addEventListener('notificationclick', event => {
           return;
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(url);
+      // App not open — open at the deep link URL
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
+      }
     })
   );
 });
 
-// ── Background Sync: fire alarm notifications when app is closed ─
-// The app posts a 'SCHEDULE_ALARMS' message on load with today's
-// alarm config. The SW stores it and fires at the right times.
+// ── In-app alarm loop (fires when app is open or SW active) ──────
+// The app posts SCHEDULE_ALARMS on load. SW stores config and
+// checks every minute. This is the fallback for when VAPID push
+// isn't set up yet, or as a supplement to server-sent push.
 
 let alarmInterval = null;
 let alarmConfig   = null;
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SCHEDULE_ALARMS') {
+  if (!event.data) return;
+  if (event.data.type === 'SCHEDULE_ALARMS') {
     alarmConfig = event.data.alarms;
     startAlarmLoop();
   }
-  if (event.data && event.data.type === 'UPDATE_BADGE') {
-    updateBadge(event.data.count);
-  }
-  if (event.data && event.data.type === 'CLEAR_BADGE') {
-    clearBadge();
-  }
+  if (event.data.type === 'UPDATE_BADGE') updateBadge(event.data.count);
+  if (event.data.type === 'CLEAR_BADGE')  clearBadge();
 });
 
 function startAlarmLoop() {
   if (alarmInterval) clearInterval(alarmInterval);
-  alarmInterval = setInterval(checkAlarms, 60 * 1000); // every minute
-  checkAlarms(); // run immediately too
+  alarmInterval = setInterval(checkAlarms, 60 * 1000);
+  checkAlarms();
 }
 
 async function checkAlarms() {
   if (!alarmConfig) return;
-  const now  = new Date();
-  const h    = now.getHours();
-  const m    = now.getMinutes();
+  const now     = new Date();
+  const h       = now.getHours();
+  const m       = now.getMinutes();
   const dateStr = now.toISOString().slice(0, 10);
 
   for (const alarm of alarmConfig) {
     if (h !== alarm.hour) continue;
-    if (m > 10) continue; // only fire in the first 10 min of the hour
-    const firedKey = 'alarm-fired-' + alarm.tag + '-' + dateStr;
+    if (m > 10) continue; // only fire in first 10 min of the hour
+
+    const firedKey    = 'alarm-fired-' + alarm.tag + '-' + dateStr;
     const alreadyFired = await getStore(firedKey);
     if (alreadyFired) continue;
 
-    // Check condition
     let shouldFire = false;
     if (alarm.tag === 'morning') {
       const done = await getStore('hub-morning-done');
       shouldFire = done !== dateStr;
     } else if (alarm.tag === 'overdue') {
-      const od = alarm.overdueCount || 0;
-      shouldFire = od > 0;
+      shouldFire = (alarm.overdueCount || 0) > 0;
     } else if (alarm.tag === 'eod') {
       const done = await getStore('hub-eod-done');
       shouldFire = done !== dateStr;
     } else if (alarm.tag === 'nudge') {
-      const count = alarm.nudgeCount || 0;
-      shouldFire = count > 0 && alarm.title; // only fire if there are overdue contacts
+      shouldFire = (alarm.nudgeCount || 0) > 0 && !!alarm.title;
     } else if (alarm.tag === 'kids-prizes') {
-      const count = alarm.unclaimedCount || 0;
-      shouldFire = count > 0;
+      shouldFire = (alarm.unclaimedCount || 0) > 0;
     }
 
     if (shouldFire) {
@@ -163,7 +197,7 @@ async function checkAlarms() {
         badge:   '/icon-192.svg',
         tag:     alarm.tag,
         vibrate: [200, 100, 200],
-        data:    '/'
+        data:    { tag: alarm.tag, url: '/' }
       });
     }
   }
@@ -171,18 +205,17 @@ async function checkAlarms() {
 
 // ── Badge API ────────────────────────────────────────────────────
 function updateBadge(count) {
-  if ('setAppBadge' in navigator) {
-    navigator.setAppBadge(count).catch(() => {});
+  if ('setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge(count).catch(() => {});
   }
 }
-
 function clearBadge() {
-  if ('clearAppBadge' in navigator) {
-    navigator.clearAppBadge().catch(() => {});
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
   }
 }
 
-// ── Simple key-value store via Cache API (survives SW restart) ───
+// ── Key-value store via Cache API (survives SW restart) ──────────
 async function getStore(key) {
   try {
     const cache = await caches.open('sw-store-v1');
@@ -191,7 +224,6 @@ async function getStore(key) {
     return await resp.text();
   } catch(e) { return null; }
 }
-
 async function setStore(key, value) {
   try {
     const cache = await caches.open('sw-store-v1');
