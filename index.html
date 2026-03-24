@@ -1642,6 +1642,20 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
 </div>
 
 <div id="toast"></div>
+
+<!-- Frictionless capture button — always visible -->
+<button id="global-capture-btn"
+  onclick="openFrictionlessCapture()"
+  style="position:fixed;bottom:80px;right:16px;z-index:900;
+    width:52px;height:52px;border-radius:50%;border:none;
+    background:var(--accent);color:#1a1f2e;font-size:22px;
+    box-shadow:0 4px 16px rgba(232,168,56,0.45);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform 0.15s;" title="Capture anything"
+  onmousedown="this.style.transform='scale(0.9)'"
+  onmouseup="this.style.transform='scale(1)'"
+  ontouchstart="this.style.transform='scale(0.9)'"
+  ontouchend="this.style.transform='scale(1)'">+</button>
 <div id="undo-bar">
   <svg id="undo-countdown" viewBox="0 0 22 22">
     <circle class="track" cx="11" cy="11" r="8"/>
@@ -1844,25 +1858,41 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
     <div class="modal-title">🌅 SUNDAY RESET</div>
     <div class="reset-progress" id="reset-progress"></div>
     <div id="reset-step-1" class="reset-step active">
-      <div class="reset-step-num">STEP 1 OF 6 · 3 MIN</div>
+      <div class="reset-step-num">STEP 1 OF 7 · 3 MIN</div>
       <div class="reset-step-title">🧠 Brain Dump</div>
       <div class="reset-step-desc">Everything floating in your head — work, home, family. No filtering, no structure. Just get it out.</div>
       <textarea class="reset-textarea" id="reset-dump" placeholder="What's on your mind? Worries, tasks, ideas, things you haven't done…"></textarea>
     </div>
     <div id="reset-step-2" class="reset-step">
-      <div class="reset-step-num">STEP 2 OF 6 · 3 MIN</div>
+      <div class="reset-step-num">STEP 2 OF 7 · 3 MIN</div>
       <div class="reset-step-title">📖 Close Last Week</div>
       <div class="reset-step-desc">What happened? What didn't? Any loose commitments to carry forward? No judgment — just capture.</div>
       <textarea class="reset-textarea" id="reset-close" placeholder="What got done, what slipped, what do you owe anyone…"></textarea>
     </div>
     <div id="reset-step-3" class="reset-step">
-      <div class="reset-step-num">STEP 3 OF 6 · 3 MIN</div>
+      <div class="reset-step-num">STEP 3 OF 7 · 3 MIN</div>
       <div class="reset-step-title">📅 Look Ahead</div>
       <div class="reset-step-desc">What's on the calendar this week? What will eat your bandwidth? Anything that changes your capacity?</div>
       <textarea class="reset-textarea" id="reset-ahead" placeholder="Meetings, travel, deadlines, family events, anything that shapes the week…"></textarea>
     </div>
+    <!-- Step 4: Overdue task review -->
+    <div id="reset-step-3b" class="reset-step">
+      <div class="reset-step-num">STEP 4 OF 7 · 3 MIN</div>
+      <div class="reset-step-title">⚠ Overdue — Make a Decision</div>
+      <div class="reset-step-desc">These tasks are past due. For each one: reschedule, drop it, or keep it active. No silent carrying-forward.</div>
+      <div id="reset-overdue-list" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- Step 5: Stale task triage -->
+    <div id="reset-step-5" class="reset-step">
+      <div class="reset-step-num">STEP 5 OF 7 · 3 MIN</div>
+      <div class="reset-step-title">🕰 Stale Tasks — Still Real?</div>
+      <div class="reset-step-desc">These tasks haven't been touched in 30+ days. Decide: keep it, drop it, or move to Someday.</div>
+      <div id="reset-stale-list" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+
     <div id="reset-step-6" class="reset-step">
-      <div class="reset-step-num">STEP 5 OF 6 · 5 MIN</div>
+      <div class="reset-step-num">STEP 6 OF 7 · 5 MIN</div>
       <div class="reset-step-title">⚔ Pick Your 3s</div>
       <div class="reset-step-desc">Tap each slot to search and assign a task. These will appear on your Today tab.</div>
       <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;margin-bottom:6px;">💼 WORK — 3 things</div>
@@ -1877,7 +1907,7 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       <div id="reset-slot-f3" class="reset-slot-picker" data-slot="f3" data-label="Logistics" onclick="openResetSlotPicker('f3','Logistics')"></div>
     </div>
     <div id="reset-step-4" class="reset-step">
-      <div class="reset-step-num">STEP 4 OF 6 · 2 MIN</div>
+      <div class="reset-step-num">STEP 3 OF 7 · 2 MIN</div>
       <div class="reset-step-title">🎯 Set Your 3 Wins</div>
       <div class="reset-step-desc">What would make this week a win? Three specific, achievable outcomes. These stay visible on your Today screen all week.</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
@@ -1894,10 +1924,17 @@ input,select,textarea{font-size:16px !important;} /* prevent iOS zoom on focus *
       </div>
     </div>
     <div id="reset-step-5" class="reset-step">
-      <div class="reset-step-num">STEP 6 OF 6 · 2 MIN</div>
+      <div class="reset-step-num">STEP 7 OF 7 · 2 MIN</div>
       <div class="reset-step-title">🕊 Release</div>
       <div class="reset-step-desc">Everything that didn't make the 3s goes to the Parking Lot. It's not lost — it's just not this week. That's the deal.</div>
+      <div id="reset-streak-display" style="margin-bottom:10px;"></div>
       <div id="reset-people-nudges" style="margin-top:10px;"></div>
+      <div style="margin-bottom:14px;">
+        <div style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--accent);letter-spacing:0.5px;margin-bottom:6px;">🌟 ONE THING — what would make next week a success?</div>
+        <input id="reset-north-star" class="field-input" placeholder="If I do one thing this week, it's…"
+          value="${weeklyIntentions.northStar||''}"/>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:4px;">This shows at the top of Today every morning next week.</div>
+      </div>
       <div style="background:var(--accent-soft);border:1px solid rgba(232,168,56,0.25);border-radius:4px;padding:12px;font-size:13px;color:var(--text2);line-height:1.6;">
         ✓ Your week has a shape now.<br>
         ✓ Everything else is parked, not lost.<br>
@@ -2080,6 +2117,9 @@ let filterDue=new Set();         // "overdue"|"today"|"week"|"month"|"none"
 let filterPerson=new Set();      // person IDs
 let todayPinned=new Set();       // task IDs pinned to Today view
 let viewMode="list", activeNav="today";
+// VAPID public key — must match the key stored in Apps Script Properties
+// After running generateVAPIDKeysManual(), paste your public key here
+const VAPID_PUBLIC_KEY = localStorage.getItem('hub-vapid-pubkey') || '';
 
 // Derived helpers
 const realmActive=()=>filterRealm.size>0;
@@ -2254,10 +2294,11 @@ async function loadAll(){
   const bestLongest  = Math.max(localLongest, cloudLongest);
   if(bestLongest > localLongest) localStorage.setItem("hub-longest-streak", String(bestLongest));
 
-  // Load today's pinned task IDs from cloud
+  // Load today's pinned task IDs from cloud — always apply, even empty
+  // Empty array means user unpinned everything — must sync that state across devices
   try {
     const cloudPins = data.todayPinned;
-    if(Array.isArray(cloudPins) && cloudPins.length > 0){
+    if(Array.isArray(cloudPins)){
       todayPinned = new Set(cloudPins);
     }
   } catch(e){}
@@ -2266,6 +2307,7 @@ async function loadAll(){
   if(!data){ return; } // API call failed — keep whatever is in localStorage
   // Save side uses _cloudLoaded to prevent empty saves (see getCloudStats)
   try { if(data.waitingFor   !== undefined){ waitingFor   = data.waitingFor;   localStorage.setItem('hub-waiting',          JSON.stringify(waitingFor));   if(waitingFor.length>0)   _cloudLoaded.add('waitingFor');   }} catch(e){ console.error('load waitingFor',e); }
+  try { if(data.resetStreak)               { resetStreak = data.resetStreak; localStorage.setItem('hub-reset-streak', JSON.stringify(resetStreak)); }} catch(e){}
   try { if(data.weeklyIntentions)          { weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); }} catch(e){}
   try { if(data.somedayList  !== undefined){ somedayList  = data.somedayList;  localStorage.setItem('hub-someday',          JSON.stringify(somedayList));  }} catch(e){}
   try { if(data.peopleList   !== undefined){ peopleList   = data.peopleList;   localStorage.setItem('hub-people',           JSON.stringify(peopleList));   if(peopleList.length>0)   _cloudLoaded.add('peopleList');   }} catch(e){ console.error('load peopleList',e); }
@@ -2316,6 +2358,7 @@ function getCloudStats(){
     todayPinned:      [...todayPinned],
     waitingFor:       waitingFor,
     weeklyIntentions: weeklyIntentions,
+    resetStreak:      resetStreak,
     somedayList:      somedayList,
     peopleList:       peopleList,
     contactsList:     contactsList,
@@ -2936,6 +2979,10 @@ function renderTaskList(container){
   }
 
   container.innerHTML=html;
+  // Someday / Maybe — always at the bottom, collapsible
+  const _sdDiv = document.createElement('div');
+  _sdDiv.innerHTML = renderSomedaySection();
+  if(_sdDiv.firstElementChild) container.appendChild(_sdDiv.firstElementChild);
 }
 
 function toggleTasklistDomain(label){
@@ -3147,6 +3194,8 @@ function renderTaskRow(task,proj){
       <span class="tctl-spacer"></span>
       <button class="tctl-btn" onclick="event.stopPropagation();openEditTask('${task.id}')" title="Edit task" style="color:var(--text2);">✏ EDIT</button>
       <button class="tctl-btn" onclick="event.stopPropagation();openTaskAI('${task.id}')" title="AI Assist" style="color:var(--accent);border-color:rgba(232,168,56,0.4);">🤖 AI</button>
+      <button class="tctl-btn" onclick="event.stopPropagation();copyTaskLink('${task.id}')" title="Copy link to this task" style="color:var(--text3);">🔗</button>
+      <button class="tctl-btn" onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')" title="Move to Someday" style="color:var(--text3);">💭</button>
       <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
     </div>
     ${notesToggle}
@@ -4357,7 +4406,7 @@ function setChartRange(days){
   renderCharts(main);
 }
 
-function saveRavenSettings(){
+async function saveRavenSettings(){
   const email=document.getElementById("raven-email")?.value?.trim();
   const hour=document.getElementById("raven-time")?.value||"7";
   const kingdom=document.getElementById("raven-inc-kingdom")?.checked!==false;
@@ -4368,8 +4417,19 @@ function saveRavenSettings(){
   localStorage.setItem("hub-raven-kingdom",String(kingdom));
   localStorage.setItem("hub-raven-home",String(home));
   const el=document.getElementById("raven-status");
-  if(el) el.textContent="✓ Email settings saved";
-  showToast("✓ Email settings saved");
+  if(el) el.textContent="📡 Saving email to server…";
+  // Explicitly push to Apps Script so triggers can find it
+  // (saveAllDebounced may not have fired yet on this device)
+  try{
+    await apiCall("saveRavenEmail",{email,hour,kingdom,home});
+    if(el) el.textContent="✓ Email saved and synced to server";
+    showToast("✓ Email saved — triggers will use this address");
+  }catch(e){
+    if(el) el.textContent="✓ Saved locally (sync failed — will retry)";
+    showToast("✓ Email saved locally");
+  }
+  // Also fire saveAllDebounced to sync via the normal path
+  saveAllDebounced();
 }
 
 async function sendTestRaven(){
@@ -4575,6 +4635,13 @@ function renderSettings(container){
         <div style="padding:10px 4px 0;">
           <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
           <button class="hbtn" style="width:100%;margin-bottom:8px;" onclick="recoverMeetingTasks()">🔁 Recover Meeting Tasks</button>
+          <div style="margin-bottom:8px;">
+            <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:5px;">🔔 VAPID PUBLIC KEY (for background push)</div>
+            <input id="vapid-key-input" class="field-input" style="margin:0 0 5px;font-size:11px;font-family:monospace;"
+              placeholder="Paste public key from vapidkeys.com…"
+              value="${localStorage.getItem('hub-vapid-pubkey')||''}"/>
+            <button onclick="saveVAPIDKey()" style="width:100%;padding:7px;border-radius:6px;border:none;background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">Save VAPID Key</button>
+          </div>
           <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
           <button class="hbtn" style="width:100%;margin-bottom:8px;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
           <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
@@ -5434,7 +5501,8 @@ function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r
 function saveHubData(key, val){ localStorage.setItem(key, JSON.stringify(val)); saveAllDebounced(); }
 
 let waitingFor     = loadHubData('hub-waiting', []);    // [{id,person,what,dueDate,taskId,done,createdAt}]
-let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']}); // {week, wins:[3 strings]}
+let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']});
+let resetStreak      = loadHubData('hub-reset-streak', {count:0, lastWeek:'', longest:0}); // {week, wins:[3 strings]}
 let somedayList    = loadHubData('hub-someday', []);    // [{id,title,createdAt}]
 let peopleList     = loadHubData('hub-people', []);     // [{id,name,role}] — meeting/waiting-for contacts
 let contactsList   = loadHubData('hub-contacts', []);   // [{id,name,role,lastContact,nudgeDays}] — relationship nudges
@@ -5727,6 +5795,30 @@ function renderTodayView(container){
   </div>`;
 
   // ── Brain dump bar (always visible — quick capture) ───────────
+  // North star — show if set for this week
+  if(weeklyIntentions.northStar && isCurrentWeekIntentions()){
+    html += `<div style="margin:0 10px 8px;padding:10px 14px;border-radius:8px;
+      background:linear-gradient(135deg,rgba(232,168,56,0.08),rgba(232,168,56,0.03));
+      border:1px solid rgba(232,168,56,0.2);display:flex;align-items:center;gap:10px;">
+      <span style="font-size:16px;flex-shrink:0;">🌟</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;font-family:var(--font-ui);font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:2px;">THIS WEEK'S ONE THING</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.4;">${esc(weeklyIntentions.northStar)}</div>
+      </div>
+    </div>`;
+  }
+
+  // Reset streak badge — shown when streak >= 2
+  if(resetStreak.count >= 2){
+    html += '<div style="margin:0 10px 6px;display:flex;align-items:center;gap:8px;">' +
+      '<span style="font-size:11px;font-family:var(--font-ui);font-weight:700;color:var(--text4);">🔥 ' +
+      resetStreak.count + '-week reset streak</span>' +
+      (resetStreak.longest > resetStreak.count
+        ? '<span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">· best: ' + resetStreak.longest + '</span>'
+        : '') +
+    '</div>';
+  }
+
   html += `<div class="brain-dump-bar">
     <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Capture a thought…"
       onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
@@ -5755,7 +5847,7 @@ function renderTodayView(container){
             <div style="font-size:13px;font-weight:600;color:var(--text);">${esc(c.name)}</div>
             <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${daysSince===null?'Never contacted':`${daysSince}d ago`} · every ${c.nudgeDays}d</div>
           </div>
-          <button onclick="logContact('${c.id}');renderAll();" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Done</button>
+          <button onclick="openLogContactModal('${c.id}');" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Log</button>
         </div>`;
       }).join('')}
       ${nudges.length>3?`<div style="padding:6px 12px;font-size:11px;color:var(--text4);font-family:var(--font-ui);text-align:center;">+${nudges.length-3} more on People page</div>`:''}
@@ -5793,15 +5885,48 @@ function renderTodayView(container){
   }
 
   // ── Today's task list ─────────────────────────────────────────
+  // Overdue — not pinned (auto-surfaced, red)
   const overdueUnpinned = tasks.filter(t=>
     t.status!=='done'&&t.status!=='blocked'&&
     t.dueDate&&t.dueDate<todayStr&&!todayPinned.has(t.id)
   );
+  // Due today — not pinned (auto-surfaced, amber)
+  const dueTodayUnpinned = tasks.filter(t=>
+    t.status!=='done'&&t.status!=='blocked'&&
+    t.dueDate&&t.dueDate===todayStr&&!todayPinned.has(t.id)
+  );
+  // Pinned tasks (manually chosen, any due date)
   const pinnedTasks = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])]
     .map(id=>tasks.find(t=>t.id===id))
     .filter(t=>t&&t.status!=='done');
   const pinnedDone = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
-  const totalToday = overdueUnpinned.length + pinnedTasks.length;
+  const totalToday = overdueUnpinned.length + dueTodayUnpinned.length + pinnedTasks.length;
+
+  // Cognitive load indicator
+  const _activeTasks = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
+  const _estimateHours = {none:1,'15m':0.25,'30m':0.5,'1h':1,'2h':2,'4h':4,'8h+':8};
+  const _loadHours = pinnedTasks.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0)
+    + overdueUnpinned.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0)
+    + dueTodayUnpinned.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0);
+  const _totalActive = _activeTasks.length;
+  if(_totalActive > 35 || _loadHours > 10){
+    const isOverloaded = _totalActive > 50 || _loadHours > 12;
+    html += `<div style="margin:0 10px 8px;padding:10px 12px;border-radius:8px;
+      border:1px solid ${isOverloaded?'rgba(239,83,80,0.4)':'rgba(255,160,40,0.3)'};
+      background:${isOverloaded?'rgba(239,83,80,0.06)':'rgba(255,160,40,0.05)'};
+      display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">${isOverloaded?'🔴':'🟡'}</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:800;font-family:var(--font-ui);color:${isOverloaded?'#EF5350':'#E8A838'};">
+          ${isOverloaded?'OVERLOADED':'HIGH LOAD'} — ${_totalActive} active tasks
+        </div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);margin-top:2px;">
+          ${_loadHours>0?`~${Math.round(_loadHours)}h of work pinned today · `:''}Consider deferring some items
+        </div>
+      </div>
+      <button onclick="taskViewMode='priority';setNav('tasks')" style="padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">Triage →</button>
+    </div>`;
+  }
 
   html += `<div style="padding:4px 12px 2px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;">TODAY'S LIST</div>
@@ -5811,7 +5936,7 @@ function renderTodayView(container){
     </div>
   </div>`;
 
-  if(overdueUnpinned.length===0&&pinnedTasks.length===0&&pinnedDone.length===0){
+  if(overdueUnpinned.length===0&&dueTodayUnpinned.length===0&&pinnedTasks.length===0&&pinnedDone.length===0){
     html += `<div style="margin:8px 10px 4px;padding:14px 16px;border-radius:10px;border:1px dashed var(--border2);text-align:center;">
       <div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);">No tasks picked for today yet.</div>
       <button onclick="openTodayPicker()" style="margin-top:8px;padding:7px 16px;border-radius:7px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">Pick your tasks →</button>
@@ -5832,6 +5957,25 @@ function renderTodayView(container){
           </div>
         </div>
         <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" title="Focus on this" style="padding:4px 8px;border-radius:5px;border:none;background:var(--accent);color:#1a1f2e;font-size:11px;font-weight:800;cursor:pointer;">▶</button>
+      </div>`;
+    });
+
+    // Due today (auto-surfaced, amber — not pinned)
+    dueTodayUnpinned.forEach((t,i)=>{
+      const proj=projects.find(p=>p.id===t.projectId);
+      html += `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:rgba(232,168,56,0.05);border-bottom:1px solid var(--border);cursor:pointer;">
+        <button onclick="event.stopPropagation();completeTask('${t.id}',event)" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</button>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+            <span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);font-weight:700;">📅 DUE TODAY</span>
+            ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" style="padding:4px 8px;border-radius:5px;border:none;background:var(--accent);color:#1a1f2e;font-size:11px;font-weight:800;cursor:pointer;">▶</button>
+          <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin to today" style="padding:4px 7px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">📌</button>
+        </div>
       </div>`;
     });
 
@@ -6050,7 +6194,7 @@ function openReset(){
 function renderResetProgress(){
   const el=document.getElementById('reset-progress');
   if(!el) return;
-  el.innerHTML=Array.from({length:6},(_,i)=>{
+  el.innerHTML=Array.from({length:7},(_,i)=>{
     const s=i+1;
     return `<div class="reset-dot ${s<resetStep?'done':s===resetStep?'active':''}"></div>`;
   }).join('');
@@ -6058,27 +6202,113 @@ function renderResetProgress(){
 
 function showResetStep(n){
   document.querySelectorAll('.reset-step').forEach(el=>el.classList.remove('active'));
-  const el=document.getElementById(`reset-step-${n}`);
+  // Step numbering: 1,2,3,3b,4,5,6,7
+  const stepMap = {1:'1',2:'2',3:'3',3.5:'3b',4:'4',5:'5',6:'6',7:'7'};
+  const stepId = Number.isInteger(n) ? String(n) : stepMap[n] || String(n);
+  const el = document.getElementById(`reset-step-${stepId}`);
   if(el) el.classList.add('active');
-  const next=document.getElementById('reset-next-btn');
-  const back=document.getElementById('reset-back-btn');
-  if(next) next.textContent=n===6?'✓ DONE':'NEXT →';
-  if(back) back.style.display=n>1?'inline-flex':'none';
+  const next = document.getElementById('reset-next-btn');
+  const back = document.getElementById('reset-back-btn');
+  if(next) next.textContent = n===7 ? '✓ DONE' : 'NEXT →';
+  if(back) back.style.display = n>1 ? 'inline-flex' : 'none';
   renderResetProgress();
-  // Step 6: show people nudges
-  if(n===6){
+
+  // Step 4: populate overdue task list
+  if(n===4){
+    const todayStr = today();
+    const overdueList = tasks.filter(t=>
+      t.status!=='done' && t.status!=='blocked' && t.dueDate && t.dueDate < todayStr
+    ).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+    const el4 = document.getElementById('reset-overdue-list');
+    if(el4){
+      el4.innerHTML = overdueList.length===0
+        ? `<div style="padding:16px;text-align:center;color:var(--green);font-family:var(--font-ui);font-size:13px;">✓ No overdue tasks — you're on top of it.</div>`
+        : overdueList.map(t=>{
+            const proj = projects.find(p=>p.id===t.projectId);
+            return `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
+                <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
+                  ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+                  <span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);">⚠ ${t.dueDate}</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+                <button onclick="resetTaskAction('${t.id}','reschedule')" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(232,168,56,0.4);background:transparent;color:var(--accent);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;">📅 Reschedule</button>
+                <button onclick="resetTaskAction('${t.id}','someday')" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">💭 Someday</button>
+                <button onclick="resetTaskAction('${t.id}','drop')" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font-family:var(--font-ui);font-size:10px;cursor:pointer;">✕ Drop</button>
+              </div>
+            </div>`;
+          }).join('');
+    }
+  }
+
+  // Step 5: populate stale task list (30+ days untouched)
+  if(n===5){
+    const now = Date.now();
+    const staleTasks = tasks.filter(t=>{
+      if(t.status==='done') return false;
+      const age = t.createdAt ? Math.floor((now - parseInt(t.createdAt))/86400000) : 0;
+      return age >= 30;
+    }).sort((a,b)=>{
+      const aAge = a.createdAt ? Date.now()-parseInt(a.createdAt) : 0;
+      const bAge = b.createdAt ? Date.now()-parseInt(b.createdAt) : 0;
+      return bAge - aAge; // oldest first
+    });
+    const el5 = document.getElementById('reset-stale-list');
+    if(el5){
+      el5.innerHTML = staleTasks.length===0
+        ? `<div style="padding:16px;text-align:center;color:var(--green);font-family:var(--font-ui);font-size:13px;">✓ No stale tasks — everything is recent.</div>`
+        : staleTasks.map(t=>{
+            const proj = projects.find(p=>p.id===t.projectId);
+            const ageDays = t.createdAt ? Math.floor((Date.now()-parseInt(t.createdAt))/86400000) : '?';
+            return `<div id="stale-row-${t.id}" style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
+                <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
+                  ${proj?`<span style="font-size:10px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:''}
+                  <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">🕰 ${ageDays}d old</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+                <button onclick="resetTaskAction('${t.id}','keep')" style="padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;">✓ Keep</button>
+                <button onclick="resetTaskAction('${t.id}','someday')" style="padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">💭 Someday</button>
+                <button onclick="resetTaskAction('${t.id}','drop')" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font-family:var(--font-ui);font-size:10px;cursor:pointer;">✕ Drop</button>
+              </div>
+            </div>`;
+          }).join('');
+    }
+  }
+
+  // Step 7: show contacts nudge + streak + north star pre-fill
+  if(n===7){
+    // Streak display
+    const streakEl = document.getElementById('reset-streak-display');
+    if(streakEl && resetStreak.count > 0){
+      streakEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(232,168,56,0.08);border:1px solid rgba(232,168,56,0.2);">
+        <span style="font-size:24px;">🔥</span>
+        <div>
+          <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--accent);">${resetStreak.count} week${resetStreak.count!==1?'s':''} in a row</div>
+          ${resetStreak.longest>1?`<div style="font-size:11px;color:var(--text3);font-family:var(--font-ui);">Best: ${resetStreak.longest} weeks</div>`:''}
+        </div>
+      </div>`;
+    }
+    // Pre-fill north star
+    const ns = document.getElementById('reset-north-star');
+    if(ns && weeklyIntentions.northStar) ns.value = weeklyIntentions.northStar;
+    // Contacts nudge
     const nudgeEl = document.getElementById('reset-people-nudges');
     if(nudgeEl && contactsList.length>0){
       const nudges = getPeopleNudges();
       nudgeEl.innerHTML = nudges.length>0
-        ? `<div style="padding:10px;border-radius:8px;border:1px solid rgba(232,168,56,0.3);background:rgba(232,168,56,0.05);">
+        ? `<div style="padding:10px;border-radius:8px;border:1px solid rgba(232,168,56,0.3);background:rgba(232,168,56,0.05);margin-bottom:12px;">
             <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:8px;">👥 PEOPLE TO REACH OUT TO</div>
             ${nudges.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
               <div style="font-size:13px;flex:1;color:var(--text);">${esc(p.name)}</div>
-              <button onclick="logContact('${p.id}');showResetStep(6);" style="padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✓ Done</button>
+              <button onclick="openLogContactModal('${p.id}');showResetStep(7);" style="padding:3px 8px;border-radius:4px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:10px;cursor:pointer;">✓ Log</button>
             </div>`).join('')}
           </div>`
-        : `<div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);padding:6px 0;">👥 Everyone's been touched this week ✓</div>`;
+        : `<div style="font-size:12px;color:var(--text3);font-family:var(--font-ui);padding:6px 0;margin-bottom:8px;">👥 Everyone's been touched this week ✓</div>`;
     }
   }
 }
@@ -6092,12 +6322,78 @@ function resetNext(){
     if(dump||close||ahead){
       saveWeeklyJournal({dump, close, ahead});
     }
-    // Render step 4 pickers with current slot state
+  }
+  // Render pickers when we reach step 3b (Set Your 3 Wins)
+  if(resetStep===3.5){
     renderResetPickers();
   }
-  if(resetStep>=6){closeModal('modal-reset');renderAll();showToast('🌅 WEEK IS SET. GO CONQUER IT.');return;}
-  resetStep++;
+  if(resetStep>=7){
+    // Save north star
+    const ns = document.getElementById('reset-north-star')?.value.trim()||'';
+    if(ns){
+      weeklyIntentions.northStar = ns;
+      saveIntentions();
+    }
+    // Update reset streak
+    const thisWeek = getWeekKey();
+    const lastWeekKey = resetStreak.lastWeek || '';
+    // Get previous week key
+    const prevMonday = new Date(); prevMonday.setDate(prevMonday.getDate() - 7 - (new Date().getDay()===0?6:new Date().getDay()-1));
+    const prevWeekKey = prevMonday.toISOString().slice(0,10);
+    if(lastWeekKey === prevWeekKey || lastWeekKey === thisWeek){
+      // Consecutive week or re-doing this week
+      if(lastWeekKey !== thisWeek){
+        resetStreak.count = (resetStreak.count||0) + 1;
+        resetStreak.longest = Math.max(resetStreak.longest||0, resetStreak.count);
+        resetStreak.lastWeek = thisWeek;
+      }
+    } else {
+      // Streak broken — restart
+      resetStreak.count = 1;
+      resetStreak.lastWeek = thisWeek;
+    }
+    saveHubData('hub-reset-streak', resetStreak);
+    saveAllDebounced();
+    closeModal('modal-reset');
+    renderAll();
+    const streakMsg = resetStreak.count > 1 ? ` 🔥 ${resetStreak.count} week streak!` : '';
+    showToast('🌅 WEEK IS SET. GO CONQUER IT.' + streakMsg);
+    return;
+  }
+  // Step ordering: 1,2,3,3.5(3b),4,5,6,7
+  const stepOrder = [1,2,3,3.5,4,5,6,7];
+  const curIdx = stepOrder.indexOf(resetStep);
+  resetStep = curIdx >= 0 && curIdx < stepOrder.length-1 ? stepOrder[curIdx+1] : resetStep+1;
   showResetStep(resetStep);
+}
+
+function resetTaskAction(taskId, action){
+  const t = tasks.find(x=>x.id===taskId); if(!t) return;
+  if(action==='drop'){
+    t.status = 'done'; t.completedAt = Date.now();
+    showToast('✕ Dropped: ' + t.title.slice(0,30));
+  } else if(action==='someday'){
+    somedayList.unshift({id:'sd'+Date.now(), title:t.title, createdAt:today()});
+    saveSomeday();
+    t.status = 'done'; t.completedAt = Date.now();
+    showToast('💭 Moved to Someday: ' + t.title.slice(0,30));
+  } else if(action==='keep'){
+    // Touch the createdAt so it's no longer stale
+    t.createdAt = String(Date.now());
+    showToast('✓ Kept: ' + t.title.slice(0,30));
+  } else if(action==='reschedule'){
+    // Open task edit so user can set new date
+    closeModal('modal-reset');
+    setTimeout(()=>openEditTask(taskId), 200);
+    return;
+  }
+  saveAllDebounced();
+  // Remove row from list
+  const row = document.getElementById('stale-row-'+taskId) ||
+              document.querySelector(`[onclick*="resetTaskAction('${taskId}'"]`)?.closest('[id]');
+  // Refresh the current step list
+  const curStep = resetStep;
+  setTimeout(()=>showResetStep(curStep), 100);
 }
 
 function saveWeeklyJournal({dump,close,ahead}){
@@ -6170,7 +6466,9 @@ function openResetSlotPicker(slotId, label){
 
 function resetBack(){
   if(resetStep<=1) return;
-  resetStep--;
+  const stepOrderB = [1,2,3,3.5,4,5,6,7];
+  const curIdxB = stepOrderB.indexOf(resetStep);
+  resetStep = curIdxB > 0 ? stepOrderB[curIdxB-1] : Math.max(1, resetStep-1);
   showResetStep(resetStep);
 }
 
@@ -6368,6 +6666,8 @@ function renderMeetingsPage(container){
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
           <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);">${m.date}</div>
+          <button onclick="event.stopPropagation();copyMeetingLink('${m.id}')"
+            style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;line-height:1;" title="Copy link">🔗</button>
           <button onclick="event.stopPropagation();deleteMeeting('${m.id}')"
             style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;line-height:1;" title="Delete">✕</button>
         </div>
@@ -6739,7 +7039,7 @@ function saveContacts(){ saveHubData('hub-contacts', contactsList); }
 
 function addContact(name, role, nudgeDays, photo){
   if(!name.trim()) return;
-  contactsList.push({ id:'c'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14, photo:photo||'' });
+  contactsList.push({ id:'c'+Date.now(), name:name.trim(), role:(role||'').trim(), lastContact:'', nudgeDays:nudgeDays||14, photo:photo||'', contactHistory:[] });
   saveContacts(); renderAll();
 }
 
@@ -7037,10 +7337,29 @@ function openPersonDetail(id, type){
         ${waitHtml}
       </div>
 
+      <!-- Contact history (relationship contacts only) -->
+      ${type==='contact' ? `
+      <div style="margin-bottom:8px;">
+        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:6px;">
+          CONTACT HISTORY (${(record.contactHistory||[]).length})
+        </div>
+        ${(record.contactHistory||[]).length===0
+          ? `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;font-style:italic;">No history yet — log your first contact above.</div>`
+          : (record.contactHistory||[]).slice(0,10).map(h=>`
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+              <div style="flex-shrink:0;padding:3px 8px;border-radius:10px;background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.2);font-size:11px;color:var(--accent);font-family:var(--font-ui);white-space:nowrap;">${esc(h.method||'')}</div>
+              <div style="flex:1;min-width:0;">
+                ${h.note?`<div style="font-size:12px;color:var(--text2);line-height:1.4;margin-bottom:3px;">${esc(h.note)}</div>`:''}
+                <div style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${h.date||''}</div>
+              </div>
+            </div>`).join('')
+        }
+      </div>` : ''}
+
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;">
-      ${type==='contact'?`<button onclick="logContact('${id}');closeModal('modal-person-detail');"
-        style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--green);background:transparent;color:var(--green);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">✓ Log contact</button>`:''}
+      ${type==='contact'?`<button onclick="openLogContactModal('${id}','modal-person-detail');"
+        style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--green);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">✓ Log Contact</button>`:''}
       <button onclick="closeModal('modal-person-detail');${type==='contact'?`openAddContactModal('${id}')`:`openAddPersonModal('${id}')`};"
         style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">✏ Edit</button>
     </div>
@@ -7052,10 +7371,62 @@ function openPersonDetail(id, type){
 }
 
 
+function openLogContactModal(id, closeParentId){
+  const c = contactsList.find(x=>x.id===id); if(!c) return;
+  const old = document.getElementById('modal-log-contact'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-log-contact'; m.className='modal-overlay';
+  const methods = ['📞 Call','💬 Text','📧 Email','☕ In person','🎥 Video','📝 Note'];
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:60vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--text);">✓ Log Contact — ${esc(c.name)}</div>
+      <button class="modal-close" onclick="closeModal('modal-log-contact')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="chip-label">How did you reach out?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+        ${methods.map(method=>`<button type="button" class="log-method-chip"
+          onclick="document.querySelectorAll('.log-method-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='rgba(232,168,56,0.15)';this.style.borderColor='var(--accent)';this.style.color='var(--accent)';document.getElementById('log-method').value='${method}';"
+          style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">${method}</button>`).join('')}
+      </div>
+      <input type="hidden" id="log-method" value=""/>
+      <textarea id="log-note" class="field-input" placeholder="Note (optional) — what did you talk about?" style="resize:none;min-height:70px;"></textarea>
+      <input type="hidden" id="log-contact-id" value="${id}"/>
+      <input type="hidden" id="log-close-parent" value="${closeParentId||''}"/>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      <button onclick="submitLogContact()" style="flex:1;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">✓ Log It</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m)closeModal('modal-log-contact');};
+  document.body.appendChild(m); openModal('modal-log-contact');
+  setTimeout(()=>document.getElementById('log-note')?.focus(),200);
+}
+
+function submitLogContact(){
+  const id     = document.getElementById('log-contact-id')?.value||'';
+  const method = document.getElementById('log-method')?.value||'';
+  const note   = document.getElementById('log-note')?.value.trim()||'';
+  const parent = document.getElementById('log-close-parent')?.value||'';
+  const c = contactsList.find(x=>x.id===id); if(!c) return;
+  if(!method){ showToast('Pick how you reached out'); return; }
+  // Update lastContact — this is what nudge logic reads
+  c.lastContact = today();
+  // Append to history
+  if(!c.contactHistory) c.contactHistory = [];
+  c.contactHistory.unshift({ date:today(), method, note, ts:Date.now() });
+  // Keep last 50 entries
+  if(c.contactHistory.length > 50) c.contactHistory = c.contactHistory.slice(0,50);
+  saveContacts();
+  closeModal('modal-log-contact');
+  if(parent) closeModal(parent);
+  renderAll();
+  showToast('✓ Logged — ' + method + ' with ' + c.name);
+}
+
+// Backward-compat alias — called from Today nudge rows and push action
 function logContact(id){
-  const c=contactsList.find(x=>x.id===id); if(!c) return;
-  c.lastContact=today(); saveContacts(); renderAll();
-  showToast('✓ Contact logged for ' + c.name);
+  openLogContactModal(id);
 }
 
 function deletePerson(id){ peopleList=peopleList.filter(x=>x.id!==id); savePeople(); renderAll(); }
@@ -7085,7 +7456,7 @@ function renderPeopleSection(){
           ${daysSince===null?'Never contacted':daysSince===0?'Contacted today':`${daysSince}d ago`}${isNudge?' · reach out soon':''}
         </div>
       </div>
-      <button onclick="logContact('${p.id}')" style="padding:4px 8px;border-radius:5px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Touched</button>
+      <button onclick="openLogContactModal('${p.id}')" style="padding:4px 8px;border-radius:5px;border:1px solid ${isNudge?'rgba(232,168,56,0.5)':'var(--border)'};background:transparent;color:${isNudge?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">✓ Log</button>
       <button onclick="deletePerson('${p.id}')" style="padding:4px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:11px;cursor:pointer;">✕</button>
     </div>`;
   };
@@ -8981,6 +9352,118 @@ let discActiveId   = null;  // currently open initiative
 let discView       = 'list'; // 'list' | 'detail'
 let discSignalFilter = { type:'', sentiment:'' };
 
+// ════════════════════════════════════════════════════════════════
+// PROACTIVE AI — system notices things without you asking
+// ════════════════════════════════════════════════════════════════
+
+// Called when a new signal is added — checks if it shifts the picture
+async function checkSignalPatternShift(initiativeId, newSig){
+  const ini = discoveryList.find(i=>i.id===initiativeId); if(!ini) return;
+  const signals = getInitiativeSignals(initiativeId);
+  // Only run if we have enough signals to be meaningful (3+) 
+  // and signal is a contradiction or confirms a key point
+  if(signals.length < 3) return;
+  if(newSig.sentiment !== 'contradicts' && newSig.sentiment !== 'confirms') return;
+  // Check if same sentiment has now reached 3+ — pattern emerging
+  const sameCount = signals.filter(s=>s.sentiment===newSig.sentiment && s.type===newSig.type).length;
+  if(sameCount < 2 && newSig.sentiment !== 'contradicts') return;
+  // Run a lightweight synthesis
+  try {
+    const sigSummary = signals.slice(0,10).map(s=>'['+s.sentiment+']['+s.type+'] '+s.content.slice(0,100)).join('\n');
+    const result = await aiCall(
+      `You are a product strategist. A new signal was just added to a discovery initiative. 
+Assess in 1-2 sentences: does this signal meaningfully shift the picture or confirm an emerging pattern?
+Be specific. Reference the signal content. Only respond if something genuinely changed.
+If nothing significant changed, respond with exactly: "NO_SHIFT"`,
+      `Initiative: "${ini.title}"
+Hypothesis: ${ini.hypothesis||'not defined'}
+New signal [${newSig.sentiment}]: ${newSig.content}
+Recent signals:
+${sigSummary}`,
+      200
+    );
+    if(result && result.trim() !== 'NO_SHIFT' && result.length > 20){
+      showToast('🔭 Pattern shift detected — tap to view');
+      // Store as a pending insight on the initiative
+      if(!ini.pendingInsights) ini.pendingInsights=[];
+      ini.pendingInsights.unshift({
+        ts: Date.now(),
+        text: result.trim(),
+        signalId: newSig.id,
+        type: newSig.sentiment === 'contradicts' ? 'contradiction' : 'confirmation'
+      });
+      ini.pendingInsights = ini.pendingInsights.slice(0,5); // keep last 5
+      ini.updatedAt = today();
+      saveDiscovery();
+    }
+  } catch(e) { /* silent — proactive check should never interrupt flow */ }
+}
+
+// Called daily (from scheduleNotifChecks) — check for stale initiatives
+function checkStaleInitiatives(){
+  const todayStr = today();
+  const stale = discoveryList.filter(ini=>{
+    if(ini.status === 'launched' || ini.status === 'killed' || ini.status === 'paused') return false;
+    const lastUpdate = ini.updatedAt || ini.createdAt || todayStr;
+    const daysSince = Math.floor((new Date(todayStr) - new Date(lastUpdate)) / 86400000);
+    return daysSince >= 21;
+  });
+  if(stale.length > 0){
+    fireNotif(
+      `🔭 ${stale.length} initiative${stale.length>1?'s':''} going stale`,
+      stale.slice(0,2).map(i=>i.title).join(', ') + (stale.length>2?'…':''),
+      'stale-initiative'
+    );
+  }
+}
+
+// Called daily — check meeting follow-through (commits → tasks)
+function checkMeetingFollowThrough(){
+  const todayStr = today();
+  const fiveDaysAgo = new Date(); fiveDaysAgo.setDate(fiveDaysAgo.getDate()-5);
+  const fiveDaysStr = fiveDaysAgo.toISOString().slice(0,10);
+  // Find meetings in the last 5-14 days that had myCommits
+  const recentMeetings = meetingLog.filter(m=>
+    m.myCommits && m.myCommits.trim() &&
+    m.date >= fiveDaysStr && m.date <= todayStr
+  );
+  let openCommits = 0;
+  recentMeetings.forEach(mtg=>{
+    const mtgTasks = tasks.filter(t=>
+      t.source === 'meeting:'+mtg.id && t.status !== 'done'
+    );
+    openCommits += mtgTasks.length;
+  });
+  if(openCommits > 0){
+    fireNotif(
+      `⚡ ${openCommits} meeting commit${openCommits>1?'s':''} still open`,
+      'From recent meetings — tap to review',
+      'meeting-followthrough'
+    );
+  }
+}
+
+// Called daily — check task accumulation
+function checkTaskAccumulation(){
+  const activeTasks = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
+  const count = activeTasks.length;
+  if(count > 40){
+    const isSerious = count > 55;
+    fireNotif(
+      isSerious ? `🔴 ${count} active tasks — system overloaded` : `🟡 ${count} active tasks`,
+      'Consider a triage session to decide what to defer or drop',
+      'task-accumulation'
+    );
+  }
+}
+
+function dismissInitiativeInsight(iniId, idx){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.pendingInsights) return;
+  ini.pendingInsights.splice(idx,1);
+  saveDiscovery(); renderAll();
+}
+
 function saveDiscovery(){ saveHubData('hub-discovery', discoveryList); }
 function saveSignals(){   saveHubData('hub-signals',   signalList);    }
 
@@ -9145,6 +9628,7 @@ function renderDiscoveryDetail(container){
         ${discStatusBadge(ini.status)}
         <div style="margin-left:auto;display:flex;gap:6px;">
           <button onclick="openDiscoveryModal('${ini.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✏ Edit</button>
+          <button onclick="copyInitLink('${ini.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;" title="Copy link">🔗</button>
           <button onclick="openSignalModal('${ini.id}')" style="padding:5px 12px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;">+ Signal</button>
         </div>
       </div>
@@ -9182,6 +9666,22 @@ function renderDiscoveryDetail(container){
           ${ini.prd?`<button onclick="runPRDEvaluation('${ini.id}')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font-family:var(--font-ui);font-size:10px;font-weight:800;cursor:pointer;">📋 Eval PRD</button>`:''}
         </div>
       </div>
+      <!-- Pending proactive insights -->
+      ${(ini.pendingInsights||[]).length>0?`
+      <div style="margin:0 14px 8px;">
+        ${(ini.pendingInsights||[]).map((insight,i)=>`
+          <div style="padding:10px 12px;border-radius:8px;border:1px solid ${insight.type==='contradiction'?'rgba(239,83,80,0.3)':'rgba(100,181,246,0.3)'};background:${insight.type==='contradiction'?'rgba(239,83,80,0.05)':'rgba(100,181,246,0.05)'};margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">
+            <span style="font-size:14px;flex-shrink:0;">${insight.type==='contradiction'?'⚡':'💡'}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;font-family:var(--font-ui);font-weight:800;color:${insight.type==='contradiction'?'#EF5350':'#64B5F6'};letter-spacing:0.5px;margin-bottom:3px;">
+                ${insight.type==='contradiction'?'PATTERN SHIFT DETECTED':'PATTERN CONFIRMED'}
+              </div>
+              <div style="font-size:12px;color:var(--text2);line-height:1.5;">${esc(insight.text)}</div>
+            </div>
+            <button onclick="dismissInitiativeInsight('${ini.id}',${i})" style="flex-shrink:0;padding:2px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;">✕</button>
+          </div>`).join('')}
+      </div>`:''
+      }
       <div id="disc-ai-brief-${ini.id}" style="padding:0 14px 10px;">
         ${ini.lastSynthesis ? renderDiscAIBrief(ini.lastSynthesis) : `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;padding:4px 0;">No synthesis yet — tap ✨ Synthesize to generate.</div>`}
       </div>
@@ -9525,6 +10025,8 @@ function submitSignalModal(){
   if(ini) ini.updatedAt = today();
   saveSignals(); saveDiscovery(); closeModal('modal-signal');
   showToast('📡 Signal added'); renderAll();
+  // Proactive AI: check if new signal changes the picture
+  checkSignalPatternShift(sig.initiativeId, sig);
 }
 
 function deleteSignal(id){
@@ -9802,6 +10304,256 @@ function syncTaskDiscoveryLink(taskId, newDiscoveryId){
     }
   }
   saveDiscovery();
+}
+
+// ════════════════════════════════════════════════════════════════
+// DEEP LINKS — URL routing for tabs, tasks, initiatives, meetings
+// ════════════════════════════════════════════════════════════════
+
+const APP_BASE_URL = 'https://jasonsjedicommand.space';
+
+// Called after boot completes — reads window._start* and routes
+function handleDeepLink(){
+  const tab    = window._startTab;
+  const taskId = window._startTask;
+  const initId = window._startInit;
+  const mtgId  = window._startMtg;
+  const action = window._startAction;
+
+  // Clear all start state
+  delete window._startTab;
+  delete window._startTask;
+  delete window._startInit;
+  delete window._startMtg;
+  delete window._startAction;
+
+  // Tab navigation first
+  const validTabs = ['today','tasks','meetings','waiting','people','discovery','kids','charts','settings'];
+  if(tab && validTabs.includes(tab)){
+    setNav(tab);
+  }
+
+  // Then open specific record if provided
+  if(taskId){
+    setNav('tasks');
+    setTimeout(()=>openEditTask(taskId), 300);
+    return;
+  }
+  if(initId){
+    setNav('discovery');
+    setTimeout(()=>openDiscoveryDetail(initId), 300);
+    return;
+  }
+  if(mtgId){
+    setNav('meetings');
+    setTimeout(()=>openMeetingCapture(mtgId), 300);
+    return;
+  }
+
+  // Actions
+  if(action === 'add-task')    { setTimeout(openAddTask, 400); return; }
+  if(action === 'add-meeting') { setTimeout(openMeetingCapture, 400); return; }
+  if(action === 'focus')       { todayFocusMode=true; setNav('today'); return; }
+  if(action === 'reset')       { setNav('today'); setTimeout(openReset, 400); return; }
+}
+
+// ── Link generators ───────────────────────────────────────────────
+function linkToTab(tab){
+  return APP_BASE_URL + '/?tab=' + tab;
+}
+function linkToTask(taskId){
+  return APP_BASE_URL + '/?tab=tasks&task=' + taskId;
+}
+function linkToInitiative(initId){
+  return APP_BASE_URL + '/?tab=discovery&initiative=' + initId;
+}
+function linkToMeeting(mtgId){
+  return APP_BASE_URL + '/?tab=meetings&meeting=' + mtgId;
+}
+
+// ── Copy link to clipboard helpers (used from UI) ─────────────────
+function copyTaskLink(taskId){
+  const url = linkToTask(taskId);
+  navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Task link copied'))
+    .catch(()=>{ prompt('Copy this link:', url); });
+}
+function copyInitLink(initId){
+  const url = linkToInitiative(initId);
+  navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Initiative link copied'))
+    .catch(()=>{ prompt('Copy this link:', url); });
+}
+function copyMeetingLink(mtgId){
+  const url = linkToMeeting(mtgId);
+  navigator.clipboard?.writeText(url).then(()=>showToast('🔗 Meeting link copied'))
+    .catch(()=>{ prompt('Copy this link:', url); });
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// FRICTIONLESS CAPTURE — one tap from anywhere
+// Routes to task, signal, waiting-for, or meeting commit
+// ════════════════════════════════════════════════════════════════
+
+function openFrictionlessCapture(){
+  const old = document.getElementById('modal-fc'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-fc';
+  // Bottom sheet style
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.5);';
+
+  // Active initiatives for signal routing
+  const activeInits = discoveryList
+    .filter(i=>i.status!=='killed'&&i.status!=='launched')
+    .slice(0,6);
+
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px 32px;max-height:75vh;overflow-y:auto;">
+
+    <!-- Handle -->
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
+
+    <!-- Capture input -->
+    <div style="margin-bottom:12px;">
+      <textarea id="fc-input" rows="3"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+               padding:12px 14px;font-size:15px;font-family:var(--font-body);color:var(--text);
+               resize:none;outline:none;box-sizing:border-box;line-height:1.5;"
+        placeholder="What's on your mind…"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();fcSubmit('task');}"></textarea>
+    </div>
+
+    <!-- Type selector -->
+    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">CAPTURE AS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+
+      <!-- Task (default) -->
+      <button onclick="fcSubmit('task')"
+        style="padding:14px 12px;border-radius:10px;border:2px solid var(--accent);
+               background:rgba(232,168,56,0.1);cursor:pointer;text-align:left;">
+        <div style="font-size:18px;margin-bottom:4px;">☐</div>
+        <div style="font-size:13px;font-weight:800;color:var(--accent);font-family:var(--font-ui);">Task</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);">Goes to your task list</div>
+      </button>
+
+      <!-- Brain dump / Parking lot -->
+      <button onclick="fcSubmit('braindump')"
+        style="padding:14px 12px;border-radius:10px;border:1px solid var(--border);
+               background:var(--surface2);cursor:pointer;text-align:left;">
+        <div style="font-size:18px;margin-bottom:4px;">💭</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text);font-family:var(--font-ui);">Thought</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);">Brain dump / Someday</div>
+      </button>
+
+      <!-- Waiting for -->
+      <button onclick="fcSubmit('waiting')"
+        style="padding:14px 12px;border-radius:10px;border:1px solid rgba(100,181,246,0.4);
+               background:rgba(100,181,246,0.06);cursor:pointer;text-align:left;">
+        <div style="font-size:18px;margin-bottom:4px;">⏳</div>
+        <div style="font-size:13px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);">Waiting for</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);">Someone owes you something</div>
+      </button>
+
+      <!-- Meeting note -->
+      <button onclick="fcSubmit('meeting')"
+        style="padding:14px 12px;border-radius:10px;border:1px solid rgba(186,104,200,0.4);
+               background:rgba(186,104,200,0.06);cursor:pointer;text-align:left;">
+        <div style="font-size:18px;margin-bottom:4px;">📝</div>
+        <div style="font-size:13px;font-weight:800;color:#BA68C8;font-family:var(--font-ui);">Meeting note</div>
+        <div style="font-size:10px;color:var(--text3);font-family:var(--font-ui);">Opens meeting capture</div>
+      </button>
+
+    </div>
+
+    <!-- Signal routing (only if active initiatives) -->
+    ${activeInits.length>0?`
+    <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text3);letter-spacing:1px;margin-bottom:8px;">OR ADD AS SIGNAL TO</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${activeInits.map(i=>{
+        const st = DISC_STATUS[i.status]||DISC_STATUS.discovery;
+        return `<button onclick="fcSubmit('signal','${i.id}')"
+          style="padding:6px 12px;border-radius:20px;border:1px solid ${st.color}44;
+                 background:${st.color}11;color:${st.color};font-family:var(--font-ui);
+                 font-size:11px;font-weight:700;cursor:pointer;">
+          🔭 ${esc(i.title.length>20?i.title.slice(0,20)+'…':i.title)}
+        </button>`;
+      }).join('')}
+    </div>`:''}
+
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) closeFrictionlessCapture(); };
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('fc-input')?.focus(), 150);
+}
+
+function closeFrictionlessCapture(){
+  const m = document.getElementById('modal-fc');
+  if(m) m.remove();
+}
+
+function fcSubmit(type, initiativeId){
+  const text = document.getElementById('fc-input')?.value.trim()||'';
+  if(!text){ showToast('Enter something first'); return; }
+  closeFrictionlessCapture();
+
+  if(type === 'task'){
+    // Create task directly — defaults to medium priority, no project
+    const t = {
+      id: genId(), title: text, projectId: '', priority: 'medium',
+      status: 'todo', dueDate: '', notes: '', source: '',
+      recur: 'none', effort: '', estimate: '', energy: 'medium',
+      createdAt: Date.now(), completedAt: null, subtasks: []
+    };
+    tasks.unshift(t);
+    saveAllDebounced(); renderAll();
+    showToast('☐ Task captured — tap to add details');
+    // Briefly highlight it by opening edit
+    setTimeout(()=>openEditTask(t.id), 400);
+
+  } else if(type === 'braindump'){
+    brainDump(text);
+
+  } else if(type === 'waiting'){
+    // Open waiting-for modal pre-filled
+    openWaitingModal();
+    setTimeout(()=>{
+      const el = document.getElementById('wf-what');
+      if(el) el.value = text;
+    }, 300);
+
+  } else if(type === 'meeting'){
+    openMeetingCapture();
+    setTimeout(()=>{
+      const el = document.getElementById('mtg-notes');
+      if(el) el.value = text;
+    }, 300);
+
+  } else if(type === 'signal' && initiativeId){
+    // Open signal modal pre-filled with content
+    openSignalModal(initiativeId);
+    setTimeout(()=>{
+      const el = document.getElementById('sig-f-content');
+      if(el) el.value = text;
+    }, 300);
+  }
+}
+
+
+function saveVAPIDKey(){
+  const key = document.getElementById('vapid-key-input')?.value.trim()||'';
+  if(!key){ showToast('Paste your VAPID public key first'); return; }
+  localStorage.setItem('hub-vapid-pubkey', key);
+  showToast('✓ VAPID key saved — restart app to activate push');
+}
+
+function moveTaskToSomeday(taskId){
+  const t = tasks.find(x=>x.id===taskId); if(!t) return;
+  somedayList.unshift({ id:'sd'+Date.now(), title:t.title, createdAt:today() });
+  tasks = tasks.filter(x=>x.id!==taskId);
+  saveSomeday(); saveAllDebounced(); renderAll();
+  showToast('💭 Moved to Someday — not lost, just not now');
 }
 
 function savePinned(){
@@ -10133,6 +10885,7 @@ function checkPassword(){
     localStorage.setItem("hub-auth",Date.now().toString());
     document.getElementById("gate").style.display="none";
     bootApp().then(async ()=>{
+      handleDeepLink();
       // Start SW + notifications after gate unlock (same as init fast-path)
       await registerServiceWorker();
       const notifGranted = await requestNotifPermission();
@@ -10140,6 +10893,7 @@ function checkPassword(){
         scheduleNotifChecks();
         scheduleAlarmsWithSW();
         updateAppBadge();
+        if(_swReg) subscribeToPush(_swReg);
       }
     });
   } else {
@@ -10342,6 +11096,43 @@ async function registerServiceWorker(){
     console.warn('[SW] Registration failed:', e);
     return null;
   }
+}
+
+async function subscribeToPush(reg){
+  // Skip if no VAPID key configured yet
+  const pubKey = VAPID_PUBLIC_KEY || localStorage.getItem('hub-vapid-pubkey');
+  if(!pubKey || pubKey === '' ){
+    console.log('[Push] No VAPID public key set — skipping push subscription');
+    return;
+  }
+  try{
+    // Check if already subscribed
+    const existing = await reg.pushManager.getSubscription();
+    if(existing){
+      // Re-send to server in case it was lost
+      await apiCall('savePushSub', { subscription: existing.toJSON() });
+      console.log('[Push] Existing subscription re-registered');
+      return;
+    }
+    // Subscribe with VAPID key
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly:      true,
+      applicationServerKey: urlBase64ToUint8Array(pubKey)
+    });
+    // Send subscription to Apps Script for storage
+    await apiCall('savePushSub', { subscription: sub.toJSON() });
+    console.log('[Push] New subscription registered');
+    showToast('🔔 Background push enabled');
+  } catch(e){
+    console.warn('[Push] Subscription failed:', e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
 async function requestNotifPermission(){
@@ -10567,6 +11358,13 @@ function scheduleNotifChecks(){
     }
     scheduleAlarmsWithSW();
   }, 60 * 1000); // check every minute
+
+  // Proactive checks — run once shortly after app loads
+  setTimeout(()=>{
+    checkStaleInitiatives();
+    checkMeetingFollowThrough();
+    checkTaskAccumulation();
+  }, 3000);
 }
 
 function getISOWeek(date){
@@ -10578,10 +11376,22 @@ function getISOWeek(date){
 
 async function init(){
   loadPinned();
-  // Handle PWA shortcut URL params
+  // Deep link routing — parse all URL params on boot
   const urlParams = new URLSearchParams(window.location.search);
-  if(urlParams.get('tab') === 'today') { window._startTab = 'today'; }
-  if(urlParams.get('action') === 'add-task') { window._startAction = 'add-task'; }
+  const _dlTab    = urlParams.get('tab');
+  const _dlTask   = urlParams.get('task');
+  const _dlInit   = urlParams.get('initiative');
+  const _dlMtg    = urlParams.get('meeting');
+  const _dlAction = urlParams.get('action');
+  if(_dlTab)    window._startTab    = _dlTab;
+  if(_dlTask)   window._startTask   = _dlTask;
+  if(_dlInit)   window._startInit   = _dlInit;
+  if(_dlMtg)    window._startMtg    = _dlMtg;
+  if(_dlAction) window._startAction = _dlAction;
+  // Clean URL after reading params so it doesn't re-trigger on refresh
+  if(window.history && window.history.replaceState && (urlParams.toString())){
+    window.history.replaceState({}, '', window.location.pathname);
+  }
   // Apply calm mode before anything renders
   if(localStorage.getItem('hub-calm') === '1'){
     document.body.classList.add('calm-mode');
@@ -10592,8 +11402,7 @@ async function init(){
     // Still within 60 min window — skip gate
     document.getElementById("gate").style.display="none";
     await bootApp();
-    if(window._startTab) { setNav(window._startTab); delete window._startTab; }
-    if(window._startAction === 'add-task') { setTimeout(openAddTask, 400); delete window._startAction; }
+    handleDeepLink();
     // Register service worker (enables background push + offline)
     await registerServiceWorker();
     const notifGranted = await requestNotifPermission();
@@ -10601,6 +11410,7 @@ async function init(){
       scheduleNotifChecks();
       scheduleAlarmsWithSW();
       updateAppBadge();
+      if(_swReg) subscribeToPush(_swReg);
     }
   } else {
     // Show gate
