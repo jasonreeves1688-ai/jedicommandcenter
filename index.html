@@ -3253,11 +3253,6 @@ function getFilteredTasks(projectId){
 }
 
 function renderTaskList(container){
-  // Page identity
-  const _tActive = tasks.filter(t=>t.status!=='done').length;
-  const _tDone   = tasks.filter(t=>t.status==='done').length;
-  pageHeader(container, 'tasks', '☰ Tasks', 'All Tasks',
-    _tActive+' active · '+_tDone+' completed');
   const q=(document.getElementById("search-input")?.value||"").toLowerCase();
   updateAllFddBtns();
   const visibleTasks=tasks.filter(t=>{
@@ -5073,10 +5068,6 @@ function journalLineToTask(idx, field, line){
 }
 
 function renderSettings(container){
-  // Page identity
-  const _ph_sub = null;
-  pageHeader(container, 'settings', '⚙ Settings', 'Preferences', _ph_sub);
-
   container.innerHTML=`
     <div style="margin-bottom:var(--sp4);display:flex;gap:var(--sp2);">
       <button onclick="setNav('charts')" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">📊 VIEW INSIGHTS</button>
@@ -7039,10 +7030,6 @@ function resetBack(){
 // FULL-PAGE VIEWS
 // ═══════════════════════════════════════════════════════════════
 function renderWaitingPage(container){
-  // Page identity
-  const _ph_sub = waitingFor.filter(w=>!w.done).length+' open items';
-  pageHeader(container, 'waiting', '⏳ Waiting For', 'Waiting For', _ph_sub);
-
   const todayStr = today();
   // Person filter
   const allActive = waitingFor.filter(w=>!w.done);
@@ -7114,10 +7101,6 @@ function renderWaitingPage(container){
 }
 
 function renderPeoplePage(container){
-  // Page identity
-  const _ph_sub = contactsList.length+' contacts · '+getPeopleNudges().length+' to reach out';
-  pageHeader(container, 'people', '👥 People', 'Relationships', _ph_sub);
-
   const nudges = getPeopleNudges();
   const restContacts = contactsList.filter(c=>!nudges.find(n=>n.id===c.id));
   const todayStr = today();
@@ -10087,10 +10070,7 @@ function renderDiscoveryPage(container){
   if(discView==='detail' && discActiveId){
     renderDiscoveryDetail(container); return;
   }
-  // Page identity (list view only)
-  const _dActive = discoveryList.filter(i=>i.status!=='killed'&&i.status!=='launched').length;
-  pageHeader(container, 'discovery', '🔭 Discovery', 'Product Discovery',
-    _dActive+' active initiative'+(_dActive!==1?'s':'')+' · '+signalList.length+' signal'+( signalList.length!==1?'s':''));
+
   const statusFilter = container._discStatusFilter||'';
   const quarterFilter= container._discQFilter||'';
 
@@ -12330,7 +12310,6 @@ function playKidsSound(type) {
 }
 
 function renderKidsGame(container) {
-  pageHeader(container, 'kids', '⭐ Family', 'Kids Rewards', null);
   const d = kidsData();
   const tabs = [
     {id:0, label:'🏆 Scores'},
