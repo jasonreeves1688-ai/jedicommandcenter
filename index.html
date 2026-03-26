@@ -631,6 +631,47 @@ body.calm-mode .sync-dot{ display:none; }
 .fab-capture:hover{ box-shadow:0 6px 24px rgba(232,168,56,0.65); transform:scale(1.05); }
 .fab-capture:active{ transform:scale(0.93); }
 
+/* ── Collapsible today sections ─────────────────────────────── */
+.today-collapse{
+  margin:0 var(--sp2) var(--sp2);
+  border-radius:var(--r3);
+  border:1px solid var(--border);
+  background:var(--surface);
+  overflow:hidden;
+}
+.today-collapse-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--sp2) var(--sp3);cursor:pointer;
+  min-height:44px;
+  transition:background var(--t-fast);
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.today-collapse-header:hover{ background:var(--surface2); }
+.today-collapse-header:active{ background:var(--surface2); }
+.today-collapse-left{ display:flex;align-items:center;gap:var(--sp2); }
+.today-collapse-label{ font:700 11px/1 var(--font-ui);letter-spacing:0.5px; }
+.today-collapse-count{
+  font:600 10px/1 var(--font-ui);color:var(--text4);
+  background:var(--surface2);border:1px solid var(--border);
+  padding:2px var(--sp1);border-radius:var(--r5);
+}
+.today-collapse-count.urgent{
+  background:rgba(224,82,82,0.1);border-color:rgba(224,82,82,0.3);color:var(--red);
+}
+.today-collapse-chevron{
+  font-size:10px;color:var(--text4);
+  transition:transform var(--t-fast);
+  flex-shrink:0;
+}
+.today-collapse-chevron.open{ transform:rotate(90deg); }
+.today-collapse-body{
+  overflow:hidden;
+  max-height:0;
+  transition:max-height 0.25s ease;
+}
+.today-collapse-body.open{ max-height:600px; }
+
 /* ── Layout ─────────────────────────────────────────────────── */
 #app{ display:flex; flex-direction:column; height:100%; height:100dvh; position:relative; z-index:1; }
 #app-content{
@@ -1314,6 +1355,83 @@ input,select,textarea{ font-size:16px !important; }
 #streak-banner{ background:var(--accent-soft); border-bottom:1px solid rgba(232,168,56,0.25); padding:var(--sp2) var(--sp4); display:flex; align-items:center; justify-content:center; gap:var(--sp3); flex-shrink:0; font:700 14px/1 var(--font-ui); color:var(--accent); }
 
 /* ── Today view ──────────────────────────────────────────────── */
+/* ── Today view section rhythm ─────────────────────────────── */
+.today-stack{
+  display:flex; flex-direction:column;
+  gap:var(--sp3);            /* 12px between every section */
+  padding:var(--sp3) var(--sp2) 100px;
+}
+.today-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r3);
+  overflow:hidden;
+}
+.today-card-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:var(--sp2) var(--sp3);
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.today-card-label{
+  display:flex; align-items:center; gap:var(--sp2);
+}
+.today-card-accent{
+  width:3px; height:14px; border-radius:2px; flex-shrink:0;
+}
+.today-card-title{
+  font:700 10px/1 var(--font-ui);
+  letter-spacing:1px; text-transform:uppercase;
+}
+.today-card-count{
+  font:var(--type-caption); color:var(--text4);
+}
+.today-card-action{
+  font:700 10px/1 var(--font-ui); cursor:pointer;
+  padding:2px var(--sp2); border-radius:var(--r2);
+  border:1px solid var(--border); background:transparent;
+  color:var(--text3); min-height:28px;
+  transition:all var(--t-fast);
+}
+.today-card-action:hover{ border-color:var(--accent); color:var(--accent); }
+.today-card-row{
+  display:flex; align-items:center; gap:var(--sp2);
+  padding:var(--sp3) var(--sp3);
+  border-top:1px solid var(--border);
+  cursor:pointer;
+  transition:background var(--t-fast);
+}
+.today-card-row:first-of-type{ border-top:none; }
+.today-card-row:hover{ background:rgba(255,255,255,0.025); }
+.today-check-btn{
+  width:36px; height:36px; border-radius:50%;
+  border:2px solid currentColor;
+  background:transparent;
+  font-size:14px; cursor:pointer;
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  transition:all var(--t-fast); outline:none;
+}
+.today-check-btn:hover{ background:rgba(255,255,255,0.08); }
+.today-focus-btn{
+  width:32px; height:32px; border-radius:50%;
+  border:none; background:var(--accent); color:#1a1f2e;
+  font-size:14px; font-weight:900; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:transform var(--t-fast);
+}
+.today-focus-btn:active{ transform:scale(0.9); }
+.today-icon-btn{
+  width:32px; height:32px; border-radius:50%;
+  border:1px solid var(--border); background:transparent;
+  color:var(--text4); font-size:13px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all var(--t-fast);
+}
+.today-icon-btn:hover{ border-color:var(--accent); color:var(--accent); }
+
+/* Light mode adjustments */
+body.light-mode .today-card-row:hover{ background:rgba(0,0,0,0.025); }
+
 .today-section-title{ font:700 11px/1 var(--font-ui); color:var(--text3); letter-spacing:0.5px; text-transform:uppercase; padding:2px 0 var(--sp2); }
 .today-empty{ text-align:center; padding:var(--sp6) var(--sp5); font:400 14px/1.5 var(--font-ui); color:var(--text3); }
 .today-pin-btn{ border-radius:var(--r2); padding:var(--sp1) var(--sp2); font:600 11px/1 var(--font-ui); border:1px solid var(--border); background:var(--surface2); color:var(--text3); cursor:pointer; outline:none; min-height:30px; transition:all var(--t-fast); }
@@ -6044,325 +6162,277 @@ function renderTodayTaskRow(t, accentColor, badgeHtml, extraActions){
 }
 
 function renderTodayView(container){
-  // If Focus Mode is active within Today, render that instead
-  if(todayFocusMode || activeNav==='focus' || focusOn){
-    renderTodayFocusMode(container);
-    return;
-  }
-
-  // Time block mode
-  if(todayViewMode === 'timeblock'){
-    tbDate = today();
-    renderTimeBlock(container);
-    return;
-  }
+  if(todayFocusMode || activeNav==='focus' || focusOn){ renderTodayFocusMode(container); return; }
+  if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
 
   const todayStr = today();
-  const hour = new Date().getHours();
+  const hour     = new Date().getHours();
+  const dateLabel= new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
 
-  // Pinned task counts for header
-  const pinnedAll = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
-  const doneCount = pinnedAll.filter(t=>t.status==='done').length;
-  const totalAssigned = pinnedAll.length;
+  // Data
+  const pinnedAll      = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(Boolean);
+  const doneCount      = pinnedAll.filter(t=>t.status==='done').length;
+  const totalAssigned  = pinnedAll.length;
+  const overdueUnpinned= tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate<todayStr&&!todayPinned.has(t.id));
+  const dueTodayUnpinned=tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate===todayStr&&!todayPinned.has(t.id));
+  const pinnedTasks    = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
+  const pinnedDone     = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
+  const focusTasks     = [...pinnedTasks,...dueTodayUnpinned.filter(t=>!todayPinned.has(t.id))];
+  const nudges2        = getPeopleNudges();
+  const urgentWF       = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
+  const _activeTasks   = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
+  const _est           = {none:1,'15m':0.25,'30m':0.5,'1h':1,'2h':2,'4h':4,'8h+':8};
+  const _loadHours     = [...pinnedTasks,...overdueUnpinned,...dueTodayUnpinned].reduce((s,t)=>s+(_est[t.estimate]||1),0);
 
-  // Next recommended task (pinned first, then overdue, then priority)
-  const _nextActive = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked').sort((a,b)=>{
+  // Next recommended task
+  const _next = _activeTasks.sort((a,b)=>{
     if(todayPinned.has(a.id)!==todayPinned.has(b.id)) return todayPinned.has(a.id)?-1:1;
-    const aOver=a.dueDate&&a.dueDate<todayStr?1:0, bOver=b.dueDate&&b.dueDate<todayStr?1:0;
-    if(aOver!==bOver) return bOver-aOver;
-    const pOrd={high:0,medium:1,low:2};
-    const pd=(pOrd[a.priority]??1)-(pOrd[b.priority]??1);
-    if(pd!==0) return pd;
-    if(a.dueDate&&b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-    return a.dueDate?-1:b.dueDate?1:0;
-  });
-  const _nextTask = _nextActive[0]||null;
-  const _nextProj = _nextTask?projects.find(p=>p.id===_nextTask.projectId):null;
+    const ao=a.dueDate&&a.dueDate<todayStr?1:0,bo=b.dueDate&&b.dueDate<todayStr?1:0;
+    if(ao!==bo) return bo-ao;
+    return ({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1);
+  })[0]||null;
 
-  let html = '';
+  // ── Reusable task row ────────────────────────────────────────
+  function tRow(t, accentCol, badgeHtml, extraBtns){
+    const proj = projects.find(p=>p.id===t.projectId);
+    return `<div class="today-card-row" onclick="openEditTask('${t.id}')">
+      <button class="today-check-btn" style="color:${accentCol};"
+        onclick="event.stopPropagation();completeTask('${t.id}',event)">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+          ${badgeHtml}
+          ${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}
+          ${t.estimate?`<span style="font:var(--type-caption);color:var(--text4);">⏱ ${t.estimate}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+        ${extraBtns}
+        <button class="today-focus-btn"
+          onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();"
+          title="Focus mode">▶</button>
+      </div>
+    </div>`;
+  }
 
-  // ── Header ───────────────────────────────────────────────────
-  const timeLabel = hour<12?'Morning':'Today';
-  const dateLabel = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  html += `<div class="page-hero">
+  let html = '<div class="today-stack">';
+
+  // ── 1. PAGE HERO ─────────────────────────────────────────────
+  html += `<div class="page-hero" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:none;">
     <div class="page-hero-left">
-      <div class="page-hero-accent" style="color:var(--color-today);">☀ ${timeLabel}</div>
+      <div class="page-hero-accent" style="color:var(--accent);">☀ ${hour<12?'Morning':'Today'}</div>
       <div class="page-hero-title">${dateLabel}</div>
-      <div class="page-hero-sub">${totalAssigned>0
-        ?`${doneCount} of ${totalAssigned} pinned done`
-        :'Pin tasks to focus your day'}</div>
+      <div class="page-hero-sub">${totalAssigned>0?`${doneCount} of ${totalAssigned} pinned done`:'What are you working on today?'}</div>
     </div>
-    <div style="display:flex;gap:var(--sp2);align-items:flex-start;">
-    <div style="display:flex;gap:6px;align-items:center;">
+    <div style="display:flex;gap:var(--sp1);align-items:center;">
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
-        style="padding:5px 9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-ui);
-        border:1px solid ${todayViewMode==='timeblock'?'rgba(232,168,56,0.6)':'rgba(232,168,56,0.3)'};
-        background:${todayViewMode==='timeblock'?'var(--accent)':'rgba(232,168,56,0.08)'};
-        color:${todayViewMode==='timeblock'?'#1a1f2e':'var(--accent)'};">🗓</button>
-      <button onclick="openReset()" style="padding:5px 9px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:var(--accent-soft);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;">🌅</button>
-      ${_nextTask
-        ?`<button onclick="selectMission('${_nextTask.id}');todayFocusMode=true;renderAll();"
-          style="padding:5px 12px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:11px;font-weight:900;cursor:pointer;">▶ Focus</button>`
-        :''}
+        class="today-icon-btn" title="Time blocks" style="${todayViewMode==='timeblock'?'border-color:var(--accent);color:var(--accent);background:var(--accent-soft);':''}">🗓</button>
+      <button onclick="openReset()" class="today-icon-btn" title="Weekly reset">🌅</button>
+      ${_next?`<button onclick="selectMission('${_next.id}');todayFocusMode=true;renderAll();"
+        style="padding:0 var(--sp3);height:32px;border-radius:var(--r5);border:none;
+          background:var(--accent);color:#1a1f2e;font:700 11px/1 var(--font-ui);cursor:pointer;
+          white-space:nowrap;">▶ Focus</button>`:''}
     </div>
   </div>`;
 
-  // ── Slim context bar: north star + streak — one compact line ───
+  // ── 2. CONTEXT BANNER (north star + streak) ─────────────────
   {
     const parts = [];
     if(weeklyIntentions.northStar && isCurrentWeekIntentions())
-      parts.push(`<span style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;"><span>🌟</span><span style="font:500 13px/1.3 var(--font-body);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(weeklyIntentions.northStar)}</span></span>`);
+      parts.push(`<span style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;">
+        <span>🌟</span>
+        <span style="font:500 13px/1.3 var(--font-body);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(weeklyIntentions.northStar)}</span>
+      </span>`);
     if(resetStreak.count >= 2)
       parts.push(`<span style="font:600 11px/1 var(--font-ui);color:var(--text4);white-space:nowrap;flex-shrink:0;">🔥 ${resetStreak.count}wk</span>`);
-    if(parts.length > 0){
-      html += `<div style="margin:0 var(--sp2) var(--sp2);padding:var(--sp2) var(--sp3);border-radius:var(--r2);
+    if(parts.length > 0)
+      html += `<div style="padding:var(--sp2) var(--sp3);border-radius:var(--r2);
         background:var(--accent-soft);border:1px solid rgba(232,168,56,0.2);
         display:flex;align-items:center;gap:var(--sp2);min-height:36px;">
-        ${parts.join('<span style="color:var(--border2);flex-shrink:0;">·</span>')}
+        ${parts.join(`<span style="color:var(--border2);">·</span>`)}
       </div>`;
-    }
   }
 
-  // ── Habits strip ─────────────────────────────────────────────
-  html += renderHabitsSection();
-
-  // nudges rendered below task list
-
-  // waiting-for rendered below task list
-
-  // ── Today's task list ─────────────────────────────────────────
-  // Overdue — not pinned (auto-surfaced, red)
-  const overdueUnpinned = tasks.filter(t=>
-    t.status!=='done'&&t.status!=='blocked'&&
-    t.dueDate&&t.dueDate<todayStr&&!todayPinned.has(t.id)
-  );
-  // Due today — not pinned (auto-surfaced, amber)
-  const dueTodayUnpinned = tasks.filter(t=>
-    t.status!=='done'&&t.status!=='blocked'&&
-    t.dueDate&&t.dueDate===todayStr&&!todayPinned.has(t.id)
-  );
-  // Pinned tasks (manually chosen, any due date)
-  const pinnedTasks = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])]
-    .map(id=>tasks.find(t=>t.id===id))
-    .filter(t=>t&&t.status!=='done');
-  const pinnedDone = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
-  const totalToday = overdueUnpinned.length + dueTodayUnpinned.length + pinnedTasks.length;
-
-  // Cognitive load indicator
-  const _activeTasks = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
-  const _estimateHours = {none:1,'15m':0.25,'30m':0.5,'1h':1,'2h':2,'4h':4,'8h+':8};
-  const _loadHours = pinnedTasks.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0)
-    + overdueUnpinned.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0)
-    + dueTodayUnpinned.reduce((sum,t)=>sum+(_estimateHours[t.estimate]||1),0);
-  const _totalActive = _activeTasks.length;
-  if(_totalActive > 35 || _loadHours > 10){
-    const isOverloaded = _totalActive > 50 || _loadHours > 12;
-    html += `<div style="margin:0 10px 8px;padding:10px 12px;border-radius:var(--r2);
-      border:1px solid ${isOverloaded?'rgba(239,83,80,0.4)':'rgba(255,160,40,0.3)'};
-      background:${isOverloaded?'rgba(239,83,80,0.06)':'rgba(255,160,40,0.05)'};
-      display:flex;align-items:center;gap:var(--sp2);">
-      <span style="font-size:18px;">${isOverloaded?'🔴':'🟡'}</span>
-      <div style="flex:1;">
-        <div style="font-size:11px;font-weight:800;font-family:var(--font-ui);color:${isOverloaded?'#EF5350':'#E8A838'};">
-          ${isOverloaded?'OVERLOADED':'HIGH LOAD'} — ${_totalActive} active tasks
+  // ── 3. COGNITIVE LOAD (conditional) ─────────────────────────
+  if(_activeTasks.length > 35 || _loadHours > 10){
+    const bad = _activeTasks.length > 50 || _loadHours > 12;
+    html += `<div class="today-card" style="border-color:${bad?'rgba(224,82,82,0.35)':'rgba(255,160,40,0.3)'};">
+      <div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);">
+        <span style="font-size:18px;">${bad?'🔴':'🟡'}</span>
+        <div style="flex:1;">
+          <div style="font:700 11px/1 var(--font-ui);color:${bad?'var(--red)':'var(--accent)'};">${bad?'OVERLOADED':'HIGH LOAD'} — ${_activeTasks.length} active</div>
+          <div style="font:var(--type-caption);color:var(--text3);margin-top:2px;">${_loadHours>0?`~${Math.round(_loadHours)}h pinned · `:''}Consider deferring some items</div>
         </div>
-        <div style="font:var(--type-caption);color:var(--text3);margin-top:2px;">
-          ${_loadHours>0?`~${Math.round(_loadHours)}h of work pinned today · `:''}Consider deferring some items
+        <button onclick="taskViewMode='priority';setNav('tasks')" class="today-card-action">Triage →</button>
+      </div>
+    </div>`;
+  }
+
+  // ── 4. HABITS ────────────────────────────────────────────────
+  const habitsHtml = renderHabitsSection();
+  if(habitsHtml && habitsHtml.trim()) html += habitsHtml;
+
+  // ── 5. OVERDUE ───────────────────────────────────────────────
+  if(overdueUnpinned.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(224,82,82,0.3);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--red);"></div>
+          <span class="today-card-title" style="color:var(--red);">Overdue</span>
+          <span class="today-card-count">${overdueUnpinned.length}</span>
         </div>
       </div>
-      <button onclick="taskViewMode='priority';setNav('tasks')" style="padding:4px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">Triage →</button>
+      ${overdueUnpinned.map(t=>tRow(t,'var(--red)',
+        `<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>`,
+        '')).join('')}
     </div>`;
   }
 
-  // ── Today's task list — three distinct sections ─────────────
-  const hasAnything = overdueUnpinned.length>0 || dueTodayUnpinned.length>0 ||
-                      pinnedTasks.length>0 || pinnedDone.length>0;
-
-  // Section header helper
-  function todaySectionHdr(label, color, count, action){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
-        'padding:var(--sp2) var(--sp3) var(--sp1);">' +
-      '<div style="display:flex;align-items:center;gap:var(--sp2);">' +
-        '<div style="width:3px;height:14px;border-radius:2px;background:'+color+';flex-shrink:0;"></div>' +
-        '<span style="font:700 10px/1 var(--font-ui);color:'+color+';letter-spacing:1px;text-transform:uppercase;">'+label+'</span>' +
-        '<span style="font:var(--type-caption);color:var(--text4);">'+count+'</span>' +
-      '</div>' +
-      (action||'') +
-    '</div>';
-  }
-
-  // Task row helper — clean, consistent, reused across all three groups
-
-
-  if(!hasAnything){
-    // Empty state
-    html += `<div style="margin:var(--sp3) var(--sp2);padding:var(--sp6) var(--sp5);
-        border-radius:var(--r3);border:1px dashed var(--border2);text-align:center;">
-      <div style="font-size:32px;margin-bottom:var(--sp3);">☀</div>
-      <div style="font:var(--type-title);color:var(--text2);margin-bottom:var(--sp2);">Nothing on your plate today</div>
-      <div style="font:var(--type-caption);color:var(--text3);margin-bottom:var(--sp4);">Pin tasks to build your day, or let overdue items surface automatically.</div>
-      <button onclick="openTodayPicker()" style="padding:var(--sp2) var(--sp4);border-radius:var(--r2);border:none;
-        background:var(--accent);color:#1a1f2e;font:700 13px/1 var(--font-ui);cursor:pointer;">
-        Pick today's tasks →
-      </button>
+  // ── 6. TODAY'S FOCUS (pinned + due today) ───────────────────
+  if(focusTasks.length > 0 || pinnedDone.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--accent);"></div>
+          <span class="today-card-title" style="color:var(--accent);">Today's Focus</span>
+          <span class="today-card-count">${focusTasks.length} active${pinnedDone.length>0?' · '+pinnedDone.length+' done':''}</span>
+        </div>
+        <button onclick="openTodayPicker()" class="today-card-action">+ Add</button>
+      </div>
+      ${focusTasks.map(t=>{
+        const isOv=t.dueDate&&t.dueDate<todayStr;
+        const isToday=t.dueDate===todayStr;
+        const isPinned=todayPinned.has(t.id);
+        const badge=isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ overdue</span>`
+          :isToday?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📅 today</span>`
+          :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${t.dueDate.slice(5)}</span>`:'';
+        const pinBtn=isPinned
+          ?`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove">✕</button>`
+          :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>`;
+        return tRow(t,'var(--accent)',badge,pinBtn);
+      }).join('')}
+      ${pinnedDone.length>0?`
+        <div style="padding:var(--sp1) var(--sp3);border-top:1px solid var(--border);
+            font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">DONE</div>
+        ${pinnedDone.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          return `<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);
+              border-top:1px solid var(--border);opacity:0.45;">
+            <button onclick="completeTask('${t.id}',event)" style="width:32px;height:32px;border-radius:50%;
+                border:2px solid var(--green);background:var(--green-soft);color:var(--green);
+                font-size:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">✓</button>
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
+              <div style="font:600 13px/1 var(--font-ui);color:var(--text3);text-decoration:line-through;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              ${proj?`<div style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</div>`:''}
+            </div>
+            <button onclick="toggleTodayPin('${t.id}')" class="today-icon-btn" title="Remove">✕</button>
+          </div>`;
+        }).join('')}`:''}
     </div>`;
   } else {
-
-    // ── SECTION 1: OVERDUE ─────────────────────────────────────
-    if(overdueUnpinned.length > 0){
-      html += `<div style="margin:var(--sp2) var(--sp2) var(--sp3);border-radius:var(--r3);border:1px solid rgba(224,82,82,0.25);background:var(--surface);overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);border-bottom:1px solid rgba(224,82,82,0.12);">
-          <div style="width:3px;height:12px;border-radius:2px;background:var(--red);flex-shrink:0;"></div>
-          <span style="font:700 10px/1 var(--font-ui);color:var(--red);letter-spacing:1px;text-transform:uppercase;">Overdue</span>
-          <span style="font:var(--type-caption);color:var(--text4);">${overdueUnpinned.length}</span>
-        </div>
-        ${overdueUnpinned.map((t,i)=>{
-          const proj=projects.find(p=>p.id===t.projectId);
-          return `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:flex-start;gap:var(--sp3);padding:var(--sp3);${i<overdueUnpinned.length-1?'border-bottom:1px solid var(--border);':''}cursor:pointer;">
-            <button onclick="event.stopPropagation();completeTask('${t.id}',event)"
-              style="width:32px;height:32px;border-radius:50%;border:2px solid var(--red);background:transparent;color:var(--red);font-size:13px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
-            <div style="flex:1;min-width:0;">
-              <div style="font:600 14px/1.4 var(--font-ui);color:var(--text);word-break:break-word;">${esc(t.title)}</div>
-              <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
-                <span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>
-                ${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}
-                ${t.estimate?`<span style="font:var(--type-caption);color:var(--text4);">⏱ ${t.estimate}</span>`:''}
-              </div>
-            </div>
-            <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();"
-              title="Focus" style="width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#1a1f2e;font-size:14px;font-weight:900;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">▶</button>
-          </div>`;
-        }).join('')}
-      </div>`;
-    }
-
-    // ── SECTION 2: TODAY'S FOCUS (pinned + due today) ──────────
-    const focusTasks = [...pinnedTasks, ...dueTodayUnpinned.filter(t=>!todayPinned.has(t.id))];
-    if(focusTasks.length > 0 || pinnedDone.length > 0){
-      html += `<div style="margin:0 var(--sp2) var(--sp3);border-radius:var(--r3);border:1px solid rgba(232,168,56,0.2);background:var(--surface);overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--sp2) var(--sp3);border-bottom:1px solid rgba(232,168,56,0.1);">
-          <div style="display:flex;align-items:center;gap:var(--sp2);">
-            <div style="width:3px;height:12px;border-radius:2px;background:var(--accent);flex-shrink:0;"></div>
-            <span style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;">Today's Focus</span>
-            <span style="font:var(--type-caption);color:var(--text4);">${focusTasks.length} active${pinnedDone.length>0?' · '+pinnedDone.length+' done':''}</span>
-          </div>
-          <button onclick="openTodayPicker()" style="padding:var(--sp1) var(--sp2);border-radius:var(--r2);border:1px solid rgba(232,168,56,0.35);background:transparent;color:var(--accent);font:700 10px/1 var(--font-ui);cursor:pointer;min-height:28px;">+ Add</button>
-        </div>
-        ${focusTasks.map((t,i)=>{
-          const proj=projects.find(p=>p.id===t.projectId);
-          const isOv=t.dueDate&&t.dueDate<todayStr;
-          const isDT=t.dueDate===todayStr;
-          const isPinned=todayPinned.has(t.id);
-          return `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:flex-start;gap:var(--sp3);padding:var(--sp3);${i<focusTasks.length-1||pinnedDone.length>0?'border-bottom:1px solid var(--border);':''}cursor:pointer;">
-            <button onclick="event.stopPropagation();completeTask('${t.id}',event)"
-              style="width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent);font-size:13px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
-            <div style="flex:1;min-width:0;">
-              <div style="font:600 14px/1.4 var(--font-ui);color:var(--text);word-break:break-word;">${esc(t.title)}</div>
-              <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
-                ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ overdue</span>`
-                  :isDT?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📅 today</span>`
-                  :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${t.dueDate.slice(5)}</span>`:''}
-                ${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}
-                ${t.estimate?`<span style="font:var(--type-caption);color:var(--text4);">⏱ ${t.estimate}</span>`:''}
-              </div>
-            </div>
-            <div style="display:flex;gap:var(--sp1);align-items:center;flex-shrink:0;margin-top:2px;">
-              <button onclick="event.stopPropagation();toggleTodayPin('${t.id}')"
-                style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text4);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;">${isPinned?'✕':'📌'}</button>
-              <button onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();"
-                style="width:32px;height:32px;border-radius:50%;border:none;background:var(--accent);color:#1a1f2e;font-size:14px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;">▶</button>
-            </div>
-          </div>`;
-        }).join('')}
-        ${pinnedDone.length>0?`
-          <div style="padding:var(--sp1) var(--sp3);font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">DONE</div>
-          ${pinnedDone.map((t,i)=>{
-            const proj=projects.find(p=>p.id===t.projectId);
-            return `<div style="display:flex;align-items:flex-start;gap:var(--sp3);padding:var(--sp2) var(--sp3);${i<pinnedDone.length-1?'border-bottom:1px solid var(--border);':''}opacity:0.45;">
-              <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--green);background:var(--green-soft);color:var(--green);font-size:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">✓</div>
-              <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
-                <div style="font:500 13px/1.4 var(--font-ui);color:var(--text3);text-decoration:line-through;word-break:break-word;">${esc(t.title)}</div>
-                ${proj?`<div style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</div>`:''}
-              </div>
-            </div>`;
-          }).join('')}`:''
-        }
-      </div>`;
-    } else {
-      html += `<div style="margin:0 var(--sp2) var(--sp3);padding:var(--sp5);border-radius:var(--r3);border:1px dashed rgba(232,168,56,0.25);text-align:center;">
-        <div style="font:var(--type-label);color:var(--text3);margin-bottom:var(--sp2);">Nothing pinned for today yet</div>
-        <button onclick="openTodayPicker()" style="padding:var(--sp2) var(--sp4);border-radius:var(--r2);border:none;background:var(--accent);color:#1a1f2e;font:700 12px/1 var(--font-ui);cursor:pointer;">Build your day →</button>
-      </div>`;
-    }
-  }
-    // ── EOD ritual nudge (evening only) ─────────────────────────
-  if(hour >= 17){
-    const eodDone = localStorage.getItem('hub-eod-done') === todayStr;
-    html += `<div style="margin:0 10px 10px;padding:var(--sp3) var(--sp4);border-radius:var(--r3);border:1px solid rgba(58,68,104,0.3);background:rgba(34,40,64,0.4);">
-      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--text3);letter-spacing:0.5px;margin-bottom:4px;">🌙 CLOSE THE DAY</div>
-      ${eodDone
-        ?`<div style="font-size:11px;color:var(--green);font-family:var(--font-ui);font-weight:700;">✓ Day closed — well done.</div>`
-        :`<button onclick="openEodRitual()" style="width:100%;padding:9px;border-radius:7px;border:none;background:rgba(58,68,104,0.4);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">🌙 Close the Day (60 sec)</button>`
-      }
+    html += `<div class="today-card" style="border-style:dashed;border-color:rgba(232,168,56,0.3);">
+      <div style="padding:var(--sp5);text-align:center;">
+        <div style="font-size:28px;margin-bottom:var(--sp2);">📌</div>
+        <div style="font:var(--type-label);color:var(--text3);margin-bottom:var(--sp2);">No tasks pinned for today</div>
+        <button onclick="openTodayPicker()" style="padding:var(--sp2) var(--sp4);border-radius:var(--r5);
+            border:none;background:var(--accent);color:#1a1f2e;font:700 12px/1 var(--font-ui);cursor:pointer;">
+          Build your day →
+        </button>
+      </div>
     </div>`;
   }
 
-  // ── Nudges and Waiting For — below task list ────────────────
-  const nudges2 = getPeopleNudges();
+  // ── 7. EOD RITUAL (evening only) ────────────────────────────
+  if(hour >= 17){
+    const eodDone = localStorage.getItem('hub-eod-done') === todayStr;
+    html += `<div class="today-card">
+      <div style="padding:var(--sp3);">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;margin-bottom:var(--sp2);">🌙 CLOSE THE DAY</div>
+        ${eodDone
+          ?`<div style="font:600 12px/1 var(--font-ui);color:var(--green);">✓ Day closed — well done.</div>`
+          :`<button onclick="openEodRitual()" style="width:100%;padding:var(--sp3);border-radius:var(--r2);
+              border:none;background:var(--surface2);color:var(--text2);
+              font:700 13px/1 var(--font-ui);cursor:pointer;min-height:var(--touch);">
+              🌙 Close the Day (60 sec)
+            </button>`}
+      </div>
+    </div>`;
+  }
+
+  // ── 8. REACH OUT (contact nudges) ───────────────────────────
   if(nudges2.length > 0){
     const _cc={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
-    html += `<div style="margin:var(--sp2);border-radius:var(--r3);border:1px solid rgba(129,199,132,0.25);background:var(--surface);overflow:hidden;">
-      <div style="padding:var(--sp2) var(--sp3);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
-        <div style="font:700 10px/1 var(--font-ui);color:#81C784;letter-spacing:1px;">👥 REACH OUT (${nudges2.length})</div>
-        <button onclick="setNav('people')" style="padding:2px var(--sp2);border-radius:var(--r2);border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font:700 10px/1 var(--font-ui);cursor:pointer;">See all</button>
+    html += `<div class="today-card" style="border-color:rgba(129,199,132,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#81C784;"></div>
+          <span class="today-card-title" style="color:#81C784;">Reach Out</span>
+          <span class="today-card-count">${nudges2.length}</span>
+        </div>
+        <button onclick="setNav('people')" class="today-card-action">See all</button>
       </div>
       ${nudges2.slice(0,3).map(c=>{
         const _c=_cc[c.role]||'#888';
         const _ds=c.lastContact?Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000):null;
-        return `<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);border-bottom:1px solid var(--border);">
+        return `<div class="today-card-row" onclick="openPersonDetail('${c.id}','contact')">
           ${renderAvatar(c.name,c.photo,32,_c+'22',_c,false)}
           <div style="flex:1;min-width:0;">
-            <div style="font:600 13px/1 var(--font-ui);color:var(--text);">${esc(c.name)}</div>
-            <div style="font:var(--type-caption);color:var(--text4);">${_ds===null?'Never contacted':`${_ds}d ago`} · every ${c.nudgeDays}d</div>
+            <div style="font:600 14px/1 var(--font-ui);color:var(--text);">${esc(c.name)}</div>
+            <div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">${_ds===null?'Never contacted':`${_ds}d ago`} · every ${c.nudgeDays}d</div>
           </div>
-          <button onclick="openLogContactModal('${c.id}');" style="padding:var(--sp1) var(--sp2);border-radius:var(--r2);border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;font:700 11px/1 var(--font-ui);cursor:pointer;min-height:32px;white-space:nowrap;">✓ Log</button>
+          <button onclick="event.stopPropagation();openLogContactModal('${c.id}');"
+            style="padding:var(--sp1) var(--sp2);border-radius:var(--r2);min-height:32px;
+              border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;
+              font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">✓ Log</button>
         </div>`;
       }).join('')}
       ${nudges2.length>3?`<div style="padding:var(--sp2) var(--sp3);font:var(--type-caption);color:var(--text4);text-align:center;">+${nudges2.length-3} more</div>`:''}
     </div>`;
   }
 
-  const _urgentWF = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
-  if(_urgentWF.length > 0){
-    html += `<div style="margin:0 var(--sp2) var(--sp2);border-radius:var(--r3);border:1px solid rgba(100,181,246,0.25);background:var(--surface);overflow:hidden;">
-      <div style="padding:var(--sp2) var(--sp3);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
-        <div style="font:700 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:1px;">⏳ WAITING FOR (${_urgentWF.length})</div>
-        <button onclick="setNav('waiting')" style="padding:2px var(--sp2);border-radius:var(--r2);border:1px solid rgba(100,181,246,0.4);background:transparent;color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">See all</button>
+  // ── 9. WAITING FOR (due/overdue) ────────────────────────────
+  if(urgentWF.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(100,181,246,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#64B5F6;"></div>
+          <span class="today-card-title" style="color:#64B5F6;">Waiting For</span>
+          <span class="today-card-count">${urgentWF.length} due</span>
+        </div>
+        <button onclick="setNav('waiting')" class="today-card-action">See all</button>
       </div>
-      ${_urgentWF.map(w=>{
+      ${urgentWF.map(w=>{
         const _ov=w.dueDate<todayStr;
-        return `<div onclick="openWaitingModal(null,'${w.id}')" style="padding:var(--sp2) var(--sp3);border-bottom:1px solid var(--border);cursor:pointer;">
-          <div style="font:600 12px/1 var(--font-ui);color:#64B5F6;">${esc(w.person||'')}</div>
-          <div style="font:var(--type-label);color:var(--text);margin-top:2px;">${esc(w.what)}</div>
-          <div style="font:var(--type-caption);color:${_ov?'var(--red)':'var(--text4)'};margin-top:2px;">${_ov?'⚠ Overdue':'Due today'} · ${w.dueDate.slice(5)}</div>
+        return `<div class="today-card-row" onclick="openWaitingModal(null,'${w.id}')">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(100,181,246,0.12);
+              border:1px solid rgba(100,181,246,0.3);display:flex;align-items:center;
+              justify-content:center;flex-shrink:0;font-size:16px;">⏳</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+            <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+              ${w.person?`<span style="font:var(--type-caption);color:#64B5F6;">${esc(w.person)}</span>`:''}
+              <span style="font:var(--type-caption);color:${_ov?'var(--red)':'var(--text4)'};">${_ov?'⚠ Overdue':'Due today'} · ${w.dueDate.slice(5)}</span>
+            </div>
+          </div>
         </div>`;
       }).join('')}
     </div>`;
   }
 
-  // ── Brain dump — persistent bottom capture ───────────────────
-  html += `<div class="brain-dump-bar" style="margin:var(--sp2) var(--sp2) 80px;">
+  // ── 10. QUICK CAPTURE ────────────────────────────────────────
+  html += `<div class="brain-dump-bar">
     <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Quick capture…"
       onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
     <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice">🎙</button>
     <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">+</button>
   </div>`;
 
-  // ── Someday section ──────────────────────────────────────────
+  html += '</div>'; // close .today-stack
   container.innerHTML = html;
 }
 
-// ── Focus mode within Today ───────────────────────────────────────
+
 function renderTodayFocusMode(container){
   const todayStr = today();
 
@@ -9549,36 +9619,35 @@ function renderHabitsSection(){
       </div>
     </div>
 
-    ${habitsExpanded ? `
-    <!-- Habit circles -->
-    <div style="padding:4px 12px 14px;display:flex;flex-wrap:wrap;gap:var(--sp2);">
-      ${habitList.map(h => {
+    ${habitsExpanded ? '<div style="padding:0 0 8px;">' +
+      habitList.map((h,i) => {
         const isDone = done.includes(h.id);
-        return `<div onclick="toggleHabit('${h.id}')"
-          style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:52px;">
-          <div style="width:48px;height:48px;border-radius:50%;
-            border:2px solid ${isDone?'var(--green)':'var(--border)'};
-            background:${isDone?'rgba(100,200,100,0.15)':'var(--surface2)'};
-            display:flex;align-items:center;justify-content:center;
-            font-size:20px;transition:all 0.2s;
-            box-shadow:${isDone?'0 0 10px rgba(100,200,100,0.3)':'none'};">
-            ${isDone ? '✓' : esc(h.icon||'🫀')}
-          </div>
-          <div style="font-size:9px;font-family:var(--font-ui);font-weight:700;
-            color:${isDone?'var(--green)':'var(--text3)'};text-align:center;
-            max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-            letter-spacing:0.3px;">
-            ${esc(h.name)}
-          </div>
-        </div>`;
-      }).join('')}
-      <div onclick="openHabitModal()"
-        style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;min-width:52px;opacity:0.4;">
-        <div style="width:48px;height:48px;border-radius:50%;border:2px dashed var(--border);
-          background:transparent;display:flex;align-items:center;justify-content:center;font-size:20px;">+</div>
-        <div style="font-size:9px;font-family:var(--font-ui);font-weight:700;color:var(--text3);text-align:center;">Add</div>
-      </div>
-    </div>` : ''}
+        const rowBg = isDone ? 'rgba(61,184,122,0.04)' : 'transparent';
+        const iconBorder = isDone ? 'var(--green)' : 'var(--border2)';
+        const iconBg = isDone ? 'rgba(61,184,122,0.12)' : 'var(--surface2)';
+        const titleFont = isDone ? 'font:500 14px/1 var(--font-ui);color:var(--text4);text-decoration:line-through' : 'font:600 14px/1 var(--font-ui);color:var(--text)';
+        const icon = isDone ? '<span style="color:var(--green);font-size:13px;">✓</span>' : (h.icon || '○');
+        const dot = isDone ? 'var(--green)' : 'var(--border2)';
+        const noteHtml = h.note ? '<div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-top:2px;">' + esc(h.note) + '</div>' : '';
+        return '<div onclick="toggleHabit(\'' + h.id + '\')"'
+          + ' style="display:flex;align-items:center;gap:12px;'
+          + 'padding:10px 14px;border-top:1px solid var(--border);'
+          + 'cursor:pointer;background:' + rowBg + ';'
+          + 'transition:background 0.12s;">'
+          + '<div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;'
+          + 'border:2px solid ' + iconBorder + ';'
+          + 'background:' + iconBg + ';'
+          + 'display:flex;align-items:center;justify-content:center;font-size:16px;'
+          + 'transition:all 0.12s;">' + icon + '</div>'
+          + '<div style="flex:1;min-width:0;">'
+          + '<div style="' + titleFont + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(h.name) + '</div>'
+          + noteHtml
+          + '</div>'
+          + '<div style="width:8px;height:8px;border-radius:50%;background:' + dot + ';"></div>'
+          + '</div>';
+      }).join('')
+      + '</div>'
+    : ''}
   </div>`;
 }
 
