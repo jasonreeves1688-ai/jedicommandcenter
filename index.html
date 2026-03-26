@@ -2987,6 +2987,24 @@ function renderStatsStrip(){
   const nextBig  = bigThresh  - (completions % bigThresh);
 
   // Kids bars — colors match kids tab player-0/player-1 CSS
+  // Detect light mode for inline colors
+  const _lm = document.body.classList.contains('light-mode');
+  const _statBorder    = _lm ? '1px solid var(--border)'   : null;
+  const _noteBg        = _lm ? 'var(--surface2)'           : '#2A3050';
+  const _noteMuted     = _lm ? 'var(--text3)'              : '#9AAAC8';
+  const _streakBorder  = streak>0
+    ? (_lm ? '1px solid rgba(160,96,16,0.4)' : '1px solid rgba(232,168,56,0.4)')
+    : (_lm ? '1px solid var(--border)'        : '1px solid rgba(255,255,255,0.06)');
+  const _streakColor   = streak>0
+    ? (_lm ? '#A06010' : '#FFD166')
+    : (_lm ? 'var(--text3)' : '#8090B8');
+  const _ptColor    = _lm ? 'var(--blue)'   : '#6AADEE';
+  const _todayColor = _lm ? 'var(--green)'  : '#5DD89A';
+  const _activeColor= _lm ? 'var(--text)'   : '#C0C8E8';
+  const _doneColor  = _lm ? 'var(--text3)'  : '#8090B8';
+  const _overdueBg  = _lm ? 'rgba(176,30,30,0.08)' : 'rgba(224,82,82,0.08)';
+  const _overdueCol = _lm ? 'var(--red)'    : '#FF6B6B';
+
   const KIDS_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
   let kidsBarsHtml = '';
   if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
@@ -3015,24 +3033,6 @@ function renderStatsStrip(){
 
   // Kids player index colors matching kids tab CSS
   const KIDS_PLAYER_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
-
-  // Detect light mode for inline colors
-  const _lm = document.body.classList.contains('light-mode');
-  const _statBorder    = _lm ? '1px solid var(--border)'   : null;
-  const _noteBg        = _lm ? 'var(--surface2)'           : '#2A3050';
-  const _noteMuted     = _lm ? 'var(--text3)'              : '#9AAAC8';
-  const _streakBorder  = streak>0
-    ? (_lm ? '1px solid rgba(160,96,16,0.4)' : '1px solid rgba(232,168,56,0.4)')
-    : (_lm ? '1px solid var(--border)'        : '1px solid rgba(255,255,255,0.06)');
-  const _streakColor   = streak>0
-    ? (_lm ? '#A06010' : '#FFD166')
-    : (_lm ? 'var(--text3)' : '#8090B8');
-  const _ptColor    = _lm ? 'var(--blue)'   : '#6AADEE';
-  const _todayColor = _lm ? 'var(--green)'  : '#5DD89A';
-  const _activeColor= _lm ? 'var(--text)'   : '#C0C8E8';
-  const _doneColor  = _lm ? 'var(--text3)'  : '#8090B8';
-  const _overdueBg  = _lm ? 'rgba(176,30,30,0.08)' : 'rgba(224,82,82,0.08)';
-  const _overdueCol = _lm ? 'var(--red)'    : '#FF6B6B';
 
   strip.innerHTML = `
     <!-- Row 1: stat pills -->
