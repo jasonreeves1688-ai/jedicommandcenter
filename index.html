@@ -2248,7 +2248,7 @@ body.light-mode .today-card-row:hover{ background:rgba(0,0,0,0.025); }
         </div>
         <div id="task-people-wrap">
           <div class="chip-label">People</div>
-          <div id="task-people-picker" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:4px 0;"></div>
+          <div id="task-people-picker"></div>
           <input type="hidden" id="task-person-ids" value=""/>
         </div>
         <div>
@@ -5739,18 +5739,29 @@ function deleteRowSubtask(taskId, subId){
 
 function renderTaskPeoplePicker(selectedIds){
   const wrap = document.getElementById('task-people-picker');
-  const hidden = document.getElementById('task-person-ids');
   if(!wrap) return;
-  const sel = new Set((selectedIds||'').split(',').filter(Boolean));
-  wrap.innerHTML = peopleList.length === 0
-    ? `<span style="font-size:12px;color:var(--text4);font-family:var(--font-ui);font-style:italic;">No meeting contacts added yet</span>`
-    : peopleList.map(p=>`<button type="button"
-        class="person-chip ${sel.has(p.id)?'selected':''}"
-        onclick="toggleTaskPerson('${p.id}')"
-        style="font-size:11px;padding:4px 10px;min-height:28px;">
-        ${esc(p.name)}${p.role?`<span style='font-weight:400;color:var(--text4);font-size:10px;'> (${esc(p.role)})</span>`:''}
-      </button>`).join('');
-  if(hidden) hidden.value = [...sel].join(',');
+  // Use the same compact search picker as meetings/waiting-for
+  // Sort: selected first, then by recency of contact, then role priority, then alpha
+  const todayStr = today();
+  const pOrd = {High:0, Medium:1, Low:2};
+  const sortedPeople = [...peopleList].sort((a,b)=>{
+    // Recency — most recently contacted first
+    const aLast = a.lastContact ? new Date(a.lastContact).getTime() : 0;
+    const bLast = b.lastContact ? new Date(b.lastContact).getTime() : 0;
+    if(aLast !== bLast) return bLast - aLast;
+    // Priority
+    const pd = (pOrd[a.priority]??1) - (pOrd[b.priority]??1);
+    if(pd !== 0) return pd;
+    return a.name.localeCompare(b.name);
+  });
+  // Temporarily override peopleList order for buildPersonPickerHTML
+  const origList = peopleList;
+  peopleList = sortedPeople;
+  wrap.innerHTML = buildPersonPickerHTML(selectedIds, 'task-person-ids', true);
+  peopleList = origList;
+  // Sync hidden input
+  const hidden = document.getElementById('task-person-ids');
+  if(hidden && !hidden.value) hidden.value = (selectedIds||'').split(',').filter(Boolean).join(',');
 }
 
 function toggleTaskPerson(personId){
@@ -7770,10 +7781,22 @@ function ppSearch(query, inputId, isMulti){
   if(!dropdown||!hidden) return;
   const sel = new Set((hidden.value||'').split(',').filter(Boolean));
   const q = (query||'').toLowerCase().trim();
+  const _pOrd = {High:0, Medium:1, Low:2};
   const matches = peopleList.filter(p=>{
-    if(!isMulti && sel.has(p.id)) return false; // single-select: hide already selected
+    if(!isMulti && sel.has(p.id)) return false;
     if(q && !p.name.toLowerCase().includes(q) && !(p.role||'').toLowerCase().includes(q)) return false;
     return true;
+  }).sort((a,b)=>{
+    // Selected first when no query
+    if(!q){ const as=sel.has(a.id), bs=sel.has(b.id); if(as!==bs) return as?-1:1; }
+    // Most recently contacted
+    const aL=a.lastContact?new Date(a.lastContact).getTime():0;
+    const bL=b.lastContact?new Date(b.lastContact).getTime():0;
+    if(aL!==bL) return bL-aL;
+    // Priority
+    const pd=(_pOrd[a.priority]??1)-(_pOrd[b.priority]??1);
+    if(pd!==0) return pd;
+    return a.name.localeCompare(b.name);
   });
   if(matches.length===0){
     dropdown.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:var(--text4);font-family:var(--font-ui);">No matches</div>`;
@@ -7781,16 +7804,21 @@ function ppSearch(query, inputId, isMulti){
     return;
   }
   dropdown.innerHTML = matches.map(p=>{
-    const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
+    const pc=p.priority==='High'?'var(--red)':p.priority==='Low'?'var(--text4)':'var(--accent)';
     const isSel = sel.has(p.id);
+    const _daysSince = p.lastContact ? Math.floor((Date.now()-new Date(p.lastContact).getTime())/86400000) : null;
+    const _hint = _daysSince===null ? '' : _daysSince===0 ? 'today' : _daysSince===1 ? 'yesterday' : `${_daysSince}d ago`;
     return `<div onmousedown="ppSelect('${p.id}','${inputId}','${isMulti}')"
       style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);cursor:pointer;
-             background:${isSel?'rgba(232,168,56,0.08)':'transparent'};
+             background:${isSel?'var(--accent-soft)':'transparent'};
              border-bottom:1px solid var(--border);">
       ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;"/>`:`<span style="width:24px;height:24px;border-radius:50%;background:${pc}22;color:${pc};font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${p.name.slice(0,1)}</span>`}
       <div style="flex:1;min-width:0;">
         <div style="font:600 13px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name)}</div>
-        ${p.role?`<div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${esc(p.role)}</div>`:''}
+        <div style="display:flex;gap:var(--sp2);align-items:center;">
+          ${p.role?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${esc(p.role)}</span>`:''}
+          ${_hint?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">· ${_hint}</span>`:''}
+        </div>
       </div>
       ${isSel?`<span style="color:var(--accent);font-size:12px;font-weight:800;">✓</span>`:`<span style="font-size:10px;color:${pc};font-weight:800;font-family:var(--font-ui);">${p.priority||'Med'}</span>`}
     </div>`;
