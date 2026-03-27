@@ -3350,10 +3350,7 @@ function renderTaskList(container){
     return 0;
   });
 
-  const globalMetrics=buildMetrics(visibleTasks);
-  let html=globalMetrics
-    ?`<div style="background:rgba(212,192,148,0.45);border:1px solid rgba(58,68,104,0.25);border-radius:3px;margin-bottom:6px;padding:4px 10px;">${globalMetrics}</div>`
-    :"";
+  let html="";
 
   // View mode + bulk edit toggle strip
   const vmBtns = [
@@ -6609,22 +6606,7 @@ function renderTodayView(container){
     </div>`;
   }
 
-  // ── 7. EOD RITUAL (evening only) ────────────────────────────
-  if(hour >= 17){
-    const eodDone = localStorage.getItem('hub-eod-done') === todayStr;
-    html += `<div class="today-card">
-      <div style="padding:var(--sp3);">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;margin-bottom:var(--sp2);">🌙 CLOSE THE DAY</div>
-        ${eodDone
-          ?`<div style="font:600 12px/1 var(--font-ui);color:var(--green);">✓ Day closed — well done.</div>`
-          :`<button onclick="openEodRitual()" style="width:100%;padding:var(--sp3);border-radius:var(--r2);
-              border:none;background:var(--surface2);color:var(--text2);
-              font:700 13px/1 var(--font-ui);cursor:pointer;min-height:var(--touch);">
-              🌙 Close the Day (60 sec)
-            </button>`}
-      </div>
-    </div>`;
-  }
+  // ── 7. EOD — handled by top banner only
 
   // ── 8. REACH OUT (contact nudges) ───────────────────────────
   if(nudges2.length > 0){
