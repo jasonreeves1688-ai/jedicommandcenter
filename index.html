@@ -1997,7 +1997,8 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
   <!-- HEADER -->
   <div id="header">
     <div id="header-brand" style="flex:1;min-width:0;cursor:pointer;" onclick="toggleStatsStrip()">
-      <div id="header-title" style="display:flex;align-items:center;"><svg style="margin-right:5px;flex-shrink:0;" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+      <div id="header-title" style="display:flex;align-items:center;gap:8px;">
+    <span id="header-user-badge" style="display:none;"></span><svg style="margin-right:5px;flex-shrink:0;" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
 
 <circle cx="8.0" cy="8.0" r="8.0" fill="#1565C0" opacity="0.1"/>
 <path d="M3.6,12.1 L3.6,5.9 L8.0,1.2 L12.4,5.9 L12.4,12.1 Z"
@@ -2011,6 +2012,19 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
       <div id="header-stats" class="stats"></div>
     </div>
     <div id="header-actions">
+    <!-- Mode switch — Home / Work -->
+    <button id="mode-toggle-btn"
+      onclick="toggleMode()"
+      title="Switch between Home and Work"
+      style="background:transparent;border:1px solid var(--border);cursor:pointer;
+        height:28px;border-radius:20px;padding:0 10px;
+        display:flex;align-items:center;gap:5px;
+        font:700 11px/1 var(--font-ui);color:var(--text3);
+        transition:all var(--t-fast);"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+      🏠 <span id="mode-label">Home</span>
+    </button>
     <button id="theme-toggle-btn"
       onclick="toggleTheme()"
       title="Toggle light/dark mode"
@@ -2110,21 +2124,39 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 
   <!-- Mobile bottom nav (hidden on desktop via media query) -->
   <div id="bottom-nav">
-    <button class="nav-btn" id="nav-today" onclick="setNav('today')">
-      <span class="nav-icon">☀</span><span class="nav-label">Today</span>
-    </button>
-    <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
-      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
-    </button>
-    <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
-      <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
-    </button>
-    <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
-      <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
-    </button>
-    <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
-      <span class="nav-icon">⊞</span><span class="nav-label">All</span>
-    </button>
+    <!-- Work mode nav -->
+    <div id="nav-work-items" style="display:flex;flex:1;">
+      <button class="nav-btn" id="nav-today" onclick="setNav('today')">
+        <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+      </button>
+      <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
+        <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+      </button>
+      <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
+        <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
+      </button>
+      <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
+        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
+        <span class="nav-icon">⊞</span><span class="nav-label">All</span>
+      </button>
+    </div>
+    <!-- Home mode nav -->
+    <div id="nav-home-items" style="display:none;flex:1;">
+      <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
+        <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+      </button>
+      <button class="nav-btn" id="nav-family" onclick="setNav('family')">
+        <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
+      </button>
+      <button class="nav-btn" id="nav-grocery" onclick="setNav('grocery')">
+        <span class="nav-icon">🛒</span><span class="nav-label">Grocery</span>
+      </button>
+      <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
+        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+    </div>
   </div>
 
   <!-- Grid launcher overlay (mobile only) -->
@@ -2168,6 +2200,11 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
       </button>
     </div>
   </div>
+</div>
+
+<!-- Weekly Planning Overlay -->
+<div id="weekly-plan-overlay" style="display:none;position:fixed;inset:0;
+  background:var(--bg);z-index:800;overflow-y:auto;overflow-x:hidden;">
 </div>
 
 <div id="toast"></div>
@@ -2905,6 +2942,34 @@ async function loadAll(){
     somedayList = _mergeCollection(data.somedayList, _lSomeday);
     localStorage.setItem('hub-someday', JSON.stringify(somedayList));
   } catch(e){}
+
+  // ── Home/family collections ───────────────────────────────
+  try {
+    const _lFT = JSON.parse(localStorage.getItem('hub-family-tasks')||'[]');
+    familyTasks = _mergeCollection(data.familyTasks, _lFT);
+    localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
+  } catch(e){}
+  try {
+    const _lJH = JSON.parse(localStorage.getItem('hub-jason-home')||'[]');
+    jasonHomeTasks = _mergeCollection(data.jasonHomeTasks, _lJH);
+    localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
+  } catch(e){}
+  try {
+    const _lWH = JSON.parse(localStorage.getItem('hub-wife-home')||'[]');
+    wifeHomeTasks = _mergeCollection(data.wifeHomeTasks, _lWH);
+    localStorage.setItem('hub-wife-home', JSON.stringify(wifeHomeTasks));
+  } catch(e){}
+  try {
+    const _lGR = JSON.parse(localStorage.getItem('hub-grocery')||'[]');
+    groceryList = _mergeCollection(data.groceryList, _lGR);
+    localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
+  } catch(e){}
+  try {
+    if(data.weeklyPlan !== undefined && data.weeklyPlan !== null){
+      weeklyPlan = data.weeklyPlan;
+      localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
+    }
+  } catch(e){}
   try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
   try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
   try { if(data.discoveryList !== undefined){ discoveryList = data.discoveryList; localStorage.setItem('hub-discovery', JSON.stringify(discoveryList)); if(discoveryList.length>0) _cloudLoaded.add('discoveryList'); }} catch(e){ console.error('load discoveryList',e); }
@@ -2968,7 +3033,12 @@ function getCloudStats(){
     tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||'',
     tbBlocks:         tbBlocks,
     discoveryList:    discoveryList,
-    signalList:       signalList
+    signalList:       signalList,
+    familyTasks:      familyTasks,
+    jasonHomeTasks:   jasonHomeTasks,
+    wifeHomeTasks:    wifeHomeTasks,
+    groceryList:      groceryList,
+    weeklyPlan:       weeklyPlan
   };
 }
 
@@ -3228,12 +3298,1022 @@ function checkEodBanner(){
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// HOME / WORK MODE
+// ══════════════════════════════════════════════════════════════
+
+function toggleMode(){
+  currentMode = currentMode === 'work' ? 'home' : 'work';
+  localStorage.setItem('reeves-mode', currentMode);
+  applyMode();
+  // Navigate to the right default tab
+  setNav(currentMode === 'home' ? 'home-today' : 'today');
+}
+
+function applyMode(){
+  const isJenny = typeof currentUser === 'object' && currentUser.role === 'wife';
+  // Jenny is always locked to home mode
+  if(isJenny) currentMode = 'home';
+
+  const isHome = currentMode === 'home';
+  const workNav = document.getElementById('nav-work-items');
+  const homeNav = document.getElementById('nav-home-items');
+  if(workNav) workNav.style.display = isHome ? 'none' : 'flex';
+  if(homeNav) homeNav.style.display = isHome ? 'flex' : 'none';
+
+  // Mode toggle — hidden for Jenny, updated for Jason
+  const modeBtn   = document.getElementById('mode-toggle-btn');
+  const modeLabel = document.getElementById('mode-label');
+  if(modeBtn){
+    if(isJenny){
+      modeBtn.style.display = 'none';
+    } else {
+      modeBtn.style.display = '';
+      if(modeLabel){
+        modeLabel.textContent = isHome ? 'Work' : 'Home';
+        modeBtn.childNodes[0].textContent = isHome ? '💼 ' : '🏠 ';
+      }
+    }
+  }
+
+  // FAB — work mode only, never for Jenny
+  const fab = document.getElementById('global-capture-btn');
+  if(fab) fab.style.display = (isHome || isJenny) ? 'none' : '';
+
+  // User badge — show Jenny's name + logout when she's logged in
+  const badge = document.getElementById('header-user-badge');
+  if(badge){
+    if(isJenny){
+      badge.style.display = 'inline-flex';
+      badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;
+        padding:3px 10px 3px 8px;border-radius:20px;
+        background:rgba(233,30,140,0.1);border:1px solid rgba(233,30,140,0.3);">
+        <span style="font:700 11px/1 var(--font-ui);color:#E91E8C;">Jenny</span>
+        <button onclick="jennyLogout()"
+          style="padding:0;border:none;background:transparent;
+            color:rgba(233,30,140,0.6);font-size:14px;cursor:pointer;line-height:1;">×</button>
+      </span>`;
+    } else {
+      badge.style.display = 'none';
+      badge.innerHTML = '';
+    }
+  }
+}
+
+function renderHomeTodayView(container){
+  const isJason  = currentUser === 'parent';
+  const isJenny  = typeof currentUser === 'object' && currentUser.role === 'wife';
+  const myPrivateTasks = isJason ? jasonHomeTasks : wifeHomeTasks;
+  const myPrivateSave  = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
+  const todayStr = today();
+
+  // Due today from private + family
+  const privateDue = myPrivateTasks.filter(t=>!t.done && t.dueDate && t.dueDate <= todayStr);
+  const privateNoDue = myPrivateTasks.filter(t=>!t.done && !t.dueDate);
+  const familyDue  = familyTasks.filter(t=>!t.done &&
+    (t.dueDate ? t.dueDate <= todayStr : false) &&
+    (t.assignedTo === 'anyone' || t.assignedTo === (isJason?'jason':'wife'))
+  );
+  const familyOpen = familyTasks.filter(t=>!t.done && !t.dueDate &&
+    (t.assignedTo === 'anyone' || t.assignedTo === (isJason?'jason':'wife'))
+  );
+
+  const greeting = getHomeGreeting();
+
+  // Sunday nudge + plan button
+  const isSun = new Date().getDay() === 0;
+  const planBtnColor = weeklyPlan?.lockedIn ? 'var(--green)' : 'var(--accent)';
+  const planBtnLabel = weeklyPlan?.lockedIn
+    ? '📅 View the week'
+    : (isSun ? '📅 Plan the week →' : '📅 Plan the week');
+
+  let html = `
+  ${isSun && !weeklyPlan?.lockedIn ? `
+  <div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r3);
+    background:var(--accent-soft);border:1.5px solid var(--accent);
+    display:flex;align-items:center;gap:12px;">
+    <div style="flex:1;">
+      <div style="font:700 13px/1 var(--font-ui);color:var(--accent);">It's Sunday!</div>
+      <div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">
+        Ready to plan the week with Jenny?</div>
+    </div>
+    <button onclick="openWeeklyPlanning()"
+      style="padding:8px 14px;border-radius:20px;background:var(--accent);
+        color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+      Start →</button>
+  </div>` : ''}
+  <div style="padding:16px 16px 4px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font:600 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;margin-bottom:4px;">${todayStr}</div>
+      <div style="font:700 24px/1.2 var(--font-ui);color:var(--text);">${greeting}</div>
+    </div>
+    <button onclick="openWeeklyPlanning()"
+      style="padding:8px 14px;border-radius:20px;cursor:pointer;
+        border:1.5px solid ${planBtnColor};color:${planBtnColor};
+        background:transparent;font:700 11px/1 var(--font-ui);">
+      ${planBtnLabel}</button>
+  </div>
+
+  <!-- Quick add for private tasks -->
+  <div style="padding:8px 16px 4px;display:flex;gap:8px;">
+    <input id="home-quick-input" placeholder="Add a personal task…"
+      style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
+      onkeydown="if(event.key==='Enter')addHomeTask()"
+      onfocus="this.style.borderColor='var(--accent)'"
+      onblur="this.style.borderColor='var(--border)'"/>
+    <button onclick="addHomeTask()"
+      style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
+  </div>
+  <div style="padding:2px 16px 12px;">
+    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 Only you see these</div>
+  </div>`;
+
+  // Private tasks
+  if(myPrivateTasks.filter(t=>!t.done).length > 0){
+    html += `<div style="padding:0 16px 4px;font:700 11px/1 var(--font-ui);
+      letter-spacing:1px;color:var(--accent);text-transform:uppercase;">My Tasks</div>`;
+    myPrivateTasks.filter(t=>!t.done).forEach(t=>{
+      html += homeTaskRow(t, 'private');
+    });
+    // Done tasks collapsed
+    const doneTasks = myPrivateTasks.filter(t=>t.done);
+    if(doneTasks.length){
+      html += `<div style="padding:2px 16px 8px;font:500 11px/1 var(--font-ui);color:var(--text4);cursor:pointer;"
+        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        ✓ ${doneTasks.length} done — tap to show</div>
+        <div style="display:none;">
+        ${doneTasks.map(t=>homeTaskRow(t,'private')).join('')}
+        </div>`;
+    }
+  }
+
+  // Family tasks
+  const allFamilyOpen = familyTasks.filter(t=>!t.done &&
+    (t.assignedTo==='anyone'||t.assignedTo===(isJason?'jason':'wife')||t.assignedTo==='ridley'||t.assignedTo==='connor'));
+  if(allFamilyOpen.length > 0){
+    html += `<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);
+      letter-spacing:1px;color:var(--text3);text-transform:uppercase;">Family Tasks</div>`;
+    allFamilyOpen.forEach(t=>{ html += homeTaskRow(t,'family'); });
+  }
+
+  if(myPrivateTasks.filter(t=>!t.done).length===0 && allFamilyOpen.length===0){
+    html += `<div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:40px;margin-bottom:10px;">🌟</div>
+      <div style="font:600 16px/1.4 var(--font-ui);color:var(--text3);">All clear — great job!</div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function getHomeGreeting(){
+  const h    = new Date().getHours();
+  const name = typeof currentUser === 'object' && currentUser.role === 'wife'
+    ? ', Jenny' : '';
+  if(h < 12) return `Good morning${name}! ☀️`;
+  if(h < 17) return `Good afternoon${name}! 👋`;
+  return `Good evening${name}! 🌙`;
+}
+
+function homeTaskRow(t, type){
+  const isPrivate = type === 'private';
+  const saveFn    = isPrivate
+    ? (currentUser==='parent' ? 'saveJasonHomeTasks' : 'saveWifeHomeTasks')
+    : 'saveFamilyTasks';
+  const arrName   = isPrivate
+    ? (currentUser==='parent' ? 'jasonHomeTasks' : 'wifeHomeTasks')
+    : 'familyTasks';
+  const assigneeLabel = !isPrivate && t.assignedTo && t.assignedTo !== 'anyone'
+    ? `<span style="font:600 10px/1 var(--font-ui);padding:1px 6px;border-radius:10px;
+        background:var(--accent-soft);color:var(--accent);">${t.assignedTo}</span>`
+    : '';
+  const dueLabel = t.dueDate
+    ? `<span style="font:500 10px/1 var(--font-ui);color:${t.dueDate < today() ? 'var(--red)' : 'var(--text4)'};">${t.dueDate <= today() ? '📅 Today' : t.dueDate.slice(5)}</span>`
+    : '';
+  return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;
+      border-bottom:1px solid var(--border);${t.done?'opacity:0.4;':''}"
+    >
+    <button onclick="toggleHomeTask('${t.id}','${arrName}','${saveFn}')"
+      style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;
+        border:2px solid ${t.done?'var(--green)':'var(--border)'};
+        background:${t.done?'var(--green)':'transparent'};
+        color:${t.done?'#fff':'transparent'};font-size:13px;font-weight:800;
+        display:flex;align-items:center;justify-content:center;">✓</button>
+    <div style="flex:1;min-width:0;">
+      <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
+        ${t.done?'text-decoration:line-through;':''}
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+        ${assigneeLabel}${dueLabel}
+      </div>
+    </div>
+    <button onclick="deleteHomeTask('${t.id}','${arrName}','${saveFn}')"
+      style="padding:2px 6px;border-radius:4px;border:none;background:transparent;
+        color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
+  </div>`;
+}
+
+function addHomeTask(){
+  const input = document.getElementById('home-quick-input');
+  const title = input?.value.trim();
+  if(!title) return;
+  const isJason = currentUser === 'parent';
+  const arr  = isJason ? jasonHomeTasks : wifeHomeTasks;
+  const save = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
+  arr.unshift({
+    id: 'ht'+Date.now(),
+    title,
+    done: false,
+    dueDate: '',
+    createdAt: today(),
+    createdBy: isJason ? 'jason' : 'jenny'
+  });
+  save();
+  input.value = '';
+  renderAll();
+}
+
+function toggleHomeTask(id, arrName, saveFnName){
+  const arr = window[arrName];
+  const t   = arr?.find(x=>x.id===id);
+  if(!t) return;
+  t.done = !t.done;
+  window[saveFnName]();
+  renderAll();
+}
+
+function deleteHomeTask(id, arrName, saveFnName){
+  window[arrName] = (window[arrName]||[]).filter(x=>x.id!==id);
+  window[saveFnName]();
+  renderAll();
+}
+
+function renderFamilyPage(container){
+  const ASSIGNEES = [
+    {key:'anyone', label:'Anyone', color:'var(--text3)'},
+    {key:'jason',  label:'Jason',  color:'var(--accent)'},
+    {key:'wife',   label:'Wife',   color:'#E91E8C'},
+    {key:'ridley', label:'Ridley', color:'#7eb8f7'},
+    {key:'connor', label:'Connor', color:'#cc8ef5'},
+  ];
+
+  const open = familyTasks.filter(t=>!t.done);
+  const done = familyTasks.filter(t=>t.done).slice(0,10);
+
+  let html = `
+  <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Family Tasks</div>
+    <div style="font:500 11px/1 var(--font-ui);color:var(--text4);">${open.length} open</div>
+  </div>
+
+  <!-- Quick add -->
+  <div style="padding:0 16px 12px;display:flex;gap:8px;">
+    <input id="family-task-input" placeholder="Add a family task…"
+      style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
+      onkeydown="if(event.key==='Enter')addFamilyTask()"
+      onfocus="this.style.borderColor='var(--accent)'"
+      onblur="this.style.borderColor='var(--border)'"/>
+    <button onclick="addFamilyTask()"
+      style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
+  </div>`;
+
+  if(open.length === 0){
+    html += `<div style="text-align:center;padding:32px 20px;">
+      <div style="font-size:36px;margin-bottom:8px;">✅</div>
+      <div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div>
+    </div>`;
+  } else {
+    open.forEach(t=>{
+      const asgn = ASSIGNEES.find(a=>a.key===t.assignedTo) || ASSIGNEES[0];
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;
+          border-bottom:1px solid var(--border);">
+        <button onclick="toggleFamilyTask('${t.id}')"
+          style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;
+            border:2px solid var(--border);background:transparent;color:transparent;
+            font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        </div>
+        <!-- Assignee pill — tap to cycle -->
+        <button onclick="cycleFamilyAssignee('${t.id}')"
+          style="padding:3px 10px;border-radius:20px;border:1.5px solid ${asgn.color};
+            background:transparent;color:${asgn.color};
+            font:700 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">
+          ${asgn.label}
+        </button>
+        <button onclick="deleteFamilyTask('${t.id}')"
+          style="padding:2px 6px;border:none;background:transparent;
+            color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
+      </div>`;
+    });
+  }
+
+  if(done.length){
+    html += `<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">
+      ✓ ${done.length} recently completed</div>`;
+    done.forEach(t=>{
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--green);
+          display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>
+        <div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);
+          text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+      </div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function addFamilyTask(){
+  const input = document.getElementById('family-task-input');
+  const title = input?.value.trim();
+  if(!title) return;
+  familyTasks.unshift({id:'ft'+Date.now(), title, done:false,
+    assignedTo:'anyone', createdBy: currentUser==='parent'?'jason':'wife',
+    dueDate:'', createdAt:today()});
+  saveFamilyTasks();
+  input.value = '';
+  renderAll();
+}
+
+function toggleFamilyTask(id){
+  const t = familyTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.done = !t.done;
+  t.completedAt = t.done ? Date.now() : null;
+  saveFamilyTasks();
+  renderAll();
+}
+
+function deleteFamilyTask(id){
+  familyTasks = familyTasks.filter(x=>x.id!==id);
+  saveFamilyTasks();
+  renderAll();
+}
+
+const _FAMILY_ASSIGNEES = ['anyone','jason','wife','ridley','connor'];
+function cycleFamilyAssignee(id){
+  const t = familyTasks.find(x=>x.id===id);
+  if(!t) return;
+  const idx = _FAMILY_ASSIGNEES.indexOf(t.assignedTo||'anyone');
+  t.assignedTo = _FAMILY_ASSIGNEES[(idx+1) % _FAMILY_ASSIGNEES.length];
+  saveFamilyTasks();
+  renderAll();
+}
+
+function renderGroceryPage(container){
+  const open   = groceryList.filter(g=>!g.checked);
+  const checked = groceryList.filter(g=>g.checked);
+
+  let html = `
+  <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Grocery List</div>
+    ${checked.length ? `<button onclick="clearCheckedGrocery()"
+      style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);
+        background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">
+      Clear ${checked.length} done</button>` : ''}
+  </div>
+  <div style="padding:0 16px 12px;display:flex;gap:8px;">
+    <input id="grocery-input" placeholder="Add item…"
+      style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
+      onkeydown="if(event.key==='Enter')addGroceryItem()"
+      onfocus="this.style.borderColor='var(--accent)'"
+      onblur="this.style.borderColor='var(--border)'"/>
+    <button onclick="addGroceryItem()"
+      style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
+  </div>`;
+
+  if(open.length === 0 && checked.length === 0){
+    html += `<div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:36px;margin-bottom:8px;">🛒</div>
+      <div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">List is empty — add something!</div>
+    </div>`;
+  }
+
+  open.forEach(g=>{
+    html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;
+        border-bottom:1px solid var(--border);">
+      <button onclick="toggleGroceryItem('${g.id}')"
+        style="width:26px;height:26px;border-radius:6px;flex-shrink:0;cursor:pointer;
+          border:2px solid var(--border);background:transparent;">
+      </button>
+      <span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);">${esc(g.name)}</span>
+      <button onclick="deleteGroceryItem('${g.id}')"
+        style="padding:2px 6px;border:none;background:transparent;
+          color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
+    </div>`;
+  });
+
+  if(checked.length){
+    checked.forEach(g=>{
+      html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;
+          border-bottom:1px solid var(--border);opacity:0.4;">
+        <div style="width:26px;height:26px;border-radius:6px;flex-shrink:0;
+          background:var(--green);border:2px solid var(--green);
+          display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">✓</div>
+        <span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);
+          text-decoration:line-through;">${esc(g.name)}</span>
+      </div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function addGroceryItem(){
+  const input = document.getElementById('grocery-input');
+  const name = input?.value.trim();
+  if(!name) return;
+  groceryList.unshift({id:'gr'+Date.now(), name, checked:false,
+    addedBy: currentUser==='parent'?'jason':'wife'});
+  saveGrocery();
+  input.value = '';
+  renderAll();
+}
+
+function toggleGroceryItem(id){
+  const g = groceryList.find(x=>x.id===id);
+  if(!g) return;
+  g.checked = !g.checked;
+  saveGrocery();
+  renderAll();
+}
+
+function deleteGroceryItem(id){
+  groceryList = groceryList.filter(x=>x.id!==id);
+  saveGrocery();
+  renderAll();
+}
+
+function clearCheckedGrocery(){
+  groceryList = groceryList.filter(g=>!g.checked);
+  saveGrocery();
+  renderAll();
+}
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// WEEKLY PLANNING SESSION
+// ══════════════════════════════════════════════════════════════════
+
+const WP_OWNERS = [
+  {key:'jason',  label:'Jason', color:'#1565C0'},
+  {key:'jenny',  label:'Jenny', color:'#E91E8C'},
+  {key:'both',   label:'Both',  color:'#7B3FBE'},
+  {key:'ridley', label:'Ridley',color:'#2196F3'},
+  {key:'connor', label:'Connor',color:'#9C27B0'},
+];
+const WP_DAYS = ['mon','tue','wed','thu','fri','sat','sun','sometime'];
+const WP_DAY_LABELS = {mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun',sometime:'Sometime'};
+const WP_CATS = [
+  {key:'calendar', icon:'📅', label:'Calendar',    hint:'Appointments, events, school'},
+  {key:'kids',     icon:'👧', label:'Kids',        hint:'What Ridley & Connor need'},
+  {key:'house',    icon:'🏠', label:'House',       hint:'Errands, groceries, supplies'},
+  {key:'us',       icon:'💑', label:'Just Us',     hint:'Date night, couple things'},
+];
+
+// Track planning UI state
+let _wpStep = 1;         // 1=carryover, 2=build, 3=shape
+let _wpCat  = 'calendar'; // active category in step 2
+
+function getWeekMonday(date){
+  const d = date ? new Date(date) : new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day===0?-6:1);
+  const mon = new Date(d.setDate(diff));
+  return mon.toISOString().slice(0,10);
+}
+
+function getWeekDayDate(weekOf, dayKey){
+  const days = {mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,sun:6};
+  if(!(dayKey in days)) return null;
+  const base = new Date(weekOf + 'T12:00:00');
+  base.setDate(base.getDate() + days[dayKey]);
+  return base.toISOString().slice(0,10);
+}
+
+function isSunday(){
+  return new Date().getDay() === 0;
+}
+
+function openWeeklyPlanning(){
+  // Ensure weeklyPlan exists for this week
+  const thisWeek = getWeekMonday();
+  if(!weeklyPlan || weeklyPlan.weekOf !== thisWeek){
+    // Detect carry-overs from last week
+    const lastWeek = getWeekMonday(new Date(Date.now() - 7*24*60*60*1000));
+    const carryOvers = familyTasks.filter(t=>
+      !t.done && t.dueDate && t.dueDate < thisWeek && t.weekPlanId
+    );
+    weeklyPlan = {
+      weekOf: thisWeek,
+      lockedIn: false,
+      lockedAt: null,
+      carryOvers: carryOvers.map(t=>({
+        id: 'co'+t.id,
+        sourceId: t.id,
+        title: t.title,
+        owner: t.assignedTo||'both',
+        kept: null  // null=undecided, true=keep, false=drop
+      })),
+      items: []
+    };
+    saveWeeklyPlan();
+  }
+
+  // Decide starting step
+  _wpStep = (weeklyPlan.carryOvers && weeklyPlan.carryOvers.filter(c=>c.kept===null).length > 0) ? 1 : 2;
+  if(weeklyPlan.lockedIn) _wpStep = 3;
+
+  const overlay = document.getElementById('weekly-plan-overlay');
+  if(!overlay) return;
+  overlay.style.display = 'block';
+  // Hide FAB and nav
+  const fab = document.getElementById('global-capture-btn');
+  if(fab) fab.style.display = 'none';
+  renderWeeklyPlanOverlay();
+}
+
+function closeWeeklyPlanning(){
+  const overlay = document.getElementById('weekly-plan-overlay');
+  if(overlay) overlay.style.display = 'none';
+  applyMode();
+}
+
+function renderWeeklyPlanOverlay(){
+  const overlay = document.getElementById('weekly-plan-overlay');
+  if(!overlay) return;
+
+  const weekOf = weeklyPlan.weekOf;
+  const weekLabel = new Date(weekOf+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
+  const undecided = (weeklyPlan.carryOvers||[]).filter(c=>c.kept===null).length;
+
+  // Step indicators
+  const steps = weeklyPlan.lockedIn
+    ? [{n:1,l:'Last Week'},{n:2,l:'Build'},{n:3,l:'The Week'}]
+    : [{n:1,l:'Last Week'},{n:2,l:'Build'},{n:3,l:'Shape'}];
+
+  const stepPills = steps.map(s=>{
+    const active = _wpStep === s.n;
+    const done   = _wpStep > s.n;
+    return `<div style="display:flex;align-items:center;gap:4px;">
+      <div style="width:22px;height:22px;border-radius:50%;
+        background:${active?'var(--accent)':done?'var(--green)':'var(--surface3)'};
+        color:${active||done?'#fff':'var(--text4)'};
+        font:700 11px/22px var(--font-ui);text-align:center;">${done?'✓':s.n}</div>
+      <span style="font:${active?'700':'500'} 11px/1 var(--font-ui);
+        color:${active?'var(--text)':'var(--text4)'};">${s.l}</span>
+    </div>`;
+  }).join('<div style="width:16px;height:1px;background:var(--border);margin:0 2px;"></div>');
+
+  let stepHtml = '';
+  if(_wpStep === 1) stepHtml = renderWpStep1();
+  else if(_wpStep === 2) stepHtml = renderWpStep2();
+  else stepHtml = renderWpStep3();
+
+  overlay.innerHTML = `
+  <div style="max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;">
+
+    <!-- Header -->
+    <div style="position:sticky;top:0;z-index:10;background:var(--bg);
+      border-bottom:1px solid var(--border);padding:14px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font:700 18px/1 var(--font-ui);color:var(--text);">📅 Weekly Planning</div>
+          <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Week of ${weekLabel}</div>
+        </div>
+        <button onclick="closeWeeklyPlanning()"
+          style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font-size:18px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;">×</button>
+      </div>
+      <!-- Step indicators -->
+      <div style="display:flex;align-items:center;gap:4px;">${stepPills}</div>
+    </div>
+
+    <!-- Step content -->
+    <div style="flex:1;padding:16px;">
+      ${stepHtml}
+    </div>
+  </div>`;
+}
+
+// ── Step 1: Carry-overs ────────────────────────────────────────
+function renderWpStep1(){
+  const cos = weeklyPlan.carryOvers || [];
+  if(!cos.length){
+    return `<div style="text-align:center;padding:48px 20px;">
+      <div style="font-size:48px;margin-bottom:12px;">✨</div>
+      <div style="font:700 20px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">Last week: all clear!</div>
+      <div style="font:500 14px/1.5 var(--font-ui);color:var(--text3);margin-bottom:28px;">Nothing left unfinished. Let's plan ahead.</div>
+      <button onclick="_wpStep=2;renderWeeklyPlanOverlay()"
+        style="padding:14px 32px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;">
+        Start planning →</button>
+    </div>`;
+  }
+
+  const undecided = cos.filter(c=>c.kept===null);
+  const decided   = cos.filter(c=>c.kept!==null);
+
+  let html = `
+  <div style="font:700 15px/1 var(--font-ui);color:var(--text);margin-bottom:4px;">
+    Last week — ${undecided.length} unfinished</div>
+  <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-bottom:16px;">
+    Decide what to do with each one.</div>`;
+
+  undecided.forEach(c=>{
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+        border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);
+        margin-bottom:8px;">
+      <div style="flex:1;font:600 14px/1.3 var(--font-ui);color:var(--text);">${esc(c.title)}</div>
+      <button onclick="wpDecideCarryOver('${c.id}',true)"
+        style="padding:6px 12px;border-radius:20px;border:1.5px solid var(--accent);
+          background:transparent;color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;">
+        Keep</button>
+      <button onclick="wpDecideCarryOver('${c.id}',false)"
+        style="padding:6px 12px;border-radius:20px;border:1.5px solid var(--border);
+          background:transparent;color:var(--text3);font:700 11px/1 var(--font-ui);cursor:pointer;">
+        Drop</button>
+    </div>`;
+  });
+
+  if(decided.length){
+    html += `<div style="margin:16px 0 8px;font:600 11px/1 var(--font-ui);color:var(--text4);
+      letter-spacing:0.5px;text-transform:uppercase;">Decided</div>`;
+    decided.forEach(c=>{
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+          border-radius:var(--r3);border:1px solid var(--border);margin-bottom:6px;opacity:0.6;">
+        <div style="flex:1;font:500 13px/1.3 var(--font-ui);color:var(--text);
+          ${c.kept?'':'text-decoration:line-through;'}">${esc(c.title)}</div>
+        <div style="font:700 11px/1 var(--font-ui);color:${c.kept?'var(--green)':'var(--text4)'};">
+          ${c.kept?'✓ Keeping':'✕ Dropped'}</div>
+      </div>`;
+    });
+  }
+
+  if(!undecided.length){
+    const kept = cos.filter(c=>c.kept).length;
+    html += `<div style="margin-top:24px;text-align:center;">
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);margin-bottom:16px;">
+        ${kept ? `${kept} item${kept>1?'s':''} will carry into this week.` : 'Starting fresh!'}</div>
+      <button onclick="_wpStep=2;renderWeeklyPlanOverlay()"
+        style="padding:14px 32px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;">
+        Plan this week →</button>
+    </div>`;
+  }
+
+  return html;
+}
+
+function wpDecideCarryOver(id, keep){
+  const co = (weeklyPlan.carryOvers||[]).find(c=>c.id===id);
+  if(!co) return;
+  co.kept = keep;
+  if(keep){
+    // Add as a plan item
+    weeklyPlan.items.unshift({
+      id: 'wpi'+Date.now(),
+      title: co.title,
+      category: 'calendar',
+      owner: co.owner||'both',
+      day: 'sometime',
+      done: false,
+      keptFrom: co.sourceId
+    });
+  }
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+}
+
+// ── Step 2: Build the week ─────────────────────────────────────
+function renderWpStep2(){
+  let html = `
+  <div style="font:700 15px/1 var(--font-ui);color:var(--text);margin-bottom:4px;">Build the week</div>
+  <div style="font:500 12px/1.5 var(--font-ui);color:var(--text3);margin-bottom:16px;">
+    Go through each category together.</div>
+
+  <!-- Category tabs -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">`;
+
+  WP_CATS.forEach(cat=>{
+    const active  = _wpCat === cat.key;
+    const count   = (weeklyPlan.items||[]).filter(i=>i.category===cat.key).length;
+    html += `<button onclick="_wpCat='${cat.key}';renderWeeklyPlanOverlay()"
+      style="padding:8px 12px;border-radius:20px;cursor:pointer;
+        border:1.5px solid ${active?'var(--accent)':'var(--border)'};
+        background:${active?'var(--accent-soft)':'transparent'};
+        color:${active?'var(--accent)':'var(--text3)'};
+        font:${active?'700':'500'} 12px/1 var(--font-ui);">
+      ${cat.icon} ${cat.label}${count?` <span style="background:var(--accent);color:#fff;
+        border-radius:10px;padding:1px 5px;font-size:10px;">${count}</span>`:''}
+    </button>`;
+  });
+  html += `</div>`;
+
+  // Current category items
+  const cat = WP_CATS.find(c=>c.key===_wpCat);
+  const items = (weeklyPlan.items||[]).filter(i=>i.category===_wpCat);
+
+  html += `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:12px;">
+    ${cat.icon} ${cat.hint}</div>`;
+
+  items.forEach(item=>{
+    const owner = WP_OWNERS.find(o=>o.key===item.owner)||WP_OWNERS[0];
+    html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
+        border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);
+        margin-bottom:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.title)}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+          <!-- Owner pill -->
+          <button onclick="wpCycleOwner('${item.id}')"
+            style="padding:3px 10px;border-radius:20px;cursor:pointer;
+              border:1.5px solid ${owner.color};color:${owner.color};
+              background:transparent;font:700 10px/1 var(--font-ui);">
+            ${owner.label}</button>
+          <!-- Day pill -->
+          <button onclick="wpCycleDay('${item.id}')"
+            style="padding:3px 10px;border-radius:20px;cursor:pointer;
+              border:1.5px solid var(--border);color:var(--text3);
+              background:transparent;font:600 10px/1 var(--font-ui);">
+            ${WP_DAY_LABELS[item.day]||'Sometime'}</button>
+          ${_wpCat==='house'?`<button onclick="wpSendToGrocery('${item.id}')"
+            style="padding:3px 10px;border-radius:20px;cursor:pointer;
+              border:1.5px solid var(--green);color:var(--green);
+              background:transparent;font:600 10px/1 var(--font-ui);">
+            → Grocery</button>`:''}
+        </div>
+      </div>
+      <button onclick="wpDeleteItem('${item.id}')"
+        style="padding:4px 6px;border:none;background:transparent;
+          color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`;
+  });
+
+  if(!items.length){
+    html += `<div style="text-align:center;padding:24px;color:var(--text4);
+      font:500 13px/1.4 var(--font-ui);">Nothing yet — add something below</div>`;
+  }
+
+  // Quick add
+  html += `<div style="display:flex;gap:8px;margin-top:8px;">
+    <input id="wp-add-input"
+      placeholder="Add to ${cat.label}…"
+      style="flex:1;padding:11px 14px;border-radius:var(--r3);
+        border:1.5px solid var(--border);background:var(--surface);
+        color:var(--text);font:var(--type-label);outline:none;"
+      onkeydown="if(event.key==='Enter')wpAddItem()"
+      onfocus="this.style.borderColor='var(--accent)'"
+      onblur="this.style.borderColor='var(--border)'"/>
+    <button onclick="wpAddItem()"
+      style="padding:11px 16px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 14px/1 var(--font-ui);cursor:pointer;">+</button>
+  </div>`;
+
+  // Total count + next button
+  const total = (weeklyPlan.items||[]).length;
+  html += `<div style="margin-top:24px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font:500 12px/1 var(--font-ui);color:var(--text4);">
+      ${total} item${total!==1?'s':''} total</div>
+    <button onclick="_wpStep=3;renderWeeklyPlanOverlay()"
+      ${total===0?'disabled style="opacity:0.4;cursor:not-allowed;"':''}
+      style="padding:12px 24px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 14px/1 var(--font-ui);cursor:pointer;">
+      Shape the week →</button>
+  </div>`;
+
+  return html;
+}
+
+function wpAddItem(){
+  const input = document.getElementById('wp-add-input');
+  const title = input?.value.trim();
+  if(!title) return;
+  if(!weeklyPlan.items) weeklyPlan.items = [];
+  weeklyPlan.items.push({
+    id: 'wpi'+Date.now()+Math.random().toString(36).slice(2,6),
+    title,
+    category: _wpCat,
+    owner: 'both',
+    day: 'sometime',
+    done: false,
+    keptFrom: null,
+    familyTaskId: null
+  });
+  saveWeeklyPlan();
+  input.value = '';
+  renderWeeklyPlanOverlay();
+  // Re-focus input
+  setTimeout(()=>document.getElementById('wp-add-input')?.focus(), 50);
+}
+
+function wpCycleOwner(id){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(!item) return;
+  const idx = WP_OWNERS.findIndex(o=>o.key===item.owner);
+  item.owner = WP_OWNERS[(idx+1)%WP_OWNERS.length].key;
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+}
+
+function wpCycleDay(id){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(!item) return;
+  const idx = WP_DAYS.indexOf(item.day);
+  item.day = WP_DAYS[(idx+1)%WP_DAYS.length];
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+}
+
+function wpDeleteItem(id){
+  weeklyPlan.items = (weeklyPlan.items||[]).filter(i=>i.id!==id);
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+}
+
+function wpSendToGrocery(id){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(!item) return;
+  groceryList.unshift({
+    id: 'gr'+Date.now(),
+    name: item.title,
+    checked: false,
+    addedBy: 'plan'
+  });
+  saveGrocery();
+  wpDeleteItem(id);
+}
+
+// ── Step 3: Shape the week ─────────────────────────────────────
+function renderWpStep3(){
+  const items = weeklyPlan.items || [];
+  const isLocked = weeklyPlan.lockedIn;
+
+  // Group by day
+  const byDay = {};
+  WP_DAYS.forEach(d=>{ byDay[d]=[]; });
+  items.forEach(item=> (byDay[item.day]||byDay['sometime']).push(item));
+
+  const daysWithItems = WP_DAYS.filter(d=>byDay[d].length>0);
+
+  let html = `
+  <div style="font:700 15px/1 var(--font-ui);color:var(--text);margin-bottom:4px;">
+    ${isLocked ? 'Your week' : 'Shape the week'}</div>
+  <div style="font:500 12px/1.5 var(--font-ui);color:var(--text3);margin-bottom:16px;">
+    ${isLocked
+      ? `${items.filter(i=>i.done).length} of ${items.length} done`
+      : 'Does the shape feel right? Tap a day pill to move items.'}</div>`;
+
+  if(!daysWithItems.length){
+    html += `<div style="text-align:center;padding:40px;color:var(--text4);
+      font:500 13px/1.4 var(--font-ui);">No items yet — go back to Build</div>`;
+  }
+
+  daysWithItems.forEach(day=>{
+    const dayItems = byDay[day];
+    const label = day==='sometime' ? '📌 Sometime' : `${WP_DAY_LABELS[day]}`;
+    html += `<div style="margin-bottom:16px;">
+      <div style="font:700 12px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;
+        padding-bottom:6px;border-bottom:1px solid var(--border);">
+        ${label}</div>`;
+
+    dayItems.forEach(item=>{
+      const owner = WP_OWNERS.find(o=>o.key===item.owner)||WP_OWNERS[2];
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;
+          border-radius:var(--r2);margin-bottom:6px;
+          background:${item.done?'transparent':'var(--surface)'};
+          border:1px solid ${item.done?'transparent':'var(--border)'};
+          ${item.done?'opacity:0.45;':''}">
+        ${isLocked
+          ? `<button onclick="wpToggleDone('${item.id}')"
+              style="width:22px;height:22px;border-radius:50%;flex-shrink:0;cursor:pointer;
+                border:2px solid ${item.done?'var(--green)':'var(--border)'};
+                background:${item.done?'var(--green)':'transparent'};
+                color:${item.done?'#fff':'transparent'};
+                font-size:12px;display:flex;align-items:center;justify-content:center;">✓</button>`
+          : `<div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+              background:${owner.color};"></div>`}
+        <div style="flex:1;font:${item.done?'500':'600'} 13px/1.3 var(--font-ui);
+          color:var(--text);${item.done?'text-decoration:line-through;':''}
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${esc(item.title)}</div>
+        <span style="font:600 10px/1 var(--font-ui);padding:2px 8px;border-radius:10px;
+          background:transparent;border:1px solid ${owner.color};
+          color:${owner.color};flex-shrink:0;">
+          ${owner.label}</span>
+        ${!isLocked?`<button onclick="wpCycleDay('${item.id}')"
+          style="padding:2px 8px;border-radius:10px;border:1px solid var(--border);
+            background:transparent;color:var(--text4);
+            font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">
+          ${WP_DAY_LABELS[item.day]}</button>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  if(!isLocked){
+    const total = items.length;
+    html += `<div style="margin-top:8px;padding:20px;text-align:center;">
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);margin-bottom:20px;">
+        ${total} item${total!==1?'s':''} planned for the week.</div>
+      <button onclick="wpLockIn()"
+        style="padding:16px 36px;border-radius:var(--r3);
+          background:linear-gradient(135deg,var(--accent),var(--gold));
+          color:#fff;border:none;font:800 16px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 6px 24px rgba(21,101,192,0.3);width:100%;max-width:320px;
+          letter-spacing:0.5px;">
+        🔒 Lock in the week →</button>
+    </div>`;
+  } else {
+    // Locked — show edit button
+    html += `<div style="margin-top:16px;text-align:center;">
+      <button onclick="weeklyPlan.lockedIn=false;saveWeeklyPlan();_wpStep=2;renderWeeklyPlanOverlay()"
+        style="padding:10px 20px;border-radius:var(--r3);border:1.5px solid var(--border);
+          background:transparent;color:var(--text3);
+          font:600 13px/1 var(--font-ui);cursor:pointer;">
+        ✎ Edit the week</button>
+    </div>`;
+  }
+
+  return html;
+}
+
+function wpToggleDone(id){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(!item) return;
+  item.done = !item.done;
+  // Also mark the corresponding family task
+  if(item.familyTaskId){
+    const ft = familyTasks.find(t=>t.id===item.familyTaskId);
+    if(ft){ ft.done = item.done; saveFamilyTasks(); }
+  }
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+}
+
+function wpLockIn(){
+  if(!weeklyPlan || !weeklyPlan.items?.length) return;
+
+  const weekOf = weeklyPlan.weekOf;
+
+  // Create family tasks for each item
+  weeklyPlan.items.forEach(item=>{
+    const dueDate = item.day !== 'sometime'
+      ? getWeekDayDate(weekOf, item.day)
+      : null;
+    const owner = item.owner==='both'?'anyone':
+                  item.owner==='jenny'?'wife':item.owner;
+    const ftId = 'ft'+Date.now()+Math.random().toString(36).slice(2,6);
+    familyTasks.unshift({
+      id: ftId,
+      title: item.title,
+      done: false,
+      assignedTo: owner,
+      dueDate: dueDate||'',
+      createdBy: 'plan',
+      weekPlanId: weekOf,
+      category: item.category
+    });
+    item.familyTaskId = ftId;
+  });
+
+  weeklyPlan.lockedIn = true;
+  weeklyPlan.lockedAt = Date.now();
+  saveFamilyTasks();
+  saveWeeklyPlan();
+
+  // Celebration then move to step 3
+  _wpStep = 3;
+  renderWeeklyPlanOverlay();
+
+  // Show confetti + toast
+  launchConfetti(80);
+  showToast("Week locked in! 🎉");
+}
+
+
 function renderAll(){
   updateStats();
   renderStatsStrip();
   checkEodBanner();
   updateAppBadge();
   const main=document.getElementById("main");
+  // Home mode routing
+  if(activeNav==="home-today"){ renderHomeTodayView(main); return; }
+  if(activeNav==="family"){     renderFamilyPage(main);    return; }
+  if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
   if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
   if(activeNav==="cal"){renderCalendar(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
@@ -6229,7 +7309,14 @@ let meetingPersonFilter = ''; // person id or '' for all
 function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
 function saveHubData(key, val){ localStorage.setItem(key, JSON.stringify(val)); saveAllDebounced(); }
 
-let waitingFor     = loadHubData('hub-waiting', []);    // [{id,person,what,dueDate,taskId,done,createdAt}]
+let waitingFor     = loadHubData('hub-waiting', []);
+
+// ── Home/Family data ──────────────────────────────────────────
+let familyTasks    = loadHubData('hub-family-tasks', []);  // shared, visible to both adults
+let jasonHomeTasks = loadHubData('hub-jason-home',   []);  // private to Jason
+let wifeHomeTasks  = loadHubData('hub-wife-home',    []);  // private to wife
+let groceryList    = loadHubData('hub-grocery',      []);  // shared grocery list
+let weeklyPlan     = loadHubData('hub-weekly-plan',  null); // {weekOf, lockedIn, lockedAt, items:[]}    // [{id,person,what,dueDate,taskId,done,createdAt}]
 let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']});
 let resetStreak      = loadHubData('hub-reset-streak', {count:0, lastWeek:'', longest:0}); // {week, wins:[3 strings]}
 let somedayList    = loadHubData('hub-someday', []);    // [{id,title,createdAt}]
@@ -7508,6 +8595,26 @@ function toggleSeriesHistory(seriesId){
 // WAITING FOR
 // ═══════════════════════════════════════════════════════════════
 function saveWaiting(){ saveHubData('hub-waiting', waitingFor); }
+function saveFamilyTasks(){ saveHubData('hub-family-tasks', familyTasks); }
+function saveJasonHomeTasks(){ saveHubData('hub-jason-home', jasonHomeTasks); }
+function saveWifeHomeTasks(){ saveHubData('hub-wife-home', wifeHomeTasks); }
+
+function jennyLogout(){
+  localStorage.removeItem('hub-auth-jenny');
+  currentUser = 'parent';
+  currentMode  = localStorage.getItem('reeves-mode') || 'work';
+  // Restore mode toggle
+  const modeBtn = document.getElementById('mode-toggle-btn');
+  if(modeBtn) modeBtn.style.display = '';
+  applyMode();
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  const fab = document.getElementById('global-capture-btn');
+  if(fab) fab.style.display = 'none';
+  setTimeout(()=>document.getElementById('gate-input')?.focus(), 200);
+}
+function saveGrocery(){ saveHubData('hub-grocery', groceryList); }
+function saveWeeklyPlan(){ saveHubData('hub-weekly-plan', weeklyPlan); }
 
 function addWaitingFor(person, what, dueDate, taskId){
   if(!person.trim() || !what.trim()) return;
@@ -11647,8 +12754,10 @@ const KID_PINS = {
   "rooroo": 0,   // Ridley
   "connie": 1,   // Connor
 };
+const JENNY_PIN = "freckles";
 // Session user — 'parent' | {role:'kid', playerIdx:N, name:string}
 let currentUser = 'parent';
+let currentMode  = localStorage.getItem('reeves-mode') || 'work'; // 'work' | 'home'
 
 function checkPassword(){
   const input=document.getElementById("gate-input");
@@ -11667,6 +12776,27 @@ function checkPassword(){
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
       showKidsPage();
+    });
+    return;
+  }
+
+  // Jenny's PIN
+  if(val === JENNY_PIN){
+    currentUser = {role:'wife', name:'Jenny'};
+    localStorage.setItem("hub-auth-jenny", Date.now().toString());
+    document.getElementById("gate").style.display="none";
+    const _fabEl = document.getElementById("global-capture-btn");
+    if(_fabEl) _fabEl.style.display="none"; // Jenny doesn't use quick-capture
+    bootApp().then(async ()=>{
+      // Lock to home mode, hide work toggle
+      currentMode = 'home';
+      localStorage.setItem('reeves-mode','home');
+      applyMode();
+      activeNav = 'home-today';
+      // Hide mode toggle — Jenny can't switch to work
+      const modeBtn = document.getElementById('mode-toggle-btn');
+      if(modeBtn) modeBtn.style.display = 'none';
+      renderAll();
     });
     return;
   }
@@ -11816,6 +12946,9 @@ async function bootApp(){
   // Auto-advance daily recurring tasks — no pile-up for habit-style tasks
   advanceDailyTasks();
   pruneHabitLog();
+  applyMode();
+  // Navigate to home-today if in home mode
+  if(currentMode === 'home') activeNav = 'home-today';
   renderAll();
   checkMorningRitual();
 }
@@ -12262,9 +13395,50 @@ async function init(){
       if(_swReg) subscribeToPush(_swReg);
     }
   } else {
-    // Show gate
+    // Show gate — but first check for Jenny or kid session
+
+    // Restore Jenny session if still valid (60 min)
+    const _jennyAuth = localStorage.getItem('hub-auth-jenny');
+    if(_jennyAuth){
+      try{
+        if(Date.now() - parseInt(_jennyAuth) < 60*60*1000){
+          currentUser = {role:'wife', name:'Jenny'};
+          currentMode = 'home';
+          localStorage.setItem('reeves-mode','home');
+          document.getElementById('loading').style.display='none';
+          document.getElementById('app').style.display='flex';
+          applyMode();
+          activeNav = 'home-today';
+          const modeBtn = document.getElementById('mode-toggle-btn');
+          if(modeBtn) modeBtn.style.display='none';
+          renderAll();
+          return;
+        } else {
+          localStorage.removeItem('hub-auth-jenny');
+        }
+      }catch(e){}
+    }
+
+    // Restore kid session if still valid (60 min)
+    const _kidAuth = localStorage.getItem('hub-auth-kid');
+    if(_kidAuth){
+      try{
+        const _ka = JSON.parse(_kidAuth);
+        if(Date.now() - _ka.ts < 60*60*1000){
+          currentUser = {role:'kid', playerIdx:_ka.playerIdx, name:''};
+          const d = kidsData();
+          currentUser.name = d.players[_ka.playerIdx]?.name || 'Player '+(_ka.playerIdx+1);
+          showKidsPage();
+          return;
+        } else {
+          localStorage.removeItem('hub-auth-kid');
+        }
+      }catch(e){}
+    }
+
     localStorage.removeItem("hub-auth");
-    document.getElementById("gate").style.display="flex";
+
+  document.getElementById("gate").style.display="flex";
     document.getElementById("loading").style.display="none";
     const _fab = document.getElementById("global-capture-btn");
     if(_fab) _fab.style.display="none";
