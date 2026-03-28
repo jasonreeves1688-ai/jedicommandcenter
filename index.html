@@ -1765,11 +1765,11 @@ body.light-mode .today-card-row:hover{ background:rgba(0,0,0,0.025); }
 .kids-celeb-close{ padding:var(--sp3) var(--sp6); border-radius:var(--r5); border:none; background:var(--accent); color:#1a1f2e; font:700 13px/1 var(--font-ui); cursor:pointer; letter-spacing:0.5px; min-height:var(--touch); }
 .kids-confetti-piece{ position:fixed; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; }
 @keyframes confettiFall{ 0%{opacity:1;transform:translateY(-10px) rotate(0deg);} 100%{opacity:0;transform:translateY(105vh) rotate(900deg);} }
-.wheel-wrap{ display:flex; flex-direction:column; align-items:center; gap:var(--sp4); padding:var(--sp2) 0; }
-.wheel-canvas-wrap{ position:relative; display:inline-block; }
+.wheel-wrap{ display:flex; flex-direction:column; align-items:center; gap:var(--sp4); padding:var(--sp2) 0; width:100%; }
+.wheel-canvas-wrap{ position:relative; display:block; width:100%; max-width:520px; margin:0 auto; }
 .wheel-pointer{ position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:28px; z-index:2; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6)); animation:pointerPulse 1.5s ease infinite; }
 @keyframes pointerPulse{ 0%,100%{transform:translateX(-50%) scale(1);} 50%{transform:translateX(-50%) scale(1.15);} }
-.kids-spin-btn{ padding:var(--sp4) var(--sp6); border-radius:var(--r5); border:none; background:linear-gradient(135deg,var(--accent),#f0c040); color:#1a1f2e; font:700 14px/1 var(--font-ui); letter-spacing:1px; cursor:pointer; text-transform:uppercase; box-shadow:0 4px 20px rgba(232,168,56,0.5); transition:all 0.15s; min-height:var(--touch); }
+.kids-spin-btn{ padding:16px 48px; border-radius:50px; border:none; background:linear-gradient(135deg,#E91E8C,#FF6B9D); color:#fff; font:800 18px/1 var(--font-ui); letter-spacing:1.5px; cursor:pointer; text-transform:uppercase; box-shadow:0 6px 24px rgba(233,30,140,0.45); transition:all 0.15s; min-height:56px; }
 .kids-spin-btn:active{ transform:scale(0.96); }
 .kids-spin-btn:disabled{ opacity:0.5; cursor:not-allowed; box-shadow:none; }
 .kids-tab-bar{ display:flex; border-radius:var(--r3); overflow:hidden; border:1px solid var(--border); margin-bottom:var(--sp4); }
@@ -11576,10 +11576,38 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 const GATE_PASSWORD="RooCon";
 const GATE_DURATION=60*60*1000; // 60 minutes in ms
 
+// ── Kid PINs — set these to whatever you want ──────────────────
+// Each maps to a player index in kidsGame.players
+const KID_PINS = {
+  "Star1": 0,   // PIN for Player 1 (change "Star1" to whatever)
+  "Star2": 1,   // PIN for Player 2 (change "Star2" to whatever)
+};
+// Session user — 'parent' | {role:'kid', playerIdx:N, name:string}
+let currentUser = 'parent';
+
 function checkPassword(){
   const input=document.getElementById("gate-input");
   const err=document.getElementById("gate-error");
-  if(input.value===GATE_PASSWORD){
+  const val = input.value;
+
+  // Check kid PINs first
+  if(KID_PINS.hasOwnProperty(val)){
+    const playerIdx = KID_PINS[val];
+    currentUser = {role:'kid', playerIdx, name:''};
+    // Load kids data then show kids page
+    localStorage.setItem("hub-auth-kid", JSON.stringify({playerIdx, ts:Date.now()}));
+    document.getElementById("gate").style.display="none";
+    // Boot minimal data load then show kids page
+    bootApp().then(()=>{
+      const d = kidsData();
+      currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
+      showKidsPage();
+    });
+    return;
+  }
+
+  if(val===GATE_PASSWORD){
+    currentUser = 'parent';
     localStorage.setItem("hub-auth",Date.now().toString());
     document.getElementById("gate").style.display="none";
     bootApp().then(async ()=>{
@@ -12300,6 +12328,123 @@ const KIDS_DEFAULT_BIG_PRIZES = [
   'Amusement park trip','Restaurant pick','Big toy from store','Day trip adventure'
 ];
 
+// ── Audit reversal ───────────────────────────────────────────
+function reverseKidsEntry(entryTs){
+  const d = kidsData();
+  const entry = (d.auditLog||[]).find(e=>e.ts===entryTs);
+  if(!entry || entry.reversed) return;
+
+  // Reverse the points
+  const p = d.players[entry.playerIdx];
+  if(!p) return;
+  const oldScore = p.score || 0;
+  p.score = Math.max(0, oldScore - entry.pts); // subtract what was added
+
+  // Mark entry as reversed
+  entry.reversed = true;
+  entry.reversedAt = Date.now();
+
+  // Add a reversal entry to the log for full transparency
+  d.auditLog.unshift({
+    ts:         Date.now(),
+    playerIdx:  entry.playerIdx,
+    playerName: entry.playerName,
+    catId:      entry.catId,
+    catName:    entry.catName + ' (reversed)',
+    emoji:      '↩',
+    pts:        -entry.pts,
+    score:      p.score,
+    by:         'parent',
+    isReversal: true
+  });
+
+  saveKidsData(d);
+  showToast(`↩ Reversed ${entry.pts > 0 ? '+' : ''}${entry.pts} pts for ${entry.playerName}`);
+  renderKidsGame(document.getElementById('main'));
+}
+
+// ── Chore assignment ─────────────────────────────────────────
+function assignChoreToKid(catId, playerIdx){
+  const d = kidsData();
+  const cat = d.cats.find(c=>c.id===catId);
+  if(!cat) return;
+  if(!cat.assignedTo) cat.assignedTo = [];
+  const has = cat.assignedTo.includes(playerIdx);
+  if(has) cat.assignedTo = cat.assignedTo.filter(i=>i!==playerIdx);
+  else    cat.assignedTo.push(playerIdx);
+  saveKidsData(d);
+  renderKidsGame(document.getElementById('main'));
+}
+
+function isChoreMine(cat, playerIdx){
+  if(!cat.assignedTo || cat.assignedTo.length === 0) return true;
+  return cat.assignedTo.includes(playerIdx);
+}
+
+// Returns {due, daysUntil, label, sublabel} for a chore given frequency + last completion
+function choreStatus(cat, playerIdx, auditLog){
+  const freq = cat.freq || 'anytime';
+  if(freq === 'anytime') return {due:true, label:'', sublabel:''};
+
+  const todayStr = today();
+  const todayDate = new Date(todayStr+'T00:00:00');
+  const dayOfWeek = todayDate.getDay(); // 0=Sun,6=Sat
+
+  // Find last time this kid did this chore
+  const lastEntry = (auditLog||[]).find(e=>
+    e.playerIdx===playerIdx && e.catId===cat.id && !e.reversed && !e.isReversal
+  );
+  const lastDate = lastEntry
+    ? new Date(new Date(lastEntry.ts).toDateString())
+    : null;
+  const daysSinceLast = lastDate
+    ? Math.floor((todayDate - lastDate) / 86400000)
+    : 999;
+
+  // Weekday/weekend checks
+  const isWeekday  = dayOfWeek >= 1 && dayOfWeek <= 5;
+  const isWeekend  = dayOfWeek === 0 || dayOfWeek === 6;
+
+  let due = false;
+  let daysUntil = 0;
+  let sublabel = '';
+
+  if(freq === 'daily'){
+    due = daysSinceLast >= 1;
+    sublabel = due ? 'Due today' : 'Done today ✓';
+  } else if(freq === 'every2'){
+    due = daysSinceLast >= 2;
+    daysUntil = Math.max(0, 2 - daysSinceLast);
+    sublabel = due ? 'Due today' : daysUntil===1 ? 'Due tomorrow' : 'Done ✓';
+  } else if(freq === 'every3'){
+    due = daysSinceLast >= 3;
+    daysUntil = Math.max(0, 3 - daysSinceLast);
+    sublabel = due ? 'Due today'
+      : daysUntil===1 ? 'Due tomorrow'
+      : `Due in ${daysUntil} days`;
+  } else if(freq === 'weekly'){
+    due = daysSinceLast >= 7;
+    daysUntil = Math.max(0, 7 - daysSinceLast);
+    sublabel = due ? 'Due this week'
+      : daysUntil===1 ? 'Due tomorrow'
+      : `Due in ${daysUntil} days`;
+  } else if(freq === 'weekdays'){
+    due = isWeekday && daysSinceLast >= 1;
+    sublabel = !isWeekday ? 'Weekend — skip!' : due ? 'Due today' : 'Done today ✓';
+  } else if(freq === 'weekends'){
+    due = isWeekend && daysSinceLast >= 1;
+    sublabel = !isWeekend ? 'On weekends only' : due ? 'Due today' : 'Done today ✓';
+  }
+
+  // Frequency display label
+  const freqLabels = {
+    daily:'Every day', every2:'Every other day', every3:'Every 3 days',
+    weekly:'Once a week', weekdays:'Weekdays', weekends:'Weekends', anytime:''
+  };
+
+  return {due, daysUntil, label: freqLabels[freq]||'', sublabel};
+}
+
 function kidsData() {
   // Use in-memory global if already loaded
   if (kidsGame) return kidsGame;
@@ -12528,12 +12673,25 @@ function renderKidsScores(d) {
         <div class="kids-prize-bar-track"><div class="kids-prize-bar-fill" style="width:${pctIn25}%;"></div></div>
         <div class="kids-prize-milestones"><span>0</span><span>+25</span></div>
       </div>
-      <div class="kids-action-row">
-        ${earnCats.map(c => `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">+${c.pts} pts</span></button>`).join('')}
+      <!-- Earn: show chores assigned to this player (or unassigned) -->
+      <div style="margin-top:var(--sp2);">
+        <div style="font:700 9px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.35);text-transform:uppercase;margin-bottom:var(--sp2);">Give credit for…</div>
+        <div class="kids-action-row">
+          ${earnCats.filter(c=>isChoreMine(c,i)).map(c =>
+            `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">+${c.pts} ⭐</span></button>`
+          ).join('')}
+        </div>
       </div>
-      <div class="kids-action-row" style="margin-top:6px;">
-        ${loseCats.map(c => `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">${c.pts} pts</span></button>`).join('')}
-      </div>
+      <!-- Lose points -->
+      ${loseCats.length ? `
+      <div style="margin-top:var(--sp2);">
+        <div style="font:700 9px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.35);text-transform:uppercase;margin-bottom:var(--sp2);">Deduct for…</div>
+        <div class="kids-action-row">
+          ${loseCats.map(c =>
+            `<button class="kids-quick-btn lose" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">${c.pts} ⭐</span></button>`
+          ).join('')}
+        </div>
+      </div>` : ''}
     </div>`;
   });
 
@@ -12542,34 +12700,108 @@ function renderKidsScores(d) {
 }
 
 function renderKidsCats(d) {
-  const cats = d.cats || [];
+  const cats  = d.cats || [];
+  const players = d.players || [];
+  const earn  = cats.filter(c=>c.pts>0);
+  const lose  = cats.filter(c=>c.pts<0);
+
+  // Player avatar pill helper
+  function playerPills(cat){
+    return players.map((p,i)=>{
+      const assigned = cat.assignedTo && cat.assignedTo.length > 0;
+      const active   = !assigned || cat.assignedTo.includes(i);
+      const colors   = ['#7eb8f7','#cc8ef5'];
+      return `<button onclick="event.stopPropagation();assignChoreToKid('${cat.id}',${i})"
+        style="padding:2px 8px;border-radius:20px;font:600 10px/1 var(--font-ui);cursor:pointer;
+          border:1px solid ${active?colors[i]:'var(--border)'};
+          background:${active?colors[i]+'22':'transparent'};
+          color:${active?colors[i]:'var(--text4)'};">
+        ${esc(p.name.split(' ')[0])}
+      </button>`;
+    }).join('');
+  }
+
   let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp2);">
-    <div class="kids-section-title" style="margin:0;">All Categories</div>
+    <div class="kids-section-title" style="margin:0;">Chores &amp; Actions</div>
     <button class="kids-cat-btn" onclick="openAddKidsCat()" style="padding:5px 12px;background:var(--accent);color:#1a1f2e;border-color:var(--accent);font-weight:700;">+ Add</button>
+  </div>
+  <div style="font:var(--type-caption);color:var(--text4);margin-bottom:var(--sp3);">
+    Tap a name pill to assign/unassign a chore to that kid. Unassigned = everyone.
   </div>`;
 
-  const earn = cats.filter(c=>c.pts>0);
-  const lose = cats.filter(c=>c.pts<0);
-
-  if (earn.length) {
+  if(earn.length){
     html += `<div class="kids-section-title">✅ Earn Points</div>`;
-    earn.forEach(c => {
-      html += `<div class="kids-cat-row">
+    earn.forEach(c=>{
+      html += `<div class="kids-cat-row" style="flex-wrap:wrap;gap:var(--sp1);">
         <span class="kids-cat-emoji">${c.emoji}</span>
-        <span class="kids-cat-name">${esc(c.name)}</span>
+        <div style="flex:1;min-width:0;">
+          <span class="kids-cat-name">${esc(c.name)}</span>
+          ${c.freq&&c.freq!=='anytime'?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);display:block;margin-top:2px;">${{daily:'Every day',every2:'Every other day',every3:'Every 3 days',weekly:'Weekly',weekdays:'Weekdays',weekends:'Weekends'}[c.freq]||''}</span>`:''}
+        </div>
         <span class="kids-cat-pts positive">+${c.pts}</span>
+        <div style="display:flex;gap:4px;align-items:center;">${playerPills(c)}</div>
         <button class="kids-cat-btn" onclick="openEditKidsCat('${c.id}')">✏</button>
       </div>`;
     });
   }
-  if (lose.length) {
+  if(lose.length){
     html += `<div class="kids-section-title">❌ Lose Points</div>`;
-    lose.forEach(c => {
+    lose.forEach(c=>{
       html += `<div class="kids-cat-row">
         <span class="kids-cat-emoji">${c.emoji}</span>
-        <span class="kids-cat-name">${esc(c.name)}</span>
+        <span class="kids-cat-name" style="flex:1;">${esc(c.name)}</span>
         <span class="kids-cat-pts negative">${c.pts}</span>
+        <div style="display:flex;gap:4px;align-items:center;">${playerPills(c)}</div>
         <button class="kids-cat-btn" onclick="openEditKidsCat('${c.id}')">✏</button>
+      </div>`;
+    });
+  }
+
+  // ── Audit log ─────────────────────────────────────────────────
+  const log = (d.auditLog||[]).slice(0,30);
+  if(log.length){
+    html += `<div class="kids-section-title" style="margin-top:var(--sp4);">📋 Recent History</div>`;
+    log.forEach(e=>{
+      const dt = new Date(e.ts);
+      const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})
+        + ' ' + dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      const byLabel = e.by==='kid'
+        ? `<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:rgba(100,181,246,0.15);color:#64B5F6;">self</span>`
+        : `<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--accent-soft);color:var(--accent);">parent</span>`;
+      // Style differently for reversals and reversed entries
+      const isReversal = e.isReversal;
+      const isReversed = e.reversed;
+      const rowOpacity = isReversed ? 'opacity:0.4;' : '';
+      const reversedBadge = isReversed
+        ? `<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:rgba(224,82,82,0.12);color:var(--red);">reversed</span>`
+        : '';
+      const reversalBadge = isReversal
+        ? `<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:rgba(224,82,82,0.12);color:var(--red);">↩ reversal</span>`
+        : '';
+      const canReverse = !isReversed && !isReversal;
+
+      html += `<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);
+          border-bottom:1px solid var(--border);font:var(--type-caption);${rowOpacity}">
+        <span style="font-size:16px;">${e.emoji}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 12px/1 var(--font-ui);color:var(--text);">${esc(e.playerName)} — ${esc(e.catName)}</div>
+          <div style="color:var(--text4);margin-top:2px;display:flex;gap:var(--sp1);align-items:center;flex-wrap:wrap;">
+            ${timeStr} ${byLabel} ${reversedBadge} ${reversalBadge}
+          </div>
+        </div>
+        <span style="font:700 13px/1 var(--font-ui);color:${e.pts>0?'var(--green)':'var(--red)'};">
+          ${e.pts>0?'+':''}${e.pts}
+        </span>
+        ${canReverse ? `
+        <button onclick="reverseKidsEntry(${e.ts})"
+          title="Reverse this entry"
+          style="padding:3px 8px;border-radius:var(--r1);border:1px solid var(--border);
+            background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);
+            cursor:pointer;flex-shrink:0;min-height:28px;"
+          onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text4)'">
+          ↩
+        </button>` : ''}
       </div>`;
     });
   }
@@ -12615,10 +12847,11 @@ function renderKidsSpin(d) {
   html += `<div class="wheel-wrap">
     <div class="wheel-canvas-wrap">
       <div class="wheel-pointer">▼</div>
-      <canvas id="kids-wheel-canvas" width="280" height="280" style="border-radius:50%;display:block;"></canvas>
+      <canvas id="kids-wheel-canvas" width="280" height="280"
+        style="border-radius:50%;display:block;width:100%;max-width:100%;"></canvas>
     </div>
     <button class="kids-spin-btn" id="kids-spin-btn" onclick="spinWheel()" disabled>SPIN!</button>
-    <div id="spin-result" style="font-size:14px;color:var(--accent);font-family:var(--font-body);font-weight:700;text-align:center;min-height:22px;"></div>
+    <div id="spin-result" style="font-size:16px;font-family:var(--font-body);font-weight:700;text-align:center;min-height:24px;color:var(--accent);"></div>
   </div>`;
 
   return html;
@@ -12761,6 +12994,21 @@ function kidsAward(playerIdx, catId) {
   const newScore = oldScore + cat.pts;
   p.score = Math.max(0, newScore);
 
+  // ── Audit log ─────────────────────────────────────────────────
+  if(!d.auditLog) d.auditLog = [];
+  d.auditLog.unshift({
+    ts:     Date.now(),
+    playerIdx,
+    playerName: p.name,
+    catId,
+    catName: cat.name,
+    emoji:   cat.emoji,
+    pts:     cat.pts,
+    score:   p.score,
+    by:      (typeof currentUser === 'object' && currentUser.role==='kid') ? 'kid' : 'parent'
+  });
+  if(d.auditLog.length > 200) d.auditLog = d.auditLog.slice(0,200);
+
   // Check for prize milestones
   const milestone = checkPrizeMilestone(oldScore, p.score);
   saveKidsData(d);
@@ -12819,6 +13067,20 @@ function goToSpinAfterCelebration() {
   const cel = _pendingCelebration;
   closeCelebrationOnly();
   if (!cel) return;
+
+  // Kids page — switch to spin tab and re-render
+  if(typeof currentUser === 'object' && currentUser.role === 'kid'){
+    const kp = document.getElementById('kids-page');
+    if(kp){
+      kp._view = 'spin';
+      kp._spinType = cel.milestone.type; // pre-select the right prize type
+      _spinPlayerIdx = cel.playerIdx;
+      renderKidsPageForKid();
+    }
+    return;
+  }
+
+  // Parent app
   kidsActiveTab = 2;
   renderKidsGame(document.getElementById('main'));
   setTimeout(() => {
@@ -12840,50 +13102,91 @@ function initWheelCanvas(d) {
   const spinType = _pendingCelebration?.milestone?.type || _kidsSpinType || 'small';
   const prizes = spinType === 'big' ? (d.wheelPrizesBig || []) : (d.wheelPrizesSmall || d.wheelPrizes || []);
   if (prizes.length < 2) return;
+  // Size canvas to container — phone ~300, iPad ~460, desktop ~520 (capped)
+  const wrap = canvas.parentElement;
+  const available = wrap ? wrap.offsetWidth : 300;
+  const size = Math.min(Math.max(available - 16, 280), 520);
+  canvas.width  = size;
+  canvas.height = size;
   drawWheel(canvas, prizes, kidsWheelAngle);
 }
 
 function drawWheel(canvas, prizes, angle) {
   const ctx = canvas.getContext('2d');
-  const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 4;
+  const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 6;
   const slice = (2 * Math.PI) / prizes.length;
-  const colors = ['#3a6fd8','#9b59b6','#e67e22','#27ae60','#e74c3c','#16a085','#8e44ad','#2980b9','#f39c12','#1abc9c'];
+  // Bright, vivid kid-friendly colors
+  const colors = ['#E91E8C','#0066CC','#FF6B00','#00AA44','#CC0000',
+                  '#7B2FBE','#0099CC','#E65C00','#007755','#AA0080'];
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Scale font size to canvas size and prize count
+  const baseFontSize = Math.max(11, Math.min(18, Math.floor(r * 0.09)));
+  const fontSize = prizes.length > 8 ? Math.max(10, baseFontSize - 3)
+                 : prizes.length > 5 ? baseFontSize - 1
+                 : baseFontSize;
+
+  // Max chars based on canvas size and slice count
+  const maxChars = Math.max(12, Math.floor(r * 0.11 - prizes.length * 0.5));
 
   prizes.forEach((p, i) => {
     const start = angle + i * slice;
-    const end = start + slice;
+    const end   = start + slice;
+
+    // Slice fill
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, start, end);
     ctx.closePath();
     ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+
+    // Slice border
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Label — positioned at 72% of radius for breathing room
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(start + slice / 2);
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${prizes.length > 6 ? 9 : 11}px var(--font-ui, sans-serif)`;
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 3;
-    const label = p.length > 14 ? p.slice(0,13)+'…' : p;
-    ctx.fillText(label, r - 8, 4);
+    ctx.font = `800 ${fontSize}px var(--font-ui, sans-serif)`;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    const label = p.length > maxChars ? p.slice(0, maxChars-1)+'…' : p;
+    ctx.fillText(label, r - 12, fontSize * 0.38);
     ctx.restore();
   });
 
-  // Center cap
+  // Outer ring
   ctx.beginPath();
-  ctx.arc(cx, cy, 18, 0, 2*Math.PI);
-  ctx.fillStyle = '#1a1f2e';
+  ctx.arc(cx, cy, r, 0, 2*Math.PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Center cap — scales with canvas
+  const capR = Math.max(16, Math.floor(r * 0.1));
+  ctx.beginPath();
+  ctx.arc(cx, cy, capR, 0, 2*Math.PI);
+  ctx.fillStyle = '#fff';
   ctx.fill();
-  ctx.strokeStyle = 'var(--accent)';
+  ctx.strokeStyle = '#E91E8C';
   ctx.lineWidth = 3;
   ctx.stroke();
+
+  // Star in center cap
+  ctx.font = `${Math.floor(capR * 1.1)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#333';
+  ctx.fillText('⭐', cx, cy);
+  ctx.textBaseline = 'alphabetic';
 }
 
 function spinWheel() {
@@ -12959,15 +13262,25 @@ function onSpinComplete(prize) {
   const resultEl = document.getElementById('spin-result');
   if (resultEl) resultEl.textContent = `🎁 ${prize}`;
 
-  const btn = document.getElementById('kids-spin-btn');
-  if (btn) { btn.disabled = false; btn.textContent = 'SPIN!'; }
-
   _pendingCelebration = null;
   _spinPlayerIdx = null;
 
-  // Non-blocking banner — doesn't cover the wheel
+  // Sound + confetti always
   playKidsSound('prize-reveal');
   launchConfetti(milestone?.type === 'big' ? 150 : 60);
+
+  // Kids page — show star burst + big announcement then re-render
+  if(typeof currentUser === 'object' && currentUser.role === 'kid'){
+    kidsPageStarBurst(milestone?.type === 'big' ? 15 : 8, '🎁');
+    showPrizeBanner(player.name, prize, milestone?.type || 'small');
+    // Re-render kids page after banner so button resets correctly
+    setTimeout(()=> renderKidsPageForKid(), 600);
+    return;
+  }
+
+  // Parent app
+  const btn = document.getElementById('kids-spin-btn');
+  if (btn) { btn.disabled = false; btn.textContent = 'SPIN!'; }
   showPrizeBanner(player.name, prize, milestone?.type || 'small');
 }
 
@@ -12977,6 +13290,26 @@ function showPrizeBanner(playerName, prize, type) {
   document.getElementById('kids-prize-banner-emoji').textContent = type === 'big' ? '🏆' : '🎁';
   document.getElementById('kids-prize-banner-name').textContent = prize;
   document.getElementById('kids-prize-banner-sub').textContent = `${playerName} won this prize! Added to your list. 🎊`;
+
+  // Apply kid color scheme
+  const kidThemes = [
+    {bg:'#FFF0F8', border:'#E91E8C', nameColor:'#E91E8C', subColor:'#333'},
+    {bg:'#F0F8FF', border:'#0066CC', nameColor:'#0066CC', subColor:'#333'},
+  ];
+  if(typeof currentUser === 'object' && currentUser.role === 'kid'){
+    const kt = kidThemes[currentUser.playerIdx % kidThemes.length];
+    banner.style.background = kt.bg;
+    banner.style.border = `3px solid ${kt.border}`;
+    banner.style.boxShadow = `0 8px 32px ${kt.border}44`;
+    const nameEl = document.getElementById('kids-prize-banner-name');
+    const subEl  = document.getElementById('kids-prize-banner-sub');
+    if(nameEl) nameEl.style.color = kt.nameColor;
+    if(subEl)  subEl.style.color  = kt.subColor;
+  } else {
+    banner.style.background = '';
+    banner.style.border = '';
+    banner.style.boxShadow = '';
+  }
   banner.style.display = 'block';
 }
 
@@ -12993,11 +13326,42 @@ function showCelebration(playerName, prize, type, isMilestone=false) {
   const sub = document.getElementById('kids-celeb-sub');
   const prizeEl = document.getElementById('kids-celeb-prize-name');
   const closeBtn = document.getElementById('kids-celeb-close-btn');
+  const box = document.getElementById('kids-celeb-box');
+
+  // Apply kid's color scheme if on kids page
+  const kidThemes = [
+    {bg:'#FFF0F8', accent:'#E91E8C', accent2:'#FF6B9D', star:'#FF8C00',
+     titleColor:'#E91E8C', boxBorder:'#FFB3D9', btnBg:'#E91E8C'},
+    {bg:'#F0F8FF', accent:'#0066CC', accent2:'#00AAFF', star:'#FF8C00',
+     titleColor:'#0066CC', boxBorder:'#A8D8FF', btnBg:'#0066CC'},
+  ];
+  if(typeof currentUser === 'object' && currentUser.role === 'kid' && box){
+    const kt = kidThemes[currentUser.playerIdx % kidThemes.length];
+    box.style.background = kt.bg;
+    box.style.border = `3px solid ${kt.boxBorder}`;
+    box.style.color = '#1a1a2e';
+    if(closeBtn){
+      closeBtn.style.background = kt.btnBg;
+      closeBtn.style.color = '#fff';
+    }
+    if(title) title.style.color = kt.titleColor;
+    if(sub)   sub.style.color   = '#555';
+    if(prizeEl){ prizeEl.style.color = kt.accent; prizeEl.style.background = kt.bg === '#FFF0F8' ? '#FFD6EE' : '#C8E8FF'; prizeEl.style.border = `2px solid ${kt.boxBorder}`; }
+  } else if(box){
+    // Restore parent app styles
+    box.style.background = '';
+    box.style.border = '';
+    box.style.color = '';
+    if(closeBtn){ closeBtn.style.background = ''; closeBtn.style.color = ''; }
+    if(title) title.style.color = '';
+    if(sub)   sub.style.color   = '';
+  }
 
   if (type === 'big') {
     emoji.textContent = '🏆';
     title.textContent = isMilestone ? 'BIG MILESTONE!' : 'MEGA PRIZE!';
-    title.style.color = '#ffc107';
+    if(!(typeof currentUser === 'object' && currentUser.role === 'kid'))
+      title.style.color = '#ffc107';
     sub.textContent = isMilestone
       ? `${playerName} earned a BIG prize! Spin the wheel to find out what you won!`
       : `Amazing, ${playerName}! You won:`;
@@ -13133,6 +13497,7 @@ function openAddKidsCat() {
   document.getElementById('kids-cat-pts-input').value = '';
   document.getElementById('kids-cat-delete-wrap').style.display = 'none';
   document.getElementById('kids-emoji-preview').textContent = '⭐';
+  document.getElementById('kids-cat-freq-input').value = 'anytime';
   openModal('modal-kids-cat');
   setTimeout(() => { buildKidsEmojiGrid(''); document.getElementById('kids-cat-name-input').focus(); }, 200);
 }
@@ -13148,6 +13513,7 @@ function openEditKidsCat(id) {
   document.getElementById('kids-cat-pts-input').value = cat.pts;
   document.getElementById('kids-cat-delete-wrap').style.display = 'block';
   document.getElementById('kids-emoji-preview').textContent = cat.emoji || '⭐';
+  document.getElementById('kids-cat-freq-input').value = cat.freq || 'anytime';
   openModal('modal-kids-cat');
   setTimeout(() => buildKidsEmojiGrid(cat.emoji), 200);
 }
@@ -13156,14 +13522,15 @@ function saveKidsCat() {
   const emoji = document.getElementById('kids-cat-emoji-input').value.trim() || '⭐';
   const name = document.getElementById('kids-cat-name-input').value.trim();
   const pts = parseInt(document.getElementById('kids-cat-pts-input').value) || 0;
+  const freq = document.getElementById('kids-cat-freq-input').value || 'anytime';
   if (!name) { showToast('Category name required'); return; }
   if (pts === 0) { showToast('Points cannot be 0'); return; }
   const d = kidsData();
   if (kidsEditCatId) {
     const cat = d.cats.find(c => c.id === kidsEditCatId);
-    if (cat) { cat.emoji = emoji; cat.name = name; cat.pts = pts; }
+    if (cat) { cat.emoji = emoji; cat.name = name; cat.pts = pts; cat.freq = freq; }
   } else {
-    d.cats.push({id:'kc'+Date.now(), emoji, name, pts});
+    d.cats.push({id:'kc'+Date.now(), emoji, name, pts, freq});
   }
   saveKidsData(d);
   closeModal('modal-kids-cat');
@@ -13256,6 +13623,494 @@ function removeWheelPrize(idx) {
   renderWheelPrizesList();
 }
 
+// ══════════════════════════════════════════════════════════════════
+// KIDS PAGE — separate full-screen experience for kids
+// Accessed via kid PIN — completely separate from parent app
+// ══════════════════════════════════════════════════════════════════
+
+function showKidsPage(){
+  // Hide loading, hide app, show kids page
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='none';
+  let kp = document.getElementById('kids-page');
+  if(!kp){
+    kp = document.createElement('div');
+    kp.id = 'kids-page';
+    document.body.appendChild(kp);
+  }
+  kp.style.display='flex';
+  renderKidsPageForKid();
+}
+
+function renderKidsPageForKid(){
+  const kp = document.getElementById('kids-page');
+  if(!kp || typeof currentUser !== 'object') return;
+  const d         = kidsData();
+  const playerIdx = currentUser.playerIdx;
+  const player    = d.players[playerIdx] || {name:'Player', score:0};
+  const myName    = player.name;
+  const myScore   = player.score || 0;
+  const others    = d.players.map((p,i)=>({...p,i})).filter(p=>p.i!==playerIdx);
+  const myCats    = (d.cats||[]).filter(c=>c.pts>0 && isChoreMine(c,playerIdx));
+  const auditLog  = d.auditLog || [];
+
+  const nextSmall = myScore<=0?25:(25-(myScore%25===0?0:myScore%25))||25;
+  const nextBig   = myScore<=0?100:(100-(myScore%100===0?0:myScore%100))||100;
+  const pctSmall  = Math.min(100,((25-nextSmall)/25)*100);
+  const pctBig    = Math.min(100,((100-nextBig)/100)*100);
+  const view = kp._view || 'chores';
+
+  // ── Bright kid themes ──────────────────────────────────────────
+  // Player 0 = warm pink/coral, Player 1 = sky blue/teal
+  const themes = [
+    { pageBg:'#FFF0F8', cardBg:'#FFD6EE', accent:'#E91E8C', accent2:'#FF6B9D',
+      star:'#FF8C00', barColor:'#E91E8C', bar2:'#FF6B9D',
+      avatarBg:'#FFB3D9', avatarText:'#9C0060',
+      tabActiveBg:'#FFD6EE', tabActiveColor:'#E91E8C',
+      choreBg:'#FFF5FA', choreBorder:'#FFB3D9', choreActive:'#FFD6EE' },
+    { pageBg:'#F0F8FF', cardBg:'#C8E8FF', accent:'#0066CC', accent2:'#00AAFF',
+      star:'#FF8C00', barColor:'#0066CC', bar2:'#00AAFF',
+      avatarBg:'#A8D8FF', avatarText:'#003D7A',
+      tabActiveBg:'#C8E8FF', tabActiveColor:'#0066CC',
+      choreBg:'#F5FAFF', choreBorder:'#A8D8FF', choreActive:'#C8E8FF' },
+  ];
+  const th = themes[playerIdx % themes.length];
+
+  // Apply page background via direct style (not <style> tag)
+  kp.style.background = th.pageBg;
+  kp.style.position   = 'fixed';
+  kp.style.inset      = '0';
+  kp.style.zIndex     = '800';
+  kp.style.display    = 'flex';
+  kp.style.flexDirection = 'column';
+  kp.style.overflowY  = 'auto';
+  kp.style.fontFamily = 'var(--font-ui)';
+  kp.style.color      = '#1a1a2e';
+
+  // ── Chore buttons ──────────────────────────────────────────────
+  const dueCats    = myCats.filter(c=>choreStatus(c,playerIdx,auditLog).due);
+  const notDueCats = myCats.filter(c=>!choreStatus(c,playerIdx,auditLog).due);
+
+  function choreBtn(c, isDue){
+    const st = choreStatus(c,playerIdx,auditLog);
+    const freqTag = st.label
+      ? `<div style="font:600 11px/1 var(--font-ui);color:${isDue?th.accent:'#999'};opacity:0.75;margin-top:5px;">${st.label}</div>`
+      : '';
+    if(!isDue){
+      return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;
+          border-radius:20px;border:2px dashed #ddd;
+          background:#f8f8f8;margin-bottom:10px;opacity:0.55;">
+        <span style="font-size:30px;filter:grayscale(0.8);">${c.emoji}</span>
+        <div style="flex:1;">
+          <div style="font:700 16px/1.2 var(--font-ui);color:#888;">${esc(c.name)}</div>
+          <div style="font:600 12px/1 var(--font-ui);color:#aaa;margin-top:4px;">${st.sublabel}</div>
+          ${freqTag}
+        </div>
+      </div>`;
+    }
+    return `<button onclick="kidsPageAward('${c.id}')"
+        style="width:100%;padding:18px 16px;border-radius:22px;
+          border:3px solid ${th.choreBorder};
+          background:white;
+          color:#1a1a2e;display:flex;align-items:center;gap:14px;
+          cursor:pointer;margin-bottom:12px;text-align:left;
+          box-shadow:0 4px 14px ${th.accent}22;
+          transition:transform 0.1s,box-shadow 0.1s;
+          -webkit-tap-highlight-color:transparent;"
+        ontouchstart="this.style.transform='scale(0.97)';this.style.background='${th.choreActive}'"
+        ontouchend="this.style.transform='';this.style.background='white'">
+      <span style="font-size:36px;">${c.emoji}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font:800 18px/1.2 var(--font-ui);color:#1a1a2e;">${esc(c.name)}</div>
+        ${freqTag}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;
+          padding:8px 12px;border-radius:14px;background:${th.cardBg};flex-shrink:0;">
+        <span style="font-size:18px;">⭐</span>
+        <span style="font:800 15px/1 var(--font-ui);color:${th.accent};">+${c.pts}</span>
+      </div>
+    </button>`;
+  }
+
+  let choreHtml = '';
+  if(myCats.length === 0){
+    choreHtml = `<div style="text-align:center;padding:60px 20px;">
+      <div style="font-size:56px;margin-bottom:12px;">🎉</div>
+      <div style="font:700 18px/1.4 var(--font-ui);color:#888;">No chores yet!<br>Ask a parent to add some.</div>
+    </div>`;
+  } else if(dueCats.length === 0){
+    choreHtml = `<div style="text-align:center;padding:32px 20px 16px;">
+      <div style="font-size:64px;margin-bottom:10px;">🥳</div>
+      <div style="font:900 24px/1.3 var(--font-ui);color:${th.accent};">All done for now!</div>
+      <div style="font:600 14px/1.5 var(--font-ui);color:#888;margin-top:6px;">Amazing job! Check back later.</div>
+    </div>`;
+    if(notDueCats.length) choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+  } else {
+    choreHtml += dueCats.map(c=>choreBtn(c,true)).join('');
+    if(notDueCats.length){
+      choreHtml += `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;
+          color:#bbb;text-transform:uppercase;margin:18px 0 10px 4px;">Not due yet</div>`;
+      choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+    }
+  }
+
+  // ── Sibling scores ─────────────────────────────────────────────
+  const siblingHtml = others.length
+    ? others.map(o=>{
+        const oth = themes[o.i % themes.length];
+        return `<div style="display:flex;align-items:center;gap:12px;
+            padding:14px 16px;border-radius:18px;margin-top:10px;
+            background:${oth.cardBg};border:2px solid ${oth.choreBorder};">
+          <div style="width:40px;height:40px;border-radius:50%;
+              background:${oth.avatarBg};display:flex;align-items:center;
+              justify-content:center;font:800 20px/1 var(--font-ui);
+              color:${oth.avatarText};flex-shrink:0;">
+            ${esc(o.name.slice(0,1))}
+          </div>
+          <span style="flex:1;font:700 16px/1 var(--font-ui);color:${oth.accent};">${esc(o.name)}</span>
+          <span style="font:800 20px/1 var(--font-ui);color:#333;">⭐ ${o.score||0}</span>
+        </div>`;
+      }).join('')
+    : '';
+
+  kp.innerHTML = `
+  <!-- Header -->
+  <div style="padding:20px 20px 8px;display:flex;align-items:center;gap:14px;">
+    <div style="width:56px;height:56px;border-radius:50%;
+        background:${th.avatarBg};border:3px solid ${th.accent};
+        display:flex;align-items:center;justify-content:center;
+        font:900 24px/1 var(--font-ui);color:${th.avatarText};flex-shrink:0;">
+      ${esc(myName.slice(0,1))}
+    </div>
+    <div style="flex:1;">
+      <div style="font:600 12px/1 var(--font-ui);color:#999;margin-bottom:3px;">Hey there,</div>
+      <div style="font:900 26px/1.1 var(--font-ui);color:#1a1a2e;">${esc(myName)}! 🎉</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+      <button onclick="kidsPageRefresh()" id="kp-refresh-btn"
+        style="padding:5px 12px;border-radius:10px;border:2px solid #ddd;
+          background:white;color:#888;font:600 11px/1 var(--font-ui);cursor:pointer;">↻</button>
+      <button onclick="kidsPageLogout()"
+        style="padding:5px 12px;border-radius:10px;border:2px solid #ddd;
+          background:white;color:#888;font:600 11px/1 var(--font-ui);cursor:pointer;">Exit</button>
+    </div>
+  </div>
+
+  <!-- Star score card -->
+  <div style="margin:4px 16px 8px;padding:16px 20px;border-radius:24px;
+      background:${th.cardBg};border:3px solid ${th.choreBorder};
+      display:flex;align-items:center;gap:16px;">
+    <div style="font-size:44px;">⭐</div>
+    <div style="flex:1;">
+      <div style="font:700 11px/1 var(--font-ui);color:${th.accent};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Your Stars</div>
+      <div style="font:900 40px/1 var(--font-ui);color:#1a1a2e;">${myScore}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font:600 11px/1.6 var(--font-ui);color:#666;">🎁 ${nextSmall} more<br><span style="color:#aaa;">for small prize</span></div>
+      <div style="font:600 11px/1.6 var(--font-ui);color:#666;margin-top:4px;">🏆 ${nextBig} more<br><span style="color:#aaa;">for big prize</span></div>
+    </div>
+  </div>
+
+  <!-- Progress bars -->
+  <div style="margin:0 16px 8px;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="font:700 11px/1 var(--font-ui);color:${th.accent};">🎁 Small prize</span>
+      <span style="font:600 11px/1 var(--font-ui);color:#aaa;">${Math.round(pctSmall)}%</span>
+    </div>
+    <div style="height:18px;border-radius:9px;background:#e8e8e8;overflow:hidden;margin-bottom:8px;">
+      <div style="height:100%;border-radius:9px;width:${pctSmall}%;
+          background:linear-gradient(90deg,${th.barColor},${th.bar2});"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="font:700 11px/1 var(--font-ui);color:#FF8C00;">🏆 Big prize</span>
+      <span style="font:600 11px/1 var(--font-ui);color:#aaa;">${Math.round(pctBig)}%</span>
+    </div>
+    <div style="height:18px;border-radius:9px;background:#e8e8e8;overflow:hidden;">
+      <div style="height:100%;border-radius:9px;width:${pctBig}%;
+          background:linear-gradient(90deg,#FF8C00,#FFD700);"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:8px;padding:8px 16px 8px;">
+    <button onclick="kidsPageSetView('chores')"
+      style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+        border:3px solid ${view==='chores'?th.accent:'#ddd'};
+        background:${view==='chores'?th.cardBg:'white'};
+        color:${view==='chores'?th.accent:'#aaa'};">
+      🏠 My Chores
+    </button>
+    <button onclick="kidsPageSetView('spin')"
+      style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+        border:3px solid ${view==='spin'?th.accent:'#ddd'};
+        background:${view==='spin'?th.cardBg:'white'};
+        color:${view==='spin'?th.accent:'#aaa'};">
+      🎡 Spin!
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:4px 16px 16px;">
+    ${view==='chores' ? `
+      ${dueCats.length > 0 ? `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:${th.accent};text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you're done! 👇</div>` : ''}
+      ${choreHtml}
+      ${siblingHtml ? `<div style="margin-top:20px;"><div style="font:700 10px/1 var(--font-ui);letter-spacing:1.2px;color:#bbb;text-transform:uppercase;margin-bottom:8px;padding-left:2px;">Everyone's stars</div>${siblingHtml}</div>` : ''}
+    ` : `
+      <div id="kp-spin-wrap"></div>
+    `}
+  </div>
+  <div style="height:40px;"></div>
+  `;
+
+  if(view==='spin'){
+    setTimeout(()=>{
+      const wrap = document.getElementById('kp-spin-wrap');
+      if(!wrap) return;
+
+      // Kids-specific spin view — no player selector, no CSS vars
+      const spinType = kp._spinType || 'small';
+      const prizes   = spinType === 'big'
+        ? (d.wheelPrizesBig || [])
+        : (d.wheelPrizesSmall || d.wheelPrizes || []);
+      const kt = [
+        {accent:'#E91E8C', cardBg:'#FFD6EE', border:'#FFB3D9', btnBg:'linear-gradient(135deg,#E91E8C,#FF6B9D)'},
+        {accent:'#0066CC', cardBg:'#C8E8FF', border:'#A8D8FF', btnBg:'linear-gradient(135deg,#0066CC,#00AAFF)'},
+      ][playerIdx % 2];
+
+      wrap.innerHTML = `
+        <!-- Small / Big toggle -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <button onclick="kidsPageSetSpinType('small')"
+            style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+              border:3px solid ${spinType==='small'?kt.accent:'#ddd'};
+              background:${spinType==='small'?kt.cardBg:'white'};
+              color:${spinType==='small'?kt.accent:'#aaa'};">
+            🎁 Small Prize<br><span style="font:600 11px/1.5 var(--font-ui);opacity:0.7;">25 stars</span>
+          </button>
+          <button onclick="kidsPageSetSpinType('big')"
+            style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+              border:3px solid ${spinType==='big'?'#FF8C00':'#ddd'};
+              background:${spinType==='big'?'#FFF3CC':'white'};
+              color:${spinType==='big'?'#FF8C00':'#aaa'};">
+            🏆 Big Prize<br><span style="font:600 11px/1.5 var(--font-ui);opacity:0.7;">100 stars</span>
+          </button>
+        </div>
+
+        ${prizes.length < 2
+          ? `<div style="text-align:center;padding:40px 20px;color:#aaa;font:600 15px/1.5 var(--font-ui);">
+               No prizes set up yet!<br>Ask a parent to add some. 🎁
+             </div>`
+          : (()=>{
+            const pending   = _pendingCelebration;
+            const hasPrize  = pending && pending.playerIdx === playerIdx
+              && pending.milestone.type === spinType;
+            const btnLabel  = hasPrize
+              ? (spinType==='big' ? '🏆 SPIN FOR BIG PRIZE!' : '🎁 SPIN FOR PRIZE!')
+              : 'SPIN! 🎡';
+            const lockMsg   = !hasPrize
+              ? `<div style="font:600 13px/1.5 var(--font-ui);color:#bbb;
+                    text-align:center;padding:4px 0 12px;">
+                  Earn ${spinType==='big'?'100':'25'} ⭐ to unlock the ${spinType} prize wheel!
+                 </div>`
+              : '';
+            return `<div style="width:100%;max-width:520px;margin:0 auto 16px;">
+               <div style="position:relative;display:block;">
+                 <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+                     font-size:28px;z-index:2;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">▼</div>
+                 <canvas id="kids-wheel-canvas" width="300" height="300"
+                   style="border-radius:50%;display:block;width:100%;max-width:100%;
+                   opacity:${hasPrize?'1':'0.4'};"></canvas>
+               </div>
+             </div>
+             ${lockMsg}
+             <button id="kids-spin-btn"
+               onclick="${hasPrize?'spinWheel()':''}"
+               style="display:block;width:100%;max-width:300px;margin:0 auto 12px;
+                 padding:18px;border-radius:50px;border:none;
+                 background:${hasPrize?kt.btnBg:'#ccc'};color:#fff;
+                 font:800 20px/1 var(--font-ui);letter-spacing:1.5px;
+                 cursor:${hasPrize?'pointer':'not-allowed'};
+                 box-shadow:${hasPrize?'0 6px 24px '+kt.accent+'55':'none'};
+                 transition:transform 0.12s;
+                 text-transform:uppercase;">
+               ${btnLabel}
+             </button>
+             <div id="spin-result" style="font:800 18px/1 var(--font-ui);
+                 text-align:center;min-height:28px;color:${kt.accent};
+                 padding:8px 0;"></div>`;
+          })()
+        }
+      `;
+
+      if(prizes.length >= 2){
+        // Size canvas and draw wheel
+        const canvas = document.getElementById('kids-wheel-canvas');
+        if(canvas){
+          const available = canvas.parentElement?.offsetWidth || 300;
+          const size = Math.min(Math.max(available - 8, 280), 520);
+          canvas.width = size; canvas.height = size;
+          drawWheel(canvas, prizes, kidsWheelAngle);
+        }
+        // Always set spinPlayerIdx to this kid so spinWheel() knows who's spinning
+        _spinPlayerIdx = playerIdx;
+      }
+    }, 80);
+  }
+}
+
+function kidsPageSetSpinType(type){
+  const kp = document.getElementById('kids-page');
+  if(kp){ kp._spinType = type; }
+  _kidsSpinType = type;
+  kidsWheelAngle = 0;
+  renderKidsPageForKid();
+}
+
+
+function kidsPageSetView(view){
+  const kp = document.getElementById('kids-page');
+  if(kp) kp._view = view;
+  renderKidsPageForKid();
+}
+
+function kidsPageAward(catId){
+  const playerIdx = currentUser?.playerIdx;
+  if(typeof playerIdx !== 'number') return;
+  const d   = kidsData();
+  const cat = d.cats.find(c=>c.id===catId);
+  if(!cat) return;
+
+  // ── Celebration burst ─────────────────────────────────────────
+  // 1. Flash the button
+  const btns = document.querySelectorAll('#kids-page button');
+  btns.forEach(b=>{ if(b.textContent.includes(cat.name)) b.classList.add('kp-chore-done-flash'); });
+
+  // 2. Floating +pts emoji burst
+  kidsPageStarBurst(cat.pts, cat.emoji);
+
+  // 3. Play a fun ascending sound
+  kidsPageCelebSound(cat.pts);
+
+  // 4. Award the points
+  kidsAward(playerIdx, catId);
+
+  // 5. Re-render after short delay so animation plays first
+  setTimeout(()=> renderKidsPageForKid(), 500);
+}
+
+function kidsPageStarBurst(pts, emoji){
+  const kp = document.getElementById('kids-page');
+  if(!kp) return;
+  const rect = kp.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const count = Math.min(6 + pts, 16);
+
+  for(let i=0; i<count; i++){
+    setTimeout(()=>{
+      const el = document.createElement('div');
+      const angle = (Math.random() * 360) * Math.PI / 180;
+      const dist  = 80 + Math.random() * 120;
+      const dx    = Math.cos(angle) * dist;
+      const dy    = Math.sin(angle) * dist;
+      const size  = 22 + Math.random() * 20;
+      el.style.cssText = `
+        position:fixed;
+        left:${cx}px;top:${cy}px;
+        font-size:${size}px;
+        pointer-events:none;
+        z-index:9999;
+        transition:transform 0.7s cubic-bezier(.2,.8,.3,1),opacity 0.7s;
+        transform:translate(-50%,-50%);
+        opacity:1;
+      `;
+      el.textContent = i % 3 === 0 ? '⭐' : i % 3 === 1 ? emoji : '✨';
+      kp.appendChild(el);
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.3)`;
+          el.style.opacity = '0';
+        });
+      });
+      setTimeout(()=> el.remove(), 800);
+    }, i * 40);
+  }
+
+  // Big +pts float-up
+  setTimeout(()=>{
+    const badge = document.createElement('div');
+    badge.style.cssText = `
+      position:fixed;
+      left:${cx}px;top:${cy - 40}px;
+      font:900 42px/1 var(--font-ui);
+      color:#fbbf24;
+      pointer-events:none;
+      z-index:9999;
+      transform:translate(-50%,-50%);
+      text-shadow:0 0 20px rgba(251,191,36,0.8);
+      transition:transform 0.8s cubic-bezier(.2,.8,.3,1),opacity 0.8s;
+      opacity:1;
+    `;
+    badge.textContent = `+${pts} ⭐`;
+    kp.appendChild(badge);
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        badge.style.transform = `translate(-50%, calc(-50% - 80px)) scale(1.2)`;
+        badge.style.opacity = '0';
+      });
+    });
+    setTimeout(()=> badge.remove(), 900);
+  }, 100);
+}
+
+function kidsPageCelebSound(pts){
+  try{
+    const ctx = _kidsAudio();
+    if(ctx.state==='suspended') ctx.resume();
+    // Fun ascending arpeggio — higher notes for more points
+    const baseNotes = [523,659,784,1047,1319];
+    const notes = pts >= 5
+      ? [523,659,784,1047,1319,1568]
+      : pts >= 3
+      ? [523,659,784,1047]
+      : [523,659,784];
+    notes.forEach((freq,i)=>{
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      const t = ctx.currentTime + i*0.08;
+      gain.gain.setValueAtTime(0,t);
+      gain.gain.linearRampToValueAtTime(0.18,t+0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+      osc.start(t); osc.stop(t+0.25);
+    });
+  } catch(e){}
+}
+
+function kidsPageRefresh(){
+  const btn = document.getElementById('kp-refresh-btn');
+  if(btn){ btn.textContent = '↻ Syncing…'; btn.disabled = true; }
+  loadAll().then(()=>{
+    const d = kidsData();
+    currentUser.name = d.players[currentUser.playerIdx]?.name || currentUser.name;
+    renderKidsPageForKid();
+  });
+}
+
+function kidsPageLogout(){
+  currentUser = 'parent';
+  localStorage.removeItem('hub-auth-kid');
+  const kp = document.getElementById('kids-page');
+  if(kp) kp.style.display='none';
+  // Show gate again
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('gate-input').value='';
+  setTimeout(()=>document.getElementById('gate-input').focus(),300);
+}
+
+
 init();
 </script>
 
@@ -13278,6 +14133,18 @@ init();
     <div class="field-group">
       <label class="field-label">Points (negative = lose points)</label>
       <input class="field-input" id="kids-cat-pts-input" type="number" placeholder="1" style="width:80px;"/>
+    </div>
+    <div class="field-group">
+      <label class="field-label">How often?</label>
+      <select class="field-select" id="kids-cat-freq-input">
+        <option value="anytime">Anytime — no schedule</option>
+        <option value="daily">Every day</option>
+        <option value="every2">Every other day</option>
+        <option value="every3">Every 3 days</option>
+        <option value="weekly">Once a week</option>
+        <option value="weekdays">Weekdays only</option>
+        <option value="weekends">Weekends only</option>
+      </select>
     </div>
     <div style="display:flex;gap:var(--sp2);margin-top:16px;">
       <button class="hbtn" style="flex:1;background:transparent;" onclick="closeModal('modal-kids-cat')">Cancel</button>
