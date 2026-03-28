@@ -2738,7 +2738,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — use it and push to cloud
         kidsGame = localKids;
-        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+        try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
       } else {
         // Cloud is newer or equal — trust it
         kidsGame = cloudKids;
@@ -2749,7 +2749,7 @@ async function loadAll(){
       localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
     } else if(localKids){
       kidsGame = localKids;
-      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+      try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
     }
 
     // Load Jason rewards — compare timestamps, take newer version
@@ -2762,7 +2762,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — keep it, push to cloud
         localStorage.setItem('hub-jason-rewards', JSON.stringify(localJR));
-        try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+        try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
       } else {
         // Cloud is newer or equal — trust it
         localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
@@ -2772,7 +2772,7 @@ async function loadAll(){
       localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
     } else if(localJR){
       // Only local has data — push it up
-      try{ await apiCall('saveAll',{projects,tasks,kidsGame,...getCloudStats()}); }catch(e2){}
+      try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
     }
 
     if(sheetProjects.length===0&&sheetTasks.length===0){
@@ -2783,12 +2783,12 @@ async function loadAll(){
       if(localProjects.length>0||localTasks.length>0){
         projects=localProjects;tasks=localTasks;
         showToast("Cloud empty — uploading local data…");
-        await apiCall("saveAll",{projects,tasks,kidsGame,jasonRewards:getJasonRewards()});
+        await apiCall("saveAll", _buildSavePayload());
         showToast("✓ "+projects.length+" Projects + "+tasks.length+" TaskS SENT");
       }else{
         projects=SEED_PROJECTS;tasks=SEED_TASKS;
         showToast("First visit — uploading data…");
-        await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
+        await apiCall("saveAll", _buildSavePayload());
         showToast("✓ All tasks uploaded ✓");
       }
     }else{
@@ -2938,13 +2938,39 @@ async function saveAllDebounced(){
   localStorage.setItem("hub-tasks",JSON.stringify(tasks));
   localStorage.setItem("hub-totalXP",String(totalXP));
   clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{try{await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});}catch(e){}},800);
+  syncTimeout=setTimeout(async()=>{
+    try{
+      await apiCall("saveAll",_buildSavePayload());
+    }catch(e){
+      console.error("saveAll failed:",e);
+      setSyncStatus("error","Sync failed");
+    }
+  },800);
+}
+
+// ── Central payload builder — single source of truth for what gets saved ──
+// getCloudStats() already includes waitingFor, peopleList, meetingLog etc.
+// We explicitly add the ones that were historically missing from saveAll.
+function _buildSavePayload(){
+  return {
+    // Core data (always present)
+    projects,
+    tasks,
+    kidsGame,
+    // Discovery/signals (may not exist in all app versions)
+    discoveryList: typeof discoveryList !== 'undefined' ? discoveryList : undefined,
+    signalList:    typeof signalList    !== 'undefined' ? signalList    : undefined,
+    // All other collections via getCloudStats — this includes:
+    // waitingFor, peopleList, contactsList, meetingLog, meetingSeries,
+    // somedayList, habitList, weeklyIntentions, todayPinned, streak, XP etc.
+    ...getCloudStats()
+  };
 }
 
 async function syncNow(){
   showToast("Syncing…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
+    await apiCall("saveAll", _buildSavePayload());
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -2991,7 +3017,7 @@ async function forcePushToSheets(){
   if(!confirm("Overwrite cloud with local data?")) return;
   showToast("UPLOADING ALL DATA…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame,...getCloudStats()});
+    await apiCall("saveAll", _buildSavePayload());
     showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
   }catch(e){showToast("Push failed — check connection");}
 }
@@ -3000,7 +3026,7 @@ async function pushKidsData(){
   const d=kidsData();
   showToast("Pushing kids data…");
   try{
-    await apiCall("saveAll",{projects,tasks,kidsGame:d,...getCloudStats()});
+    await apiCall("saveAll",{..._buildSavePayload(), kidsGame:d});
     showToast("✓ Kids data synced to cloud!");
   }catch(e){showToast("Failed: "+e.message);}
 }
