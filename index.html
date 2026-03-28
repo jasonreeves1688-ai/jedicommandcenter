@@ -11579,8 +11579,8 @@ const GATE_DURATION=60*60*1000; // 60 minutes in ms
 // ── Kid PINs — set these to whatever you want ──────────────────
 // Each maps to a player index in kidsGame.players
 const KID_PINS = {
-  "rooroo": 0,   // PIN for Player 1 (change "Star1" to whatever)
-  "connie": 1,   // PIN for Player 2 (change "Star2" to whatever)
+  "Star1": 0,   // PIN for Player 1 (change "Star1" to whatever)
+  "Star2": 1,   // PIN for Player 2 (change "Star2" to whatever)
 };
 // Session user — 'parent' | {role:'kid', playerIdx:N, name:string}
 let currentUser = 'parent';
@@ -13694,42 +13694,56 @@ function renderKidsPageForKid(){
   function choreBtn(c, isDue){
     const st = choreStatus(c,playerIdx,auditLog);
     const freqTag = st.label
-      ? `<div style="font:600 11px/1 var(--font-ui);color:${isDue?th.accent:'#999'};opacity:0.75;margin-top:5px;">${st.label}</div>`
+      ? `<div style="font:600 11px/1 var(--font-ui);color:${isDue?th.accent:'#aaa'};margin-top:4px;">${st.label}</div>`
       : '';
+
+    // Not-due: display-only card, no tap target
     if(!isDue){
       return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;
           border-radius:20px;border:2px dashed #ddd;
-          background:#f8f8f8;margin-bottom:10px;opacity:0.55;">
+          background:#f9f9f9;margin-bottom:10px;opacity:0.5;">
         <span style="font-size:30px;filter:grayscale(0.8);">${c.emoji}</span>
-        <div style="flex:1;">
-          <div style="font:700 16px/1.2 var(--font-ui);color:#888;">${esc(c.name)}</div>
-          <div style="font:600 12px/1 var(--font-ui);color:#aaa;margin-top:4px;">${st.sublabel}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font:700 16px/1.2 var(--font-ui);color:#999;">${esc(c.name)}</div>
+          <div style="font:600 12px/1 var(--font-ui);color:#bbb;margin-top:4px;">${st.sublabel}</div>
           ${freqTag}
         </div>
+        <div style="width:48px;height:48px;border-radius:50%;
+            border:3px dashed #ddd;background:#f0f0f0;flex-shrink:0;
+            display:flex;align-items:center;justify-content:center;
+            font-size:20px;color:#ccc;">✓</div>
       </div>`;
     }
-    return `<button onclick="kidsPageAward('${c.id}')"
-        style="width:100%;padding:18px 16px;border-radius:22px;
-          border:3px solid ${th.choreBorder};
-          background:white;
-          color:#1a1a2e;display:flex;align-items:center;gap:14px;
-          cursor:pointer;margin-bottom:12px;text-align:left;
-          box-shadow:0 4px 14px ${th.accent}22;
-          transition:transform 0.1s,box-shadow 0.1s;
-          -webkit-tap-highlight-color:transparent;"
-        ontouchstart="this.style.transform='scale(0.97)';this.style.background='${th.choreActive}'"
-        ontouchend="this.style.transform='';this.style.background='white'">
-      <span style="font-size:36px;">${c.emoji}</span>
+
+    // Due: card body is visual, check circle is the ONLY tap target
+    return `<div style="display:flex;align-items:center;gap:14px;padding:16px;
+        border-radius:22px;border:3px solid ${th.choreBorder};
+        background:white;margin-bottom:12px;
+        box-shadow:0 4px 14px ${th.accent}18;">
+      <span style="font-size:36px;flex-shrink:0;">${c.emoji}</span>
       <div style="flex:1;min-width:0;">
         <div style="font:800 18px/1.2 var(--font-ui);color:#1a1a2e;">${esc(c.name)}</div>
-        ${freqTag}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
+          <span style="font:700 13px/1 var(--font-ui);color:${th.accent};">+${c.pts} ⭐</span>
+          ${freqTag}
+        </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;
-          padding:8px 12px;border-radius:14px;background:${th.cardBg};flex-shrink:0;">
-        <span style="font-size:18px;">⭐</span>
-        <span style="font:800 15px/1 var(--font-ui);color:${th.accent};">+${c.pts}</span>
-      </div>
-    </button>`;
+      <!-- Check button — the ONLY interactive element -->
+      <button onclick="kidsPageAward('${c.id}')"
+        style="width:58px;height:58px;border-radius:50%;flex-shrink:0;
+          border:3px solid ${th.accent};
+          background:${th.cardBg};
+          color:${th.accent};font-size:26px;font-weight:900;
+          display:flex;align-items:center;justify-content:center;
+          cursor:pointer;
+          box-shadow:0 3px 10px ${th.accent}33;
+          transition:transform 0.12s,background 0.12s;
+          -webkit-tap-highlight-color:transparent;"
+        ontouchstart="this.style.transform='scale(0.88)';this.style.background='${th.accent}';this.style.color='#fff'"
+        ontouchend="this.style.transform='scale(1)';this.style.background='${th.cardBg}';this.style.color='${th.accent}'">
+        ✓
+      </button>
+    </div>`;
   }
 
   let choreHtml = '';
@@ -13980,21 +13994,25 @@ function kidsPageAward(catId){
   const cat = d.cats.find(c=>c.id===catId);
   if(!cat) return;
 
-  // ── Celebration burst ─────────────────────────────────────────
-  // 1. Flash the button
-  const btns = document.querySelectorAll('#kids-page button');
-  btns.forEach(b=>{ if(b.textContent.includes(cat.name)) b.classList.add('kp-chore-done-flash'); });
+  // Immediately disable this check button so double-tap is impossible
+  // Find it by catId data attribute pattern — disable all check btns briefly
+  document.querySelectorAll('#kids-page button').forEach(b=>{
+    if(b.getAttribute('onclick') && b.getAttribute('onclick').includes(catId)){
+      b.disabled = true;
+      b.style.opacity = '0.3';
+    }
+  });
 
-  // 2. Floating +pts emoji burst
+  // Star burst from check button position
   kidsPageStarBurst(cat.pts, cat.emoji);
 
-  // 3. Play a fun ascending sound
+  // Ascending sound
   kidsPageCelebSound(cat.pts);
 
-  // 4. Award the points
+  // Award the points (writes to auditLog immediately)
   kidsAward(playerIdx, catId);
 
-  // 5. Re-render after short delay so animation plays first
+  // Re-render after celebration — chore now shows as not-due if recurring
   setTimeout(()=> renderKidsPageForKid(), 500);
 }
 
