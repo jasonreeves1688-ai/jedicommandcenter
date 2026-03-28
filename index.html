@@ -2842,14 +2842,69 @@ async function loadAll(){
   // Load hub data from cloud — cloud always wins on load
   if(!data){ return; } // API call failed — keep whatever is in localStorage
   // Save side uses _cloudLoaded to prevent empty saves (see getCloudStats)
-  try { if(data.waitingFor   !== undefined){ waitingFor   = data.waitingFor;   localStorage.setItem('hub-waiting',          JSON.stringify(waitingFor));   if(waitingFor.length>0)   _cloudLoaded.add('waitingFor');   }} catch(e){ console.error('load waitingFor',e); }
-  try { if(data.resetStreak)               { resetStreak = data.resetStreak; localStorage.setItem('hub-reset-streak', JSON.stringify(resetStreak)); }} catch(e){}
-  try { if(data.weeklyIntentions)          { weeklyIntentions = data.weeklyIntentions; localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions)); }} catch(e){}
-  try { if(data.somedayList  !== undefined){ somedayList  = data.somedayList;  localStorage.setItem('hub-someday',          JSON.stringify(somedayList));  }} catch(e){}
-  try { if(data.peopleList   !== undefined){ peopleList   = data.peopleList;   localStorage.setItem('hub-people',           JSON.stringify(peopleList));   if(peopleList.length>0)   _cloudLoaded.add('peopleList');   }} catch(e){ console.error('load peopleList',e); }
-  try { if(data.contactsList !== undefined){ contactsList = data.contactsList; localStorage.setItem('hub-contacts',         JSON.stringify(contactsList)); if(contactsList.length>0) _cloudLoaded.add('contactsList'); }} catch(e){ console.error('load contactsList',e); }
-  try { if(data.meetingLog   !== undefined){ meetingLog   = data.meetingLog;   localStorage.setItem('hub-meetings',         JSON.stringify(meetingLog));   if(meetingLog.length>0)   _cloudLoaded.add('meetingLog');   }} catch(e){ console.error('load meetingLog',e); }
-  try { if(data.meetingSeries!== undefined){ meetingSeries= data.meetingSeries;localStorage.setItem('hub-meeting-series',   JSON.stringify(meetingSeries));if(meetingSeries.length>0)_cloudLoaded.add('meetingSeries'); }} catch(e){ console.error('load meetingSeries',e); }
+  // ── Hub collections: merge local + cloud, never overwrite local with empty ──
+  // Pattern mirrors task merge: local is source of truth for items not yet on cloud,
+  // cloud is source of truth for items added on other devices.
+  function _mergeCollection(cloudArr, localArr){
+    if(!cloudArr || !cloudArr.length) return localArr && localArr.length ? localArr : [];
+    if(!localArr || !localArr.length) return cloudArr;
+    const cloudIds = new Set(cloudArr.map(x=>x.id));
+    const localIds = new Set(localArr.map(x=>x.id));
+    // Start with cloud items (source of truth for shared fields)
+    const merged = cloudArr.map(c=>{
+      const l = localArr.find(x=>x.id===c.id);
+      if(!l) return c;
+      // Preserve local done/completed state (same protection as tasks)
+      return {...c, done: l.done !== undefined ? l.done : c.done};
+    });
+    // Add local-only items (added offline, not yet synced to cloud)
+    localArr.forEach(l=>{ if(!cloudIds.has(l.id)) merged.unshift(l); });
+    return merged;
+  }
+
+  try {
+    const _lWF = JSON.parse(localStorage.getItem('hub-waiting')||'[]');
+    waitingFor = _mergeCollection(data.waitingFor, _lWF);
+    localStorage.setItem('hub-waiting', JSON.stringify(waitingFor));
+    if(_lWF.length > (data.waitingFor||[]).length)
+      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),500);
+  } catch(e){ console.error('load waitingFor',e); }
+
+  try {
+    const _lPeople = JSON.parse(localStorage.getItem('hub-people')||'[]');
+    peopleList = _mergeCollection(data.peopleList, _lPeople);
+    localStorage.setItem('hub-people', JSON.stringify(peopleList));
+    if(_lPeople.length > (data.peopleList||[]).length)
+      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),600);
+  } catch(e){ console.error('load peopleList',e); }
+
+  try {
+    const _lContacts = JSON.parse(localStorage.getItem('hub-contacts')||'[]');
+    contactsList = _mergeCollection(data.contactsList, _lContacts);
+    localStorage.setItem('hub-contacts', JSON.stringify(contactsList));
+  } catch(e){ console.error('load contactsList',e); }
+
+  try {
+    const _lMeetings = JSON.parse(localStorage.getItem('hub-meetings')||'[]');
+    meetingLog = _mergeCollection(data.meetingLog, _lMeetings);
+    localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
+    if(_lMeetings.length > (data.meetingLog||[]).length)
+      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),700);
+  } catch(e){ console.error('load meetingLog',e); }
+
+  try {
+    const _lSeries = JSON.parse(localStorage.getItem('hub-meeting-series')||'[]');
+    meetingSeries = _mergeCollection(data.meetingSeries, _lSeries);
+    localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
+  } catch(e){ console.error('load meetingSeries',e); }
+
+  try { if(data.resetStreak){ resetStreak=data.resetStreak; localStorage.setItem('hub-reset-streak',JSON.stringify(resetStreak)); }} catch(e){}
+  try { if(data.weeklyIntentions){ weeklyIntentions=data.weeklyIntentions; localStorage.setItem('hub-intentions',JSON.stringify(weeklyIntentions)); }} catch(e){}
+  try {
+    const _lSomeday = JSON.parse(localStorage.getItem('hub-someday')||'[]');
+    somedayList = _mergeCollection(data.somedayList, _lSomeday);
+    localStorage.setItem('hub-someday', JSON.stringify(somedayList));
+  } catch(e){}
   try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
   try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
   try { if(data.discoveryList !== undefined){ discoveryList = data.discoveryList; localStorage.setItem('hub-discovery', JSON.stringify(discoveryList)); if(discoveryList.length>0) _cloudLoaded.add('discoveryList'); }} catch(e){ console.error('load discoveryList',e); }
