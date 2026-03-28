@@ -148,14 +148,16 @@ body.light-mode .gate-divider{
   background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0.5;
 }
 body.light-mode #gate-input{
-  background:rgba(255,255,255,0.8);
-  border-color:rgba(160,96,16,0.3);
-  color:var(--text);
+  background:#FFFFFF;
+  border-color:#C8D8F0;
+  color:#1A2340;
   backdrop-filter:none;
+  font-size:22px;
+  letter-spacing:4px;
 }
 body.light-mode #gate-input:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 3px rgba(160,96,16,0.15);
+  border-color:#1565C0;
+  box-shadow:0 0 0 3px rgba(21,101,192,0.15);
 }
 body.light-mode #gate-input::placeholder{ color:var(--text4); }
 body.light-mode 
@@ -1854,13 +1856,14 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 #gate-input{
   background:#FFFFFF;
   border:1.5px solid #C8D8F0;
-  color:var(--text);padding:13px 16px;border-radius:var(--r3);
-  font-family:var(--font-ui);font-size:15px;outline:none;
+  color:#1A2340;padding:13px 16px;border-radius:var(--r3);
+  font-family:var(--font-ui);font-size:22px;outline:none;
+  letter-spacing:4px;
   width:100%;text-align:center;letter-spacing:2px;
   transition:border-color 0.2s,box-shadow 0.2s;
   backdrop-filter:blur(8px);
 }
-#gate-input:focus{border-color:rgba(232,168,56,0.7);box-shadow:0 0 20px rgba(232,168,56,0.15);}
+#gate-input:focus{border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,0.2);}
 #gate-input::placeholder{letter-spacing:0.5px;color:var(--text4);}
 .gate-btn{
   background:linear-gradient(135deg,#1565C0,#1976D2,#F9A825);
@@ -11586,8 +11589,8 @@ const GATE_DURATION=60*60*1000; // 60 minutes in ms
 // ── Kid PINs — set these to whatever you want ──────────────────
 // Each maps to a player index in kidsGame.players
 const KID_PINS = {
-  "rooroo": 0,   // PIN for Player 1 (change "Star1" to whatever)
-  "connie": 1,   // PIN for Player 2 (change "Star2" to whatever)
+  "rooroo": 0,   // Ridley
+  "connie": 1,   // Connor
 };
 // Session user — 'parent' | {role:'kid', playerIdx:N, name:string}
 let currentUser = 'parent';
