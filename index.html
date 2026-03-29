@@ -1962,33 +1962,59 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 
   <!-- Side rail — always visible on left edge -->
   <div id="side-rail">
-    <button class="nav-btn" id="nav-today" onclick="setNav('today')">
-      <span class="nav-icon">☀</span><span class="nav-label">Today</span>
-    </button>
-    <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
-      <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
-    </button>
-    <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
-      <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
-    </button>
-    <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
-      <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
-    </button>
-    <button class="nav-btn" id="nav-discovery" onclick="setNav('discovery')">
-      <span class="nav-icon">🔭</span><span class="nav-label">Discovery</span>
-    </button>
-    <button class="nav-btn" id="nav-people" onclick="setNav('people')">
-      <span class="nav-icon">👥</span><span class="nav-label">People</span>
-    </button>
-    <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
-      <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
-    </button>
-    <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
-      <span class="nav-icon">📊</span><span class="nav-label">Charts</span>
-    </button>
-    <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
-      <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
-    </button>
+
+    <!-- Work nav (desktop) -->
+    <div id="rail-work-items">
+      <button class="nav-btn" id="nav-today" onclick="setNav('today')">
+        <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+      </button>
+      <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
+        <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+      </button>
+      <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
+        <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
+      </button>
+      <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
+        <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
+      </button>
+      <button class="nav-btn" id="nav-discovery" onclick="setNav('discovery')">
+        <span class="nav-icon">🔭</span><span class="nav-label">Discovery</span>
+      </button>
+      <button class="nav-btn" id="nav-people" onclick="setNav('people')">
+        <span class="nav-icon">👥</span><span class="nav-label">People</span>
+      </button>
+      <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
+        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
+        <span class="nav-icon">📊</span><span class="nav-label">Charts</span>
+      </button>
+      <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
+        <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
+      </button>
+    </div>
+
+    <!-- Home nav (desktop) -->
+    <div id="rail-home-items" style="display:none;">
+      <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
+        <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+      </button>
+      <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
+        <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+      </button>
+      <button class="nav-btn" id="nav-family" onclick="setNav('family')">
+        <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
+      </button>
+      <button class="nav-btn" id="nav-grocery" onclick="setNav('grocery')">
+        <span class="nav-icon">🛒</span><span class="nav-label">Grocery</span>
+      </button>
+      <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
+        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
+        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      </button>
+    </div>
 
   </div>
 
@@ -3087,16 +3113,11 @@ async function saveAllDebounced(){
 // We explicitly add the ones that were historically missing from saveAll.
 function _buildSavePayload(){
   return {
-    // Core data (always present)
     projects,
     tasks,
     kidsGame,
-    // Discovery/signals (may not exist in all app versions)
     discoveryList: typeof discoveryList !== 'undefined' ? discoveryList : undefined,
     signalList:    typeof signalList    !== 'undefined' ? signalList    : undefined,
-    // All other collections via getCloudStats — this includes:
-    // waitingFor, peopleList, contactsList, meetingLog, meetingSeries,
-    // somedayList, habitList, weeklyIntentions, todayPinned, streak, XP etc.
     ...getCloudStats()
   };
 }
@@ -3345,10 +3366,16 @@ function applyMode(){
   if(isJenny) currentMode = 'home';
 
   const isHome = currentMode === 'home';
+  // Bottom nav (mobile)
   const workNav = document.getElementById('nav-work-items');
   const homeNav = document.getElementById('nav-home-items');
   if(workNav) workNav.style.display = isHome ? 'none' : 'flex';
   if(homeNav) homeNav.style.display = isHome ? 'flex' : 'none';
+  // Side rail (desktop)
+  const railWork = document.getElementById('rail-work-items');
+  const railHome = document.getElementById('rail-home-items');
+  if(railWork) railWork.style.display = isHome ? 'none' : 'block';
+  if(railHome) railHome.style.display = isHome ? 'block' : 'none';
 
   // Mode toggle — hidden for Jenny, updated for Jason
   const modeBtn   = document.getElementById('mode-toggle-btn');
@@ -3550,9 +3577,16 @@ function homeTaskRow(t, type){
         ${assigneeLabel}${dueLabel}
       </div>
     </div>
+    <button onclick="moveHomeTask('${t.id}','${arrName}','${saveFn}')"
+      title="${isPrivate ? 'Move to Family' : 'Move to Personal'}"
+      style="padding:2px 6px;border-radius:4px;border:none;background:transparent;
+        color:var(--text4);font-size:13px;cursor:pointer;opacity:0.45;flex-shrink:0;"
+      onmouseover="this.style.opacity='1';this.style.color='var(--accent)'"
+      onmouseout="this.style.opacity='0.45';this.style.color='var(--text4)'"
+      >${isPrivate ? '👨‍👩‍👧‍👦' : '🔒'}</button>
     <button onclick="deleteHomeTask('${t.id}','${arrName}','${saveFn}')"
       style="padding:2px 6px;border-radius:4px;border:none;background:transparent;
-        color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
+        color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;flex-shrink:0;">✕</button>
   </div>`;
 }
 
@@ -3594,19 +3628,46 @@ function toggleHomeTask(id, arrName, saveFnName){
 }
 
 function deleteHomeTask(id, arrName, saveFnName){
-  // Use explicit lookup — let/const not always on window
-  const _arrs = {
-    jasonHomeTasks, wifeHomeTasks, familyTasks
-  };
-  const _saves = {
-    saveJasonHomeTasks, saveWifeHomeTasks, saveFamilyTasks
-  };
   if(arrName === 'jasonHomeTasks') jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==id);
   else if(arrName === 'wifeHomeTasks') wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==id);
   else if(arrName === 'familyTasks') familyTasks = familyTasks.filter(x=>x.id!==id);
   if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
   else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
   else if(saveFnName === 'saveFamilyTasks') saveFamilyTasks();
+  renderAll();
+}
+
+function moveHomeTask(id, fromArr, fromSave){
+  // Find the task
+  let task;
+  if(fromArr === 'jasonHomeTasks')  task = jasonHomeTasks.find(x=>x.id===id);
+  else if(fromArr === 'wifeHomeTasks') task = wifeHomeTasks.find(x=>x.id===id);
+  else if(fromArr === 'familyTasks') task  = familyTasks.find(x=>x.id===id);
+  if(!task) return;
+
+  const isPrivate = fromArr !== 'familyTasks';
+
+  if(isPrivate){
+    // Move private → family
+    const moved = {...task, assignedTo: currentUser==='parent' ? 'jason' : 'jenny',
+                   createdBy: currentUser==='parent' ? 'jason' : 'jenny'};
+    familyTasks.unshift(moved);
+    if(fromArr === 'jasonHomeTasks') jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==id);
+    else wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==id);
+    saveFamilyTasks();
+    if(fromSave === 'saveJasonHomeTasks') saveJasonHomeTasks();
+    else saveWifeHomeTasks();
+  } else {
+    // Move family → private
+    const isJason = currentUser === 'parent';
+    const moved   = {...task};
+    delete moved.assignedTo;
+    if(isJason){ jasonHomeTasks.unshift(moved); saveJasonHomeTasks(); }
+    else        { wifeHomeTasks.unshift(moved);  saveWifeHomeTasks();  }
+    familyTasks = familyTasks.filter(x=>x.id!==id);
+    saveFamilyTasks();
+  }
+  showToast(isPrivate ? 'Moved to Family ✓' : 'Moved to Personal ✓');
   renderAll();
 }
 
@@ -4722,32 +4783,32 @@ function renderCalHeader(){
 // ── Week View ─────────────────────────────────────────────────
 
 function renderCalWeekView(container){
-  const mon = getWeekMonday(_calViewDate);
+  const mon      = getWeekMonday(_calViewDate);
   const todayStr = today();
-  const days = Array.from({length:7},(_,i)=>{
+  const days     = Array.from({length:7},(_,i)=>{
     const d = new Date(mon+'T12:00:00');
     d.setDate(d.getDate()+i);
     return d.toISOString().slice(0,10);
   });
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-  // Build as one unified structure: header + grid in same overflow container
-  // so sticky day labels align perfectly with event columns below
+  // Single unified table — one <table> guarantees column alignment
+  // regardless of content, borders, or scrollbars
   let html = renderCalHeader();
-  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
-  <div style="min-width:560px;">
-
-    <!-- Day label row — NOT sticky, just part of the flow -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);
-      border-bottom:2px solid var(--border);border-top:1px solid var(--border);
-      background:var(--surface);">`;
+  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <table style="width:100%;min-width:560px;border-collapse:collapse;table-layout:fixed;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);">`;
 
   days.forEach((d,i)=>{
     const isToday = d===todayStr;
     const dayNum  = new Date(d+'T12:00:00').getDate();
-    html += `<div style="padding:8px 4px;text-align:center;
-        ${i<6?'border-right:1px solid var(--border);':''}">
-      <div style="font:700 10px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};
+    html += `<th style="padding:8px 4px;text-align:center;font-weight:normal;
+        border-top:1px solid var(--border);
+        ${i<6?'border-right:1px solid var(--border);':''}
+        background:var(--surface);width:${100/7}%;">
+      <div style="font:700 10px/1 var(--font-ui);
+        color:${isToday?'var(--accent)':'var(--text4)'};
         text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${DAY_LABELS[i]}</div>
       <div style="width:28px;height:28px;border-radius:50%;margin:0 auto;
         background:${isToday?'var(--accent)':'transparent'};
@@ -4755,20 +4816,21 @@ function renderCalWeekView(container){
         <span style="font:${isToday?'700':'500'} 14px/1 var(--font-ui);
           color:${isToday?'#fff':'var(--text2)'};">${dayNum}</span>
       </div>
-    </div>`;
+    </th>`;
   });
 
-  html += `</div>
-
-    <!-- Event columns — same grid, directly under day labels -->
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);min-height:400px;">`;
+  html += `</tr>
+    </thead>
+    <tbody>
+      <tr style="vertical-align:top;">`;
 
   days.forEach((d,i)=>{
     const events = calEventsForDate(d);
-    html += `<div onclick="openCalCreateSheetForDate('${d}')"
-        style="padding:6px 4px;min-height:140px;cursor:pointer;
+    html += `<td onclick="openCalCreateSheetForDate('${d}')"
+        style="padding:6px 4px;min-height:140px;height:200px;cursor:pointer;
           ${i<6?'border-right:1px solid var(--border);':''}
-          ${d===todayStr?'background:var(--accent-soft);':''}">`;
+          ${d===todayStr?'background:var(--accent-soft);':''}
+          vertical-align:top;">`;
     events.forEach(ev=>{
       const color = calEventColor(ev);
       html += `<div onclick="event.stopPropagation();openCalEventDetail('${encodeURIComponent(ev.id)}')"
@@ -4785,10 +4847,12 @@ function renderCalWeekView(container){
       html += `<div style="padding:8px 4px;font:500 10px/1 var(--font-ui);
         color:var(--text4);text-align:center;opacity:0.4;">—</div>`;
     }
-    html += `</div>`;
+    html += `</td>`;
   });
 
-  html += `</div></div></div>`;
+  html += `</tr>
+    </tbody>
+  </table></div>`;
   html += `<div style="height:80px;"></div>`;
   container.innerHTML = html;
 }
@@ -4823,18 +4887,19 @@ function renderCalMonthView(container){
   html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <div style="min-width:350px;">`;
 
-  // Day labels — part of flow, not sticky (avoids alignment issues)
-  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);
-    border-bottom:2px solid var(--border);border-top:1px solid var(--border);
-    background:var(--surface);">`;
+  // Single table — headers and cells in same columns, guaranteed alignment
+  html += `<table style="width:100%;min-width:350px;border-collapse:collapse;table-layout:fixed;">
+    <thead><tr>`;
   DAY_LABELS.forEach(l=>{
-    html += `<div style="padding:8px 4px;text-align:center;font:700 10px/1 var(--font-ui);
-      color:var(--text4);text-transform:uppercase;letter-spacing:0.5px;">${l}</div>`;
+    html += `<th style="padding:8px 4px;text-align:center;font:700 10px/1 var(--font-ui);
+      color:var(--text4);text-transform:uppercase;letter-spacing:0.5px;
+      border-top:1px solid var(--border);border-bottom:2px solid var(--border);
+      background:var(--surface);font-weight:normal;width:${100/7}%;">${l}</th>`;
   });
-  html += `</div>`;
+  html += `</tr></thead><tbody>`;
 
-  // Grid
-  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);">`;
+  // Wrap cells into rows of 7
+  const allCells_html = [];
   cells.forEach((d,i)=>{
     if(!d){
       html += `<div style="padding:8px 4px;min-height:80px;
@@ -5409,99 +5474,118 @@ const TRACKER_DAY_LABELS = {mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri'};
 
 function renderKidsTrackerPage(container){
   const todayDay = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
-  const isToday = d => d === todayDay;
+  const isToday  = d => d === todayDay;
 
-  let html = `
+  // ── Lunch section: one card per kid, days as rows inside ──
+  function lunchSection(){
+    return ['ridley','connor'].map(kid=>{
+      const lunches = kidsTracker.lunches[kid] || {};
+      const color   = kid==='ridley' ? '#E91E8C' : '#0066CC';
+      const name    = kid.charAt(0).toUpperCase()+kid.slice(1);
+      const rows = TRACKER_DAYS.map(d=>{
+        const today = isToday(d);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+            border-bottom:1px solid var(--border);
+            background:${today?color+'08':'transparent'};">
+          <div style="width:36px;font:${today?'800':'600'} 11px/1 var(--font-ui);
+            color:${today?color:'var(--text4)'};text-transform:uppercase;flex-shrink:0;">
+            ${TRACKER_DAY_LABELS[d]}</div>
+          <input value="${esc(lunches[d]||'')}"
+            placeholder="${today?'Lunch today?':'Add lunch…'}"
+            style="flex:1;padding:8px 10px;border-radius:var(--r2);
+              border:1.5px solid ${today?color+'55':'var(--border)'};
+              background:${today?color+'08':'var(--surface2)'};
+              color:var(--text);font:500 14px/1 var(--font-ui);outline:none;"
+            onfocus="this.style.borderColor='${color}'"
+            onblur="this.style.borderColor='${today?color+'55':'var(--border)'}';saveTrackerLunch('${kid}','${d}',this.value)"/>
+        </div>`;
+      }).join('');
+
+      return `<div style="border-radius:var(--r3);border:1.5px solid ${color}33;
+          overflow:hidden;margin-bottom:12px;">
+        <div style="padding:10px 12px;background:${color}14;
+          display:flex;align-items:center;gap:8px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+          <div style="font:700 14px/1 var(--font-ui);color:${color};">${name}</div>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+  }
+
+  // ── Essentials section: one card per kid, days as rows ──
+  function essentialsSection(){
+    return ['ridley','connor'].map(kid=>{
+      const schedule = kidsTracker.schedule[kid] || {};
+      const color    = kid==='ridley' ? '#E91E8C' : '#0066CC';
+      const name     = kid.charAt(0).toUpperCase()+kid.slice(1);
+
+      const rows = TRACKER_DAYS.map(d=>{
+        const today   = isToday(d);
+        const classes = schedule[d] || [];
+        const items   = classes.map((c,ci)=>`
+          <div style="display:inline-flex;align-items:center;gap:4px;
+            padding:4px 8px 4px 10px;border-radius:20px;margin:2px;
+            background:${color}18;border:1px solid ${color}44;">
+            <span style="font:500 13px/1 var(--font-ui);color:var(--text);">${esc(c)}</span>
+            <button onclick="removeTrackerClass('${kid}','${d}',${ci})"
+              style="border:none;background:transparent;color:${color};
+                font-size:14px;line-height:1;cursor:pointer;padding:0 2px;
+                opacity:0.6;">×</button>
+          </div>`).join('');
+
+        return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);
+            background:${today?color+'06':'transparent'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;
+            margin-bottom:${classes.length?'8px':'0'};">
+            <div style="font:${today?'800':'600'} 12px/1 var(--font-ui);
+              color:${today?color:'var(--text3)'};text-transform:uppercase;
+              letter-spacing:0.5px;">${TRACKER_DAY_LABELS[d]}</div>
+            <button onclick="promptAddTrackerClass('${kid}','${d}')"
+              style="padding:3px 10px;border-radius:20px;border:1px solid ${color}55;
+                background:transparent;color:${color};
+                font:600 11px/1 var(--font-ui);cursor:pointer;">+ Add</button>
+          </div>
+          ${classes.length
+            ? `<div style="display:flex;flex-wrap:wrap;">${items}</div>`
+            : `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);
+                padding:2px 0;">Nothing scheduled</div>`}
+        </div>`;
+      }).join('');
+
+      return `<div style="border-radius:var(--r3);border:1.5px solid ${color}33;
+          overflow:hidden;margin-bottom:12px;">
+        <div style="padding:10px 12px;background:${color}14;
+          display:flex;align-items:center;gap:8px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+          <div style="font:700 14px/1 var(--font-ui);color:${color};">${name}</div>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+  }
+
+  container.innerHTML = `
   <div style="padding:16px 16px 8px;">
     <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Kids Daily Tracker</div>
     <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:4px;">
-      School lunches & class schedule</div>
+      Lunches & essentials schedule</div>
   </div>
 
-  <!-- Lunch planner -->
   <div style="padding:0 16px 4px;">
     <div style="font:700 11px/1 var(--font-ui);letter-spacing:1px;
       color:var(--accent);text-transform:uppercase;margin-bottom:10px;">🥪 School Lunches</div>
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-    <div style="min-width:400px;">
-
-    <!-- Header row -->
-    <div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px;margin-bottom:4px;">
-      <div></div>
-      ${TRACKER_DAYS.map(d=>`<div style="font:700 10px/1 var(--font-ui);
-        color:${isToday(d)?'var(--accent)':'var(--text4)'};text-align:center;
-        text-transform:uppercase;letter-spacing:0.5px;">
-        ${TRACKER_DAY_LABELS[d]}</div>`).join('')}
-    </div>
-
-    ${['ridley','connor'].map(kid=>{
-      const lunches = kidsTracker.lunches[kid] || {};
-      const color = kid==='ridley' ? '#E91E8C' : '#0066CC';
-      return `<div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px;margin-bottom:6px;">
-        <div style="font:700 12px/1 var(--font-ui);color:${color};
-          display:flex;align-items:center;">${kid.charAt(0).toUpperCase()+kid.slice(1)}</div>
-        ${TRACKER_DAYS.map(d=>`
-          <input value="${esc(lunches[d]||'')}"
-            placeholder="${isToday(d)?'Today…':'…'}"
-            style="padding:6px 8px;border-radius:8px;border:1.5px solid ${isToday(d)?color+'66':'var(--border)'};
-              background:${isToday(d)?color+'0D':'var(--surface)'};
-              color:var(--text);font:500 12px/1 var(--font-ui);outline:none;
-              text-align:center;width:100%;box-sizing:border-box;"
-            onfocus="this.style.borderColor='${color}'"
-            onblur="this.style.borderColor='${isToday(d)?color+'66':'var(--border)'}';
-              saveTrackerLunch('${kid}','${d}',this.value)"/>`).join('')}
-      </div>`;
-    }).join('')}
-
-    </div></div>
+    ${lunchSection()}
   </div>
 
-  <div style="height:1px;background:var(--border);margin:12px 16px;"></div>
+  <div style="height:1px;background:var(--border);margin:8px 16px 16px;"></div>
 
-  <!-- Class schedule -->
   <div style="padding:0 16px 4px;">
     <div style="font:700 11px/1 var(--font-ui);letter-spacing:1px;
-      color:var(--accent);text-transform:uppercase;margin-bottom:10px;">📚 Class Schedule</div>
-
-    ${['ridley','connor'].map(kid=>{
-      const schedule = kidsTracker.schedule[kid] || {};
-      const color = kid==='ridley' ? '#E91E8C' : '#0066CC';
-      return `<div style="margin-bottom:16px;">
-        <div style="font:700 13px/1 var(--font-ui);color:${color};margin-bottom:8px;">
-          ${kid.charAt(0).toUpperCase()+kid.slice(1)}</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-        <div style="min-width:400px;">
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
-          ${TRACKER_DAYS.map(d=>{
-            const classes = (schedule[d]||[]);
-            return `<div style="border-radius:12px;border:1.5px solid ${isToday(d)?color+'66':'var(--border)'};
-                background:${isToday(d)?color+'0A':'transparent'};padding:8px 6px;min-height:80px;">
-              <div style="font:700 10px/1 var(--font-ui);color:${isToday(d)?color:'var(--text4)'};
-                text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
-                ${TRACKER_DAY_LABELS[d]}</div>
-              ${classes.map((c,ci)=>`
-                <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
-                  <div style="flex:1;font:500 11px/1.2 var(--font-ui);color:var(--text);
-                    background:var(--surface2);border-radius:6px;padding:3px 6px;">
-                    ${esc(c)}</div>
-                  <button onclick="removeTrackerClass('${kid}','${d}',${ci})"
-                    style="border:none;background:transparent;color:var(--text4);
-                      font-size:12px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
-                </div>`).join('')}
-              <button onclick="promptAddTrackerClass('${kid}','${d}')"
-                style="width:100%;padding:4px;border-radius:6px;border:1px dashed var(--border);
-                  background:transparent;color:var(--text4);font:500 10px/1 var(--font-ui);
-                  cursor:pointer;">+ Add</button>
-            </div>`;
-          }).join('')}
-        </div>
-        </div></div>
-      </div>`;
-    }).join('')}
+      color:var(--accent);text-transform:uppercase;margin-bottom:10px;">📚 Essentials Schedule</div>
+    ${essentialsSection()}
   </div>
   <div style="height:80px;"></div>`;
-
-  container.innerHTML = html;
 }
 
 function saveTrackerLunch(kid, day, value){
@@ -12211,25 +12295,50 @@ async function pickContactPhoto(inputId, previewId, hiddenId){
   input.type = 'file'; input.accept = 'image/*';
   input.onchange = async e => {
     const file = e.target.files[0]; if(!file) return;
-    // Resize to max 120px using canvas
+
+    // Show uploading state
+    const preview = document.getElementById(previewId);
+    const hidden  = document.getElementById(hiddenId);
+    if(preview){ preview.style.opacity='0.4'; }
+
+    // Resize to max 256px on canvas before uploading
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const max = 120;
+    img.onload = async () => {
+      const max = 256;
       const scale = Math.min(max/img.width, max/img.height, 1);
       const w = Math.round(img.width*scale);
       const h = Math.round(img.height*scale);
       const canvas = document.createElement('canvas');
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       URL.revokeObjectURL(url);
-      // Update hidden field and preview
-      const hidden = document.getElementById(hiddenId);
-      const preview = document.getElementById(previewId);
-      if(hidden) hidden.value = dataUrl;
-      if(preview) preview.src = dataUrl;
-      if(preview) preview.style.display = 'block';
+
+      // Show local preview immediately while upload happens
+      if(preview){ preview.src=dataUrl; preview.style.display='block'; preview.style.opacity='0.5'; }
+
+      try {
+        // Get old fileId so we can delete it from Drive when replacing
+        const oldFileId = hidden ? hidden.dataset.driveFileId || '' : '';
+        const filename  = 'contact_' + Date.now() + '.jpg';
+
+        showToast('Uploading photo…');
+        const data = await apiCall('uploadPhoto', { dataUrl, filename, oldFileId });
+
+        if(data.error) throw new Error(data.error);
+
+        // Save the Drive URL (not base64) in the hidden field
+        if(hidden){
+          hidden.value = data.photoUrl;
+          hidden.dataset.driveFileId = data.fileId;
+        }
+        if(preview){ preview.src=data.photoUrl; preview.style.opacity='1'; }
+        showToast('Photo saved ✓');
+      } catch(err) {
+        showToast('Photo upload failed — ' + err.message);
+        if(preview){ preview.style.opacity='1'; }
+      }
     };
     img.src = url;
   };
