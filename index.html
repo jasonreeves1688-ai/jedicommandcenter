@@ -1941,7 +1941,7 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
   font-family="'DM Sans',system-ui,sans-serif" fill="#1565C0">R</text>
 </svg></div>
   <div class="loading-ring"></div>
-  <div id="loading-msg">Syncing your workspace…</div>
+  <div id="loading-msg">Getting the Reeves HQ ready…</div>
 </div>
 
 <div id="app" style="display:none;">
@@ -1998,7 +1998,7 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
   <div id="header">
     <div id="header-brand" style="flex:1;min-width:0;cursor:pointer;" onclick="toggleStatsStrip()">
       <div id="header-title" style="display:flex;align-items:center;gap:8px;">
-    <span id="header-user-badge" style="display:none;"></span><svg style="margin-right:5px;flex-shrink:0;" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+    <svg style="margin-right:5px;flex-shrink:0;" width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
 
 <circle cx="8.0" cy="8.0" r="8.0" fill="#1565C0" opacity="0.1"/>
 <path d="M3.6,12.1 L3.6,5.9 L8.0,1.2 L12.4,5.9 L12.4,12.1 Z"
@@ -2047,6 +2047,18 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
     <div id="sync-label">Synced</div>
     <div style="margin-left:auto;">
       <button class="hbtn" style="padding:2px 8px;font-size:11px;" onclick="syncNow()">↻ SYNC</button>
+    <button id="sign-out-btn"
+      onclick="signOut()"
+      title="Sign out"
+      style="background:transparent;border:1px solid var(--border);cursor:pointer;
+        height:28px;border-radius:20px;padding:0 10px;
+        display:flex;align-items:center;gap:5px;
+        font:600 11px/1 var(--font-ui);color:var(--text3);
+        transition:all var(--t-fast);"
+      onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+      <span id="sign-out-label"></span> ↪
+    </button>
     </div>
   </div>
 
@@ -2059,7 +2071,7 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
     <span style="font-size:13px;font-family:var(--font-ui);font-weight:700;color:#cc99ff;">🌙 Time to close the day — 60 seconds</span>
     <div style="display:flex;gap:6px;">
       <button onclick="openEodRitual()" style="padding:5px 12px;border-radius:6px;border:none;background:#7B4FBF;color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">Close Day</button>
-      <button onclick="document.getElementById('eod-banner').style.display='none';" style="padding:5px 8px;border-radius:6px;border:1px solid rgba(180,120,240,0.3);background:transparent;color:#cc99ff;font-family:var(--font-ui);font-size:12px;cursor:pointer;">✕</button>
+      <button onclick="localStorage.setItem('hub-eod-done',today());document.getElementById('eod-banner').style.display='none';" style="padding:5px 8px;border-radius:6px;border:1px solid rgba(180,120,240,0.3);background:transparent;color:#cc99ff;font-family:var(--font-ui);font-size:12px;cursor:pointer;">✕</button>
     </div>
   </div>
 
@@ -2158,6 +2170,9 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
       </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
+        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
       </button>
     </div>
   </div>
@@ -2973,6 +2988,12 @@ async function loadAll(){
       localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
     }
   } catch(e){}
+  try {
+    if(data.kidsTracker !== undefined && data.kidsTracker !== null){
+      kidsTracker = data.kidsTracker;
+      localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+    }
+  } catch(e){}
   try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
   try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
   try { if(data.discoveryList !== undefined){ discoveryList = data.discoveryList; localStorage.setItem('hub-discovery', JSON.stringify(discoveryList)); if(discoveryList.length>0) _cloudLoaded.add('discoveryList'); }} catch(e){ console.error('load discoveryList',e); }
@@ -3041,7 +3062,8 @@ function getCloudStats(){
     jasonHomeTasks:   jasonHomeTasks,
     wifeHomeTasks:    wifeHomeTasks,
     groceryList:      groceryList,
-    weeklyPlan:       weeklyPlan
+    weeklyPlan:       weeklyPlan,
+    kidsTracker:      kidsTracker
   };
 }
 
@@ -3292,6 +3314,10 @@ function renderStatsStrip(){
 function checkEodBanner(){
   const banner = document.getElementById('eod-banner');
   if(!banner) return;
+  // EOD ritual is only for Jason in work mode
+  const isJason = currentUser === 'parent';
+  const isWorkMode = currentMode === 'work';
+  if(!isJason || !isWorkMode){ banner.style.display = 'none'; return; }
   const hour = new Date().getHours();
   const eodDone = localStorage.getItem('hub-eod-done') === today();
   if(hour >= 17 && !eodDone){
@@ -3333,8 +3359,8 @@ function applyMode(){
     } else {
       modeBtn.style.display = '';
       if(modeLabel){
-        modeLabel.textContent = isHome ? 'Work' : 'Home';
-        modeBtn.childNodes[0].textContent = isHome ? '💼 ' : '🏠 ';
+        modeLabel.textContent = isHome ? 'Home' : 'Work';
+        modeBtn.childNodes[0].textContent = isHome ? '🏠 ' : '💼 ';
       }
     }
   }
@@ -3355,24 +3381,16 @@ function applyMode(){
   const hdrStats = document.getElementById('header-stats');
   if(hdrStats) hdrStats.style.display = isHome ? 'none' : '';
 
-  // User badge — show Jenny's name + logout when she's logged in
-  const badge = document.getElementById('header-user-badge');
-  if(badge){
-    if(isJenny){
-      badge.style.display = 'inline-flex';
-      badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;
-        padding:3px 10px 3px 8px;border-radius:20px;
-        background:rgba(233,30,140,0.1);border:1px solid rgba(233,30,140,0.3);">
-        <span style="font:700 11px/1 var(--font-ui);color:#E91E8C;">Jenny</span>
-        <button onclick="jennyLogout()"
-          style="padding:0;border:none;background:transparent;
-            color:rgba(233,30,140,0.6);font-size:14px;cursor:pointer;line-height:1;">×</button>
-      </span>`;
-    } else {
-      badge.style.display = 'none';
-      badge.innerHTML = '';
-    }
-  }
+  // Sign-out button — always visible, shows current user name
+  const signOutLabel = document.getElementById('sign-out-label');
+  if(signOutLabel) signOutLabel.textContent = currentUserLabel();
+
+  // Filter bar and search bar — work mode only
+  const filterBar = document.getElementById('filter-bar');
+  if(filterBar) filterBar.style.display = isHome ? 'none' : '';
+  const searchBar = document.getElementById('search-bar');
+  if(searchBar) searchBar.style.display = isHome ? 'none' : '';
+
 }
 
 async function renderHomeTodayView(container){
@@ -3426,6 +3444,10 @@ async function renderHomeTodayView(container){
     <div>
       <div style="font:600 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;margin-bottom:4px;">${todayStr}</div>
       <div style="font:700 24px/1.2 var(--font-ui);color:var(--text);">${greeting}</div>
+      ${isJenny ? `<button onclick="jennyLogout()"
+        style="margin-top:6px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);
+          background:transparent;color:var(--text4);font:500 11px/1 var(--font-ui);cursor:pointer;">
+        Sign out</button>` : ''}
     </div>
     <button onclick="openWeeklyPlanning()"
       style="padding:8px 14px;border-radius:20px;cursor:pointer;
@@ -3434,25 +3456,17 @@ async function renderHomeTodayView(container){
       ${planBtnLabel}</button>
   </div>
 
-  <!-- Quick add for private tasks -->
-  <div style="padding:8px 16px 4px;display:flex;gap:8px;flex-wrap:wrap;">
-    <input id="home-quick-input" placeholder="Add a personal task…"
-      style="flex:1;min-width:140px;padding:10px 14px;border-radius:var(--r3);
-        border:1.5px solid var(--border);
-        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
-      onkeydown="if(event.key==='Enter')addHomeTask()"
-      onfocus="this.style.borderColor='var(--accent)'"
-      onblur="this.style.borderColor='var(--border)'"/>
-    <input id="home-quick-date" type="date"
-      style="padding:10px 10px;border-radius:var(--r3);border:1.5px solid var(--border);
-        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;
-        min-width:130px;"/>
-    <button onclick="addHomeTask()"
-      style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
-        color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
-  </div>
-  <div style="padding:2px 16px 12px;">
-    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 Only you see these</div>
+  <!-- Private task add button -->
+  <div style="padding:8px 16px 12px;display:flex;align-items:center;gap:10px;">
+    <button onclick="openPrivateTaskModal(null)"
+      style="flex:1;padding:11px 14px;border-radius:var(--r3);
+        border:1.5px dashed var(--border);background:transparent;
+        color:var(--text3);font:500 13px/1 var(--font-ui);cursor:pointer;
+        text-align:left;"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+      + Add personal task…</button>
+    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 private</div>
   </div>`;
 
   // Private tasks
@@ -3527,9 +3541,11 @@ function homeTaskRow(t, type){
         color:${t.done?'#fff':'transparent'};font-size:13px;font-weight:800;
         display:flex;align-items:center;justify-content:center;">✓</button>
     <div style="flex:1;min-width:0;">
-      <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
+      <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);cursor:pointer;
         ${t.done?'text-decoration:line-through;':''}
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+        onclick="event.stopPropagation();${type==='private'?`openPrivateTaskModal('${t.id}')`:`openFamilyTaskModal('${t.id}')`}"
+        >${esc(t.title)}</div>
       <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
         ${assigneeLabel}${dueLabel}
       </div>
@@ -3612,22 +3628,17 @@ function renderFamilyPage(container){
     <div style="font:500 11px/1 var(--font-ui);color:var(--text4);">${open.length} open</div>
   </div>
 
-  <!-- Quick add -->
-  <div style="padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap;">
-    <input id="family-task-input" placeholder="Add a family task…"
-      style="flex:1;min-width:140px;padding:10px 14px;border-radius:var(--r3);
-        border:1.5px solid var(--border);
-        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
-      onkeydown="if(event.key==='Enter')addFamilyTask()"
-      onfocus="this.style.borderColor='var(--accent)'"
-      onblur="this.style.borderColor='var(--border)'"/>
-    <input id="family-task-date" type="date"
-      style="padding:10px 10px;border-radius:var(--r3);border:1.5px solid var(--border);
-        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;
-        min-width:130px;"/>
-    <button onclick="addFamilyTask()"
-      style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
-        color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
+  <!-- Add task button -->
+  <div style="padding:0 16px 12px;">
+    <button onclick="openFamilyTaskModal(null)"
+      style="width:100%;padding:12px;border-radius:var(--r3);
+        border:2px dashed var(--border);background:transparent;
+        color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;
+        display:flex;align-items:center;justify-content:center;gap:8px;
+        transition:all var(--t-fast);"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+      + Add Family Task</button>
   </div>`;
 
   if(open.length === 0){
@@ -3644,9 +3655,11 @@ function renderFamilyPage(container){
           style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;
             border:2px solid var(--border);background:transparent;color:transparent;
             font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>
-        <div style="flex:1;min-width:0;">
+        <div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal('${t.id}')">
           <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">${esc(t.title)}</div>
+          ${t.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${t.dueDate<today()?'var(--red)':'var(--text4)'};margin-top:3px;">
+            📅 ${t.dueDate<=today()?'Today':t.dueDate.slice(5)}</div>`:''}
         </div>
         <!-- Assignee pill — tap to cycle -->
         <button onclick="cycleFamilyAssignee('${t.id}')"
@@ -3730,10 +3743,16 @@ function renderGroceryPage(container){
   let html = `
   <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
     <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Grocery List</div>
-    ${checked.length ? `<button onclick="clearCheckedGrocery()"
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="refreshGrocery()"
+        style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);
+          background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">
+        ↻ Sync</button>
+      ${checked.length ? `<button onclick="clearCheckedGrocery()"
       style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);
         background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">
       Clear ${checked.length} done</button>` : ''}
+    </div>
   </div>
   <div style="padding:0 16px 12px;display:flex;gap:8px;">
     <input id="grocery-input" placeholder="Add item…"
@@ -3813,6 +3832,22 @@ function clearCheckedGrocery(){
   groceryList = groceryList.filter(g=>!g.checked);
   saveGrocery();
   renderAll();
+}
+
+async function refreshGrocery(){
+  showToast('Syncing grocery list…');
+  try {
+    const data = await apiCall('getAll');
+    if(data.groceryList !== undefined){
+      const _lGR = JSON.parse(localStorage.getItem('hub-grocery')||'[]');
+      groceryList = _mergeCollection(data.groceryList, _lGR);
+      localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
+      renderAll();
+      showToast('Grocery list synced ✓');
+    }
+  } catch(e) {
+    showToast('Sync failed — check connection');
+  }
 }
 
 
@@ -4393,6 +4428,7 @@ function wpLockIn(){
 let _calEvents      = [];          // in-memory cache of fetched events
 let _calFetchedAt   = null;        // timestamp of last fetch
 let _calFetchRange  = null;        // {start, end} of last fetch
+let _calFromCache   = false;       // whether last fetch came from server cache
 let _calLoading     = false;
 
 // ── API calls ─────────────────────────────────────────────────
@@ -4405,10 +4441,11 @@ async function fetchCalendarEvents(startDate, endDate){
       end:   endDate
     });
     if(data.error) throw new Error(data.error);
-    _calEvents    = data.events || [];
-    _calFetchedAt = Date.now();
+    _calEvents     = data.events || [];
+    _calFetchedAt  = Date.now();
+    _calFromCache  = data.fromCache || false;
     _calFetchRange = {start: startDate, end: endDate};
-    _calLoading   = false;
+    _calLoading    = false;
     return _calEvents;
   }catch(e){
     _calLoading = false;
@@ -4516,7 +4553,7 @@ async function ensureCalLoaded(startDate, endDate){
   if(_calFetchRange &&
      _calFetchRange.start <= startDate &&
      _calFetchRange.end   >= endDate &&
-     _calFetchedAt && Date.now()-_calFetchedAt < 5*60*1000){
+     _calFetchedAt && Date.now()-_calFetchedAt < 30*60*1000){
     return; // cache fresh enough
   }
   await fetchCalendarEvents(startDate, endDate);
@@ -4637,6 +4674,13 @@ function renderCalHeader(){
       .toLocaleDateString('en-US',{month:'long',year:'numeric'});
   }
 
+  const _syncAge = _calFetchedAt
+    ? Math.round((Date.now()-_calFetchedAt)/60000)
+    : null;
+  const _syncLabel = _syncAge !== null
+    ? (_calFromCache ? `⚡ cached · ${_syncAge}m ago` : `synced · ${_syncAge}m ago`)
+    : '';
+
   return `<div style="position:sticky;top:0;z-index:5;background:var(--bg);
     border-bottom:1px solid var(--border);padding:10px 16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -4645,6 +4689,7 @@ function renderCalHeader(){
           style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
             background:transparent;color:var(--text2);font-size:16px;cursor:pointer;">‹</button>
         <span style="font:700 15px/1 var(--font-ui);color:var(--text);">${label}</span>
+        ${_syncLabel?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${_syncLabel}</span>`:''}
         <button onclick="calNavNext()"
           style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
             background:transparent;color:var(--text2);font-size:16px;cursor:pointer;">›</button>
@@ -4684,41 +4729,45 @@ function renderCalWeekView(container){
     d.setDate(d.getDate()+i);
     return d.toISOString().slice(0,10);
   });
-
-  let html = renderCalHeader();
-  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-  <div style="min-width:600px;">`;
-
-  // Day column headers
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);
-    border-bottom:1px solid var(--border);position:sticky;top:57px;
-    background:var(--bg);z-index:4;">`;
+
+  // Build as one unified structure: header + grid in same overflow container
+  // so sticky day labels align perfectly with event columns below
+  let html = renderCalHeader();
+  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;overflow-y:visible;">
+  <div style="min-width:560px;">
+
+    <!-- Day label row — NOT sticky, just part of the flow -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);
+      border-bottom:2px solid var(--border);border-top:1px solid var(--border);
+      background:var(--surface);">`;
+
   days.forEach((d,i)=>{
     const isToday = d===todayStr;
     const dayNum  = new Date(d+'T12:00:00').getDate();
-    html += `<div style="padding:8px 6px;text-align:center;
+    html += `<div style="padding:8px 4px;text-align:center;
         ${i<6?'border-right:1px solid var(--border);':''}">
-      <div style="font:600 10px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};
-        text-transform:uppercase;letter-spacing:0.5px;">${DAY_LABELS[i]}</div>
-      <div style="width:28px;height:28px;border-radius:50%;margin:4px auto 0;
+      <div style="font:700 10px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};
+        text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${DAY_LABELS[i]}</div>
+      <div style="width:28px;height:28px;border-radius:50%;margin:0 auto;
         background:${isToday?'var(--accent)':'transparent'};
         display:flex;align-items:center;justify-content:center;">
-        <span style="font:${isToday?'700':'500'} 15px/1 var(--font-ui);
+        <span style="font:${isToday?'700':'500'} 14px/1 var(--font-ui);
           color:${isToday?'#fff':'var(--text2)'};">${dayNum}</span>
       </div>
     </div>`;
   });
-  html += `</div>`;
 
-  // Event rows
-  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);min-height:400px;">`;
+  html += `</div>
+
+    <!-- Event columns — same grid, directly under day labels -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);min-height:400px;">`;
+
   days.forEach((d,i)=>{
     const events = calEventsForDate(d);
     html += `<div onclick="openCalCreateSheetForDate('${d}')"
-        style="padding:6px 4px;min-height:120px;cursor:pointer;
+        style="padding:6px 4px;min-height:140px;cursor:pointer;
           ${i<6?'border-right:1px solid var(--border);':''}
-          border-top:1px solid var(--border);
           ${d===todayStr?'background:var(--accent-soft);':''}">`;
     events.forEach(ev=>{
       const color = calEventColor(ev);
@@ -4732,8 +4781,13 @@ function renderCalWeekView(container){
             ${esc(ev.title)}</div>
         </div>`;
     });
+    if(!events.length){
+      html += `<div style="padding:8px 4px;font:500 10px/1 var(--font-ui);
+        color:var(--text4);text-align:center;opacity:0.4;">—</div>`;
+    }
     html += `</div>`;
   });
+
   html += `</div></div></div>`;
   html += `<div style="height:80px;"></div>`;
   container.innerHTML = html;
@@ -4769,10 +4823,10 @@ function renderCalMonthView(container){
   html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
   <div style="min-width:350px;">`;
 
-  // Day labels
+  // Day labels — part of flow, not sticky (avoids alignment issues)
   html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);
-    border-bottom:2px solid var(--border);position:sticky;top:57px;
-    background:var(--bg);z-index:4;">`;
+    border-bottom:2px solid var(--border);border-top:1px solid var(--border);
+    background:var(--surface);">`;
   DAY_LABELS.forEach(l=>{
     html += `<div style="padding:8px 4px;text-align:center;font:700 10px/1 var(--font-ui);
       color:var(--text4);text-transform:uppercase;letter-spacing:0.5px;">${l}</div>`;
@@ -5140,6 +5194,341 @@ async function calSubmitCreate(){
 }
 
 
+// ══════════════════════════════════════════════════════════════
+// FAMILY TASK MODAL
+// ══════════════════════════════════════════════════════════════
+
+const FAMILY_ASSIGNEES = [
+  {key:'anyone', label:'Anyone',  color:'var(--text3)'},
+  {key:'jason',  label:'Jason',   color:'#1565C0'},
+  {key:'jenny',  label:'Jenny',   color:'#E91E8C'},
+  {key:'ridley', label:'Ridley',  color:'#7eb8f7'},
+  {key:'connor', label:'Connor',  color:'#cc8ef5'},
+];
+
+let _familyTaskModal = {
+  open: false, editId: null,
+  title:'', dueDate:'', assignees:['anyone'], isPrivate: false
+};
+
+function openFamilyTaskModal(editId){
+  const isJason = currentUser === 'parent';
+  if(editId){
+    const t = familyTasks.find(x=>x.id===editId);
+    if(!t) return;
+    _familyTaskModal = {
+      open:true, editId,
+      title: t.title,
+      dueDate: t.dueDate||'',
+      assignees: [t.assignedTo||'anyone'],
+      isPrivate: false
+    };
+  } else {
+    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:['anyone'], isPrivate:false};
+  }
+  renderFamilyTaskModal();
+}
+
+function openPrivateTaskModal(editId){
+  const isJason = currentUser === 'parent';
+  if(editId){
+    const arr = isJason ? jasonHomeTasks : wifeHomeTasks;
+    const t = arr.find(x=>x.id===editId);
+    if(!t) return;
+    _familyTaskModal = {open:true, editId, title:t.title, dueDate:t.dueDate||'', assignees:[], isPrivate:true};
+  } else {
+    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:[], isPrivate:true};
+  }
+  renderFamilyTaskModal();
+}
+
+function renderFamilyTaskModal(){
+  let modal = document.getElementById('family-task-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'family-task-modal';
+    modal.style.cssText = `position:fixed;inset:0;z-index:850;display:flex;
+      align-items:flex-end;justify-content:center;
+      background:rgba(0,0,0,0.45);`;
+    modal.onclick = e=>{ if(e.target===modal) closeFamilyTaskModal(); };
+    document.body.appendChild(modal);
+  }
+
+  const m = _familyTaskModal;
+  const isEdit = !!m.editId;
+  const title = m.isPrivate ? (isEdit?'Edit Personal Task':'New Personal Task')
+                             : (isEdit?'Edit Family Task':'New Family Task');
+
+  const assigneeHtml = !m.isPrivate ? FAMILY_ASSIGNEES.map(a=>{
+    const sel = m.assignees.includes(a.key);
+    return `<button onclick="_familyTaskModal.assignees=['${a.key}'];renderFamilyTaskModal()"
+      style="padding:6px 12px;border-radius:20px;cursor:pointer;
+        border:1.5px solid ${sel?a.color:'var(--border)'};
+        background:${sel?a.color+'22':'transparent'};
+        color:${sel?a.color:'var(--text3)'};
+        font:${sel?'700':'500'} 12px/1 var(--font-ui);">
+      ${a.label}</button>`;
+  }).join('') : '';
+
+  modal.innerHTML = `
+  <div style="width:100%;max-width:480px;background:var(--surface);
+    border-radius:20px 20px 0 0;padding:20px 20px 40px;
+    max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font:700 17px/1 var(--font-ui);color:var(--text);">${title}</div>
+      <button onclick="closeFamilyTaskModal()"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:18px;cursor:pointer;">×</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <!-- Title -->
+      <input id="ftm-title" placeholder="What needs to be done?"
+        value="${esc(m.title)}"
+        autofocus
+        style="padding:12px 14px;border-radius:var(--r3);border:1.5px solid var(--accent);
+          background:var(--surface2);color:var(--text);font:600 15px/1 var(--font-ui);outline:none;"
+        oninput="_familyTaskModal.title=this.value"
+        onkeydown="if(event.key==='Enter')saveFamilyTaskModal()"/>
+
+      <!-- Due date -->
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Due date (optional)</div>
+        <input type="date" id="ftm-date" value="${m.dueDate}"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;"
+          oninput="_familyTaskModal.dueDate=this.value"/>
+      </div>
+
+      ${!m.isPrivate ? `<!-- Assign to -->
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">Assign to</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${assigneeHtml}
+        </div>
+      </div>` : ''}
+
+      <!-- Save -->
+      <button onclick="saveFamilyTaskModal()"
+        style="padding:14px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 16px rgba(21,101,192,0.3);margin-top:4px;">
+        ${isEdit?'Save Changes':'Add Task'}</button>
+
+      ${isEdit ? `<button onclick="deleteFamilyTaskFromModal()"
+        style="padding:10px;border-radius:var(--r3);border:1px solid var(--red-soft);
+          background:transparent;color:var(--red);font:600 13px/1 var(--font-ui);cursor:pointer;">
+        Delete task</button>` : ''}
+    </div>
+  </div>`;
+
+  // Focus title
+  setTimeout(()=>document.getElementById('ftm-title')?.focus(), 100);
+}
+
+function closeFamilyTaskModal(){
+  const modal = document.getElementById('family-task-modal');
+  if(modal) modal.remove();
+  _familyTaskModal.open = false;
+}
+
+function saveFamilyTaskModal(){
+  const m = _familyTaskModal;
+  const title = document.getElementById('ftm-title')?.value.trim() || m.title.trim();
+  if(!title) return;
+  const dueDate = document.getElementById('ftm-date')?.value || m.dueDate;
+  const isJason = currentUser === 'parent';
+
+  if(m.isPrivate){
+    const arr  = isJason ? jasonHomeTasks : wifeHomeTasks;
+    const save = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
+    if(m.editId){
+      const t = arr.find(x=>x.id===m.editId);
+      if(t){ t.title=title; t.dueDate=dueDate; }
+    } else {
+      arr.unshift({id:'ht'+Date.now(), title, done:false, dueDate,
+        createdAt:today(), createdBy: isJason?'jason':'jenny'});
+    }
+    save();
+  } else {
+    const assignedTo = m.assignees[0] || 'anyone';
+    if(m.editId){
+      const t = familyTasks.find(x=>x.id===m.editId);
+      if(t){ t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo; }
+    } else {
+      familyTasks.unshift({id:'ft'+Date.now(), title, done:false,
+        assignedTo, dueDate, createdAt:today(),
+        createdBy: isJason?'jason':'jenny'});
+    }
+    saveFamilyTasks();
+  }
+  closeFamilyTaskModal();
+  renderAll();
+}
+
+function deleteFamilyTaskFromModal(){
+  const m = _familyTaskModal;
+  if(!m.editId) return;
+  if(m.isPrivate){
+    const isJason = currentUser === 'parent';
+    if(isJason) jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==m.editId);
+    else wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==m.editId);
+    (isJason ? saveJasonHomeTasks : saveWifeHomeTasks)();
+  } else {
+    familyTasks = familyTasks.filter(x=>x.id!==m.editId);
+    saveFamilyTasks();
+  }
+  closeFamilyTaskModal();
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════════════
+// KIDS DAILY TRACKER
+// School lunches and daily class schedule
+// ══════════════════════════════════════════════════════════════
+
+let kidsTracker = loadHubData('hub-kids-tracker', {
+  lunches: {
+    ridley: { mon:'', tue:'', wed:'', thu:'', fri:'' },
+    connor: { mon:'', tue:'', wed:'', thu:'', fri:'' }
+  },
+  schedule: {
+    ridley: { mon:[], tue:[], wed:[], thu:[], fri:[], sat:[], sun:[] },
+    connor: { mon:[], tue:[], wed:[], thu:[], fri:[], sat:[], sun:[] }
+  }
+});
+
+function saveKidsTracker(){ saveHubData('hub-kids-tracker', kidsTracker); }
+
+const TRACKER_DAYS = ['mon','tue','wed','thu','fri'];
+const TRACKER_DAY_LABELS = {mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri'};
+
+function renderKidsTrackerPage(container){
+  const todayDay = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+  const isToday = d => d === todayDay;
+
+  let html = `
+  <div style="padding:16px 16px 8px;">
+    <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Kids Daily Tracker</div>
+    <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:4px;">
+      School lunches & class schedule</div>
+  </div>
+
+  <!-- Lunch planner -->
+  <div style="padding:0 16px 4px;">
+    <div style="font:700 11px/1 var(--font-ui);letter-spacing:1px;
+      color:var(--accent);text-transform:uppercase;margin-bottom:10px;">🥪 School Lunches</div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+    <div style="min-width:400px;">
+
+    <!-- Header row -->
+    <div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px;margin-bottom:4px;">
+      <div></div>
+      ${TRACKER_DAYS.map(d=>`<div style="font:700 10px/1 var(--font-ui);
+        color:${isToday(d)?'var(--accent)':'var(--text4)'};text-align:center;
+        text-transform:uppercase;letter-spacing:0.5px;">
+        ${TRACKER_DAY_LABELS[d]}</div>`).join('')}
+    </div>
+
+    ${['ridley','connor'].map(kid=>{
+      const lunches = kidsTracker.lunches[kid] || {};
+      const color = kid==='ridley' ? '#E91E8C' : '#0066CC';
+      return `<div style="display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px;margin-bottom:6px;">
+        <div style="font:700 12px/1 var(--font-ui);color:${color};
+          display:flex;align-items:center;">${kid.charAt(0).toUpperCase()+kid.slice(1)}</div>
+        ${TRACKER_DAYS.map(d=>`
+          <input value="${esc(lunches[d]||'')}"
+            placeholder="${isToday(d)?'Today…':'…'}"
+            style="padding:6px 8px;border-radius:8px;border:1.5px solid ${isToday(d)?color+'66':'var(--border)'};
+              background:${isToday(d)?color+'0D':'var(--surface)'};
+              color:var(--text);font:500 12px/1 var(--font-ui);outline:none;
+              text-align:center;width:100%;box-sizing:border-box;"
+            onfocus="this.style.borderColor='${color}'"
+            onblur="this.style.borderColor='${isToday(d)?color+'66':'var(--border)'}';
+              saveTrackerLunch('${kid}','${d}',this.value)"/>`).join('')}
+      </div>`;
+    }).join('')}
+
+    </div></div>
+  </div>
+
+  <div style="height:1px;background:var(--border);margin:12px 16px;"></div>
+
+  <!-- Class schedule -->
+  <div style="padding:0 16px 4px;">
+    <div style="font:700 11px/1 var(--font-ui);letter-spacing:1px;
+      color:var(--accent);text-transform:uppercase;margin-bottom:10px;">📚 Class Schedule</div>
+
+    ${['ridley','connor'].map(kid=>{
+      const schedule = kidsTracker.schedule[kid] || {};
+      const color = kid==='ridley' ? '#E91E8C' : '#0066CC';
+      return `<div style="margin-bottom:16px;">
+        <div style="font:700 13px/1 var(--font-ui);color:${color};margin-bottom:8px;">
+          ${kid.charAt(0).toUpperCase()+kid.slice(1)}</div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div style="min-width:400px;">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+          ${TRACKER_DAYS.map(d=>{
+            const classes = (schedule[d]||[]);
+            return `<div style="border-radius:12px;border:1.5px solid ${isToday(d)?color+'66':'var(--border)'};
+                background:${isToday(d)?color+'0A':'transparent'};padding:8px 6px;min-height:80px;">
+              <div style="font:700 10px/1 var(--font-ui);color:${isToday(d)?color:'var(--text4)'};
+                text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
+                ${TRACKER_DAY_LABELS[d]}</div>
+              ${classes.map((c,ci)=>`
+                <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">
+                  <div style="flex:1;font:500 11px/1.2 var(--font-ui);color:var(--text);
+                    background:var(--surface2);border-radius:6px;padding:3px 6px;">
+                    ${esc(c)}</div>
+                  <button onclick="removeTrackerClass('${kid}','${d}',${ci})"
+                    style="border:none;background:transparent;color:var(--text4);
+                      font-size:12px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+                </div>`).join('')}
+              <button onclick="promptAddTrackerClass('${kid}','${d}')"
+                style="width:100%;padding:4px;border-radius:6px;border:1px dashed var(--border);
+                  background:transparent;color:var(--text4);font:500 10px/1 var(--font-ui);
+                  cursor:pointer;">+ Add</button>
+            </div>`;
+          }).join('')}
+        </div>
+        </div></div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="height:80px;"></div>`;
+
+  container.innerHTML = html;
+}
+
+function saveTrackerLunch(kid, day, value){
+  if(!kidsTracker.lunches[kid]) kidsTracker.lunches[kid] = {};
+  kidsTracker.lunches[kid][day] = value;
+  saveKidsTracker();
+}
+
+function removeTrackerClass(kid, day, idx){
+  if(!kidsTracker.schedule[kid]) kidsTracker.schedule[kid] = {};
+  if(!kidsTracker.schedule[kid][day]) kidsTracker.schedule[kid][day] = [];
+  kidsTracker.schedule[kid][day].splice(idx, 1);
+  saveKidsTracker();
+  renderAll();
+}
+
+function promptAddTrackerClass(kid, day){
+  const val = prompt(`Add class for ${kid.charAt(0).toUpperCase()+kid.slice(1)} on ${TRACKER_DAY_LABELS[day]}:`);
+  if(!val || !val.trim()) return;
+  if(!kidsTracker.schedule[kid]) kidsTracker.schedule[kid] = {};
+  if(!kidsTracker.schedule[kid][day]) kidsTracker.schedule[kid][day] = [];
+  kidsTracker.schedule[kid][day].push(val.trim());
+  saveKidsTracker();
+  renderAll();
+}
+
+
 function renderAll(){
   updateStats();
   // Hide stats strip in home mode — not relevant for family view
@@ -5156,6 +5545,7 @@ function renderAll(){
   if(activeNav==="calendar"){   renderCalendarPage(main);  return; }
   if(activeNav==="family"){     renderFamilyPage(main);    return; }
   if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
+  if(activeNav==="tracker"){    renderKidsTrackerPage(main); return; }
   if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
   if(activeNav==="cal"){renderCalendar(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
@@ -8090,7 +8480,7 @@ function setNav(nav){
   if(btn) btn.classList.add("active");
 
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
-  const primaryTabs = ['today','tasks','meetings','kids','home-today','calendar','family','grocery'];
+  const primaryTabs = ['today','tasks','meetings','kids','home-today','calendar','family','grocery','tracker'];
   const gridBtn = document.getElementById('nav-grid-btn');
   if(gridBtn){
     if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
@@ -9437,7 +9827,7 @@ function toggleSeriesHistory(seriesId){
 // WAITING FOR
 // ═══════════════════════════════════════════════════════════════
 function saveWaiting(){ saveHubData('hub-waiting', waitingFor); }
-function saveFamilyTasks(){ saveHubData('hub-family-tasks', familyTasks); }
+
 function saveJasonHomeTasks(){ saveHubData('hub-jason-home', jasonHomeTasks); }
 function saveWifeHomeTasks(){ saveHubData('hub-wife-home', wifeHomeTasks); }
 
@@ -9445,7 +9835,6 @@ function jennyLogout(){
   localStorage.removeItem('hub-auth-jenny');
   currentUser = 'parent';
   currentMode  = localStorage.getItem('reeves-mode') || 'work';
-  // Restore mode toggle
   const modeBtn = document.getElementById('mode-toggle-btn');
   if(modeBtn) modeBtn.style.display = '';
   applyMode();
@@ -9455,7 +9844,45 @@ function jennyLogout(){
   if(fab) fab.style.display = 'none';
   setTimeout(()=>document.getElementById('gate-input')?.focus(), 200);
 }
-function saveGrocery(){ saveHubData('hub-grocery', groceryList); }
+
+function signOut(){
+  // Works for any user type — Jenny, kid, or Jason
+  const isJenny = typeof currentUser === 'object' && currentUser.role === 'wife';
+  const isKid   = typeof currentUser === 'object' && currentUser.role === 'kid';
+  if(isJenny){ jennyLogout(); return; }
+  if(isKid){   kidsPageLogout(); return; }
+  // Jason — clear parent auth and return to gate
+  localStorage.removeItem('hub-auth');
+  currentUser = null;
+  document.getElementById('gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  const fab = document.getElementById('global-capture-btn');
+  if(fab) fab.style.display = 'none';
+  setTimeout(()=>document.getElementById('gate-input')?.focus(), 200);
+}
+
+function currentUserLabel(){
+  if(currentUser === 'parent') return 'Jason';
+  if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
+  if(typeof currentUser === 'object' && currentUser.role === 'kid') return currentUser.name;
+  return '';
+}
+function saveGrocery(){
+  // Write to localStorage immediately
+  localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
+  // Push to cloud immediately (not debounced) — grocery is shared, needs fast sync
+  apiCall('saveAll', _buildSavePayload()).catch(e => {
+    console.error('Grocery sync failed:', e);
+  });
+}
+
+function saveFamilyTasks(){
+  localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
+  // Push immediately — shared data
+  apiCall('saveAll', _buildSavePayload()).catch(e => {
+    console.error('Family tasks sync failed:', e);
+  });
+}
 function saveWeeklyPlan(){ saveHubData('hub-weekly-plan', weeklyPlan); }
 
 function addWaitingFor(person, what, dueDate, taskId){
@@ -13793,6 +14220,12 @@ async function bootApp(){
   if(currentMode === 'home') activeNav = 'home-today';
   renderAll();
   checkMorningRitual();
+  // Background prefetch calendar for the next 90 days so tab opens instantly
+  setTimeout(()=>{
+    const _calStart = today();
+    const _calEnd   = new Date(Date.now() + 90*24*60*60*1000).toISOString().slice(0,10);
+    fetchCalendarEvents(_calStart, _calEnd).catch(()=>{});
+  }, 2000); // wait 2s after boot so it doesn't compete with initial render
 }
 
 function toggleStatsStrip(){
