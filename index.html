@@ -3108,6 +3108,21 @@ async function saveAllDebounced(){
   },800);
 }
 
+// Dedicated debounce for home/family data — shorter window, shared timeout
+// prevents races when grocery + family tasks are saved in quick succession
+let _homeSyncTimeout = null;
+function saveHomeDebounced(){
+  clearTimeout(_homeSyncTimeout);
+  _homeSyncTimeout = setTimeout(async()=>{
+    try{
+      await apiCall("saveAll", _buildSavePayload());
+    }catch(e){
+      console.error("Home sync failed:", e);
+      setSyncStatus("error","Sync failed");
+    }
+  }, 600);
+}
+
 // ── Central payload builder — single source of truth for what gets saved ──
 // getCloudStats() already includes waitingFor, peopleList, meetingLog etc.
 // We explicitly add the ones that were historically missing from saveAll.
@@ -3430,7 +3445,7 @@ async function renderHomeTodayView(container){
   // Fetch today's calendar events (non-blocking — shows strip when ready)
   const tomorrow = new Date(todayStr+'T12:00:00');
   tomorrow.setDate(tomorrow.getDate()+1);
-  ensureCalLoaded(todayStr, tomorrow.toISOString().slice(0,10)).catch(()=>{});
+  ensureCalLoaded(todayStr, localDateStr(tomorrow)).catch(()=>{});
 
   // Due today from private + family
   const privateDue = myPrivateTasks.filter(t=>!t.done && t.dueDate && t.dueDate <= todayStr);
@@ -3941,8 +3956,8 @@ function getWeekMonday(date){
   const d = date ? new Date(date) : new Date();
   const day = d.getDay();
   const diff = d.getDate() - day + (day===0?-6:1);
-  const mon = new Date(d.setDate(diff));
-  return mon.toISOString().slice(0,10);
+  d.setDate(diff);
+  return localDateStr(d);
 }
 
 function getWeekDayDate(weekOf, dayKey){
@@ -3950,7 +3965,7 @@ function getWeekDayDate(weekOf, dayKey){
   if(!(dayKey in days)) return null;
   const base = new Date(weekOf + 'T12:00:00');
   base.setDate(base.getDate() + days[dayKey]);
-  return base.toISOString().slice(0,10);
+  return localDateStr(base);
 }
 
 function isSunday(){
@@ -4486,6 +4501,12 @@ function wpLockIn(){
 // GOOGLE CALENDAR INTEGRATION
 // ══════════════════════════════════════════════════════════════════
 
+// Local date string — always use this instead of .toISOString().slice(0,10)
+// toISOString() converts to UTC which shifts dates for negative-offset timezones
+function localDateStr(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 let _calEvents      = [];          // in-memory cache of fetched events
 let _calFetchedAt   = null;        // timestamp of last fetch
 let _calFetchRange  = null;        // {start, end} of last fetch
@@ -4571,7 +4592,7 @@ function calEventsForWeek(mondayStr){
   const days = Array.from({length:7},(_,i)=>{
     const d = new Date(mondayStr+'T12:00:00');
     d.setDate(d.getDate()+i);
-    return d.toISOString().slice(0,10);
+    return localDateStr(d);
   });
   const result = {};
   days.forEach(d=>{ result[d] = calEventsForDate(d); });
@@ -4685,11 +4706,11 @@ function getCalViewRange(){
     const mon = getWeekMonday(_calViewDate);
     const sun = new Date(mon+'T12:00:00');
     sun.setDate(sun.getDate()+6);
-    return {start: mon, end: sun.toISOString().slice(0,10)};
+    return {start: mon, end: localDateStr(sun)};
   } else {
     const d = new Date(_calViewDate+'T12:00:00');
-    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
-    const end   = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+    const start = localDateStr(new Date(d.getFullYear(), d.getMonth(), 1));
+    const end   = localDateStr(new Date(d.getFullYear(), d.getMonth()+1, 0));
     return {start, end};
   }
 }
@@ -4698,7 +4719,7 @@ function calNavPrev(){
   const d = new Date(_calViewDate+'T12:00:00');
   if(_calView==='week') d.setDate(d.getDate()-7);
   else d.setMonth(d.getMonth()-1);
-  _calViewDate = d.toISOString().slice(0,10);
+  _calViewDate = localDateStr(d);
   renderAll();
 }
 
@@ -4706,7 +4727,7 @@ function calNavNext(){
   const d = new Date(_calViewDate+'T12:00:00');
   if(_calView==='week') d.setDate(d.getDate()+7);
   else d.setMonth(d.getMonth()+1);
-  _calViewDate = d.toISOString().slice(0,10);
+  _calViewDate = localDateStr(d);
   renderAll();
 }
 
@@ -4788,7 +4809,7 @@ function renderCalWeekView(container){
   const days     = Array.from({length:7},(_,i)=>{
     const d = new Date(mon+'T12:00:00');
     d.setDate(d.getDate()+i);
-    return d.toISOString().slice(0,10);
+    return localDateStr(d);
   });
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
@@ -4876,7 +4897,7 @@ function renderCalMonthView(container){
   for(let i=0;i<startOffset;i++) cells.push(null);
   // Day cells
   for(let d=1;d<=lastDay.getDate();d++){
-    cells.push(new Date(year,month,d).toISOString().slice(0,10));
+    cells.push(localDateStr(new Date(year,month,d)));
   }
   // Trailing empty cells to complete the grid
   while(cells.length % 7 !== 0) cells.push(null);
@@ -5467,7 +5488,10 @@ let kidsTracker = loadHubData('hub-kids-tracker', {
   }
 });
 
-function saveKidsTracker(){ saveHubData('hub-kids-tracker', kidsTracker); }
+function saveKidsTracker(){
+  localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+  saveHomeDebounced();
+}
 
 const TRACKER_DAYS = ['mon','tue','wed','thu','fri'];
 const TRACKER_DAY_LABELS = {mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri'};
@@ -5513,7 +5537,9 @@ function renderKidsTrackerPage(container){
     }).join('');
   }
 
-  // ── Essentials section: one card per kid, days as rows ──
+  // ── Essentials section: one dropdown per day per kid ──
+  const ESSENTIALS = ['', 'P.E.', 'Music', 'Art', 'Technology', 'Library'];
+
   function essentialsSection(){
     return ['ridley','connor'].map(kid=>{
       const schedule = kidsTracker.schedule[kid] || {};
@@ -5521,35 +5547,36 @@ function renderKidsTrackerPage(container){
       const name     = kid.charAt(0).toUpperCase()+kid.slice(1);
 
       const rows = TRACKER_DAYS.map(d=>{
-        const today   = isToday(d);
-        const classes = schedule[d] || [];
-        const items   = classes.map((c,ci)=>`
-          <div style="display:inline-flex;align-items:center;gap:4px;
-            padding:4px 8px 4px 10px;border-radius:20px;margin:2px;
-            background:${color}18;border:1px solid ${color}44;">
-            <span style="font:500 13px/1 var(--font-ui);color:var(--text);">${esc(c)}</span>
-            <button onclick="removeTrackerClass('${kid}','${d}',${ci})"
-              style="border:none;background:transparent;color:${color};
-                font-size:14px;line-height:1;cursor:pointer;padding:0 2px;
-                opacity:0.6;">×</button>
-          </div>`).join('');
+        const isT    = isToday(d);
+        // Store as single string (first element) rather than array
+        const current = Array.isArray(schedule[d])
+          ? (schedule[d][0] || '')
+          : (schedule[d] || '');
 
-        return `<div style="padding:10px 12px;border-bottom:1px solid var(--border);
-            background:${today?color+'06':'transparent'};">
-          <div style="display:flex;align-items:center;justify-content:space-between;
-            margin-bottom:${classes.length?'8px':'0'};">
-            <div style="font:${today?'800':'600'} 12px/1 var(--font-ui);
-              color:${today?color:'var(--text3)'};text-transform:uppercase;
-              letter-spacing:0.5px;">${TRACKER_DAY_LABELS[d]}</div>
-            <button onclick="promptAddTrackerClass('${kid}','${d}')"
-              style="padding:3px 10px;border-radius:20px;border:1px solid ${color}55;
-                background:transparent;color:${color};
-                font:600 11px/1 var(--font-ui);cursor:pointer;">+ Add</button>
-          </div>
-          ${classes.length
-            ? `<div style="display:flex;flex-wrap:wrap;">${items}</div>`
-            : `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);
-                padding:2px 0;">Nothing scheduled</div>`}
+        const options = ESSENTIALS.map(opt=>
+          `<option value="${opt}" ${current===opt?'selected':''}>${opt||'— none —'}</option>`
+        ).join('');
+
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+            border-bottom:1px solid var(--border);
+            background:${isT?color+'08':'transparent'};">
+          <div style="width:36px;font:${isT?'800':'600'} 11px/1 var(--font-ui);
+            color:${isT?color:'var(--text4)'};text-transform:uppercase;flex-shrink:0;">
+            ${TRACKER_DAY_LABELS[d]}</div>
+          <select
+            style="flex:1;padding:8px 10px;border-radius:var(--r2);
+              border:1.5px solid ${isT?color+'55':'var(--border)'};
+              background:${isT?color+'08':'var(--surface2)'};
+              color:${current?'var(--text)':'var(--text4)'};
+              font:${current?'600':'500'} 14px/1 var(--font-ui);outline:none;
+              cursor:pointer;-webkit-appearance:auto;"
+            onfocus="this.style.borderColor='${color}'"
+            onblur="this.style.borderColor='${isT?color+'55':'var(--border)'}'"
+            onchange="saveTrackerEssential('${kid}','${d}',this.value)">
+            ${options}
+          </select>
+          ${current ? `<div style="width:8px;height:8px;border-radius:50%;
+            background:${color};flex-shrink:0;opacity:0.7;"></div>` : ''}
         </div>`;
       }).join('');
 
@@ -5569,7 +5596,7 @@ function renderKidsTrackerPage(container){
   <div style="padding:16px 16px 8px;">
     <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Kids Daily Tracker</div>
     <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:4px;">
-      Lunches & essentials schedule</div>
+      School lunches & daily essentials</div>
   </div>
 
   <div style="padding:0 16px 4px;">
@@ -5591,6 +5618,13 @@ function renderKidsTrackerPage(container){
 function saveTrackerLunch(kid, day, value){
   if(!kidsTracker.lunches[kid]) kidsTracker.lunches[kid] = {};
   kidsTracker.lunches[kid][day] = value;
+  saveKidsTracker();
+}
+
+function saveTrackerEssential(kid, day, value){
+  if(!kidsTracker.schedule[kid]) kidsTracker.schedule[kid] = {};
+  // Store as single string — one essential per day
+  kidsTracker.schedule[kid][day] = value;
   saveKidsTracker();
 }
 
@@ -9912,8 +9946,14 @@ function toggleSeriesHistory(seriesId){
 // ═══════════════════════════════════════════════════════════════
 function saveWaiting(){ saveHubData('hub-waiting', waitingFor); }
 
-function saveJasonHomeTasks(){ saveHubData('hub-jason-home', jasonHomeTasks); }
-function saveWifeHomeTasks(){ saveHubData('hub-wife-home', wifeHomeTasks); }
+function saveJasonHomeTasks(){
+  localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
+  saveHomeDebounced();
+}
+function saveWifeHomeTasks(){
+  localStorage.setItem('hub-wife-home', JSON.stringify(wifeHomeTasks));
+  saveHomeDebounced();
+}
 
 function jennyLogout(){
   localStorage.removeItem('hub-auth-jenny');
@@ -9952,22 +9992,18 @@ function currentUserLabel(){
   return '';
 }
 function saveGrocery(){
-  // Write to localStorage immediately
   localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
-  // Push to cloud immediately (not debounced) — grocery is shared, needs fast sync
-  apiCall('saveAll', _buildSavePayload()).catch(e => {
-    console.error('Grocery sync failed:', e);
-  });
+  saveHomeDebounced();
 }
 
 function saveFamilyTasks(){
   localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
-  // Push immediately — shared data
-  apiCall('saveAll', _buildSavePayload()).catch(e => {
-    console.error('Family tasks sync failed:', e);
-  });
+  saveHomeDebounced();
 }
-function saveWeeklyPlan(){ saveHubData('hub-weekly-plan', weeklyPlan); }
+function saveWeeklyPlan(){
+  localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
+  saveHomeDebounced();
+}
 
 function addWaitingFor(person, what, dueDate, taskId){
   if(!person.trim() || !what.trim()) return;
@@ -14332,7 +14368,7 @@ async function bootApp(){
   // Background prefetch calendar for the next 90 days so tab opens instantly
   setTimeout(()=>{
     const _calStart = today();
-    const _calEnd   = new Date(Date.now() + 90*24*60*60*1000).toISOString().slice(0,10);
+    const _calEnd   = localDateStr(new Date(Date.now() + 90*24*60*60*1000));
     fetchCalendarEvents(_calStart, _calEnd).catch(()=>{});
   }, 2000); // wait 2s after boot so it doesn't compete with initial render
 }
