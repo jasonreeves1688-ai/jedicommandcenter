@@ -2147,6 +2147,9 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
         <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
       </button>
+      <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
+        <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+      </button>
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
         <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
       </button>
@@ -3340,6 +3343,18 @@ function applyMode(){
   const fab = document.getElementById('global-capture-btn');
   if(fab) fab.style.display = (isHome || isJenny) ? 'none' : '';
 
+  // Nav grid button (⊞ All) — hide in home mode, not needed
+  const navGridBtn = document.getElementById('nav-grid-btn');
+  if(navGridBtn) navGridBtn.style.display = isHome ? 'none' : '';
+
+  // EOD banner — work mode only
+  const eodBanner = document.getElementById('eod-banner');
+  if(eodBanner && isHome) eodBanner.style.display = 'none';
+
+  // Header stats text — hide in home mode
+  const hdrStats = document.getElementById('header-stats');
+  if(hdrStats) hdrStats.style.display = isHome ? 'none' : '';
+
   // User badge — show Jenny's name + logout when she's logged in
   const badge = document.getElementById('header-user-badge');
   if(badge){
@@ -3360,12 +3375,17 @@ function applyMode(){
   }
 }
 
-function renderHomeTodayView(container){
+async function renderHomeTodayView(container){
   const isJason  = currentUser === 'parent';
   const isJenny  = typeof currentUser === 'object' && currentUser.role === 'wife';
   const myPrivateTasks = isJason ? jasonHomeTasks : wifeHomeTasks;
   const myPrivateSave  = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
   const todayStr = today();
+
+  // Fetch today's calendar events (non-blocking — shows strip when ready)
+  const tomorrow = new Date(todayStr+'T12:00:00');
+  tomorrow.setDate(tomorrow.getDate()+1);
+  ensureCalLoaded(todayStr, tomorrow.toISOString().slice(0,10)).catch(()=>{});
 
   // Due today from private + family
   const privateDue = myPrivateTasks.filter(t=>!t.done && t.dueDate && t.dueDate <= todayStr);
@@ -3415,13 +3435,18 @@ function renderHomeTodayView(container){
   </div>
 
   <!-- Quick add for private tasks -->
-  <div style="padding:8px 16px 4px;display:flex;gap:8px;">
+  <div style="padding:8px 16px 4px;display:flex;gap:8px;flex-wrap:wrap;">
     <input id="home-quick-input" placeholder="Add a personal task…"
-      style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+      style="flex:1;min-width:140px;padding:10px 14px;border-radius:var(--r3);
+        border:1.5px solid var(--border);
         background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
       onkeydown="if(event.key==='Enter')addHomeTask()"
       onfocus="this.style.borderColor='var(--accent)'"
       onblur="this.style.borderColor='var(--border)'"/>
+    <input id="home-quick-date" type="date"
+      style="padding:10px 10px;border-radius:var(--r3);border:1.5px solid var(--border);
+        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;
+        min-width:130px;"/>
     <button onclick="addHomeTask()"
       style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
         color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
@@ -3516,37 +3541,56 @@ function homeTaskRow(t, type){
 }
 
 function addHomeTask(){
-  const input = document.getElementById('home-quick-input');
-  const title = input?.value.trim();
+  const input    = document.getElementById('home-quick-input');
+  const dateInput = document.getElementById('home-quick-date');
+  const title    = input?.value.trim();
   if(!title) return;
-  const isJason = currentUser === 'parent';
+  const isJason  = currentUser === 'parent';
   const arr  = isJason ? jasonHomeTasks : wifeHomeTasks;
   const save = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
   arr.unshift({
     id: 'ht'+Date.now(),
     title,
     done: false,
-    dueDate: '',
+    dueDate: dateInput?.value || '',
     createdAt: today(),
     createdBy: isJason ? 'jason' : 'jenny'
   });
   save();
   input.value = '';
+  if(dateInput) dateInput.value = '';
   renderAll();
 }
 
 function toggleHomeTask(id, arrName, saveFnName){
-  const arr = window[arrName];
-  const t   = arr?.find(x=>x.id===id);
+  let arr;
+  if(arrName === 'jasonHomeTasks') arr = jasonHomeTasks;
+  else if(arrName === 'wifeHomeTasks') arr = wifeHomeTasks;
+  else if(arrName === 'familyTasks') arr = familyTasks;
+  const t = arr?.find(x=>x.id===id);
   if(!t) return;
   t.done = !t.done;
-  window[saveFnName]();
+  t.completedAt = t.done ? Date.now() : null;
+  if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
+  else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
+  else if(saveFnName === 'saveFamilyTasks') saveFamilyTasks();
   renderAll();
 }
 
 function deleteHomeTask(id, arrName, saveFnName){
-  window[arrName] = (window[arrName]||[]).filter(x=>x.id!==id);
-  window[saveFnName]();
+  // Use explicit lookup — let/const not always on window
+  const _arrs = {
+    jasonHomeTasks, wifeHomeTasks, familyTasks
+  };
+  const _saves = {
+    saveJasonHomeTasks, saveWifeHomeTasks, saveFamilyTasks
+  };
+  if(arrName === 'jasonHomeTasks') jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==id);
+  else if(arrName === 'wifeHomeTasks') wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==id);
+  else if(arrName === 'familyTasks') familyTasks = familyTasks.filter(x=>x.id!==id);
+  if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
+  else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
+  else if(saveFnName === 'saveFamilyTasks') saveFamilyTasks();
   renderAll();
 }
 
@@ -3569,13 +3613,18 @@ function renderFamilyPage(container){
   </div>
 
   <!-- Quick add -->
-  <div style="padding:0 16px 12px;display:flex;gap:8px;">
+  <div style="padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap;">
     <input id="family-task-input" placeholder="Add a family task…"
-      style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+      style="flex:1;min-width:140px;padding:10px 14px;border-radius:var(--r3);
+        border:1.5px solid var(--border);
         background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
       onkeydown="if(event.key==='Enter')addFamilyTask()"
       onfocus="this.style.borderColor='var(--accent)'"
       onblur="this.style.borderColor='var(--border)'"/>
+    <input id="family-task-date" type="date"
+      style="padding:10px 10px;border-radius:var(--r3);border:1.5px solid var(--border);
+        background:var(--surface);color:var(--text);font:var(--type-label);outline:none;
+        min-width:130px;"/>
     <button onclick="addFamilyTask()"
       style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
         color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
@@ -3630,14 +3679,22 @@ function renderFamilyPage(container){
 }
 
 function addFamilyTask(){
-  const input = document.getElementById('family-task-input');
-  const title = input?.value.trim();
+  const input     = document.getElementById('family-task-input');
+  const dateInput = document.getElementById('family-task-date');
+  const title     = input?.value.trim();
   if(!title) return;
-  familyTasks.unshift({id:'ft'+Date.now(), title, done:false,
-    assignedTo:'anyone', createdBy: currentUser==='parent'?'jason':'wife',
-    dueDate:'', createdAt:today()});
+  familyTasks.unshift({
+    id: 'ft'+Date.now(),
+    title,
+    done: false,
+    assignedTo: 'anyone',
+    createdBy: currentUser==='parent' ? 'jason' : 'jenny',
+    dueDate: dateInput?.value || '',
+    createdAt: today()
+  });
   saveFamilyTasks();
   input.value = '';
+  if(dateInput) dateInput.value = '';
   renderAll();
 }
 
@@ -3832,6 +3889,11 @@ function openWeeklyPlanning(){
   // Decide starting step
   _wpStep = (weeklyPlan.carryOvers && weeklyPlan.carryOvers.filter(c=>c.kept===null).length > 0) ? 1 : 2;
   if(weeklyPlan.lockedIn) _wpStep = 3;
+
+  // Pre-fetch calendar events for the week
+  const _wpSun = new Date(weeklyPlan.weekOf+'T12:00:00');
+  _wpSun.setDate(_wpSun.getDate()+6);
+  ensureCalLoaded(weeklyPlan.weekOf, _wpSun.toISOString().slice(0,10)).catch(()=>{});
 
   const overlay = document.getElementById('weekly-plan-overlay');
   if(!overlay) return;
@@ -4189,6 +4251,26 @@ function renderWpStep3(){
         padding-bottom:6px;border-bottom:1px solid var(--border);">
         ${label}</div>`;
 
+    // Calendar events for this day (context blocks)
+    const dayDate = day!=='sometime' ? getWeekDayDate(weeklyPlan.weekOf, day) : null;
+    if(dayDate){
+      const calDayEvents = calEventsForDate(dayDate);
+      calDayEvents.forEach(ev=>{
+        const color = calEventColor(ev);
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+            border-radius:var(--r2);margin-bottom:4px;
+            background:${color}18;border-left:3px solid ${color};opacity:0.85;">
+          <span style="font:700 10px/1 var(--font-ui);color:${color};">
+            ${ev.allDay?'All day':formatCalTime(ev.start,false)}</span>
+          <span style="font:500 12px/1 var(--font-ui);color:var(--text);flex:1;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${esc(ev.title)}</span>
+          <span style="font:600 9px/1 var(--font-ui);color:${color};padding:1px 5px;
+            border-radius:8px;border:1px solid ${color}44;">cal</span>
+        </div>`;
+      });
+    }
+
     dayItems.forEach(item=>{
       const owner = WP_OWNERS.find(o=>o.key===item.owner)||WP_OWNERS[2];
       html += `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;
@@ -4304,14 +4386,774 @@ function wpLockIn(){
 }
 
 
+// ══════════════════════════════════════════════════════════════════
+// GOOGLE CALENDAR INTEGRATION
+// ══════════════════════════════════════════════════════════════════
+
+let _calEvents      = [];          // in-memory cache of fetched events
+let _calFetchedAt   = null;        // timestamp of last fetch
+let _calFetchRange  = null;        // {start, end} of last fetch
+let _calLoading     = false;
+
+// ── API calls ─────────────────────────────────────────────────
+
+async function fetchCalendarEvents(startDate, endDate){
+  _calLoading = true;
+  try{
+    const data = await apiCall('getCalendar', {
+      start: startDate,
+      end:   endDate
+    });
+    if(data.error) throw new Error(data.error);
+    _calEvents    = data.events || [];
+    _calFetchedAt = Date.now();
+    _calFetchRange = {start: startDate, end: endDate};
+    _calLoading   = false;
+    return _calEvents;
+  }catch(e){
+    _calLoading = false;
+    console.error('Calendar fetch error:', e);
+    return _calEvents; // return cached
+  }
+}
+
+async function calCreateEvent(payload){
+  try{
+    const data = await apiCall('createCalEvent', payload);
+    if(data.error) throw new Error(data.error);
+    // Add to cache immediately
+    if(data.event) _calEvents.push(data.event);
+    return data.event;
+  }catch(e){
+    showToast('Could not create event: ' + e.message);
+    return null;
+  }
+}
+
+async function calUpdateEvent(payload){
+  try{
+    const data = await apiCall('updateCalEvent', payload);
+    if(data.error) throw new Error(data.error);
+    // Update in cache
+    if(data.event){
+      const idx = _calEvents.findIndex(e=>e.id===data.event.id);
+      if(idx>-1) _calEvents[idx] = data.event;
+    }
+    return data.event;
+  }catch(e){
+    showToast('Could not update event: ' + e.message);
+    return null;
+  }
+}
+
+async function calDeleteEvent(eventId, searchStart, searchEnd){
+  try{
+    const data = await apiCall('deleteCalEvent', {
+      id: eventId, searchStart, searchEnd
+    });
+    if(data.error) throw new Error(data.error);
+    _calEvents = _calEvents.filter(e=>e.id!==eventId);
+    return true;
+  }catch(e){
+    showToast('Could not delete event: ' + e.message);
+    return false;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+
+function calEventsForDate(dateStr){
+  return _calEvents.filter(e=>{
+    if(e.allDay) return e.start <= dateStr && e.end > dateStr;
+    return e.start.slice(0,10) === dateStr;
+  }).sort((a,b)=>a.start.localeCompare(b.start));
+}
+
+function calEventsForWeek(mondayStr){
+  const days = Array.from({length:7},(_,i)=>{
+    const d = new Date(mondayStr+'T12:00:00');
+    d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+  const result = {};
+  days.forEach(d=>{ result[d] = calEventsForDate(d); });
+  return result;
+}
+
+function formatCalTime(isoStr, allDay){
+  if(allDay) return 'All day';
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+
+function formatCalDate(isoStr){
+  const d = new Date(isoStr+'T12:00:00');
+  return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+function calEventColor(ev){
+  // If event has a Google color code, use it
+  const colors = {
+    '1':'#a4bdfc','2':'#7ae7bf','3':'#dbadff','4':'#ff887c',
+    '5':'#fbd75b','6':'#ffb878','7':'#46d6db','8':'#e1e1e1',
+    '9':'#5484ed','10':'#51b749','11':'#dc2127'
+  };
+  if(ev.color && colors[ev.color]) return colors[ev.color];
+  // Distinguish by calendar — personal=blue, family=teal
+  if(ev.calendarId && ev.calendarId.includes('group.calendar')) return '#00897B';
+  return '#1565C0'; // personal calendar default
+}
+
+function calEventSource(ev){
+  if(ev.calendarId && ev.calendarId.includes('group.calendar')) return 'Family';
+  return 'Personal';
+}
+
+// ── Ensure events are loaded for a range ──────────────────────
+
+async function ensureCalLoaded(startDate, endDate){
+  // Already have this range?
+  if(_calFetchRange &&
+     _calFetchRange.start <= startDate &&
+     _calFetchRange.end   >= endDate &&
+     _calFetchedAt && Date.now()-_calFetchedAt < 5*60*1000){
+    return; // cache fresh enough
+  }
+  await fetchCalendarEvents(startDate, endDate);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SURFACE 1: HOME TODAY — Event strip
+// ══════════════════════════════════════════════════════════════════
+
+function renderCalTodayStrip(todayStr){
+  const events = calEventsForDate(todayStr);
+  if(!events.length) return '';
+
+  const eventPills = events.map(ev=>{
+    const color = calEventColor(ev);
+    const time  = ev.allDay ? 'All day' : formatCalTime(ev.start, false);
+    return `<button onclick="openCalEventDetail('${encodeURIComponent(ev.id)}')"
+      style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+        border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;
+        background:${color}22;border:1px solid ${color}44;">
+      <span style="width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+      <span style="font:700 11px/1 var(--font-ui);color:${color};">${time}</span>
+      <span style="font:500 12px/1 var(--font-ui);color:var(--text);
+        max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</span>
+    </button>`;
+  }).join('');
+
+  return `<div style="padding:0 16px 12px;">
+    <div style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:var(--text4);
+      text-transform:uppercase;margin-bottom:8px;">Today's Calendar</div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
+      scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+      ${eventPills}
+      <button onclick="openCalendarTab()"
+        style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:20px;
+          border:1px dashed var(--border);background:transparent;
+          color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;
+          white-space:nowrap;flex-shrink:0;">+ Add</button>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SURFACE 2: DEDICATED CALENDAR TAB
+// ══════════════════════════════════════════════════════════════════
+
+let _calView      = 'week';   // 'week' | 'month'
+let _calViewDate  = today();  // anchor date for current view
+
+function openCalendarTab(){
+  setNav('calendar');
+}
+
+async function renderCalendarPage(container){
+  container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);
+    font:500 14px/1 var(--font-ui);">Loading calendar…</div>`;
+
+  // Fetch events for the view range
+  const range = getCalViewRange();
+  await ensureCalLoaded(range.start, range.end);
+
+  if(_calView === 'week') renderCalWeekView(container);
+  else renderCalMonthView(container);
+}
+
+function getCalViewRange(){
+  if(_calView === 'week'){
+    const mon = getWeekMonday(_calViewDate);
+    const sun = new Date(mon+'T12:00:00');
+    sun.setDate(sun.getDate()+6);
+    return {start: mon, end: sun.toISOString().slice(0,10)};
+  } else {
+    const d = new Date(_calViewDate+'T12:00:00');
+    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
+    const end   = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+    return {start, end};
+  }
+}
+
+function calNavPrev(){
+  const d = new Date(_calViewDate+'T12:00:00');
+  if(_calView==='week') d.setDate(d.getDate()-7);
+  else d.setMonth(d.getMonth()-1);
+  _calViewDate = d.toISOString().slice(0,10);
+  renderAll();
+}
+
+function calNavNext(){
+  const d = new Date(_calViewDate+'T12:00:00');
+  if(_calView==='week') d.setDate(d.getDate()+7);
+  else d.setMonth(d.getMonth()+1);
+  _calViewDate = d.toISOString().slice(0,10);
+  renderAll();
+}
+
+function calNavToday(){
+  _calViewDate = today();
+  renderAll();
+}
+
+function calSetView(v){
+  _calView = v;
+  renderAll();
+}
+
+// ── Calendar header (shared by week and month) ─────────────────
+
+function renderCalHeader(){
+  const range = getCalViewRange();
+  let label;
+  if(_calView==='week'){
+    const mon = new Date(range.start+'T12:00:00');
+    const sun = new Date(range.end+'T12:00:00');
+    label = mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})
+           +' – '+sun.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  } else {
+    label = new Date(range.start+'T12:00:00')
+      .toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  }
+
+  return `<div style="position:sticky;top:0;z-index:5;background:var(--bg);
+    border-bottom:1px solid var(--border);padding:10px 16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="calNavPrev()"
+          style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+            background:transparent;color:var(--text2);font-size:16px;cursor:pointer;">‹</button>
+        <span style="font:700 15px/1 var(--font-ui);color:var(--text);">${label}</span>
+        <button onclick="calNavNext()"
+          style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+            background:transparent;color:var(--text2);font-size:16px;cursor:pointer;">›</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button onclick="calNavToday()"
+          style="padding:5px 12px;border-radius:var(--r2);border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">
+          Today</button>
+        <!-- Week/Month toggle -->
+        <div style="display:flex;border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;">
+          <button onclick="calSetView('week')"
+            style="padding:5px 10px;border:none;cursor:pointer;font:${_calView==='week'?'700':'500'} 11px/1 var(--font-ui);
+              background:${_calView==='week'?'var(--accent)':'transparent'};
+              color:${_calView==='week'?'#fff':'var(--text3)'};">Week</button>
+          <button onclick="calSetView('month')"
+            style="padding:5px 10px;border:none;cursor:pointer;font:${_calView==='month'?'700':'500'} 11px/1 var(--font-ui);
+              background:${_calView==='month'?'var(--accent)':'transparent'};
+              color:${_calView==='month'?'#fff':'var(--text3)'};">Month</button>
+        </div>
+        <button onclick="openCalCreateSheet()"
+          style="width:32px;height:32px;border-radius:50%;background:var(--accent);
+            border:none;color:#fff;font-size:20px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Week View ─────────────────────────────────────────────────
+
+function renderCalWeekView(container){
+  const mon = getWeekMonday(_calViewDate);
+  const todayStr = today();
+  const days = Array.from({length:7},(_,i)=>{
+    const d = new Date(mon+'T12:00:00');
+    d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+
+  let html = renderCalHeader();
+  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <div style="min-width:600px;">`;
+
+  // Day column headers
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);
+    border-bottom:1px solid var(--border);position:sticky;top:57px;
+    background:var(--bg);z-index:4;">`;
+  days.forEach((d,i)=>{
+    const isToday = d===todayStr;
+    const dayNum  = new Date(d+'T12:00:00').getDate();
+    html += `<div style="padding:8px 6px;text-align:center;
+        ${i<6?'border-right:1px solid var(--border);':''}">
+      <div style="font:600 10px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};
+        text-transform:uppercase;letter-spacing:0.5px;">${DAY_LABELS[i]}</div>
+      <div style="width:28px;height:28px;border-radius:50%;margin:4px auto 0;
+        background:${isToday?'var(--accent)':'transparent'};
+        display:flex;align-items:center;justify-content:center;">
+        <span style="font:${isToday?'700':'500'} 15px/1 var(--font-ui);
+          color:${isToday?'#fff':'var(--text2)'};">${dayNum}</span>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Event rows
+  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);min-height:400px;">`;
+  days.forEach((d,i)=>{
+    const events = calEventsForDate(d);
+    html += `<div onclick="openCalCreateSheetForDate('${d}')"
+        style="padding:6px 4px;min-height:120px;cursor:pointer;
+          ${i<6?'border-right:1px solid var(--border);':''}
+          border-top:1px solid var(--border);
+          ${d===todayStr?'background:var(--accent-soft);':''}">`;
+    events.forEach(ev=>{
+      const color = calEventColor(ev);
+      html += `<div onclick="event.stopPropagation();openCalEventDetail('${encodeURIComponent(ev.id)}')"
+          style="padding:3px 6px;border-radius:4px;margin-bottom:3px;cursor:pointer;
+            background:${color}22;border-left:3px solid ${color};">
+          ${!ev.allDay?`<div style="font:600 9px/1 var(--font-ui);color:${color};margin-bottom:1px;">
+            ${formatCalTime(ev.start,false)}</div>`:''}
+          <div style="font:600 11px/1.2 var(--font-ui);color:var(--text);
+            overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+            ${esc(ev.title)}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div></div></div>`;
+  html += `<div style="height:80px;"></div>`;
+  container.innerHTML = html;
+}
+
+// ── Month View ────────────────────────────────────────────────
+
+function renderCalMonthView(container){
+  const anchor   = new Date(_calViewDate+'T12:00:00');
+  const todayStr = today();
+  const year     = anchor.getFullYear();
+  const month    = anchor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month+1, 0);
+
+  // Start grid on Monday
+  let startOffset = firstDay.getDay()-1;
+  if(startOffset<0) startOffset=6;
+
+  const cells = [];
+  // Leading empty cells
+  for(let i=0;i<startOffset;i++) cells.push(null);
+  // Day cells
+  for(let d=1;d<=lastDay.getDate();d++){
+    cells.push(new Date(year,month,d).toISOString().slice(0,10));
+  }
+  // Trailing empty cells to complete the grid
+  while(cells.length % 7 !== 0) cells.push(null);
+
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  let html = renderCalHeader();
+  html += `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <div style="min-width:350px;">`;
+
+  // Day labels
+  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);
+    border-bottom:2px solid var(--border);position:sticky;top:57px;
+    background:var(--bg);z-index:4;">`;
+  DAY_LABELS.forEach(l=>{
+    html += `<div style="padding:8px 4px;text-align:center;font:700 10px/1 var(--font-ui);
+      color:var(--text4);text-transform:uppercase;letter-spacing:0.5px;">${l}</div>`;
+  });
+  html += `</div>`;
+
+  // Grid
+  html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);">`;
+  cells.forEach((d,i)=>{
+    if(!d){
+      html += `<div style="padding:8px 4px;min-height:80px;
+        ${i%7<6?'border-right:1px solid var(--border);':''}
+        border-bottom:1px solid var(--border);background:var(--surface2);"></div>`;
+      return;
+    }
+    const events   = calEventsForDate(d);
+    const isToday  = d===todayStr;
+    const dayNum   = new Date(d+'T12:00:00').getDate();
+    const showEvts = events.slice(0,3);
+    const more     = events.length - showEvts.length;
+
+    html += `<div onclick="openCalCreateSheetForDate('${d}')"
+        style="padding:6px 4px;min-height:80px;cursor:pointer;
+          ${i%7<6?'border-right:1px solid var(--border);':''}
+          border-bottom:1px solid var(--border);
+          ${isToday?'background:var(--accent-soft);':''}">
+      <div style="display:flex;justify-content:center;margin-bottom:4px;">
+        <span style="width:24px;height:24px;border-radius:50%;
+          background:${isToday?'var(--accent)':'transparent'};
+          display:flex;align-items:center;justify-content:center;
+          font:${isToday?'700':'500'} 12px/1 var(--font-ui);
+          color:${isToday?'#fff':'var(--text2)'};">${dayNum}</span>
+      </div>`;
+    showEvts.forEach(ev=>{
+      const color = calEventColor(ev);
+      html += `<div onclick="event.stopPropagation();openCalEventDetail('${encodeURIComponent(ev.id)}')"
+          style="padding:2px 4px;border-radius:3px;margin-bottom:2px;
+            background:${color}22;border-left:2px solid ${color};cursor:pointer;">
+          <div style="font:600 10px/1.2 var(--font-ui);color:var(--text);
+            overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${esc(ev.title)}</div>
+        </div>`;
+    });
+    if(more>0){
+      html += `<div style="font:500 10px/1 var(--font-ui);color:var(--text4);
+        padding:1px 4px;">+${more} more</div>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div></div></div>`;
+  html += `<div style="height:80px;"></div>`;
+  container.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EVENT DETAIL SHEET
+// ══════════════════════════════════════════════════════════════════
+
+let _calDetailEventId = null;
+let _calEditMode      = false;
+
+function openCalEventDetail(encodedId){
+  _calDetailEventId = decodeURIComponent(encodedId);
+  _calEditMode      = false;
+  renderCalEventSheet();
+}
+
+function renderCalEventSheet(){
+  const ev = _calEvents.find(e=>e.id===_calDetailEventId);
+  if(!ev) return;
+
+  let sheet = document.getElementById('cal-event-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'cal-event-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:850;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,0.15);
+      max-height:80vh;overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  const color    = calEventColor(ev);
+  const dateStr  = ev.allDay
+    ? formatCalDate(ev.start)
+    : formatCalDate(ev.start)+' · '+formatCalTime(ev.start,false)+' – '+formatCalTime(ev.end,false);
+
+  if(_calEditMode){
+    // Edit form
+    sheet.innerHTML = `
+    <div style="padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:700 16px/1 var(--font-ui);color:var(--text);">Edit Event</div>
+      <button onclick="closeCalEventSheet()"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:18px;cursor:pointer;">×</button>
+    </div>
+    <div style="padding:16px 20px 32px;display:flex;flex-direction:column;gap:12px;">
+      <input id="cal-edit-title" value="${esc(ev.title)}"
+        placeholder="Event title"
+        style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+      <input id="cal-edit-date" type="date" value="${ev.start.slice(0,10)}"
+        style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+      ${!ev.allDay?`
+      <div style="display:flex;gap:8px;">
+        <input id="cal-edit-start-time" type="time" value="${ev.start.slice(11,16)}"
+          style="flex:1;padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+        <input id="cal-edit-end-time" type="time" value="${ev.end.slice(11,16)}"
+          style="flex:1;padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+      </div>`:''}
+      <textarea id="cal-edit-desc" placeholder="Description (optional)"
+        rows="3"
+        style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);
+          outline:none;resize:none;">${esc(ev.description||'')}</textarea>
+      <input id="cal-edit-location" value="${esc(ev.location||'')}"
+        placeholder="Location (optional)"
+        style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button onclick="calSaveEdit('${encodeURIComponent(ev.id)}')"
+          style="flex:1;padding:13px;border-radius:var(--r3);background:var(--accent);
+            color:#fff;border:none;font:700 14px/1 var(--font-ui);cursor:pointer;">Save</button>
+        <button onclick="_calEditMode=false;renderCalEventSheet()"
+          style="flex:1;padding:13px;border-radius:var(--r3);border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:600 14px/1 var(--font-ui);cursor:pointer;">
+          Cancel</button>
+      </div>
+    </div>`;
+  } else {
+    // View mode
+    sheet.innerHTML = `
+    <div style="padding:20px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;">
+      <div style="flex:1;padding-right:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <div style="width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;"></div>
+          <div style="font:700 18px/1.2 var(--font-ui);color:var(--text);">${esc(ev.title)}</div>
+        </div>
+        <div style="font:500 13px/1 var(--font-ui);color:var(--text3);">${dateStr}</div>
+        ${ev.location?`<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-top:4px;">
+          📍 ${esc(ev.location)}</div>`:''}
+      </div>
+      <button onclick="closeCalEventSheet()"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:18px;cursor:pointer;flex-shrink:0;">×</button>
+    </div>
+    ${ev.description?`<div style="margin:12px 20px 0;padding:12px;border-radius:var(--r2);
+      background:var(--surface2);font:500 13px/1.5 var(--font-body);color:var(--text2);">
+      ${esc(ev.description)}</div>`:''}
+    <div style="display:flex;gap:8px;padding:16px 20px 32px;">
+      <button onclick="_calEditMode=true;renderCalEventSheet()"
+        style="flex:1;padding:11px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">✎ Edit</button>
+      <button onclick="calDeleteFromSheet('${encodeURIComponent(ev.id)}','${ev.start.slice(0,10)}')"
+        style="padding:11px 16px;border-radius:var(--r3);border:1px solid var(--red-soft);
+          background:transparent;color:var(--red);font:600 13px/1 var(--font-ui);cursor:pointer;">
+        Delete</button>
+    </div>`;
+  }
+
+  // Slide up
+  requestAnimationFrame(()=>{
+    sheet.style.transform = 'translateY(0)';
+  });
+
+  // Backdrop
+  let backdrop = document.getElementById('cal-sheet-backdrop');
+  if(!backdrop){
+    backdrop = document.createElement('div');
+    backdrop.id = 'cal-sheet-backdrop';
+    backdrop.style.cssText = `position:fixed;inset:0;z-index:849;background:rgba(0,0,0,0.4);`;
+    backdrop.onclick = closeCalEventSheet;
+    document.body.appendChild(backdrop);
+  }
+  backdrop.style.display = 'block';
+}
+
+function closeCalEventSheet(){
+  const sheet    = document.getElementById('cal-event-sheet');
+  const backdrop = document.getElementById('cal-sheet-backdrop');
+  if(sheet) sheet.style.transform = 'translateY(100%)';
+  if(backdrop) backdrop.style.display = 'none';
+  _calDetailEventId = null;
+  _calEditMode      = false;
+}
+
+async function calSaveEdit(encodedId){
+  const ev = _calEvents.find(e=>e.id===decodeURIComponent(encodedId));
+  if(!ev) return;
+  const title    = document.getElementById('cal-edit-title')?.value.trim();
+  const date     = document.getElementById('cal-edit-date')?.value;
+  const startTm  = document.getElementById('cal-edit-start-time')?.value;
+  const endTm    = document.getElementById('cal-edit-end-time')?.value;
+  const desc     = document.getElementById('cal-edit-desc')?.value;
+  const location = document.getElementById('cal-edit-location')?.value;
+  if(!title) return showToast('Title required');
+
+  let startISO = ev.start, endISO = ev.end;
+  if(date && startTm) startISO = date+'T'+startTm+':00';
+  if(date && endTm)   endISO   = date+'T'+endTm+':00';
+
+  const updated = await calUpdateEvent({
+    id:          ev.id,
+    title, description: desc, location,
+    start: startISO, end: endISO, allDay: ev.allDay,
+    searchStart: new Date(Date.now()-90*24*60*60*1000).toISOString(),
+    searchEnd:   new Date(Date.now()+90*24*60*60*1000).toISOString()
+  });
+  if(updated){
+    showToast('Event updated ✓');
+    closeCalEventSheet();
+    renderAll();
+  }
+}
+
+async function calDeleteFromSheet(encodedId, dateStr){
+  if(!confirm('Delete this event?')) return;
+  const ok = await calDeleteEvent(
+    decodeURIComponent(encodedId),
+    new Date(Date.now()-90*24*60*60*1000).toISOString(),
+    new Date(Date.now()+90*24*60*60*1000).toISOString()
+  );
+  if(ok){
+    showToast('Event deleted');
+    closeCalEventSheet();
+    renderAll();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CREATE EVENT SHEET
+// ══════════════════════════════════════════════════════════════════
+
+function openCalCreateSheet(prefillDate){
+  let sheet = document.getElementById('cal-create-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'cal-create-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:850;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,0.15);
+      max-height:85vh;overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  const dateVal = prefillDate || today();
+  const now     = new Date();
+  const hh      = String(now.getHours()).padStart(2,'0');
+  const mm      = String(Math.ceil(now.getMinutes()/15)*15%60).padStart(2,'0');
+  const startTm = `${hh}:${mm}`;
+  const endH    = String((now.getHours()+1)%24).padStart(2,'0');
+  const endTm   = `${endH}:${mm}`;
+
+  sheet.innerHTML = `
+  <div style="padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;">
+    <div style="font:700 16px/1 var(--font-ui);color:var(--text);">New Event</div>
+    <button onclick="closeCalCreateSheet()"
+      style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+        background:transparent;color:var(--text3);font-size:18px;cursor:pointer;">×</button>
+  </div>
+  <div style="padding:16px 20px 40px;display:flex;flex-direction:column;gap:12px;">
+    <input id="cal-new-title" placeholder="Event title"
+      style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--accent);
+        background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+    <input id="cal-new-date" type="date" value="${dateVal}"
+      style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+        background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+    <!-- All day toggle -->
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;
+      font:600 13px/1 var(--font-ui);color:var(--text2);">
+      <input type="checkbox" id="cal-new-allday"
+        onchange="document.getElementById('cal-new-times').style.display=this.checked?'none':'flex'"
+        style="width:16px;height:16px;accent-color:var(--accent);"/>
+      All day
+    </label>
+    <div id="cal-new-times" style="display:flex;gap:8px;">
+      <input id="cal-new-start" type="time" value="${startTm}"
+        style="flex:1;padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+      <input id="cal-new-end" type="time" value="${endTm}"
+        style="flex:1;padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+    </div>
+    <input id="cal-new-location" placeholder="Location (optional)"
+      style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+        background:var(--surface2);color:var(--text);font:var(--type-label);outline:none;"/>
+    <textarea id="cal-new-desc" placeholder="Description (optional)" rows="3"
+      style="padding:11px 14px;border-radius:var(--r2);border:1.5px solid var(--border);
+        background:var(--surface2);color:var(--text);font:var(--type-label);
+        outline:none;resize:none;"></textarea>
+    <button onclick="calSubmitCreate()"
+      style="padding:14px;border-radius:var(--r3);background:var(--accent);
+        color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
+        box-shadow:0 4px 16px rgba(21,101,192,0.3);">
+      Add to Calendar</button>
+  </div>`;
+
+  requestAnimationFrame(()=>{ sheet.style.transform='translateY(0)'; });
+  setTimeout(()=>document.getElementById('cal-new-title')?.focus(), 300);
+
+  let backdrop = document.getElementById('cal-create-backdrop');
+  if(!backdrop){
+    backdrop = document.createElement('div');
+    backdrop.id = 'cal-create-backdrop';
+    backdrop.style.cssText = `position:fixed;inset:0;z-index:849;background:rgba(0,0,0,0.4);`;
+    backdrop.onclick = closeCalCreateSheet;
+    document.body.appendChild(backdrop);
+  }
+  backdrop.style.display='block';
+}
+
+function openCalCreateSheetForDate(dateStr){
+  openCalCreateSheet(dateStr);
+}
+
+function closeCalCreateSheet(){
+  const sheet    = document.getElementById('cal-create-sheet');
+  const backdrop = document.getElementById('cal-create-backdrop');
+  if(sheet)    sheet.style.transform='translateY(100%)';
+  if(backdrop) backdrop.style.display='none';
+}
+
+async function calSubmitCreate(){
+  const title   = document.getElementById('cal-new-title')?.value.trim();
+  const date    = document.getElementById('cal-new-date')?.value;
+  const allDay  = document.getElementById('cal-new-allday')?.checked;
+  const startTm = document.getElementById('cal-new-start')?.value;
+  const endTm   = document.getElementById('cal-new-end')?.value;
+  const loc     = document.getElementById('cal-new-location')?.value.trim();
+  const desc    = document.getElementById('cal-new-desc')?.value.trim();
+
+  if(!title) return showToast('Title required');
+  if(!date)  return showToast('Date required');
+
+  let startISO, endISO;
+  if(allDay){
+    startISO = date;
+    endISO   = date;
+  } else {
+    startISO = date+'T'+(startTm||'09:00')+':00';
+    endISO   = date+'T'+(endTm  ||'10:00')+':00';
+  }
+
+  const btn = document.querySelector('#cal-create-sheet button:last-child');
+  if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
+
+  const created = await calCreateEvent({
+    title, start:startISO, end:endISO, allDay,
+    description:desc, location:loc
+  });
+
+  if(created){
+    showToast('Event added ✓');
+    closeCalCreateSheet();
+    // Refresh the view
+    _calFetchedAt = null; // invalidate cache
+    renderAll();
+  } else {
+    if(btn){ btn.textContent='Add to Calendar'; btn.disabled=false; }
+  }
+}
+
+
 function renderAll(){
   updateStats();
-  renderStatsStrip();
+  // Hide stats strip in home mode — not relevant for family view
+  const _isHomeMode = currentMode === 'home' ||
+    (typeof currentUser === 'object' && currentUser.role === 'wife');
+  const _strip = document.getElementById('stats-strip');
+  if(_strip) _strip.style.display = _isHomeMode ? 'none' : '';
+  if(!_isHomeMode) renderStatsStrip();
   checkEodBanner();
   updateAppBadge();
   const main=document.getElementById("main");
   // Home mode routing
   if(activeNav==="home-today"){ renderHomeTodayView(main); return; }
+  if(activeNav==="calendar"){   renderCalendarPage(main);  return; }
   if(activeNav==="family"){     renderFamilyPage(main);    return; }
   if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
   if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
@@ -7248,7 +8090,7 @@ function setNav(nav){
   if(btn) btn.classList.add("active");
 
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
-  const primaryTabs = ['today','tasks','meetings','kids'];
+  const primaryTabs = ['today','tasks','meetings','kids','home-today','calendar','family','grocery'];
   const gridBtn = document.getElementById('nav-grid-btn');
   if(gridBtn){
     if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
