@@ -2353,6 +2353,11 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
         </div>
       </div>
     </div>
+      <!-- Attachments -->
+      <div id="task-attachments-section" style="margin-top:8px;display:none;">
+        <!-- rendered dynamically when editing an existing task -->
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">Save</button>
       <button class="modal-btn cancel" onclick="closeModal('modal-task')">Cancel</button>
@@ -2803,7 +2808,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — use it and push to cloud
         kidsGame = localKids;
-        try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
+        try{ _needsBootSync = true; }catch(e2){}  // deferred — fires after boot
       } else {
         // Cloud is newer or equal — trust it
         kidsGame = cloudKids;
@@ -2827,7 +2832,7 @@ async function loadAll(){
       if(localTs > cloudTs){
         // Local is newer — keep it, push to cloud
         localStorage.setItem('hub-jason-rewards', JSON.stringify(localJR));
-        try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
+        _needsBootSync = true;
       } else {
         // Cloud is newer or equal — trust it
         localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
@@ -2930,13 +2935,35 @@ async function loadAll(){
     if(!cloudArr || !cloudArr.length) return localArr && localArr.length ? localArr : [];
     if(!localArr || !localArr.length) return cloudArr;
     const cloudIds = new Set(cloudArr.map(x=>x.id));
-    const localIds = new Set(localArr.map(x=>x.id));
-    // Start with cloud items (source of truth for shared fields)
+    // Merge: cloud is source of truth for structure, but local wins on fields
+    // that may have been edited offline (done, attachments, assignedTo, dueDate etc.)
+    // Strategy: start with cloud record, overlay any local fields that differ
+    // so offline edits survive a reload while cloud additions also appear.
     const merged = cloudArr.map(c=>{
       const l = localArr.find(x=>x.id===c.id);
       if(!l) return c;
-      // Preserve local done/completed state (same protection as tasks)
-      return {...c, done: l.done !== undefined ? l.done : c.done};
+      // Prefer local values for mutable fields — cloud wins on id/title/createdAt
+      return {
+        ...c,
+        // Local-wins fields: anything the user can change after creation
+        done:        l.done        !== undefined ? l.done        : c.done,
+        completedAt: l.completedAt !== undefined ? l.completedAt : c.completedAt,
+        dueDate:     l.dueDate     !== undefined ? l.dueDate     : c.dueDate,
+        assignedTo:  l.assignedTo  !== undefined ? l.assignedTo  : c.assignedTo,
+        attachments: l.attachments && l.attachments.length > (c.attachments||[]).length
+                       ? l.attachments : (c.attachments||[]),
+        // Merge subtasks array (local additions survive)
+        subtasks:    (() => {
+          const cSubs = c.subtasks || [];
+          const lSubs = l.subtasks || [];
+          if(!lSubs.length) return cSubs;
+          if(!cSubs.length) return lSubs;
+          // Union by id
+          const subIds = new Set(cSubs.map(s=>s.id));
+          const extra  = lSubs.filter(s=>!subIds.has(s.id));
+          return [...cSubs, ...extra];
+        })(),
+      };
     });
     // Add local-only items (added offline, not yet synced to cloud)
     localArr.forEach(l=>{ if(!cloudIds.has(l.id)) merged.unshift(l); });
@@ -2948,7 +2975,7 @@ async function loadAll(){
     waitingFor = _mergeCollection(data.waitingFor, _lWF);
     localStorage.setItem('hub-waiting', JSON.stringify(waitingFor));
     if(_lWF.length > (data.waitingFor||[]).length)
-      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),500);
+      _needsBootSync = true; // deferred
   } catch(e){ console.error('load waitingFor',e); }
 
   try {
@@ -2956,7 +2983,7 @@ async function loadAll(){
     peopleList = _mergeCollection(data.peopleList, _lPeople);
     localStorage.setItem('hub-people', JSON.stringify(peopleList));
     if(_lPeople.length > (data.peopleList||[]).length)
-      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),600);
+      _needsBootSync = true; // deferred
   } catch(e){ console.error('load peopleList',e); }
 
   try {
@@ -2970,7 +2997,7 @@ async function loadAll(){
     meetingLog = _mergeCollection(data.meetingLog, _lMeetings);
     localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
     if(_lMeetings.length > (data.meetingLog||[]).length)
-      setTimeout(()=>apiCall('saveAll',_buildSavePayload()).catch(()=>{}),700);
+      _needsBootSync = true; // deferred
   } catch(e){ console.error('load meetingLog',e); }
 
   try {
@@ -3093,35 +3120,53 @@ function getCloudStats(){
   };
 }
 
-async function saveAllDebounced(){
-  localStorage.setItem("hub-projects",JSON.stringify(projects));
-  localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-  localStorage.setItem("hub-totalXP",String(totalXP));
-  clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(async()=>{
-    try{
-      await apiCall("saveAll",_buildSavePayload());
-    }catch(e){
-      console.error("saveAll failed:",e);
-      setSyncStatus("error","Sync failed");
-    }
-  },800);
+// ── Unified sync debounce ─────────────────────────────────────
+// Single timeout for ALL collections — prevents two debounces racing
+// each other and last-writer-wins overwriting data.
+// 400ms is short enough to feel fast, long enough to batch rapid taps.
+let _syncTimeout = null;
+let _syncPending = false; // true while a save is in flight
+
+async function _flushSync(){
+  _syncPending = true;
+  try{
+    await apiCall("saveAll", _buildSavePayload());
+  } catch(e){
+    console.error("saveAll failed:", e);
+    setSyncStatus("error","Sync failed");
+  } finally {
+    _syncPending = false;
+  }
 }
 
-// Dedicated debounce for home/family data — shorter window, shared timeout
-// prevents races when grocery + family tasks are saved in quick succession
-let _homeSyncTimeout = null;
-function saveHomeDebounced(){
-  clearTimeout(_homeSyncTimeout);
-  _homeSyncTimeout = setTimeout(async()=>{
-    try{
-      await apiCall("saveAll", _buildSavePayload());
-    }catch(e){
-      console.error("Home sync failed:", e);
-      setSyncStatus("error","Sync failed");
-    }
-  }, 600);
+function saveAllDebounced(){
+  // Always persist to localStorage immediately — never lose data on tab close
+  localStorage.setItem("hub-projects", JSON.stringify(projects));
+  localStorage.setItem("hub-tasks",    JSON.stringify(tasks));
+  localStorage.setItem("hub-totalXP",  String(totalXP));
+  // Debounce the cloud push
+  clearTimeout(_syncTimeout);
+  _syncTimeout = setTimeout(_flushSync, 400);
 }
+
+// All home saves use the same unified debounce
+function saveHomeDebounced(){
+  clearTimeout(_syncTimeout);
+  _syncTimeout = setTimeout(_flushSync, 400);
+}
+
+// Flush on tab close / navigation — prevents losing the last 400ms of changes
+window.addEventListener('beforeunload', ()=>{
+  if(_syncTimeout){
+    clearTimeout(_syncTimeout);
+    // Use sendBeacon for best-effort background send on page close
+    const payload = JSON.stringify({action:'saveAll', ..._buildSavePayload()});
+    navigator.sendBeacon && navigator.sendBeacon(
+      API_URL + '?action=saveAll',
+      new Blob([payload], {type:'application/json'})
+    );
+  }
+});
 
 // ── Central payload builder — single source of truth for what gets saved ──
 // getCloudStats() already includes waitingFor, peopleList, meetingLog etc.
@@ -3452,10 +3497,10 @@ async function renderHomeTodayView(container){
   const privateNoDue = myPrivateTasks.filter(t=>!t.done && !t.dueDate);
   const familyDue  = familyTasks.filter(t=>!t.done &&
     (t.dueDate ? t.dueDate <= todayStr : false) &&
-    (t.assignedTo === 'anyone' || t.assignedTo === (isJason?'jason':'wife'))
+    taskAssignedTo(t, isJason?'jason':'wife')
   );
   const familyOpen = familyTasks.filter(t=>!t.done && !t.dueDate &&
-    (t.assignedTo === 'anyone' || t.assignedTo === (isJason?'jason':'wife'))
+    taskAssignedTo(t, isJason?'jason':'wife')
   );
 
   const greeting = getHomeGreeting();
@@ -3532,7 +3577,7 @@ async function renderHomeTodayView(container){
 
   // Family tasks
   const allFamilyOpen = familyTasks.filter(t=>!t.done &&
-    (t.assignedTo==='anyone'||t.assignedTo===(isJason?'jason':'wife')||t.assignedTo==='ridley'||t.assignedTo==='connor'));
+    (taskAssignees(t).includes('anyone')||taskAssignees(t).some(k=>['jason','wife','jenny','ridley','connor'].includes(k))));
   if(allFamilyOpen.length > 0){
     html += `<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);
       letter-spacing:1px;color:var(--text3);text-transform:uppercase;">Family Tasks</div>`;
@@ -3566,9 +3611,11 @@ function homeTaskRow(t, type){
   const arrName   = isPrivate
     ? (currentUser==='parent' ? 'jasonHomeTasks' : 'wifeHomeTasks')
     : 'familyTasks';
-  const assigneeLabel = !isPrivate && t.assignedTo && t.assignedTo !== 'anyone'
-    ? `<span style="font:600 10px/1 var(--font-ui);padding:1px 6px;border-radius:10px;
-        background:var(--accent-soft);color:var(--accent);">${t.assignedTo}</span>`
+  const _ASSIGNEE_LABELS = {anyone:'Anyone',jason:'Jason',wife:'Jenny',jenny:'Jenny',ridley:'Ridley',connor:'Connor'};
+  const _taskAsgnsHome = taskAssignees(t).filter(k=>k!=='anyone');
+  const assigneeLabel = !isPrivate && _taskAsgnsHome.length
+    ? _taskAsgnsHome.map(k=>`<span style="font:600 10px/1 var(--font-ui);padding:1px 6px;border-radius:10px;
+        background:var(--accent-soft);color:var(--accent);">${_ASSIGNEE_LABELS[k]||k}</span>`).join(' ')
     : '';
   const dueLabel = t.dueDate
     ? `<span style="font:500 10px/1 var(--font-ui);color:${t.dueDate < today() ? 'var(--red)' : 'var(--text4)'};">${t.dueDate <= today() ? '📅 Today' : t.dueDate.slice(5)}</span>`
@@ -3664,7 +3711,7 @@ function moveHomeTask(id, fromArr, fromSave){
 
   if(isPrivate){
     // Move private → family
-    const moved = {...task, assignedTo: currentUser==='parent' ? 'jason' : 'jenny',
+    const moved = {...task, assignedTo: [currentUser==='parent' ? 'jason' : 'jenny'],
                    createdBy: currentUser==='parent' ? 'jason' : 'jenny'};
     familyTasks.unshift(moved);
     if(fromArr === 'jasonHomeTasks') jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==id);
@@ -3690,7 +3737,7 @@ function renderFamilyPage(container){
   const ASSIGNEES = [
     {key:'anyone', label:'Anyone', color:'var(--text3)'},
     {key:'jason',  label:'Jason',  color:'var(--accent)'},
-    {key:'wife',   label:'Wife',   color:'#E91E8C'},
+    {key:'wife',   label:'Jenny',  color:'#E91E8C'},
     {key:'ridley', label:'Ridley', color:'#7eb8f7'},
     {key:'connor', label:'Connor', color:'#cc8ef5'},
   ];
@@ -3724,7 +3771,8 @@ function renderFamilyPage(container){
     </div>`;
   } else {
     open.forEach(t=>{
-      const asgn = ASSIGNEES.find(a=>a.key===t.assignedTo) || ASSIGNEES[0];
+      const _taskAsgns = taskAssignees(t);
+      const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
       html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;
           border-bottom:1px solid var(--border);">
         <button onclick="toggleFamilyTask('${t.id}')"
@@ -3737,13 +3785,11 @@ function renderFamilyPage(container){
           ${t.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${t.dueDate<today()?'var(--red)':'var(--text4)'};margin-top:3px;">
             📅 ${t.dueDate<=today()?'Today':t.dueDate.slice(5)}</div>`:''}
         </div>
-        <!-- Assignee pill — tap to cycle -->
-        <button onclick="cycleFamilyAssignee('${t.id}')"
-          style="padding:3px 10px;border-radius:20px;border:1.5px solid ${asgn.color};
-            background:transparent;color:${asgn.color};
-            font:700 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">
-          ${asgn.label}
-        </button>
+        <!-- Assignee pills — tap to open modal -->
+        <div onclick="openFamilyTaskModal('${t.id}')"
+          style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">
+          ${_asgnLabels.map(a=>`<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ${a.color};color:${a.color};font:700 10px/1 var(--font-ui);white-space:nowrap;">${a.label}</span>`).join('')}
+        </div>
         <button onclick="deleteFamilyTask('${t.id}')"
           style="padding:2px 6px;border:none;background:transparent;
             color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
@@ -3776,7 +3822,7 @@ function addFamilyTask(){
     id: 'ft'+Date.now(),
     title,
     done: false,
-    assignedTo: 'anyone',
+    assignedTo: ['anyone'],
     createdBy: currentUser==='parent' ? 'jason' : 'jenny',
     dueDate: dateInput?.value || '',
     createdAt: today()
@@ -3803,13 +3849,22 @@ function deleteFamilyTask(id){
 }
 
 const _FAMILY_ASSIGNEES = ['anyone','jason','wife','ridley','connor'];
+
+// Normalise assignedTo — always returns an array regardless of stored format
+function taskAssignees(t){
+  if(!t.assignedTo) return ['anyone'];
+  return Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+}
+
+// Check if a task is assigned to a given key (or to 'anyone')
+function taskAssignedTo(t, key){
+  const a = taskAssignees(t);
+  return a.includes('anyone') || a.includes(key);
+}
+
 function cycleFamilyAssignee(id){
-  const t = familyTasks.find(x=>x.id===id);
-  if(!t) return;
-  const idx = _FAMILY_ASSIGNEES.indexOf(t.assignedTo||'anyone');
-  t.assignedTo = _FAMILY_ASSIGNEES[(idx+1) % _FAMILY_ASSIGNEES.length];
-  saveFamilyTasks();
-  renderAll();
+  // Kept for backward compat — now opens modal instead
+  openFamilyTaskModal(id);
 }
 
 function renderGroceryPage(container){
@@ -4466,14 +4521,18 @@ function wpLockIn(){
     const dueDate = item.day !== 'sometime'
       ? getWeekDayDate(weekOf, item.day)
       : null;
-    const owner = item.owner==='both'?'anyone':
-                  item.owner==='jenny'?'wife':item.owner;
+    // Convert planning owner key → family task assignee array
+    let _wpOwnerArr;
+    if(item.owner==='both')      _wpOwnerArr=['anyone'];
+    else if(item.owner==='jenny') _wpOwnerArr=['wife'];
+    else                          _wpOwnerArr=[item.owner];
+    const owner = _wpOwnerArr;
     const ftId = 'ft'+Date.now()+Math.random().toString(36).slice(2,6);
     familyTasks.unshift({
       id: ftId,
       title: item.title,
       done: false,
-      assignedTo: owner,
+      assignedTo: Array.isArray(owner) ? owner : [owner],
       dueDate: dueDate||'',
       createdBy: 'plan',
       weekPlanId: weekOf,
@@ -4528,6 +4587,8 @@ async function fetchCalendarEvents(startDate, endDate){
     _calFromCache  = data.fromCache || false;
     _calFetchRange = {start: startDate, end: endDate};
     _calLoading    = false;
+    // Merge in locally-stored imported work meetings
+    injectImportedMeetings();
     return _calEvents;
   }catch(e){
     _calLoading = false;
@@ -4618,9 +4679,10 @@ function calEventColor(ev){
     '9':'#5484ed','10':'#51b749','11':'#dc2127'
   };
   if(ev.color && colors[ev.color]) return colors[ev.color];
-  // Distinguish by calendar — personal=blue, family=teal
-  if(ev.calendarId && ev.calendarId.includes('group.calendar')) return '#00897B';
-  return '#1565C0'; // personal calendar default
+  // Distinguish by calendar source
+  if(ev.calendarId === 'imported') return '#E65100';      // imported work meetings = orange
+  if(ev.calendarId && ev.calendarId.includes('group.calendar')) return '#00897B'; // family = teal
+  return '#1565C0'; // personal calendar default = blue
 }
 
 function calEventSource(ev){
@@ -4796,6 +4858,7 @@ function renderCalHeader(){
           style="width:32px;height:32px;border-radius:50%;background:var(--accent);
             border:none;color:#fff;font-size:20px;cursor:pointer;
             display:flex;align-items:center;justify-content:center;">+</button>
+
       </div>
     </div>
   </div>`;
@@ -5066,13 +5129,19 @@ function renderCalEventSheet(){
       background:var(--surface2);font:500 13px/1.5 var(--font-body);color:var(--text2);">
       ${esc(ev.description)}</div>`:''}
     <div style="display:flex;gap:8px;padding:16px 20px 32px;">
-      <button onclick="_calEditMode=true;renderCalEventSheet()"
-        style="flex:1;padding:11px;border-radius:var(--r3);background:var(--accent);
-          color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">✎ Edit</button>
-      <button onclick="calDeleteFromSheet('${encodeURIComponent(ev.id)}','${ev.start.slice(0,10)}')"
-        style="padding:11px 16px;border-radius:var(--r3);border:1px solid var(--red-soft);
-          background:transparent;color:var(--red);font:600 13px/1 var(--font-ui);cursor:pointer;">
-        Delete</button>
+      ${ev.calendarId === 'imported'
+        ? `<button onclick="deleteImportedMeeting('${encodeURIComponent(ev.id)}');closeCalEventSheet()"
+            style="flex:1;padding:11px;border-radius:var(--r3);border:1px solid var(--red-soft);
+              background:transparent;color:var(--red);font:600 13px/1 var(--font-ui);cursor:pointer;">
+            Remove from view</button>`
+        : `<button onclick="_calEditMode=true;renderCalEventSheet()"
+            style="flex:1;padding:11px;border-radius:var(--r3);background:var(--accent);
+              color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">✎ Edit</button>
+          <button onclick="calDeleteFromSheet('${encodeURIComponent(ev.id)}','${ev.start.slice(0,10)}')"
+            style="padding:11px 16px;border-radius:var(--r3);border:1px solid var(--red-soft);
+              background:transparent;color:var(--red);font:600 13px/1 var(--font-ui);cursor:pointer;">
+            Delete</button>`
+      }
     </div>`;
   }
 
@@ -5304,9 +5373,10 @@ function openFamilyTaskModal(editId){
     if(!t) return;
     _familyTaskModal = {
       open:true, editId,
-      title: t.title,
-      dueDate: t.dueDate||'',
-      assignees: [t.assignedTo||'anyone'],
+      title:    t.title,
+      dueDate:  t.dueDate||'',
+      // Handle both legacy string and new array format
+      assignees: Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo||'anyone'],
       isPrivate: false
     };
   } else {
@@ -5340,21 +5410,31 @@ function renderFamilyTaskModal(){
     document.body.appendChild(modal);
   }
 
-  const m = _familyTaskModal;
+  const m      = _familyTaskModal;
   const isEdit = !!m.editId;
-  const title = m.isPrivate ? (isEdit?'Edit Personal Task':'New Personal Task')
-                             : (isEdit?'Edit Family Task':'New Family Task');
+  const title  = m.isPrivate ? (isEdit?'Edit Personal Task':'New Personal Task')
+                              : (isEdit?'Edit Family Task':'New Family Task');
 
-  const assigneeHtml = !m.isPrivate ? FAMILY_ASSIGNEES.map(a=>{
-    const sel = m.assignees.includes(a.key);
-    return `<button onclick="_familyTaskModal.assignees=['${a.key}'];renderFamilyTaskModal()"
-      style="padding:6px 12px;border-radius:20px;cursor:pointer;
-        border:1.5px solid ${sel?a.color:'var(--border)'};
-        background:${sel?a.color+'22':'transparent'};
-        color:${sel?a.color:'var(--text3)'};
-        font:${sel?'700':'500'} 12px/1 var(--font-ui);">
-      ${a.label}</button>`;
-  }).join('') : '';
+  // Multi-select dropdown — native <select multiple> is the most usable on mobile
+  // Each option shows the person's name; selected ones are highlighted by the OS
+  const assigneeSelect = !m.isPrivate ? `
+    <div>
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">Assign to</div>
+      <select id="ftm-assignee" size="5"
+        style="width:100%;border-radius:var(--r3);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:500 15px/1.6 var(--font-ui);
+          outline:none;padding:4px;box-sizing:border-box;cursor:pointer;">
+        ${FAMILY_ASSIGNEES.map(a=>`
+          <option value="${a.key}"
+            ${(m.assignees||[]).includes(a.key)?'selected':''}
+            style="padding:8px 12px;font-size:15px;">
+            ${a.label}
+          </option>`).join('')}
+      </select>
+      <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:5px;">
+        Hold Ctrl / Cmd to select multiple people</div>
+    </div>` : '';
 
   modal.innerHTML = `
   <div style="width:100%;max-width:480px;background:var(--surface);
@@ -5369,7 +5449,7 @@ function renderFamilyTaskModal(){
     </div>
 
     <div style="display:flex;flex-direction:column;gap:12px;">
-      <!-- Title -->
+
       <input id="ftm-title" placeholder="What needs to be done?"
         value="${esc(m.title)}"
         autofocus
@@ -5378,7 +5458,6 @@ function renderFamilyTaskModal(){
         oninput="_familyTaskModal.title=this.value"
         onkeydown="if(event.key==='Enter')saveFamilyTaskModal()"/>
 
-      <!-- Due date -->
       <div>
         <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
           letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Due date (optional)</div>
@@ -5389,16 +5468,8 @@ function renderFamilyTaskModal(){
           oninput="_familyTaskModal.dueDate=this.value"/>
       </div>
 
-      ${!m.isPrivate ? `<!-- Assign to -->
-      <div>
-        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
-          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">Assign to</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${assigneeHtml}
-        </div>
-      </div>` : ''}
+      ${assigneeSelect}
 
-      <!-- Save -->
       <button onclick="saveFamilyTaskModal()"
         style="padding:14px;border-radius:var(--r3);background:var(--accent);
           color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
@@ -5412,7 +5483,6 @@ function renderFamilyTaskModal(){
     </div>
   </div>`;
 
-  // Focus title
   setTimeout(()=>document.getElementById('ftm-title')?.focus(), 100);
 }
 
@@ -5441,7 +5511,11 @@ function saveFamilyTaskModal(){
     }
     save();
   } else {
-    const assignedTo = m.assignees[0] || 'anyone';
+    // Read all selected options from the multi-select — store as array
+    const sel = document.getElementById('ftm-assignee');
+    const assignedTo = sel && sel.selectedOptions.length
+      ? Array.from(sel.selectedOptions).map(o=>o.value)
+      : ['anyone'];
     if(m.editId){
       const t = familyTasks.find(x=>x.id===m.editId);
       if(t){ t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo; }
@@ -5644,6 +5718,722 @@ function promptAddTrackerClass(kid, day){
   kidsTracker.schedule[kid][day].push(val.trim());
   saveKidsTracker();
   renderAll();
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// CALENDAR PHOTO IMPORT
+// Upload a photo of your Outlook calendar → Claude extracts meetings
+// → confirm → add to Google Calendar
+// ══════════════════════════════════════════════════════════════════
+
+let _calImportState = {
+  open: false,
+  step: 'pick',     // 'pick' | 'scanning' | 'review' | 'adding'
+  imageData: null,  // base64 JPEG
+  imagePreview: null,
+  targetDate: null, // YYYY-MM-DD
+  extracted: [],    // [{title, date, startTime, endTime, allDay}]
+  selected: new Set(), // indices to add
+};
+
+function openCalendarPhotoImport(){
+  // Default to the date currently shown in the time-block view
+  _calImportState = {
+    open: true, step: 'pick',
+    imageData: null, imagePreview: null,
+    targetDate: typeof tbDate !== 'undefined' ? tbDate : today(),
+    extracted: [], selected: new Set()
+  };
+  renderCalImportSheet();
+}
+
+function closeCalImportSheet(){
+  const sheet    = document.getElementById('cal-import-sheet');
+  const backdrop = document.getElementById('cal-import-backdrop');
+  if(sheet)    sheet.style.transform = 'translateY(100%)';
+  if(backdrop) backdrop.style.display = 'none';
+  _calImportState.open = false;
+}
+
+function renderCalImportSheet(){
+  let sheet = document.getElementById('cal-import-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'cal-import-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 32px rgba(0,0,0,0.2);
+      max-height:90vh;overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  const s = _calImportState;
+
+  let body = '';
+
+  if(s.step === 'pick'){
+    body = `
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);">
+        Take a screenshot or photo of your Outlook calendar.
+        Claude will read the meetings and add them to your calendar view.</div>
+
+      <!-- Date the calendar photo is for -->
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">
+          Date shown in the photo</div>
+        <input type="date" id="cal-import-date" value="${s.targetDate}"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;"
+          oninput="_calImportState.targetDate=this.value"/>
+      </div>
+
+      <!-- Image preview or pick button -->
+      ${s.imagePreview ? `
+        <div style="position:relative;">
+          <img src="${s.imagePreview}"
+            style="width:100%;border-radius:var(--r3);max-height:260px;object-fit:contain;
+              background:var(--surface2);"/>
+          <button onclick="calImportPickImage()"
+            style="position:absolute;bottom:8px;right:8px;padding:6px 12px;
+              border-radius:20px;border:none;background:rgba(0,0,0,0.6);
+              color:#fff;font:600 11px/1 var(--font-ui);cursor:pointer;">
+            Change photo</button>
+        </div>
+        <button onclick="calImportScan()"
+          style="padding:14px;border-radius:var(--r3);background:var(--accent);
+            color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
+            box-shadow:0 4px 16px rgba(21,101,192,0.3);">
+          🔍 Scan for meetings</button>
+      ` : `
+        <button onclick="calImportPickImage()"
+          style="padding:20px;border-radius:var(--r3);border:2px dashed var(--border);
+            background:transparent;color:var(--text3);font:600 14px/1 var(--font-ui);
+            cursor:pointer;width:100%;display:flex;flex-direction:column;
+            align-items:center;gap:10px;">
+          <span style="font-size:36px;">📷</span>
+          <span>Choose photo or screenshot</span>
+        </button>
+      `}
+    </div>`;
+  }
+
+  else if(s.step === 'scanning'){
+    body = `
+    <div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:40px;margin-bottom:16px;">🔍</div>
+      <div style="font:700 16px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">
+        Reading your calendar…</div>
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);">
+        Claude is extracting meetings from your photo</div>
+      <div style="margin-top:20px;width:48px;height:48px;border:3px solid var(--border);
+        border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;
+        margin-left:auto;margin-right:auto;"></div>
+    </div>`;
+  }
+
+  else if(s.step === 'review'){
+    const items = s.extracted;
+    if(!items.length){
+      body = `
+      <div style="text-align:center;padding:32px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">🤷</div>
+        <div style="font:700 15px/1.4 var(--font-ui);color:var(--text);margin-bottom:8px;">
+          No meetings found</div>
+        <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);margin-bottom:20px;">
+          Try a clearer screenshot or check the date is correct.</div>
+        <button onclick="_calImportState.step='pick';renderCalImportSheet()"
+          style="padding:12px 24px;border-radius:var(--r3);border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">
+          Try again</button>
+      </div>`;
+    } else {
+      const allSelected = s.selected.size === items.length;
+      body = `
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);margin-bottom:12px;">
+        Found ${items.length} meeting${items.length!==1?'s':''} — select which to add to your calendar.</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <button onclick="calImportToggleAll()"
+          style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">
+          ${allSelected ? 'Deselect all' : 'Select all'}</button>
+        <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">
+          ${s.selected.size} selected</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+        ${items.map((m,i)=>{
+          const sel = s.selected.has(i);
+          return `<div onclick="calImportToggleItem(${i})"
+            style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;
+              border-radius:var(--r3);cursor:pointer;
+              border:1.5px solid ${sel?'var(--accent)':'var(--border)'};
+              background:${sel?'var(--accent-soft)':'transparent'};">
+            <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+              border:2px solid ${sel?'var(--accent)':'var(--border)'};
+              background:${sel?'var(--accent)':'transparent'};
+              display:flex;align-items:center;justify-content:center;
+              color:#fff;font-size:12px;">${sel?'✓':''}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);">
+                ${esc(m.title)}</div>
+              <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:4px;">
+                ${m.allDay ? 'All day' : `${m.startTime} – ${m.endTime}`}
+                ${m.date !== s.targetDate ? ` · ${m.date}` : ''}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      ${s.selected.size > 0 ? `
+      <button onclick="calImportAddSelected()"
+        style="width:100%;padding:14px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 16px rgba(21,101,192,0.3);">
+        Add ${s.selected.size} meeting${s.selected.size!==1?'s':''} to calendar</button>
+      ` : ''}
+
+      <button onclick="_calImportState.step='pick';_calImportState.imagePreview=null;renderCalImportSheet()"
+        style="width:100%;padding:10px;border-radius:var(--r3);border:none;
+          background:transparent;color:var(--text4);font:500 12px/1 var(--font-ui);
+          cursor:pointer;margin-top:8px;">Try a different photo</button>`;
+    }
+  }
+
+  else if(s.step === 'adding'){
+    body = `
+    <div style="text-align:center;padding:40px 20px;">
+      <div style="font-size:40px;margin-bottom:16px;">📅</div>
+      <div style="font:700 16px/1 var(--font-ui);color:var(--text);">Adding to calendar…</div>
+    </div>`;
+  }
+
+  sheet.innerHTML = `
+  <div style="padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:16px;">
+    <div>
+      <div style="font:700 17px/1 var(--font-ui);color:var(--text);">Import from Photo</div>
+      <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+        Outlook calendar → Reeves HQ</div>
+    </div>
+    <button onclick="closeCalImportSheet()"
+      style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+        background:transparent;color:var(--text3);font-size:18px;cursor:pointer;">×</button>
+  </div>
+  <div style="padding:0 20px 40px;">${body}</div>`;
+
+  requestAnimationFrame(()=>{ sheet.style.transform = 'translateY(0)'; });
+
+  let backdrop = document.getElementById('cal-import-backdrop');
+  if(!backdrop){
+    backdrop = document.createElement('div');
+    backdrop.id = 'cal-import-backdrop';
+    backdrop.style.cssText = `position:fixed;inset:0;z-index:859;background:rgba(0,0,0,0.4);`;
+    backdrop.onclick = closeCalImportSheet;
+    document.body.appendChild(backdrop);
+  }
+  backdrop.style.display = 'block';
+}
+
+function calImportPickImage(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target.result;
+      // Compress if large
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 1200;
+        const scale = Math.min(maxW / img.width, 1);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.88);
+        _calImportState.imageData    = compressed.split(',')[1]; // base64 only
+        _calImportState.imagePreview = compressed;
+        renderCalImportSheet();
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+async function calImportScan(){
+  if(!_calImportState.imageData) return;
+  const targetDate = document.getElementById('cal-import-date')?.value
+                    || _calImportState.targetDate
+                    || today();
+  _calImportState.targetDate = targetDate;
+  _calImportState.step = 'scanning';
+  renderCalImportSheet();
+
+  const prompt = `This is a screenshot or photo of a calendar (likely Microsoft Outlook).
+The date shown is ${targetDate}.
+
+Extract every meeting, appointment, or event visible.
+For each one return a JSON array with objects like:
+{
+  "title": "Meeting name",
+  "date": "YYYY-MM-DD",
+  "startTime": "HH:MM",
+  "endTime": "HH:MM",
+  "allDay": false
+}
+
+Rules:
+- Use 24-hour time (e.g. "09:00", "14:30")
+- If a meeting spans multiple days, include it once with the start date
+- If the event is all-day, set allDay:true and omit startTime/endTime
+- If you cannot read the exact time, make your best estimate from position
+- Only return the JSON array, nothing else — no markdown fences, no explanation`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/jpeg',
+                data: _calImportState.imageData
+              }
+            },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const raw  = data.content?.find(b=>b.type==='text')?.text || '[]';
+
+    // Strip any accidental markdown fences
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const meetings = JSON.parse(cleaned);
+
+    _calImportState.extracted = meetings;
+    _calImportState.selected  = new Set(meetings.map((_,i)=>i)); // select all by default
+    _calImportState.step      = 'review';
+  } catch(err) {
+    console.error('Calendar import error:', err);
+    showToast('Could not read calendar — try a clearer photo');
+    _calImportState.step = 'pick';
+  }
+
+  renderCalImportSheet();
+}
+
+function calImportToggleItem(idx){
+  if(_calImportState.selected.has(idx)) _calImportState.selected.delete(idx);
+  else _calImportState.selected.add(idx);
+  renderCalImportSheet();
+}
+
+function calImportLogMeeting(idx){
+  // kept for backward compat — no longer used from import review
+}
+
+function tbLogMeeting(btn){
+  // Read meeting details from data attributes on the button
+  const title    = btn.dataset.mtgTitle || '';
+  const date     = btn.dataset.mtgDate  || today();
+  const startMin = parseInt(btn.dataset.mtgStart || '0');
+  const startTime = minsToTime(startMin); // e.g. "09:00"
+  _calMeetingPrefill = { title, date, startTime };
+  openMeetingCaptureFromImport();
+}
+
+// Opens meeting capture pre-filled from an imported calendar event
+function openMeetingCaptureFromImport(){
+  const pf = _calMeetingPrefill || {};
+  const old = document.getElementById('modal-meeting');
+  if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-meeting'; m.className = 'modal-overlay fullscreen';
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Log Meeting</div>
+      <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mtg-id" value=""/>
+      <input type="hidden" id="mtg-series-id" value=""/>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">MEETING</div>
+        <input id="mtg-title" class="field-input" placeholder="Meeting title…"
+          autocomplete="off" value="${esc(pf.title||'')}"/>
+      </div>
+      <div style="display:flex;gap:var(--sp2);">
+        <div style="flex:1;">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+            letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">DATE</div>
+          <input id="mtg-date" type="date" class="field-input" value="${pf.date||today()}"/>
+        </div>
+      </div>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">WHO WAS THERE?</div>
+        ${buildPersonPickerHTML('', 'mtg-person-ids')}
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp2);">
+          <div style="font:800 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;">
+            Paste raw notes → AI can structure them, or fill manually</div>
+          <button id="mtg-ai-btn" onclick="runMeetingAI()"
+            style="padding:5px 12px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);
+              background:rgba(232,168,56,0.08);color:var(--accent);
+              font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+            🤖 Structure with AI</button>
+        </div>
+        <div style="font:800 10px/1 var(--font-ui);color:var(--green);
+          letter-spacing:1px;margin-bottom:6px;">✅ DECISIONS MADE</div>
+        <textarea id="mtg-decisions" class="field-input"
+          placeholder="What was decided…"
+          style="width:100%;min-height:80px;resize:vertical;
+            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;"></textarea>
+      </div>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">📋 KEY NOTES</div>
+        <textarea id="mtg-notes" class="field-input"
+          placeholder="Context, important points…"
+          style="width:100%;min-height:80px;resize:vertical;
+            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;"></textarea>
+      </div>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);
+          letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">
+          ⚡ MY COMMITMENTS
+          <span style="font-size:10px;font-weight:400;color:var(--text4);">
+            one per line → become tasks</span></div>
+        <textarea id="mtg-mycommits" class="field-input"
+          placeholder="I said I would…"
+          style="width:100%;min-height:80px;resize:vertical;
+            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;
+            border-color:rgba(232,168,56,0.35);"></textarea>
+      </div>
+      <div>
+        <div style="font:800 10px/1 var(--font-ui);color:#64B5F6;
+          letter-spacing:1px;margin-bottom:6px;">
+          ⏳ THEIR COMMITMENTS
+          <span style="font-size:10px;font-weight:400;color:var(--text4);">
+            one per line → become Waiting For</span></div>
+        <textarea id="mtg-theircommits" class="field-input"
+          placeholder="Name: they said they would…"
+          style="width:100%;min-height:80px;resize:vertical;
+            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;
+            border-color:rgba(100,181,246,0.35);"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="saveMeetingCapture()"
+        style="width:100%;padding:14px;border-radius:var(--r3);border:none;
+          background:var(--accent);color:#1a1f2e;
+          font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Meeting</button>
+    </div>
+  </div>`;
+  m.onclick = e=>{ if(e.target===m) closeModal('modal-meeting'); };
+  document.body.appendChild(m);
+  openModal('modal-meeting');
+  setTimeout(()=>document.getElementById('mtg-title')?.focus(), 150);
+}
+
+let _calMeetingPrefill = null;
+
+function calImportToggleAll(){
+  const s = _calImportState;
+  if(s.selected.size === s.extracted.length){
+    s.selected = new Set();
+  } else {
+    s.selected = new Set(s.extracted.map((_,i)=>i));
+  }
+  renderCalImportSheet();
+}
+
+// ── Imported meetings store (localStorage, keyed by date) ────
+// Shape matches _calEvents: {id, title, start, end, allDay, calendarId:'imported'}
+// Loaded into _calEvents on boot and after import
+const IMPORTED_MEETINGS_KEY = 'hub-imported-meetings';
+
+function loadImportedMeetings(){
+  try {
+    const raw = localStorage.getItem(IMPORTED_MEETINGS_KEY);
+    if(!raw) return [];
+    const all = JSON.parse(raw);
+    // Prune entries older than 30 days to avoid localStorage bloat
+    const cutoff = localDateStr(new Date(Date.now() - 30*24*60*60*1000));
+    return all.filter(e => (e.start||'').slice(0,10) >= cutoff);
+  } catch(e){ return []; }
+}
+
+function saveImportedMeetings(meetings){
+  try {
+    localStorage.setItem(IMPORTED_MEETINGS_KEY, JSON.stringify(meetings));
+  } catch(e){}
+}
+
+function injectImportedMeetings(){
+  // Merge imported meetings into _calEvents (dedup by id)
+  const imported = loadImportedMeetings();
+  if(!imported.length) return;
+  const existingIds = new Set(_calEvents.map(e=>e.id));
+  imported.forEach(e=>{ if(!existingIds.has(e.id)) _calEvents.push(e); });
+}
+
+function deleteImportedMeeting(id){
+  const meetings = loadImportedMeetings().filter(e=>e.id!==id);
+  saveImportedMeetings(meetings);
+  _calEvents = _calEvents.filter(e=>e.id!==id);
+  renderAll();
+  showToast('Meeting removed');
+}
+
+function calImportAddSelected(){
+  const s = _calImportState;
+  const toAdd = s.extracted.filter((_,i)=>s.selected.has(i));
+  if(!toAdd.length) return;
+
+  // Build event objects in the _calEvents shape
+  const existing = loadImportedMeetings();
+  const existingIds = new Set(existing.map(e=>e.id));
+
+  const newMeetings = toAdd.map(m=>{
+    const startISO = m.allDay ? m.date : `${m.date}T${m.startTime||'00:00'}:00`;
+    const endISO   = m.allDay ? m.date : `${m.date}T${m.endTime||'00:00'}:00`;
+    return {
+      id:         'imp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+      title:      m.title,
+      start:      startISO,
+      end:        endISO,
+      allDay:     m.allDay || false,
+      description:'',
+      location:   '',
+      color:      '',
+      calendarId: 'imported',   // distinct key → distinct colour
+    };
+  });
+
+  // Persist
+  saveImportedMeetings([...existing, ...newMeetings]);
+
+  // Inject into live _calEvents immediately
+  injectImportedMeetings();
+
+  closeCalImportSheet();
+  renderAll();
+  showToast(`✓ ${newMeetings.length} meeting${newMeetings.length!==1?'s':''} added to calendar`);
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// ATTACHMENT SYSTEM — Drive-backed, works across all devices
+// Attachment shape: { id, fileId, filename, mimeType, viewUrl, dlUrl, size, addedAt }
+// Used by: tasks, meetings, waitingFor, discoveryList
+// ══════════════════════════════════════════════════════════════════
+
+// ── File type helpers ─────────────────────────────────────────
+function attachmentIcon(mimeType){
+  if(!mimeType) return '📄';
+  if(mimeType.startsWith('image/'))       return '🖼';
+  if(mimeType.includes('pdf'))            return '📕';
+  if(mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if(mimeType.includes('sheet') || mimeType.includes('excel'))   return '📊';
+  if(mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📊';
+  if(mimeType.startsWith('video/'))       return '🎬';
+  if(mimeType.startsWith('audio/'))       return '🎵';
+  if(mimeType.includes('zip') || mimeType.includes('archive')) return '🗜';
+  return '📄';
+}
+
+function attachmentSizeLabel(bytes){
+  if(!bytes) return '';
+  if(bytes < 1024)        return bytes + 'B';
+  if(bytes < 1024*1024)   return Math.round(bytes/1024) + 'KB';
+  return (bytes/(1024*1024)).toFixed(1) + 'MB';
+}
+
+// ── Render attachment list (used inside modals) ───────────────
+// recordType: 'task' | 'meeting' | 'waiting' | 'discovery'
+// recordId: id of the record
+// attachments: current array of attachment objects
+function renderAttachmentSection(recordType, recordId, attachments){
+  const list = (attachments||[]).map((a,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+      border-radius:var(--r2);border:1px solid var(--border);
+      background:var(--surface2);margin-bottom:4px;">
+      <span style="font-size:16px;flex-shrink:0;">${attachmentIcon(a.mimeType)}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 12px/1.2 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.filename)}</div>
+        <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+          ${attachmentSizeLabel(a.size)}</div>
+      </div>
+      <a href="${a.viewUrl}" target="_blank" rel="noopener"
+        style="padding:4px 8px;border-radius:var(--r2);border:1px solid var(--border);
+          background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);
+          text-decoration:none;white-space:nowrap;">Open</a>
+      <button onclick="deleteAttachmentFrom('${recordType}','${recordId}','${a.id}')"
+        style="border:none;background:transparent;color:var(--text4);
+          font-size:14px;cursor:pointer;padding:2px;flex-shrink:0;"
+        title="Remove attachment">×</button>
+    </div>`).join('');
+
+  return `<div>
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:6px;">
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:0.5px;text-transform:uppercase;">
+        📎 Attachments${attachments&&attachments.length?` (${attachments.length})`:''}
+      </div>
+      <button onclick="pickAttachment('${recordType}','${recordId}')"
+        style="padding:4px 10px;border-radius:20px;border:1px solid var(--border);
+          background:transparent;color:var(--text3);
+          font:600 11px/1 var(--font-ui);cursor:pointer;">
+        + Attach file</button>
+    </div>
+    ${list || `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);
+      padding:4px 0;">No attachments yet</div>`}
+  </div>`;
+}
+
+// ── Pick and upload a file ────────────────────────────────────
+function pickAttachment(recordType, recordId){
+  const input = document.createElement('input');
+  input.type = 'file';
+  // Accept common doc types
+  input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.mp4,.zip';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    // 50MB limit
+    if(file.size > 50*1024*1024){
+      showToast('File too large — max 50MB');
+      return;
+    }
+
+    showToast('Uploading ' + file.name + '…');
+
+    // Read as base64
+    const base64 = await new Promise((res, rej)=>{
+      const reader = new FileReader();
+      reader.onload  = ()=> res(reader.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      const data = await apiCall('uploadAttachment', {
+        data:     base64,
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream'
+      });
+
+      if(data.error) throw new Error(data.error);
+
+      const attachment = {
+        id:       'att_' + Date.now(),
+        fileId:   data.fileId,
+        filename: data.filename,
+        mimeType: data.mimeType,
+        viewUrl:  data.viewUrl,
+        dlUrl:    data.dlUrl,
+        size:     data.size,
+        addedAt:  today()
+      };
+
+      addAttachmentToRecord(recordType, recordId, attachment);
+      showToast('📎 ' + file.name + ' attached ✓');
+    } catch(err) {
+      showToast('Upload failed — ' + err.message);
+    }
+  };
+  input.click();
+}
+
+// ── Add attachment to the right record type ───────────────────
+function addAttachmentToRecord(recordType, recordId, attachment){
+  if(recordType === 'task'){
+    const t = tasks.find(x=>x.id===recordId);
+    if(!t) return;
+    if(!t.attachments) t.attachments = [];
+    t.attachments.push(attachment);
+    saveAllDebounced();
+  } else if(recordType === 'meeting'){
+    const m = meetingLog.find(x=>x.id===recordId);
+    if(!m) return;
+    if(!m.attachments) m.attachments = [];
+    m.attachments.push(attachment);
+    saveMeetings();
+  } else if(recordType === 'waiting'){
+    const w = waitingFor.find(x=>x.id===recordId);
+    if(!w) return;
+    if(!w.attachments) w.attachments = [];
+    w.attachments.push(attachment);
+    saveHubData('hub-waiting', waitingFor);
+  } else if(recordType === 'discovery'){
+    const d = discoveryList.find(x=>x.id===recordId);
+    if(!d) return;
+    if(!d.attachments) d.attachments = [];
+    d.attachments.push(attachment);
+    saveDiscovery();
+  }
+  renderAll();
+}
+
+// ── Delete attachment ─────────────────────────────────────────
+async function deleteAttachmentFrom(recordType, recordId, attachmentId){
+  // Find the attachment to get fileId
+  let att = null;
+  if(recordType === 'task'){
+    const t = tasks.find(x=>x.id===recordId);
+    att = t?.attachments?.find(a=>a.id===attachmentId);
+    if(t) t.attachments = (t.attachments||[]).filter(a=>a.id!==attachmentId);
+    saveAllDebounced();
+  } else if(recordType === 'meeting'){
+    const m = meetingLog.find(x=>x.id===recordId);
+    att = m?.attachments?.find(a=>a.id===attachmentId);
+    if(m) m.attachments = (m.attachments||[]).filter(a=>a.id!==attachmentId);
+    saveMeetings();
+  } else if(recordType === 'waiting'){
+    const w = waitingFor.find(x=>x.id===recordId);
+    att = w?.attachments?.find(a=>a.id===attachmentId);
+    if(w) w.attachments = (w.attachments||[]).filter(a=>a.id!==attachmentId);
+    saveHubData('hub-waiting', waitingFor);
+  } else if(recordType === 'discovery'){
+    const d = discoveryList.find(x=>x.id===recordId);
+    att = d?.attachments?.find(a=>a.id===attachmentId);
+    if(d) d.attachments = (d.attachments||[]).filter(a=>a.id!==attachmentId);
+    saveDiscovery();
+  }
+  renderAll();
+  // Delete from Drive in background
+  if(att?.fileId){
+    apiCall('deleteAttachment', {fileId: att.fileId}).catch(()=>{});
+  }
+  showToast('Attachment removed');
 }
 
 
@@ -8169,6 +8959,12 @@ function openEditTask(id){
   const moreBtn=document.getElementById("task-more-toggle");
   if(moreEl) moreEl.style.display="block";
   if(moreBtn) moreBtn.textContent="－ Fewer options";
+  // Render attachment section for existing tasks
+  const _attSection = document.getElementById('task-attachments-section');
+  if(_attSection){
+    _attSection.style.display = 'block';
+    _attSection.innerHTML = renderAttachmentSection('task', t.id, t.attachments||[]);
+  }
   openModal("modal-task");
 }
 let _modalSubtasks = [];
@@ -8664,7 +9460,7 @@ let waitingFor     = loadHubData('hub-waiting', []);
 // ── Home/Family data ──────────────────────────────────────────
 let familyTasks    = loadHubData('hub-family-tasks', []);  // shared, visible to both adults
 let jasonHomeTasks = loadHubData('hub-jason-home',   []);  // private to Jason
-let wifeHomeTasks  = loadHubData('hub-wife-home',    []);  // private to wife
+let wifeHomeTasks  = loadHubData('hub-wife-home',    []);  // private to Jenny
 let groceryList    = loadHubData('hub-grocery',      []);  // shared grocery list
 let weeklyPlan     = loadHubData('hub-weekly-plan',  null); // {weekOf, lockedIn, lockedAt, items:[]}    // [{id,person,what,dueDate,taskId,done,createdAt}]
 let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']});
@@ -8683,6 +9479,7 @@ let habitsExpanded = false;
 // Track which collections were confirmed loaded from cloud this session
 // Prevents a device with empty localStorage from overwriting real cloud data
 const _cloudLoaded = new Set();
+let _needsBootSync = false; // set during loadAll if local data needs pushing
 
 function saveSlots(){ /* legacy — no-op */ }
 
@@ -9676,6 +10473,11 @@ function renderWaitingPage(container){
         </div>
       </div>
       <button onclick="openWaitingModal(null,'${w.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">edit</button>
+      <button onclick="openWfAttachments('${w.id}')"
+        style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--text3);
+          font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;"
+        title="Attachments">📎${(w.attachments||[]).length ? `<span style="font-size:9px;"> ${w.attachments.length}</span>` : ''}</button>
       <button onclick="deleteWaiting('${w.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
@@ -10014,6 +10816,42 @@ function addWaitingFor(person, what, dueDate, taskId){
 function toggleWaitingDone(id){
   const w = waitingFor.find(x=>x.id===id);
   if(w){ w.done = !w.done; saveWaiting(); renderAll(); }
+}
+
+function openWfAttachments(id){
+  const w = waitingFor.find(x=>x.id===id);
+  if(!w) return;
+  // Show a simple bottom sheet with the attachment section
+  let sheet = document.getElementById('wf-att-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'wf-att-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,0.15);padding:20px 20px 40px;
+      max-height:70vh;overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+  sheet.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font:700 15px/1 var(--font-ui);color:var(--text);">
+        📎 ${esc(w.person)} — ${esc(w.what.slice(0,40))}${w.what.length>40?'…':''}</div>
+      <button onclick="document.getElementById('wf-att-sheet').style.transform='translateY(100%)'"
+        style="border:none;background:transparent;color:var(--text3);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    ${renderAttachmentSection('waiting', id, w.attachments||[])}`;
+  requestAnimationFrame(()=>{ sheet.style.transform='translateY(0)'; });
+  // Backdrop
+  let bd = document.getElementById('wf-att-backdrop');
+  if(!bd){
+    bd = document.createElement('div');
+    bd.id = 'wf-att-backdrop';
+    bd.style.cssText = `position:fixed;inset:0;z-index:859;background:rgba(0,0,0,0.4);`;
+    bd.onclick = ()=>{ sheet.style.transform='translateY(100%)'; bd.style.display='none'; };
+    document.body.appendChild(bd);
+  }
+  bd.style.display = 'block';
 }
 
 function deleteWaiting(id){
@@ -11070,6 +11908,9 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
       </div>
     </div>
     ${isSideBySide?'</div>':''}
+    ${existingId ? `<div style="padding:0 var(--sp4) var(--sp3);">
+      ${renderAttachmentSection('meeting', existingId, existing?.attachments||[])}
+    </div>` : ''}
     <div class="modal-footer" style="${isSideBySide?'grid-column:1/-1;':''}">
       <button onclick="saveMeetingCapture()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#1a1f2e;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">✓ Save Meeting</button>
     </div>
@@ -11199,13 +12040,30 @@ function renderTimeBlock(container){
   const blocks=getTbBlocksForDate(date);
   const scheduledIds=new Set(blocks.map(b=>b.taskId));
 
-  // Build a set of all 30-min slots occupied by each block (based on duration)
+  // Build a set of all 15-min slots occupied by task blocks
   const occupiedSlots={}; // startMin of slot → block
   for(const b of blocks){
     const steps=Math.ceil(b.durMin/15);
     for(let i=0;i<steps;i++){
       const slotMin=b.startMin+(i*15);
       if(!occupiedSlots[slotMin]) occupiedSlots[slotMin]=b;
+    }
+  }
+
+  // Build meeting overlay map from _calEvents + imported meetings for this date
+  const meetingSlots={}; // startMin → {title, startMin, endMin, color, isStart}
+  const dayMeetings = calEventsForDate(date).filter(e=>!e.allDay);
+  for(const ev of dayMeetings){
+    const color = calEventColor(ev);
+    // Parse local time from ISO string (no Z — already local)
+    const [hh,mm] = ev.start.slice(11,16).split(':').map(Number);
+    const [eh,em] = ev.end.slice(11,16).split(':').map(Number);
+    const startMin = hh*60+mm;
+    const endMin   = eh*60+em;
+    // Mark every 15-min slot this meeting covers
+    for(let s=startMin; s<endMin; s+=15){
+      meetingSlots[s] = {title:ev.title, startMin, endMin, color,
+                         isStart: s===startMin, durationMins: endMin-startMin};
     }
   }
 
@@ -11274,7 +12132,48 @@ function renderTimeBlock(container){
         <div style="flex:1;font-family:var(--font-ui);font-size:11px;color:var(--text4);font-style:italic;">↑ continued</div>
       </div>`;
     } else {
-      // Empty slot — tap to assign
+      // Check if this slot is covered by a meeting
+      const mtg = meetingSlots[startMin];
+      if(mtg){
+        if(mtg.isStart){
+          // First slot of meeting — render the meeting block
+          const slotCount = Math.ceil(mtg.durationMins/15);
+          const heightPx  = slotCount*32-1;
+          const endLabel  = minsToTime(mtg.endMin);
+          return `<div
+            style="display:flex;align-items:flex-start;gap:var(--sp2);padding:6px 12px;
+              min-height:${heightPx}px;border-bottom:1px solid var(--border);
+              border-left:3px solid ${mtg.color};
+              background:${mtg.color}18;position:relative;">
+            <div style="width:44px;font:700 10px/1 var(--font-ui);
+              color:${mtg.color};flex-shrink:0;padding-top:1px;">${label}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:700 12px/1.3 var(--font-ui);color:var(--text);
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                ${esc(mtg.title)}</div>
+              <div style="font:500 10px/1 var(--font-ui);color:${mtg.color};margin-top:3px;">
+                ${label} – ${endLabel}</div>
+            </div>
+            <div style="font:600 9px/1 var(--font-ui);color:${mtg.color};
+              padding:2px 6px;border-radius:8px;border:1px solid ${mtg.color}44;
+              flex-shrink:0;white-space:nowrap;">mtg</div>
+              <button data-mtg-title="${esc(mtg.title)}" data-mtg-date="${date}"
+                data-mtg-start="${mtg.startMin}" data-mtg-end="${mtg.endMin}"
+                onclick="tbLogMeeting(this)"
+                title="Log as meeting"
+                style="padding:3px 8px;border-radius:12px;border:1px solid ${mtg.color}55;
+                  background:transparent;color:${mtg.color};
+                  font:600 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;
+                  flex-shrink:0;">📝</button>
+          </div>`;
+        } else {
+          // Continuation slot — render as part of the block (empty, no border)
+          return `<div style="min-height:31px;border-bottom:1px solid var(--border);
+            border-left:3px solid ${mtg.color};background:${mtg.color}10;">
+          </div>`;
+        }
+      }
+      // Truly empty slot — tap to assign a task
       return `<div onclick="openTbSlotPicker('${date}',${startMin})"
         style="display:flex;align-items:center;gap:var(--sp2);padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;${isNow?'border-left:3px solid #ff6060;background:rgba(255,80,80,0.04);':''}"
         onmouseenter="this.style.background='rgba(232,168,56,0.06)'" onmouseleave="this.style.background='${isNow?'rgba(255,80,80,0.04)':'transparent'}'">
@@ -11296,6 +12195,11 @@ function renderTimeBlock(container){
       <div style="flex:1;font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);text-align:center;">${dayLabel}</div>
       <button class="tb-nav-btn" onclick="tbNavDate(1)">›</button>
       <button class="tb-nav-btn" onclick="tbNavDate(0)" style="font-size:10px;width:auto;padding:0 8px;">Today</button>
+      <button onclick="openCalendarPhotoImport()"
+        title="Import meetings from a photo of your Outlook calendar"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:15px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;">📷</button>
       <button onclick="todayViewMode='list';renderAll();"
         style="padding:5px 10px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">
         ☰ List
@@ -13014,6 +13918,12 @@ function renderDiscoveryDetail(container){
         <textarea id="disc-prd-${ini.id}" class="disc-prd-area" placeholder="Paste or write your PRD here… supports markdown. Use AI → Eval PRD to evaluate against your signals.">${esc(ini.prd||'')}</textarea>
       </div>
 
+      <!-- Attachments -->
+      <div class="disc-section-hdr">ATTACHMENTS</div>
+      <div style="padding:0 14px 10px;">
+        ${renderAttachmentSection('discovery', ini.id, ini.attachments||[])}
+      </div>
+
       <!-- Linked objects -->
       <div class="disc-section-hdr">LINKED</div>
       <div style="padding:0 14px 10px;display:flex;flex-direction:column;gap:var(--sp2);">
@@ -14365,6 +15275,13 @@ async function bootApp(){
   if(currentMode === 'home') activeNav = 'home-today';
   renderAll();
   checkMorningRitual();
+  // Fire deferred boot sync if local data needed pushing
+  if(_needsBootSync){
+    _needsBootSync = false;
+    setTimeout(()=> _flushSync().catch(()=>{}), 1500);
+  }
+  // Inject any already-imported work meetings immediately (before first fetch)
+  injectImportedMeetings();
   // Background prefetch calendar for the next 90 days so tab opens instantly
   setTimeout(()=>{
     const _calStart = today();
