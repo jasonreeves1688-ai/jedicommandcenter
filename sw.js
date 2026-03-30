@@ -4,7 +4,7 @@
 //          background badge updates
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'command-center-v37'; // ← bump to force SW update on all devices
+const CACHE_NAME = 'command-center-v38'; // ← bump to force SW update on all devices
 
 // ── Install: skip waiting, activate immediately ──────────────────
 self.addEventListener('install', event => {
