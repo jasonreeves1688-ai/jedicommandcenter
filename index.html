@@ -445,6 +445,22 @@ body.light-mode .tctl-btn:hover{ background:var(--surface2); }
 body.light-mode .tctl-btn.pinned{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 body.light-mode .tctl-date{ background:var(--surface); border-color:var(--border); color:var(--text2); }
 body.light-mode .tctl-danger{ color:var(--text4); }
+/* Uniform inline task controls — status, priority, date */
+.row-ctrl{
+  font:600 11px/1 var(--font-ui);
+  padding:4px 8px;
+  height:26px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text3);
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  outline:none;
+  flex-shrink:0;
+}
+.row-ctrl:focus{ border-color:var(--accent); }
 body.light-mode .tctl-danger:hover{ color:var(--red); border-color:rgba(184,36,36,0.4); }
 
 /* Task expand notes */
@@ -994,13 +1010,13 @@ input,select,textarea{ font-size:16px !important; }
   transition:border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
 .task-row:active{ transform:scale(0.995); border-color:var(--border2); }
-.task-row-top{ display:flex; align-items:stretch; min-height:52px; }
+.task-row-top{ display:flex; align-items:stretch; min-height:44px; }
 .priority-bar{ width:3px; border-radius:0; flex-shrink:0; align-self:stretch; }
-.task-body-wrap{ flex:1; min-width:0; display:flex; align-items:center; gap:var(--sp2); padding:var(--sp3) var(--sp2) var(--sp3) var(--sp3); }
+.task-body-wrap{ flex:1; min-width:0; display:flex; align-items:center; gap:var(--sp2); padding:var(--sp2) var(--sp2) var(--sp2) var(--sp2); }
 
 /* Check button — full 44px touch target */
 .check-btn{
-  width:44px; align-self:stretch;
+  width:44px; min-height:44px; align-self:stretch;
   border-radius:var(--r2) 0 0 var(--r2); flex-shrink:0;
   border:none; border-right:1px solid var(--border);
   background:transparent; cursor:pointer;
@@ -1807,6 +1823,31 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 .kids-tab{ flex:1; padding:var(--sp2) var(--sp1); background:var(--surface2); border:none; color:var(--text3); font:700 11px/1 var(--font-ui); letter-spacing:0.5px; cursor:pointer; transition:all 0.15s; text-align:center; min-height:var(--touch); }
 .kids-tab.active{ background:var(--accent); color:#1a1f2e; }
 
+
+/* ── Task row mobile optimisations ──────────────────────────────── */
+/* Constrain the date input so it doesn't dominate the row on narrow screens */
+input[type="date"].row-ctrl{
+  max-width:130px;
+  min-width:100px;
+}
+/* On phones: slightly smaller controls so more fits before wrapping */
+@media(max-width:480px){
+  .row-ctrl{
+    font-size:10px;
+    padding:3px 6px;
+    height:24px;
+  }
+  input[type="date"].row-ctrl{
+    max-width:110px;
+    min-width:88px;
+  }
+  /* Ensure check button stays a full 44px touch target */
+  .check-btn{ min-height:44px; }
+  /* Give the controls line a touch of extra vertical room when it wraps */
+  .task-body-wrap > div > div[style*="margin-top:5px"]{
+    row-gap:4px;
+  }
+}
 </style>
 </head>
 </head>
@@ -8228,200 +8269,115 @@ function renderTaskRow(task,proj){
   const isDone=task.status==="done";
   const todayStr=today();
   const overdue=task.dueDate&&task.dueDate<todayStr&&!isDone;
-  const dueStr=relativeDue(task.dueDate,isDone);
-  const isPinned=todayPinned.has(task.id);
 
-  // Task aging badge
+  // Aging badge
   const ageMs = task.createdAt ? Date.now()-parseInt(task.createdAt) : 0;
   const ageDays = Math.floor(ageMs/86400000);
   const isStale = !isDone && ageDays>=14;
   const isAncient = !isDone && ageDays>=60;
   const ageBadge = isAncient
-    ? `<span title="${ageDays} days old" style="font-size:10px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
+    ? `<span style="font-size:10px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:10px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
     : isStale
-    ? `<span title="${ageDays} days old" style="font-size:10px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
+    ? `<span style="font-size:10px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:10px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
     : '';
 
-  // Smart priority mismatch dot
-  const { suggested: sugPri, reasons: sugReasons } = scorePriority(task);
-  const hasMismatch = sugPri !== (task.priority||'medium');
-  const mismatchDot = hasMismatch
-    ? `<span onclick="event.stopPropagation();applySmartPriority('${task.id}')"
-        title="Smart priority suggests: ${sugPri} — tap to apply"
-        style="cursor:pointer;display:inline-block;width:6px;height:6px;border-radius:50%;
-               background:${sugPri==='high'?'#EF5350':sugPri==='low'?'#888':'#E8A838'};
-               margin-left:3px;vertical-align:middle;flex-shrink:0;"></span>`
-    : '';
-
-  // Accent bar
+  // Priority bar color
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  // ── Inline controls ──────────────────────────────────────────
+  // Project select — chip-styled but functional
+  const projColor = proj ? proj.color : 'var(--text4)';
+  const projOptHtml = `<option value="">◈ No project</option>`
+    + projects.map(p=>`<option value="${p.id}" ${task.projectId===p.id?'selected':''}>◈ ${p.name.length>20?p.name.slice(0,19)+'…':p.name}</option>`).join('');
+  const projSelect = `<select class="row-ctrl"
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();updateTaskField('${task.id}','projectId',this.value)"
+      style="font-weight:600;border-color:${projColor}55;background:${projColor}14;color:${projColor};">
+    ${projOptHtml}
+  </select>`;
 
-  // Status dropdown
-  const statusColors = {todo:'var(--text4)',inprogress:'var(--accent)',blocked:'#EF5350',done:'var(--green)'};
-  const statusLabels = {todo:'Open',inprogress:'Active',blocked:'Blocked',done:'Done'};
-  const sColor = statusColors[task.status]||'var(--text4)';
-  const statusDropdown = `<select
+  // Status
+  const sColor={todo:'var(--text4)',inprogress:'var(--accent)',blocked:'#EF5350',done:'var(--green)'}[task.status]||'var(--text4)';
+  const statusDropdown = `<select class="row-ctrl"
       onclick="event.stopPropagation()"
       onchange="event.stopPropagation();updateTaskField('${task.id}','status',this.value)"
-      title="Set status"
-      style="font:700 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
-        cursor:pointer;border:1px solid ${sColor}44;background:${sColor}14;color:${sColor};
-        appearance:none;-webkit-appearance:none;outline:none;max-width:70px;">
+      style="border-color:${sColor}44;background:${sColor}14;color:${sColor};">
     <option value="todo"       ${task.status==='todo'?'selected':''}>Open</option>
     <option value="inprogress" ${task.status==='inprogress'?'selected':''}>Active</option>
     <option value="blocked"    ${task.status==='blocked'?'selected':''}>Blocked</option>
     <option value="done"       ${task.status==='done'?'selected':''}>Done</option>
   </select>`;
 
-  // Priority dropdown
-  const priColors = {high:'#EF5350',medium:'var(--accent)',low:'#7CB342'};
-  const priLabels = {high:'Urgent',medium:'High',low:'Normal'};
-  const pColor2 = priColors[task.priority]||'var(--text4)';
-  const priorityDropdown = `<select
+  // Priority
+  const pColor2={high:'#EF5350',medium:'var(--accent)',low:'#7CB342'}[task.priority]||'var(--text4)';
+  const priorityDropdown = `<select class="row-ctrl"
       onclick="event.stopPropagation()"
       onchange="event.stopPropagation();updateTaskField('${task.id}','priority',this.value)"
-      title="Set priority"
-      style="font:700 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
-        cursor:pointer;border:1px solid ${pColor2}44;background:${pColor2}14;color:${pColor2};
-        appearance:none;-webkit-appearance:none;outline:none;max-width:68px;">
+      style="border-color:${pColor2}44;background:${pColor2}14;color:${pColor2};">
     <option value="high"   ${task.priority==='high'?'selected':''}>Urgent</option>
     <option value="medium" ${task.priority==='medium'?'selected':''}>High</option>
     <option value="low"    ${task.priority==='low'?'selected':''}>Normal</option>
-  </select>${mismatchDot}`;
-
-  // Project dropdown
-  const projOptHtml = projects.map(p=>`<option value="${p.id}" ${task.projectId===p.id?'selected':''}>${p.name.length>18?p.name.slice(0,17)+'…':p.name}</option>`).join('');
-  const projDropdown = `<select
-      onclick="event.stopPropagation()"
-      onchange="event.stopPropagation();updateTaskField('${task.id}','projectId',this.value)"
-      title="Set project"
-      style="font:600 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
-        cursor:pointer;border:1px solid ${proj?proj.color+'55':'var(--border)'};
-        background:${proj?proj.color+'12':'var(--surface2)'};
-        color:${proj?proj.color:'var(--text4)'};
-        appearance:none;-webkit-appearance:none;outline:none;max-width:90px;">
-    <option value="">No project</option>
-    ${projOptHtml}
   </select>`;
 
-  // Due date picker
-  const dueDatePicker = `<input type="date" class="tctl-date"
+  // Due date
+  const dueDatePicker = `<input type="date" class="row-ctrl"
       value="${task.dueDate||''}"
-      title="Set due date"
-      style="color-scheme:dark;font-size:10px;padding:3px 5px;border-radius:10px;
-        border:1px solid ${overdue?'rgba(239,83,80,0.4)':task.dueDate===todayStr?'rgba(232,168,56,0.4)':'var(--border)'};
+      style="color-scheme:dark;padding-right:2px;
+        border-color:${overdue?'rgba(239,83,80,0.5)':task.dueDate===todayStr?'rgba(232,168,56,0.5)':'var(--border)'};
         background:${overdue?'rgba(239,83,80,0.08)':task.dueDate===todayStr?'rgba(232,168,56,0.08)':'var(--surface2)'};
-        color:${overdue?'#ff6060':task.dueDate===todayStr?'var(--accent)':'var(--text4)'};
-        flex-shrink:0;max-width:110px;outline:none;"
+        color:${overdue?'#ff6060':task.dueDate===todayStr?'var(--accent)':'var(--text4)'};"
       onclick="event.stopPropagation()"
       onchange="event.stopPropagation();saveTaskDueDate('${task.id}',this.value)"/>`;
 
-  // ── Association indicators ──────────────────────────────────
-  // People assigned
-  const personIds = (task.personIds||'').split(',').filter(Boolean);
-  const personChip = personIds.length > 0
-    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
-        title="${personIds.map(id=>getPersonNameById(id)).join(', ')}"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
-          cursor:pointer;border:1px solid rgba(232,168,56,0.35);background:rgba(232,168,56,0.08);color:var(--accent);">
-        👤 ${personIds.length}
-      </span>`
-    : '';
-
-  // Attachments
-  const attachments = task.attachments||[];
-  const attachChip = attachments.length > 0
-    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
-        title="${attachments.length} attachment${attachments.length!==1?'s':''}"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
-          cursor:pointer;border:1px solid rgba(100,181,246,0.35);background:rgba(100,181,246,0.08);color:#64B5F6;">
-        📎 ${attachments.length}
-      </span>`
-    : '';
-
-  // Linked meeting (from source field)
-  const mtgChip = (()=>{
+  // Association chips
+  const personIds=(task.personIds||'').split(',').filter(Boolean);
+  const personChip=personIds.length>0
+    ?`<span onclick="event.stopPropagation();openEditTask('${task.id}')" title="${personIds.map(id=>getPersonNameById(id)).join(', ')}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(232,168,56,0.35);background:rgba(232,168,56,0.08);color:var(--accent);">👤 ${personIds.length}</span>`:'';
+  const attachments=task.attachments||[];
+  const attachChip=attachments.length>0
+    ?`<span onclick="event.stopPropagation();openEditTask('${task.id}')" title="${attachments.length} attachment${attachments.length!==1?'s':''}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(100,181,246,0.35);background:rgba(100,181,246,0.08);color:#64B5F6;">📎 ${attachments.length}</span>`:'';
+  const mtgChip=(()=>{
     if(!task.source||!task.source.startsWith('meeting:')) return '';
-    const mtgId = task.source.split(':')[1];
-    const mtg = meetingLog.find(m=>m.id===mtgId);
-    if(!mtg) return '';
-    return `<span onclick="event.stopPropagation();openMeetingCapture('${mtgId}')"
-        title="From: ${esc(mtg.title)}"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
-          cursor:pointer;border:1px solid rgba(100,181,246,0.3);background:rgba(100,181,246,0.08);color:#64B5F6;">
-        📝
-      </span>`;
+    const mtg=meetingLog.find(m=>m.id===task.source.split(':')[1]);
+    return mtg?`<span onclick="event.stopPropagation();openMeetingCapture('${task.source.split(':')[1]}')" title="From: ${esc(mtg.title)}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(100,181,246,0.3);background:rgba(100,181,246,0.08);color:#64B5F6;">📝</span>`:'';
   })();
-
-  // Discovery link
-  const discChip = (()=>{
+  const discChip=(()=>{
     if(!task.discoveryId) return '';
-    const ini = discoveryList.find(i=>i.id===task.discoveryId);
-    if(!ini) return '';
-    return `<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')"
-        title="Discovery: ${esc(ini.title)}"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
-          cursor:pointer;border:1px solid rgba(186,104,200,0.3);background:rgba(186,104,200,0.08);color:#BA68C8;">
-        🔭
-      </span>`;
+    const ini=discoveryList.find(i=>i.id===task.discoveryId);
+    return ini?`<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')" title="${esc(ini.title)}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(186,104,200,0.3);background:rgba(186,104,200,0.08);color:#BA68C8;">🔭</span>`:'';
   })();
-
-  // Subtask pill
-  const subs = task.subtasks||[];
-  const subDone = subs.filter(s=>s.done).length;
-  const subTotal = subs.length;
-  const subPill = subTotal>0
-    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
-        title="Subtasks: ${subDone}/${subTotal} done"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
-          cursor:pointer;border:1px solid ${subDone===subTotal?'rgba(61,184,122,0.4)':'var(--border)'};
-          background:${subDone===subTotal?'rgba(61,184,122,0.08)':'var(--surface2)'};
-          color:${subDone===subTotal?'var(--green)':'var(--text4)'};">
-        ☑ ${subDone}/${subTotal}
-      </span>`
-    : '';
-
-  // Project chip in meta row (display only)
-  const projChip = proj
-    ? `<span class="row-chip" style="color:${proj.color};border-color:${proj.color}55;background:${proj.color}14;">◈ ${esc(proj.name)}</span>`
-    : '';
+  const subs=task.subtasks||[];
+  const subDone=subs.filter(s=>s.done).length;
+  const subPill=subs.length>0
+    ?`<span onclick="event.stopPropagation();openEditTask('${task.id}')" title="Subtasks: ${subDone}/${subs.length} done"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid ${subDone===subs.length?'rgba(61,184,122,0.4)':'var(--border)'};background:${subDone===subs.length?'rgba(61,184,122,0.08)':'var(--surface2)'};color:${subDone===subs.length?'var(--green)':'var(--text4)'};">☑ ${subDone}/${subs.length}</span>`:'';
 
   return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}"
       style="${pBg?'background:'+pBg+';':''}${isStale&&!isDone?'opacity:0.82;':''}">
-
-    <!-- Top row: check + title + meta -->
     <div class="task-row-top" onclick="openEditTask('${task.id}')">
       <button class="check-btn ${isDone?'checked':''}"
         onclick="event.stopPropagation();completeTask('${task.id}',event)"
         title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
       <div class="priority-bar" style="background:${isDone?'rgba(140,100,50,0.2)':pColor};"></div>
       <div class="task-body-wrap">
-        <div class="task-body" style="flex:1;min-width:0;">
+        <div style="flex:1;min-width:0;">
           <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-          <div class="task-meta">${projChip}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}</div>
+          ${!isDone ? `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
+            ${projSelect}${statusDropdown}${priorityDropdown}${dueDatePicker}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}
+            <span style="flex:1;min-width:0;"></span>
+            <button onclick="event.stopPropagation();openEditTask('${task.id}')" class="row-ctrl"
+              style="color:var(--text3);background:transparent;">✏ Edit</button>
+          </div>` : `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">${ageBadge}${subPill}</div>`}
         </div>
       </div>
     </div>
-
-    <!-- Controls bar: always visible, never expands -->
-    ${!isDone ? `<div class="task-controls" style="display:flex;align-items:center;gap:5px;padding:5px 10px 7px 38px;flex-wrap:wrap;">
-      ${statusDropdown}
-      ${priorityDropdown}
-      ${projDropdown}
-      ${dueDatePicker}
-      <span style="flex:1;"></span>
-      <button onclick="event.stopPropagation();openEditTask('${task.id}')"
-        title="Edit task"
-        style="font:700 10px/1 var(--font-ui);padding:4px 9px;border-radius:8px;flex-shrink:0;
-          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);">
-        ✏ Edit
-      </button>
-    </div>` : ''}
   </div>`;
 }
+
 
 
 function checkJasonRewardMilestone(){
@@ -14539,6 +14495,9 @@ ${sigSummary}`,
 // Called daily (from scheduleNotifChecks) — check for stale initiatives
 function checkStaleInitiatives(){
   const todayStr = today();
+  const lastFired = localStorage.getItem('hub-notif-stale');
+  if(lastFired === todayStr) return;
+
   const stale = discoveryList.filter(ini=>{
     if(ini.status === 'launched' || ini.status === 'killed' || ini.status === 'paused') return false;
     const lastUpdate = ini.updatedAt || ini.createdAt || todayStr;
@@ -14546,6 +14505,7 @@ function checkStaleInitiatives(){
     return daysSince >= 21;
   });
   if(stale.length > 0){
+    localStorage.setItem('hub-notif-stale', todayStr);
     fireNotif(
       `🔭 ${stale.length} initiative${stale.length>1?'s':''} going stale`,
       stale.slice(0,2).map(i=>i.title).join(', ') + (stale.length>2?'…':''),
@@ -14557,9 +14517,11 @@ function checkStaleInitiatives(){
 // Called daily — check meeting follow-through (commits → tasks)
 function checkMeetingFollowThrough(){
   const todayStr = today();
+  const lastFired = localStorage.getItem('hub-notif-followthrough');
+  if(lastFired === todayStr) return;
+
   const fiveDaysAgo = new Date(); fiveDaysAgo.setDate(fiveDaysAgo.getDate()-5);
   const fiveDaysStr = localDateStr(fiveDaysAgo);
-  // Find meetings in the last 5-14 days that had myCommits
   const recentMeetings = meetingLog.filter(m=>
     m.myCommits && m.myCommits.trim() &&
     m.date >= fiveDaysStr && m.date <= todayStr
@@ -14572,6 +14534,7 @@ function checkMeetingFollowThrough(){
     openCommits += mtgTasks.length;
   });
   if(openCommits > 0){
+    localStorage.setItem('hub-notif-followthrough', todayStr);
     fireNotif(
       `⚡ ${openCommits} meeting commit${openCommits>1?'s':''} still open`,
       'From recent meetings — tap to review',
@@ -14582,9 +14545,15 @@ function checkMeetingFollowThrough(){
 
 // Called daily — check task accumulation
 function checkTaskAccumulation(){
+  // Only fire once per day — don't spam on every app open
+  const todayStr = today();
+  const lastFired = localStorage.getItem('hub-notif-accumulation');
+  if(lastFired === todayStr) return;
+
   const activeTasks = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
   const count = activeTasks.length;
   if(count > 40){
+    localStorage.setItem('hub-notif-accumulation', todayStr);
     const isSerious = count > 55;
     fireNotif(
       isSerious ? `🔴 ${count} active tasks — system overloaded` : `🟡 ${count} active tasks`,
