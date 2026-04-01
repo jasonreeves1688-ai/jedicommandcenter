@@ -2689,7 +2689,7 @@ const API_URL = APPS_SCRIPT_URL;
 const SUPABASE_URL  = 'https://pfsuljwznlxbfpmifdir.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_26IDRbgOEzYuDYIO2Ty6xQ_1aUBIx--';
 const JASON_UID     = '4c9e616a-5be9-4205-86d6-763130f27afc';
-const JENNY_UID     = 'af6fe992-bbfe-4af4-993e-b35f6449f3c3';
+const JENNY_UID     = 'b65f69ae-057b-4865-95b1-a1ebd834cc41';
 
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
@@ -8777,6 +8777,104 @@ function renderJasonPrizeEditor(){
   </div>`;
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// POMODORO TIMER STATE + CONTROLS
+// Used by renderTodayFocusMode — the focus mode on the Today screen
+// ═══════════════════════════════════════════════════════════════
+let pomoState={mode:"work",timeLeft:25*60,running:false,sessions:0,customWork:25,interval:null};
+
+function setPomoMode(mode){
+  clearInterval(pomoState.interval);
+  pomoState.mode=mode;
+  pomoState.timeLeft=mode==="work"?pomoState.customWork*60:mode==="shortBreak"?300:900;
+  pomoState.running=false;renderAll();
+}
+
+function togglePomo(){
+  if(pomoState.timeLeft===0){resetPomo();return;}
+  pomoState.running=!pomoState.running;
+  if(pomoState.running){
+    pomoState.interval=setInterval(()=>{
+      pomoState.timeLeft--;
+      if(pomoState.timeLeft<=0){
+        clearInterval(pomoState.interval);pomoState.running=false;
+        playBeep();
+        if(pomoState.mode==="work"){
+          pomoState.sessions++;
+          const next=pomoState.sessions%4===0?"longBreak":"shortBreak";
+          pomoState.mode=next;pomoState.timeLeft=next==="shortBreak"?300:900;
+          if(selectedMissionId){
+            const _t=tasks.find(t=>t.id===selectedMissionId);
+            if(_t&&_t.status!=="done") showPomoFinishPrompt(_t);
+          }
+        }else{pomoState.mode="work";pomoState.timeLeft=pomoState.customWork*60;}
+      }
+      const d=document.querySelector(".pomo-digits");
+      const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+      if(d) d.textContent=fmt(pomoState.timeLeft);
+      else{clearInterval(pomoState.interval);renderAll();}
+    },1000);
+  }else{clearInterval(pomoState.interval);}
+  renderAll();
+}
+
+function resetPomo(){
+  clearInterval(pomoState.interval);pomoState.running=false;
+  pomoState.timeLeft=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
+  renderAll();
+}
+
+function showPomoFinishPrompt(task){
+  const old=document.getElementById("pomo-finish-prompt");
+  if(old) old.remove();
+  const el=document.createElement("div");
+  el.id="pomo-finish-prompt";
+  el.style.cssText=`position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:500;
+    width:90%;max-width:400px;background:var(--surface);border:2px solid var(--accent);
+    border-radius:var(--r3);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    font-family:var(--font-ui);animation:slideDown 0.2s ease;`;
+  el.innerHTML=`
+    <div style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px;margin-bottom:6px;">⏱ SESSION COMPLETE</div>
+    <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:var(--sp3);line-height:1.3;">Did you finish: <em style="color:var(--accent);">${task.title.length>50?task.title.slice(0,47)+"…":task.title}</em>?</div>
+    <div style="display:flex;gap:var(--sp2);">
+      <button onclick="pomoFinishYes()" style="flex:1;padding:9px;border-radius:7px;border:none;background:var(--green);color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">✓ Done!</button>
+      <button onclick="pomoFinishNo()" style="flex:1;padding:9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">Still going</button>
+      <button onclick="document.getElementById('pomo-finish-prompt').remove()" style="padding:9px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text4);font-family:var(--font-ui);font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{ const e=document.getElementById("pomo-finish-prompt"); if(e) e.remove(); },30000);
+}
+
+function pomoFinishYes(){
+  const el=document.getElementById("pomo-finish-prompt");
+  if(el) el.remove();
+  if(selectedMissionId){
+    updateTaskField(selectedMissionId,"status","done");
+    selectedMissionId=null;
+    renderAll();
+  }
+}
+
+function pomoFinishNo(){
+  const el=document.getElementById("pomo-finish-prompt");
+  if(el) el.remove();
+  renderAll();
+}
+
+function playBeep(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [{f:392,t:0},{f:392,t:0.18},{f:392,t:0.36},{f:311,t:0.54},{f:466,t:0.65}].forEach(({f,t})=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;o.type="square";
+      g.gain.setValueAtTime(0.08,ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.15);
+      o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.18);
+    });
+  }catch(e){}
+}
 
 function selectMission(id){
   selectedMissionId=selectedMissionId===id?null:id;
