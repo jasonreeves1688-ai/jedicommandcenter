@@ -1849,6 +1849,13 @@ input[type="date"].row-ctrl{
   }
 }
 </style>
+
+<!-- TEMPORARY DEBUG PANEL — remove after diagnosis -->
+<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<script>
+  window._vc = new VConsole({ theme: 'dark' });
+  console.log('[DEBUG] vConsole loaded');
+</script>
 </head>
 </head>
 <body class="light-mode">
@@ -16786,6 +16793,36 @@ function scheduleNotifChecks(){
     checkMeetingFollowThrough();
     checkTaskAccumulation();
   }, 3000);
+
+  // DEBUG: log key state so we can diagnose on-device
+  setTimeout(async ()=>{
+    console.log('=== REEVES HQ DEBUG ===');
+    console.log('[notif] permission:', 'Notification' in window ? Notification.permission : 'not supported');
+    console.log('[notif] hub-notif-accumulation:', localStorage.getItem('hub-notif-accumulation'));
+    console.log('[notif] hub-notif-stale:', localStorage.getItem('hub-notif-stale'));
+    console.log('[notif] hub-notif-followthrough:', localStorage.getItem('hub-notif-followthrough'));
+    console.log('[tasks] active count:', tasks.filter(t=>t.status!=="done"&&t.status!=="blocked").length);
+    console.log('[sw] registration:', _swReg ? 'registered (active:'+!!_swReg.active+')' : 'NONE');
+    console.log('[supabase] userId:', _sbUserId || 'NOT SIGNED IN');
+    try {
+      if(_swReg) {
+        const sub = await _swReg.pushManager.getSubscription();
+        console.log('[push] subscription:', sub ? 'EXISTS endpoint='+sub.endpoint.slice(0,60)+'…' : 'NONE — not subscribed');
+      } else {
+        console.log('[push] no SW registration');
+      }
+    } catch(e) {
+      console.log('[push] error checking subscription:', e.message);
+    }
+    // Check Supabase for stored subscriptions
+    if(_sbUserId) {
+      const { data, error } = await _sb.from('push_subscriptions').select('endpoint,created_at').eq('owner_id',_sbUserId);
+      console.log('[push] supabase rows:', error ? 'ERROR: '+error.message : JSON.stringify(data?.map(r=>({ep:r.endpoint.slice(0,40),at:r.created_at}))));
+      const { data: logData, error: logErr } = await _sb.from('notification_log').select('tag,sent_at').order('sent_at',{ascending:false}).limit(5);
+      console.log('[push] notification_log (last 5):', logErr ? 'ERROR: '+logErr.message : JSON.stringify(logData));
+    }
+    console.log('=== END DEBUG ===');
+  }, 5000);
 }
 
 function getISOWeek(date){
