@@ -161,7 +161,11 @@ body.light-mode #gate-input:focus{
 }
 body.light-mode #gate-input::placeholder{ color:var(--text4); }
 body.light-mode 
-body.light-mode .gate-btn{
+body.light-mode .gate-jason-tab.active, .gate-jenny-tab.active {
+  background: rgba(21,101,192,0.25) !important;
+  color: #7aabf0 !important;
+}
+.gate-btn{
   background:linear-gradient(135deg,#1565C0,#1976D2,#F9A825);
   color:#FFFFFF;
   box-shadow:0 4px 16px rgba(21,101,192,0.35);
@@ -1921,11 +1925,27 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
     <div class="gate-title">Reeves HQ</div>
     <div class="gate-subtitle">The Reeves family, all in one place</div>
     <div class="gate-divider"></div>
-    <input id="gate-input" type="password" placeholder="Enter your PIN…"
+    <!-- User tabs -->
+    <div style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(184,134,11,0.3);">
+      <button id="gate-jason-tab"
+        onclick="document.getElementById('gate-jason-tab').classList.add('active');document.getElementById('gate-jenny-tab').classList.remove('active');document.getElementById('gate-input').placeholder='Jason's password…'"
+        class="active"
+        style="flex:1;padding:10px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
+          background:rgba(21,101,192,0.15);color:#5b8def;border-right:1px solid rgba(184,134,11,0.3);">
+        👤 Jason</button>
+      <button id="gate-jenny-tab"
+        onclick="document.getElementById('gate-jenny-tab').classList.add('active');document.getElementById('gate-jason-tab').classList.remove('active');document.getElementById('gate-input').placeholder='Jenny's password…'"
+        style="flex:1;padding:10px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
+          background:transparent;color:var(--text4);">
+        👤 Jenny</button>
+    </div>
+    <input id="gate-input" type="password" placeholder="Jason's password…"
       onkeydown="if(event.key==='Enter')checkPassword()"/>
-    <button class="gate-btn" onclick="checkPassword()">→ Enter Reeves HQ</button>
-    <div id="gate-error">✕ Incorrect PIN</div>
-    <div class="gate-hint">Session open for 60 minutes</div>
+    <button id="gate-submit-btn" class="gate-btn" onclick="checkPassword()">→ Sign in</button>
+    <div style="text-align:center;margin-top:8px;font-family:var(--font-ui);font-size:11px;color:var(--text4);">
+      Kids: enter your PIN above</div>
+    <div id="gate-error">✕ Wrong password — try again</div>
+    <div class="gate-hint">Signed in for 7 days · kids PIN session 60 minutes</div>
   </div>
 </div>
 
@@ -2304,12 +2324,7 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
             <option value="4h">⏳ half day</option>
             <option value="8h+">⏳ full day+</option>
           </select>
-          <select class="field-select" id="task-energy-input" title="Energy type" style="flex:1;">
-            <option value="">⚡ Energy…</option>
-            <option value="heavy">🔴 Heavy</option>
-            <option value="medium">🟡 Medium</option>
-            <option value="light">🟢 Light</option>
-          </select>
+
         </div>
         <div id="task-people-wrap">
           <div class="chip-label">People</div>
@@ -2355,6 +2370,10 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
     </div>
       <!-- Attachments -->
       <div id="task-attachments-section" style="margin-top:8px;display:none;">
+        <!-- rendered dynamically when editing an existing task -->
+      </div>
+      <!-- Related meetings -->
+      <div id="task-meetings-section" style="margin-top:8px;display:none;">
         <!-- rendered dynamically when editing an existing task -->
       </div>
     </div>
@@ -2609,11 +2628,68 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 
 <input type="file" id="csv-file-input" accept=".csv,text/csv" style="display:none;" onchange="handleCSV(event)"/>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
 // CONFIG — Sync / Cloud
 // ═══════════════════════════════════════════════════════════════
-const API_URL = "https://script.google.com/macros/s/AKfycbw6EET5ZIuUTne2Xh6CVDPDwN8gRqo6_NIBx1sxVyeMqY0fxMHiFSs5IHKx4ffr9rQ1lQ/exec";
+// ── Apps Script URL — kept for Google Calendar only ──────────
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6EET5ZIuUTne2Xh6CVDPDwN8gRqo6_NIBx1sxVyeMqY0fxMHiFSs5IHKx4ffr9rQ1lQ/exec";
+// Legacy alias so calendar code keeps working unchanged
+const API_URL = APPS_SCRIPT_URL;
+
+// ── Supabase client ────────────────────────────────────────────
+const SUPABASE_URL  = 'https://pfsuljwznlxbfpmifdir.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_26IDRbgOEzYuDYIO2Ty6xQ_1aUBIx--';
+const JASON_UID     = '4c9e616a-5be9-4205-86d6-763130f27afc';
+const JENNY_UID     = 'af6fe992-bbfe-4af4-993e-b35f6449f3c3';
+
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true }
+});
+
+// Current Supabase session — populated after sign-in
+let _sbSession = null;
+let _sbUserId  = null;
+
+// ── Supabase query helper ──────────────────────────────────────
+async function sbGet(table, query){
+  const q = query ? _sb.from(table).select(query) : _sb.from(table).select('*');
+  const { data, error } = await q;
+  if(error){ console.error('sbGet error', table, error.message); return []; }
+  return data || [];
+}
+
+async function sbUpsert(table, rows, conflictCol){
+  if(!rows || !rows.length) return;
+  const arr = Array.isArray(rows) ? rows : [rows];
+  const { error } = await _sb.from(table).upsert(arr, {onConflict: conflictCol||'id'});
+  if(error) console.error('sbUpsert error', table, error.message);
+}
+
+async function sbDelete(table, id){
+  const { error } = await _sb.from(table).delete().eq('id', id);
+  if(error) console.error('sbDelete error', table, error.message);
+}
+
+async function sbSetting(key, value){
+  if(!_sbUserId) return;
+  if(value === undefined){
+    const { data } = await _sb.from('user_settings')
+      .select('value').eq('owner_id',_sbUserId).eq('key',key).single();
+    return data?.value;
+  }
+  await _sb.from('user_settings').upsert(
+    {owner_id:_sbUserId, key, value: JSON.stringify(value)},
+    {onConflict:'owner_id,key'}
+  );
+}
+
+async function sbGetSetting(key, fallback){
+  const raw = await sbSetting(key);
+  if(!raw) return fallback;
+  try{ return JSON.parse(raw); }catch(e){ return raw; }
+}
 
 const SEED_PROJECTS = [
   {id:"p1",name:"GES Integration",domain:"work",color:"#1A4A8A",collapsed:"false"},
@@ -2741,7 +2817,7 @@ let todayPinned=new Set();       // task IDs pinned to Today view
 let viewMode="list", activeNav="today";
 // VAPID public key — must match the key stored in Apps Script Properties
 // After running generateVAPIDKeysManual(), paste your public key here
-const VAPID_PUBLIC_KEY = localStorage.getItem('hub-vapid-pubkey') || '';
+const VAPID_PUBLIC_KEY = '9RXkNvu4gCN2F3m24gUxJg6TCE4p2VNWabTZRVbLBcwCHrXlYouuQX7hlGkA9DpcBP0yPw5UOw_HAF1oDf_GlA';
 
 // Derived helpers
 const realmActive=()=>filterRealm.size>0;
@@ -2769,318 +2845,289 @@ function setSyncStatus(state,msg){
   lbl.textContent=msg;
 }
 
-async function apiCall(action,data={}){
-  setSyncStatus("syncing","Syncing……");
-  try{
-    const res=await fetch(`${API_URL}?action=${action}`,{method:"POST",body:JSON.stringify({action,...data})});
-    const json=await res.json();
-    if(json.error) throw new Error(json.error);
-    const _d=new Date(),_hr=_d.getHours(),_mn=String(_d.getMinutes()).padStart(2,"0"),_ap=_hr>=12?"pm":"am",_h12=_hr%12||12;const __d=new Date(),__hr=__d.getHours(),__mn=String(__d.getMinutes()).padStart(2,"0");setSyncStatus("ok","SYNCED · "+(__hr%12||12)+":"+__mn+(__hr>=12?"pm":"am"));
-    return json;
-  }catch(e){
-    const offline=!navigator.onLine;
-    setSyncStatus(offline?"offline":"error",offline?"Offline":"Sync failed — TAP ↻");
-    throw e;
+// Actions that still go to Apps Script (Google Calendar, Drive, AI)
+const _APPS_SCRIPT_ACTIONS = new Set([
+  'getCalendar','uploadPhoto','deletePhoto',
+  'uploadAttachment','deleteAttachment',
+  'calUpdateEvent','calCreateEvent','calDeleteEvent',
+  'savePushSub','aiProxy','sendRaven'
+]);
+
+async function apiCall(action, data={}){
+  // Route to Apps Script for calendar/drive/AI actions
+  if(_APPS_SCRIPT_ACTIONS.has(action)){
+    setSyncStatus('syncing','Syncing…');
+    try{
+      const res  = await fetch(`${APPS_SCRIPT_URL}?action=${action}`, {
+        method:'POST', body:JSON.stringify({action,...data})
+      });
+      const json = await res.json();
+      if(json.error) throw new Error(json.error);
+      const __d=new Date(),__hr=__d.getHours(),__mn=String(__d.getMinutes()).padStart(2,'0');
+      setSyncStatus('ok','SYNCED · '+(__hr%12||12)+':'+__mn+(__hr>=12?'pm':'am'));
+      return json;
+    }catch(e){
+      const offline=!navigator.onLine;
+      setSyncStatus(offline?'offline':'error',offline?'Offline':'Sync failed — TAP ↻');
+      throw e;
+    }
   }
+  // Data actions (saveAll, getAll) are handled by Supabase directly —
+  // these should not be called via apiCall anymore but kept as fallback
+  console.warn('apiCall fallback for action:', action);
+  return {};
 }
 
 async function loadAll(){
-  let data = null;
+  if(!_sbSession){ console.warn('loadAll called before sign-in'); return; }
+  setSyncStatus('syncing','Loading…');
+
   try{
-    data=await apiCall("getAll");
-    // Check deployed Code.gs version
-    if(data.__version !== 'v37-discovery'){
-      console.warn('Old Code.gs deployed — hub data will not sync. Please redeploy.');
-    }
-    const sheetProjects=(data.projects||[]).map(p=>({
-      ...p,collapsed:p.collapsed==="true"||p.collapsed===true
-    })).filter(p=>p.id&&p.name);
-    const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
+    // ── Parallel reads — all collections at once ──────────────
+    const [
+      projectRows, taskRows, familyTaskRows, familyCommentRows,
+      jasonHomeRows, jennyHomeRows, groceryRows,
+      meetingRows, seriesRows, waitingRows,
+      peopleRows, contactRows, habitRows, habitLogRow,
+      discoveryRows, signalRows, somedayRows,
+      weeklyPlanRow, kidsTrackerRow, tbBlockRows, settingRows
+    ] = await Promise.all([
+      sbGet('projects'),
+      sbGet('tasks'),
+      sbGet('family_tasks'),
+      sbGet('family_task_comments'),
+      sbGet('jason_home_tasks'),
+      sbGet('jenny_home_tasks'),
+      sbGet('grocery_items'),
+      sbGet('meetings'),
+      sbGet('meeting_series'),
+      sbGet('waiting_for'),
+      sbGet('people'),
+      sbGet('contacts'),
+      sbGet('habits'),
+      _sb.from('habit_log').select('log').eq('owner_id',_sbUserId).single(),
+      sbGet('discovery'),
+      sbGet('signals'),
+      sbGet('someday'),
+      _sb.from('weekly_plan').select('*').eq('id','current').single(),
+      _sb.from('kids_tracker').select('*').eq('id','current').single(),
+      sbGet('time_blocks').then(r=>r.filter(b=>b.owner_id===_sbUserId)),
+      _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId)
+    ]);
 
-    // Load kids game — compare timestamps, take newer version
-    const lk=localStorage.getItem("hub-kids");
-    const localKids=lk?JSON.parse(lk):null;
-    const cloudKids=data.kidsGame&&data.kidsGame.players?data.kidsGame:null;
-    if(cloudKids && localKids){
-      // Both exist — take whichever has the more recent lastSaved timestamp
-      const cloudTs = cloudKids.lastSaved || 0;
-      const localTs = localKids.lastSaved || 0;
-      if(localTs > cloudTs){
-        // Local is newer — use it and push to cloud
-        kidsGame = localKids;
-        try{ _needsBootSync = true; }catch(e2){}  // deferred — fires after boot
-      } else {
-        // Cloud is newer or equal — trust it
-        kidsGame = cloudKids;
-        localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
-      }
-    } else if(cloudKids){
-      kidsGame = cloudKids;
-      localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
-    } else if(localKids){
-      kidsGame = localKids;
-      try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
-    }
+    // ── Projects ──────────────────────────────────────────────
+    projects = projectRows.map(p=>({
+      id:p.id, name:p.name, domain:p.domain,
+      color:p.color, collapsed:p.collapsed
+    }));
+    localStorage.setItem('hub-projects', JSON.stringify(projects));
 
-    // Load Jason rewards — compare timestamps, take newer version
-    const ljr = localStorage.getItem('hub-jason-rewards');
-    const localJR = ljr ? (() => { try{ return JSON.parse(ljr); }catch(e){ return null; } })() : null;
-    const cloudJR = data.jasonRewards && typeof data.jasonRewards.completions !== 'undefined' ? data.jasonRewards : null;
-    if(cloudJR && localJR){
-      const cloudTs = cloudJR.lastSaved || 0;
-      const localTs = localJR.lastSaved  || 0;
-      if(localTs > cloudTs){
-        // Local is newer — keep it, push to cloud
-        localStorage.setItem('hub-jason-rewards', JSON.stringify(localJR));
-        _needsBootSync = true;
-      } else {
-        // Cloud is newer or equal — trust it
-        localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
-      }
-    } else if(cloudJR){
-      // Only cloud has data — load it
-      localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudJR));
-    } else if(localJR){
-      // Only local has data — push it up
-      try{ await apiCall('saveAll', _buildSavePayload()); }catch(e2){}
-    }
+    // ── Tasks ─────────────────────────────────────────────────
+    tasks = taskRows.map(t=>({
+      id:t.id, projectId:t.project_id, title:t.title,
+      priority:t.priority, status:t.status, dueDate:t.due_date,
+      notes:t.notes, source:t.source, recur:t.recur,
+      effort:t.effort, estimate:t.estimate, energy:t.energy,
+      personIds:t.person_ids, discoveryId:t.discovery_id,
+      taskIds:t.task_ids||[], subtasks:t.subtasks||[],
+      attachments:t.attachments||[],
+      createdAt:t.created_at, completedAt:t.completed_at
+    }));
+    localStorage.setItem('hub-tasks', JSON.stringify(tasks));
 
-    if(sheetProjects.length===0&&sheetTasks.length===0){
-      const lp=localStorage.getItem("hub-projects");
-      const lt=localStorage.getItem("hub-tasks");
-      const localProjects=lp?JSON.parse(lp):[];
-      const localTasks=lt?JSON.parse(lt):[];
-      if(localProjects.length>0||localTasks.length>0){
-        projects=localProjects;tasks=localTasks;
-        showToast("Cloud empty — uploading local data…");
-        await apiCall("saveAll", _buildSavePayload());
-        showToast("✓ "+projects.length+" Projects + "+tasks.length+" TaskS SENT");
-      }else{
-        projects=SEED_PROJECTS;tasks=SEED_TASKS;
-        showToast("First visit — uploading data…");
-        await apiCall("saveAll", _buildSavePayload());
-        showToast("✓ All tasks uploaded ✓");
-      }
-    }else{
-      projects=sheetProjects;
-      // Merge sheet tasks with local cache — preserve personIds from local
-      // if the sheet row has an empty value (column added after row was created)
-      const lt2 = localStorage.getItem('hub-tasks');
-      const localTaskMap = {};
-      if(lt2){ try{ JSON.parse(lt2).forEach(t=>{ if(t.id) localTaskMap[t.id]=t; }); }catch(e){} }
-      tasks = sheetTasks.map(t => {
-        const local = localTaskMap[t.id];
-        if(!local) return t;
-        // Sheet is source of truth for most fields
-        // Exception: prefer local 'done' status — local completion is always intentional
-        // and protects against cross-device race conditions where sheet has stale todo
-        const useLocalStatus = local.status === 'done' && t.status !== 'done';
-        return {
-          ...t,
-          personIds:   t.personIds || local.personIds || '',
-          subtasks:    (t.subtasks&&t.subtasks.length>0) ? t.subtasks : (local.subtasks||[]),
-          discoveryId: t.discoveryId || local.discoveryId || '',
-          status:      useLocalStatus ? 'done' : t.status,
-          completedAt: useLocalStatus ? local.completedAt : t.completedAt,
-        };
+    // ── Family tasks + comments ───────────────────────────────
+    // Build comment map by task_id
+    const commentMap = {};
+    familyCommentRows.forEach(c=>{
+      if(!commentMap[c.task_id]) commentMap[c.task_id]=[];
+      commentMap[c.task_id].push({
+        id:c.id, author:c.author, text:c.text, type:c.type, ts:c.ts
       });
-    }
-  }catch(e){
-    const lp=localStorage.getItem("hub-projects");
-    const lt=localStorage.getItem("hub-tasks");
-    if(lp) try{projects=JSON.parse(lp);}catch(e2){}
-    if(lt) try{tasks=JSON.parse(lt);}catch(e2){}
-    const lk=localStorage.getItem("hub-kids");
-    if(lk) try{kidsGame=JSON.parse(lk);}catch(e2){}
-    // jasonRewards loads from localStorage automatically via getJasonRewards()
-    showToast("Offline — Using local data");
-  }
-  if(projects.length>0||tasks.length>=0) localStorage.setItem("hub-projects",JSON.stringify(projects));
-  if(tasks.length>=0) localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-
-  // totalXP — take the higher of cloud vs local (never go backwards across devices)
-  const storedXP = localStorage.getItem("hub-totalXP");
-  const localXP  = storedXP !== null ? (parseInt(storedXP)||0) : null;
-  const cloudXP  = (typeof data !== "undefined" && data.jasonStats) ? (data.jasonStats.totalXP||0) : 0;
-  if(localXP === null){
-    // No local value — calculate from tasks
-    totalXP = tasks.filter(t=>t.status==="done").reduce((sum,t)=>sum+xpForTask(t),0);
-  } else {
-    totalXP = Math.max(localXP, cloudXP);
-  }
-  localStorage.setItem("hub-totalXP", String(totalXP));
-
-  // longestStreak — take the higher of cloud vs local
-  const localLongest = parseInt(localStorage.getItem("hub-longest-streak")||"0");
-  const cloudLongest = (typeof data !== "undefined" && data.jasonStats) ? (data.jasonStats.longestStreak||0) : 0;
-  const bestLongest  = Math.max(localLongest, cloudLongest);
-  if(bestLongest > localLongest) localStorage.setItem("hub-longest-streak", String(bestLongest));
-
-  // Load today's pinned task IDs from cloud — always apply, even empty
-  // Empty array means user unpinned everything — must sync that state across devices
-  try {
-    const cloudPins = data.todayPinned;
-    if(Array.isArray(cloudPins)){
-      todayPinned = new Set(cloudPins);
-    }
-  } catch(e){}
-
-  // Load hub data from cloud — cloud always wins on load
-  if(!data){ return; } // API call failed — keep whatever is in localStorage
-  // Save side uses _cloudLoaded to prevent empty saves (see getCloudStats)
-  // ── Hub collections: merge local + cloud, never overwrite local with empty ──
-  // Pattern mirrors task merge: local is source of truth for items not yet on cloud,
-  // cloud is source of truth for items added on other devices.
-  function _mergeCollection(cloudArr, localArr){
-    if(!cloudArr || !cloudArr.length) return localArr && localArr.length ? localArr : [];
-    if(!localArr || !localArr.length) return cloudArr;
-    const cloudIds = new Set(cloudArr.map(x=>x.id));
-    // Merge: cloud is source of truth for structure, but local wins on fields
-    // that may have been edited offline (done, attachments, assignedTo, dueDate etc.)
-    // Strategy: start with cloud record, overlay any local fields that differ
-    // so offline edits survive a reload while cloud additions also appear.
-    const merged = cloudArr.map(c=>{
-      const l = localArr.find(x=>x.id===c.id);
-      if(!l) return c;
-      // Prefer local values for mutable fields — cloud wins on id/title/createdAt
-      return {
-        ...c,
-        // Local-wins fields: anything the user can change after creation
-        done:        l.done        !== undefined ? l.done        : c.done,
-        completedAt: l.completedAt !== undefined ? l.completedAt : c.completedAt,
-        dueDate:     l.dueDate     !== undefined ? l.dueDate     : c.dueDate,
-        assignedTo:  l.assignedTo  !== undefined ? l.assignedTo  : c.assignedTo,
-        attachments: l.attachments && l.attachments.length > (c.attachments||[]).length
-                       ? l.attachments : (c.attachments||[]),
-        // Merge subtasks array (local additions survive)
-        subtasks:    (() => {
-          const cSubs = c.subtasks || [];
-          const lSubs = l.subtasks || [];
-          if(!lSubs.length) return cSubs;
-          if(!cSubs.length) return lSubs;
-          // Union by id
-          const subIds = new Set(cSubs.map(s=>s.id));
-          const extra  = lSubs.filter(s=>!subIds.has(s.id));
-          return [...cSubs, ...extra];
-        })(),
-      };
     });
-    // Add local-only items (added offline, not yet synced to cloud)
-    localArr.forEach(l=>{ if(!cloudIds.has(l.id)) merged.unshift(l); });
-    return merged;
-  }
+    // Sort each task's comments by timestamp
+    Object.values(commentMap).forEach(arr=>arr.sort((a,b)=>a.ts-b.ts));
 
-  try {
-    const _lWF = JSON.parse(localStorage.getItem('hub-waiting')||'[]');
-    waitingFor = _mergeCollection(data.waitingFor, _lWF);
-    localStorage.setItem('hub-waiting', JSON.stringify(waitingFor));
-    if(_lWF.length > (data.waitingFor||[]).length)
-      _needsBootSync = true; // deferred
-  } catch(e){ console.error('load waitingFor',e); }
-
-  try {
-    const _lPeople = JSON.parse(localStorage.getItem('hub-people')||'[]');
-    peopleList = _mergeCollection(data.peopleList, _lPeople);
-    localStorage.setItem('hub-people', JSON.stringify(peopleList));
-    if(_lPeople.length > (data.peopleList||[]).length)
-      _needsBootSync = true; // deferred
-  } catch(e){ console.error('load peopleList',e); }
-
-  try {
-    const _lContacts = JSON.parse(localStorage.getItem('hub-contacts')||'[]');
-    contactsList = _mergeCollection(data.contactsList, _lContacts);
-    localStorage.setItem('hub-contacts', JSON.stringify(contactsList));
-  } catch(e){ console.error('load contactsList',e); }
-
-  try {
-    const _lMeetings = JSON.parse(localStorage.getItem('hub-meetings')||'[]');
-    meetingLog = _mergeCollection(data.meetingLog, _lMeetings);
-    localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
-    if(_lMeetings.length > (data.meetingLog||[]).length)
-      _needsBootSync = true; // deferred
-  } catch(e){ console.error('load meetingLog',e); }
-
-  try {
-    const _lSeries = JSON.parse(localStorage.getItem('hub-meeting-series')||'[]');
-    meetingSeries = _mergeCollection(data.meetingSeries, _lSeries);
-    localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
-  } catch(e){ console.error('load meetingSeries',e); }
-
-  try { if(data.resetStreak){ resetStreak=data.resetStreak; localStorage.setItem('hub-reset-streak',JSON.stringify(resetStreak)); }} catch(e){}
-  try { if(data.weeklyIntentions){ weeklyIntentions=data.weeklyIntentions; localStorage.setItem('hub-intentions',JSON.stringify(weeklyIntentions)); }} catch(e){}
-  try {
-    const _lSomeday = JSON.parse(localStorage.getItem('hub-someday')||'[]');
-    somedayList = _mergeCollection(data.somedayList, _lSomeday);
-    localStorage.setItem('hub-someday', JSON.stringify(somedayList));
-  } catch(e){}
-
-  // ── Home/family collections ───────────────────────────────
-  try {
-    const _lFT = JSON.parse(localStorage.getItem('hub-family-tasks')||'[]');
-    familyTasks = _mergeCollection(data.familyTasks, _lFT);
+    familyTasks = familyTaskRows.map(t=>({
+      id:t.id, title:t.title, done:t.done,
+      assignedTo:t.assigned_to, createdBy:t.created_by,
+      dueDate:t.due_date, attachments:t.attachments||[],
+      createdAt:t.created_at, completedAt:t.completed_at,
+      comments: commentMap[t.id] || []
+    }));
     localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
-  } catch(e){}
-  try {
-    const _lJH = JSON.parse(localStorage.getItem('hub-jason-home')||'[]');
-    jasonHomeTasks = _mergeCollection(data.jasonHomeTasks, _lJH);
+
+    // ── Jason / Jenny home tasks ──────────────────────────────
+    jasonHomeTasks = jasonHomeRows.map(t=>({
+      id:t.id, title:t.title, done:t.done,
+      dueDate:t.due_date, createdBy:t.created_by, createdAt:t.created_at,
+      completedAt:t.completed_at
+    }));
     localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
-  } catch(e){}
-  try {
-    const _lWH = JSON.parse(localStorage.getItem('hub-wife-home')||'[]');
-    wifeHomeTasks = _mergeCollection(data.wifeHomeTasks, _lWH);
+
+    wifeHomeTasks = jennyHomeRows.map(t=>({
+      id:t.id, title:t.title, done:t.done,
+      dueDate:t.due_date, createdBy:t.created_by, createdAt:t.created_at,
+      completedAt:t.completed_at
+    }));
     localStorage.setItem('hub-wife-home', JSON.stringify(wifeHomeTasks));
-  } catch(e){}
-  try {
-    const _lGR = JSON.parse(localStorage.getItem('hub-grocery')||'[]');
-    groceryList = _mergeCollection(data.groceryList, _lGR);
+
+    // ── Grocery ───────────────────────────────────────────────
+    groceryList = groceryRows.map(g=>({
+      id:g.id, name:g.name, checked:g.checked, addedBy:g.added_by
+    }));
     localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
-  } catch(e){}
-  try {
-    if(data.weeklyPlan !== undefined && data.weeklyPlan !== null){
-      weeklyPlan = data.weeklyPlan;
+
+    // ── Meetings ──────────────────────────────────────────────
+    meetingLog = meetingRows.map(m=>({
+      id:m.id, title:m.title, date:m.date, startTime:m.start_time,
+      duration:m.duration, personIds:m.person_ids, attendees:m.attendees,
+      decisions:m.decisions, notes:m.notes, myCommits:m.my_commits,
+      theirCommits:m.their_commits, seriesId:m.series_id,
+      taskIds:m.task_ids||[], attachments:m.attachments||[],
+      createdAt:m.created_at
+    }));
+    localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
+
+    // ── Meeting series ────────────────────────────────────────
+    meetingSeries = seriesRows.map(s=>({
+      id:s.id, name:s.name, cadence:s.cadence,
+      personIds:s.person_ids, collapsed:s.collapsed
+    }));
+    localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
+
+    // ── Waiting for ───────────────────────────────────────────
+    waitingFor = waitingRows.map(w=>({
+      id:w.id, person:w.person, what:w.what, dueDate:w.due_date,
+      taskId:w.task_id, done:w.done, attachments:w.attachments||[],
+      createdAt:w.created_at
+    }));
+    localStorage.setItem('hub-waiting', JSON.stringify(waitingFor));
+
+    // ── People ────────────────────────────────────────────────
+    peopleList = peopleRows.map(p=>({
+      id:p.id, name:p.name, role:p.role, priority:p.priority, photo:p.photo
+    }));
+    localStorage.setItem('hub-people', JSON.stringify(peopleList));
+
+    // ── Contacts ──────────────────────────────────────────────
+    contactsList = contactRows.map(c=>({
+      id:c.id, name:c.name, role:c.role, lastContact:c.last_contact,
+      nudgeDays:c.nudge_days, photo:c.photo, contactHistory:c.contact_history||[]
+    }));
+    localStorage.setItem('hub-contacts', JSON.stringify(contactsList));
+
+    // ── Habits ────────────────────────────────────────────────
+    habitList = habitRows.map(h=>({id:h.id, name:h.name, icon:h.icon}));
+    localStorage.setItem('hub-habits', JSON.stringify(habitList));
+
+    habitLog = habitLogRow.data?.log || {};
+    localStorage.setItem('hub-habit-log', JSON.stringify(habitLog));
+
+    // ── Discovery + signals ───────────────────────────────────
+    discoveryList = discoveryRows.map(d=>({
+      ...d.data, id:d.id, title:d.title,
+      status:d.status, prd:d.prd, attachments:d.attachments||[]
+    }));
+    localStorage.setItem('hub-discovery', JSON.stringify(discoveryList));
+
+    signalList = signalRows.map(s=>({
+      id:s.id, initiativeId:s.initiative_id, type:s.type,
+      sentiment:s.sentiment, source:s.source, notes:s.notes, date:s.date
+    }));
+    localStorage.setItem('hub-signals', JSON.stringify(signalList));
+
+    // ── Someday ───────────────────────────────────────────────
+    somedayList = somedayRows.map(s=>({id:s.id, title:s.title, createdAt:s.created_at}));
+    localStorage.setItem('hub-someday', JSON.stringify(somedayList));
+
+    // ── Weekly plan ───────────────────────────────────────────
+    if(weeklyPlanRow.data){
+      weeklyPlan = {
+        weekOf:     weeklyPlanRow.data.week_of,
+        lockedIn:   weeklyPlanRow.data.locked_in,
+        lockedAt:   weeklyPlanRow.data.locked_at,
+        items:      weeklyPlanRow.data.items||[],
+        carryOvers: weeklyPlanRow.data.carry_overs||[]
+      };
       localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
     }
-  } catch(e){}
-  try {
-    if(data.kidsTracker !== undefined && data.kidsTracker !== null){
-      kidsTracker = data.kidsTracker;
+
+    // ── Kids tracker ──────────────────────────────────────────
+    if(kidsTrackerRow.data){
+      kidsTracker = {
+        lunches:  kidsTrackerRow.data.lunches||{},
+        schedule: kidsTrackerRow.data.schedule||{}
+      };
       localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
     }
-  } catch(e){}
-  try { if(data.habitList    !== undefined){ habitList    = data.habitList;    localStorage.setItem('hub-habits',           JSON.stringify(habitList));    }} catch(e){ console.error('load habitList',e); }
-  try { if(data.habitLog     !== undefined){ habitLog     = data.habitLog;     localStorage.setItem('hub-habit-log',        JSON.stringify(habitLog));     }} catch(e){ console.error('load habitLog',e); }
-  try { if(data.discoveryList !== undefined){ discoveryList = data.discoveryList; localStorage.setItem('hub-discovery', JSON.stringify(discoveryList)); if(discoveryList.length>0) _cloudLoaded.add('discoveryList'); }} catch(e){ console.error('load discoveryList',e); }
-  try { if(data.signalList    !== undefined){ signalList    = data.signalList;    localStorage.setItem('hub-signals',   JSON.stringify(signalList));    if(signalList.length>0)    _cloudLoaded.add('signalList');    }} catch(e){ console.error('load signalList',e); }
-  // Raven email settings — sync across devices
-  try { if(data.ravenSettings){
-    const rs = data.ravenSettings;
-    if(rs.email)   localStorage.setItem('hub-raven-email',   rs.email);
-    if(rs.hour)    localStorage.setItem('hub-raven-hour',    rs.hour);
-    if(rs.kingdom) localStorage.setItem('hub-raven-kingdom', rs.kingdom);
-    if(rs.home)    localStorage.setItem('hub-raven-home',    rs.home);
-  }} catch(e){}
-  // Daily log — merge: keep most entries (local may have today's not yet pushed)
-  try { if(data.dailyLog && data.dailyLog.length > 0){
-    const localLog = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
-    const merged = [...localLog];
-    data.dailyLog.forEach(e=>{ if(!merged.find(l=>l.ts===e.ts)) merged.push(e); });
-    merged.sort((a,b)=>(b.ts||0)-(a.ts||0));
-    localStorage.setItem('hub-daily-log', JSON.stringify(merged.slice(0,90)));
-  }} catch(e){}
-  // Weekly journal — merge
-  try { if(data.weeklyJournal && data.weeklyJournal.length > 0){
-    const localJ = JSON.parse(localStorage.getItem('hub-journal')||'[]');
-    const merged = [...localJ];
-    data.weeklyJournal.forEach(e=>{ if(!merged.find(l=>l.date===e.date)) merged.push(e); });
-    merged.sort((a,b)=>b.date.localeCompare(a.date));
-    localStorage.setItem('hub-journal', JSON.stringify(merged.slice(0,8)));
-  }} catch(e){}
-  // Tomorrow hint
-  try { if(data.tomorrowHint) localStorage.setItem('hub-tomorrow-hint', data.tomorrowHint); } catch(e){}
-  try { if(data.tbBlocks) { tbBlocks = data.tbBlocks; localStorage.setItem('hub-tb-blocks', JSON.stringify(tbBlocks)); } } catch(e){}
 
-  kidsCloudLoaded=true;
+    // ── Time blocks ───────────────────────────────────────────
+    tbBlocks = {};
+    tbBlockRows.forEach(r=>{ tbBlocks[r.date] = r.blocks||[]; });
+    localStorage.setItem('hub-tb-blocks', JSON.stringify(tbBlocks));
+
+    // ── User settings ─────────────────────────────────────────
+    const settingsMap = {};
+    (settingRows||[]).forEach(s=>{ settingsMap[s.key]=s.value; });
+
+    const _parseS = (key, fb) => {
+      try{ return settingsMap[key] ? JSON.parse(settingsMap[key]) : fb; }catch(e){ return fb; }
+    };
+
+    const cloudXP = _parseS('totalXP', 0);
+    const localXP = parseInt(localStorage.getItem('hub-totalXP')||'0');
+    totalXP = Math.max(cloudXP, localXP);
+    localStorage.setItem('hub-totalXP', String(totalXP));
+
+    weeklyIntentions = _parseS('weeklyIntentions', {week:'',wins:['','','']});
+    localStorage.setItem('hub-intentions', JSON.stringify(weeklyIntentions));
+
+    resetStreak = _parseS('resetStreak', {count:0,lastWeek:'',longest:0});
+    localStorage.setItem('hub-reset-streak', JSON.stringify(resetStreak));
+
+    const cloudPins = _parseS('todayPinned', []);
+    todayPinned = new Set(cloudPins);
+
+    const cloudTb = _parseS('tbBlocks', null);
+    if(cloudTb && Object.keys(cloudTb).length > Object.keys(tbBlocks).length){
+      tbBlocks = cloudTb;
+    }
+
+    // Raven settings
+    const ravenS = _parseS('ravenSettings', {});
+    if(ravenS.email)   localStorage.setItem('hub-raven-email',   ravenS.email);
+    if(ravenS.hour)    localStorage.setItem('hub-raven-hour',    ravenS.hour);
+
+    setSyncStatus('ok','Loaded ✓');
+    kidsCloudLoaded = true;
+
+  } catch(e){
+    console.error('loadAll Supabase error:', e);
+    // Fall back to localStorage
+    const lp = localStorage.getItem('hub-projects');
+    const lt = localStorage.getItem('hub-tasks');
+    if(lp) try{ projects = JSON.parse(lp); }catch(e2){}
+    if(lt) try{ tasks    = JSON.parse(lt); }catch(e2){}
+    showToast('Using cached data — check connection');
+    setSyncStatus('error','Using cached data');
+  }
+
+  // Kids game — load from Supabase settings, fall back to localStorage
+  try{
+    const kgRaw = await sbGetSetting('kidsGame', null);
+    if(kgRaw && kgRaw.players){
+      kidsGame = kgRaw;
+      localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+    } else {
+      const lk = localStorage.getItem('hub-kids');
+      if(lk) kidsGame = JSON.parse(lk);
+    }
+  }catch(e){
+    const lk = localStorage.getItem('hub-kids');
+    if(lk) try{ kidsGame = JSON.parse(lk); }catch(e2){}
+  }
 }
+
 
 function getCloudStats(){
   return {
@@ -3116,68 +3163,295 @@ function getCloudStats(){
     wifeHomeTasks:    wifeHomeTasks,
     groceryList:      groceryList,
     weeklyPlan:       weeklyPlan,
-    kidsTracker:      kidsTracker
+    kidsTracker:      kidsTracker,
+    // Comments stored as a separate map so they don't inflate the familyTasks cell
+    familyComments:   (()=>{
+      const map = {};
+      familyTasks.forEach(t=>{
+        if(t.comments && t.comments.length) map[t.id] = t.comments;
+      });
+      return map;
+    })()
   };
 }
 
-// ── Unified sync debounce ─────────────────────────────────────
-// Single timeout for ALL collections — prevents two debounces racing
-// each other and last-writer-wins overwriting data.
-// 400ms is short enough to feel fast, long enough to batch rapid taps.
-let _syncTimeout = null;
-let _syncPending = false; // true while a save is in flight
+// ── Supabase sync system ──────────────────────────────────────
+// Each save function writes directly to its own Supabase table.
+// No more "saveAll" — targeted writes only.
+// Debounce prevents rapid-fire writes from the same user action.
+
+let _syncTimeout  = null;
+let _syncPending  = false;
+let _pendingSaves = {}; // {collectionKey: true} — what needs flushing
+
+function _queueSave(key, fn){
+  // Write to localStorage immediately for offline resilience
+  // Queue the Supabase write for 400ms debounce
+  _pendingSaves[key] = fn;
+  clearTimeout(_syncTimeout);
+  _syncTimeout = setTimeout(_flushSync, 400);
+}
 
 async function _flushSync(){
+  if(!_sbSession){ return; } // not signed in yet
+  if(_syncPending){ return; } // already flushing
   _syncPending = true;
+  setSyncStatus('syncing','Syncing…');
+  const fns = Object.values(_pendingSaves);
+  _pendingSaves = {};
   try{
-    await apiCall("saveAll", _buildSavePayload());
-  } catch(e){
-    console.error("saveAll failed:", e);
-    setSyncStatus("error","Sync failed");
-  } finally {
+    await Promise.all(fns.map(fn => fn()));
+    const d=new Date(), h=d.getHours(), m=String(d.getMinutes()).padStart(2,'0');
+    setSyncStatus('ok','SYNCED · '+(h%12||12)+':'+m+(h>=12?'pm':'am'));
+  }catch(e){
+    console.error('Supabase flush error:', e);
+    setSyncStatus('error','Sync failed');
+  }finally{
     _syncPending = false;
   }
 }
 
+// ── Individual Supabase save functions ────────────────────────
+
+async function _sbSaveTasks(){
+  if(!_sbUserId) return;
+  const rows = tasks.map(t=>({
+    id:t.id, owner_id:_sbUserId,
+    project_id:t.projectId||'', title:t.title||'',
+    priority:t.priority||'medium', status:t.status||'todo',
+    due_date:t.dueDate||'', notes:t.notes||'',
+    source:t.source||'', recur:t.recur||'none',
+    effort:t.effort||'', estimate:t.estimate||'',
+    energy:t.energy||'', person_ids:t.personIds||'',
+    discovery_id:t.discoveryId||'',
+    task_ids:t.taskIds||[], subtasks:t.subtasks||[],
+    attachments:t.attachments||[],
+    created_at:String(t.createdAt||''), completed_at:t.completedAt||''
+  }));
+  await sbUpsert('tasks', rows);
+}
+
+async function _sbSaveProjects(){
+  if(!_sbUserId) return;
+  const rows = projects.map(p=>({
+    id:p.id, owner_id:_sbUserId,
+    name:p.name||'', domain:p.domain||'',
+    color:p.color||'#E8A838', collapsed:!!p.collapsed
+  }));
+  await sbUpsert('projects', rows);
+}
+
+async function _sbSaveFamilyTasks(){
+  const rows = familyTasks.map(t=>({
+    id:t.id, title:t.title||'', done:!!t.done,
+    assigned_to:Array.isArray(t.assignedTo)?t.assignedTo:[t.assignedTo||'anyone'],
+    created_by:t.createdBy||'', due_date:t.dueDate||'',
+    attachments:t.attachments||[], created_at:String(t.createdAt||''),
+    completed_at:t.completedAt||null
+  }));
+  if(rows.length) await sbUpsert('family_tasks', rows);
+}
+
+async function _sbSaveJasonHome(){
+  if(!_sbUserId) return;
+  const rows = jasonHomeTasks.map(t=>({
+    id:t.id, owner_id:_sbUserId, title:t.title||'', done:!!t.done,
+    due_date:t.dueDate||'', created_by:t.createdBy||'',
+    created_at:String(t.createdAt||''), completed_at:t.completedAt||null
+  }));
+  if(rows.length) await sbUpsert('jason_home_tasks', rows);
+}
+
+async function _sbSaveJennyHome(){
+  const rows = wifeHomeTasks.map(t=>({
+    id:t.id, owner_id:JENNY_UID, title:t.title||'', done:!!t.done,
+    due_date:t.dueDate||'', created_by:t.createdBy||'',
+    created_at:String(t.createdAt||''), completed_at:t.completedAt||null
+  }));
+  if(rows.length) await sbUpsert('jenny_home_tasks', rows);
+}
+
+async function _sbSaveGrocery(){
+  const rows = groceryList.map(g=>({
+    id:g.id, name:g.name||'', checked:!!g.checked, added_by:g.addedBy||''
+  }));
+  if(rows.length) await sbUpsert('grocery_items', rows);
+}
+
+async function _sbSaveMeetings(){
+  if(!_sbUserId) return;
+  const rows = meetingLog.map(m=>({
+    id:m.id, owner_id:_sbUserId, title:m.title||'', date:m.date||'',
+    start_time:m.startTime||'', duration:m.duration||'',
+    person_ids:m.personIds||'', attendees:m.attendees||'',
+    decisions:m.decisions||'', notes:m.notes||'',
+    my_commits:m.myCommits||'', their_commits:m.theirCommits||'',
+    series_id:m.seriesId||'', task_ids:m.taskIds||[],
+    attachments:m.attachments||[], created_at:String(m.createdAt||'')
+  }));
+  if(rows.length) await sbUpsert('meetings', rows);
+}
+
+async function _sbSaveWaiting(){
+  if(!_sbUserId) return;
+  const rows = waitingFor.map(w=>({
+    id:w.id, owner_id:_sbUserId, person:w.person||'', what:w.what||'',
+    due_date:w.dueDate||'', task_id:w.taskId||'', done:!!w.done,
+    attachments:w.attachments||[], created_at:String(w.createdAt||'')
+  }));
+  if(rows.length) await sbUpsert('waiting_for', rows);
+}
+
+async function _sbSavePeople(){
+  if(!_sbUserId) return;
+  const rows = peopleList.map(p=>({
+    id:p.id, owner_id:_sbUserId, name:p.name||'',
+    role:p.role||'', priority:p.priority||'Medium', photo:p.photo||''
+  }));
+  if(rows.length) await sbUpsert('people', rows);
+}
+
+async function _sbSaveContacts(){
+  if(!_sbUserId) return;
+  const rows = contactsList.map(c=>({
+    id:c.id, owner_id:_sbUserId, name:c.name||'', role:c.role||'',
+    last_contact:c.lastContact||'', nudge_days:parseInt(c.nudgeDays)||14,
+    photo:c.photo||'', contact_history:c.contactHistory||[]
+  }));
+  if(rows.length) await sbUpsert('contacts', rows);
+}
+
+async function _sbSaveHabits(){
+  if(!_sbUserId) return;
+  const rows = habitList.map(h=>({
+    id:h.id, owner_id:_sbUserId, name:h.name||'', icon:h.icon||''
+  }));
+  if(rows.length) await sbUpsert('habits', rows);
+  // Habit log — single row per user
+  await _sb.from('habit_log').upsert(
+    {owner_id:_sbUserId, log:habitLog}, {onConflict:'owner_id'}
+  );
+}
+
+async function _sbSaveDiscovery(){
+  if(!_sbUserId) return;
+  const rows = discoveryList.map(d=>({
+    id:d.id, owner_id:_sbUserId, title:d.title||'',
+    status:d.status||'exploring', prd:d.prd||'',
+    data:d, attachments:d.attachments||[]
+  }));
+  if(rows.length) await sbUpsert('discovery', rows);
+}
+
+async function _sbSaveSignals(){
+  if(!_sbUserId) return;
+  const rows = signalList.map(s=>({
+    id:s.id, owner_id:_sbUserId, initiative_id:s.initiativeId||'',
+    type:s.type||'', sentiment:s.sentiment||'', source:s.source||'',
+    notes:s.notes||'', date:s.date||''
+  }));
+  if(rows.length) await sbUpsert('signals', rows);
+}
+
+async function _sbSaveSomeday(){
+  if(!_sbUserId) return;
+  const rows = somedayList.map(s=>({
+    id:s.id, owner_id:_sbUserId, title:s.title||'',
+    created_at:String(s.createdAt||'')
+  }));
+  if(rows.length) await sbUpsert('someday', rows);
+}
+
+async function _sbSaveWeeklyPlan(){
+  if(!weeklyPlan) return;
+  await _sb.from('weekly_plan').upsert({
+    id:'current', week_of:weeklyPlan.weekOf||'',
+    locked_in:!!weeklyPlan.lockedIn, locked_at:weeklyPlan.lockedAt||null,
+    items:weeklyPlan.items||[], carry_overs:weeklyPlan.carryOvers||[]
+  },{onConflict:'id'});
+}
+
+async function _sbSaveKidsTracker(){
+  if(!kidsTracker) return;
+  await _sb.from('kids_tracker').upsert({
+    id:'current', lunches:kidsTracker.lunches||{}, schedule:kidsTracker.schedule||{}
+  },{onConflict:'id'});
+}
+
+async function _sbSaveTbBlocks(){
+  if(!_sbUserId || !tbBlocks) return;
+  const rows = Object.entries(tbBlocks).map(([date,blocks])=>({
+    owner_id:_sbUserId, date, blocks
+  }));
+  if(rows.length) await sbUpsert('time_blocks', rows, 'owner_id,date');
+}
+
+async function _sbSaveSettings(){
+  if(!_sbUserId) return;
+  const settings = [
+    {owner_id:_sbUserId, key:'totalXP',         value:JSON.stringify(totalXP)},
+    {owner_id:_sbUserId, key:'weeklyIntentions', value:JSON.stringify(weeklyIntentions)},
+    {owner_id:_sbUserId, key:'resetStreak',      value:JSON.stringify(resetStreak)},
+    {owner_id:_sbUserId, key:'todayPinned',      value:JSON.stringify([...todayPinned])},
+    {owner_id:_sbUserId, key:'tbBlocks',         value:JSON.stringify(tbBlocks)},
+  ];
+  await _sb.from('user_settings').upsert(settings, {onConflict:'owner_id,key'});
+}
+
+async function _sbSaveFamilyComments(taskId){
+  const t = familyTasks.find(x=>x.id===taskId);
+  if(!t || !t.comments) return;
+  const rows = t.comments.map(c=>({
+    id:c.id, task_id:taskId, author:c.author||'',
+    text:c.text||'', type:c.type||'comment', ts:c.ts||Date.now()
+  }));
+  if(rows.length) await sbUpsert('family_task_comments', rows);
+}
+
+async function _sbSaveMeetingSeries(){
+  if(!_sbUserId) return;
+  const rows = meetingSeries.map(s=>({
+    id:s.id, owner_id:_sbUserId, name:s.name||'',
+    cadence:s.cadence||'', person_ids:s.personIds||'', collapsed:!!s.collapsed
+  }));
+  if(rows.length) await sbUpsert('meeting_series', rows);
+}
+
+// ── Replaced save functions — now queue targeted Supabase writes ──
 function saveAllDebounced(){
-  // Always persist to localStorage immediately — never lose data on tab close
-  localStorage.setItem("hub-projects", JSON.stringify(projects));
-  localStorage.setItem("hub-tasks",    JSON.stringify(tasks));
-  localStorage.setItem("hub-totalXP",  String(totalXP));
-  // Debounce the cloud push
-  clearTimeout(_syncTimeout);
-  _syncTimeout = setTimeout(_flushSync, 400);
+  localStorage.setItem('hub-projects', JSON.stringify(projects));
+  localStorage.setItem('hub-tasks',    JSON.stringify(tasks));
+  localStorage.setItem('hub-totalXP',  String(totalXP));
+  _queueSave('tasks',    _sbSaveTasks);
+  _queueSave('projects', _sbSaveProjects);
+  _queueSave('settings', _sbSaveSettings);
 }
 
-// All home saves use the same unified debounce
 function saveHomeDebounced(){
-  clearTimeout(_syncTimeout);
-  _syncTimeout = setTimeout(_flushSync, 400);
+  _queueSave('familyTasks',  _sbSaveFamilyTasks);
+  _queueSave('jasonHome',    _sbSaveJasonHome);
+  _queueSave('jennyHome',    _sbSaveJennyHome);
+  _queueSave('grocery',      _sbSaveGrocery);
+  _queueSave('weeklyPlan',   _sbSaveWeeklyPlan);
+  _queueSave('kidsTracker',  _sbSaveKidsTracker);
 }
 
-// Flush on tab close / navigation — prevents losing the last 400ms of changes
+// No-op beforeunload — Supabase writes are instant, no debounce to flush
 window.addEventListener('beforeunload', ()=>{
-  if(_syncTimeout){
-    clearTimeout(_syncTimeout);
-    // Use sendBeacon for best-effort background send on page close
-    const payload = JSON.stringify({action:'saveAll', ..._buildSavePayload()});
-    navigator.sendBeacon && navigator.sendBeacon(
-      API_URL + '?action=saveAll',
-      new Blob([payload], {type:'application/json'})
-    );
-  }
+  clearTimeout(_syncTimeout);
+  // Fire any pending saves synchronously — best effort
+  Object.values(_pendingSaves).forEach(fn=>{ try{ fn(); }catch(e){} });
 });
 
 // ── Central payload builder — single source of truth for what gets saved ──
 // getCloudStats() already includes waitingFor, peopleList, meetingLog etc.
 // We explicitly add the ones that were historically missing from saveAll.
 function _buildSavePayload(){
+  // discoveryList and signalList are included via getCloudStats() — no need to duplicate
   return {
     projects,
     tasks,
     kidsGame,
-    discoveryList: typeof discoveryList !== 'undefined' ? discoveryList : undefined,
-    signalList:    typeof signalList    !== 'undefined' ? signalList    : undefined,
     ...getCloudStats()
   };
 }
@@ -3185,7 +3459,8 @@ function _buildSavePayload(){
 async function syncNow(){
   showToast("Syncing…");
   try{
-    await apiCall("saveAll", _buildSavePayload());
+    await _flushSync();
+    await backgroundSync();
     showToast("Synced ✓");
   }catch(e){
     showToast("Sync failed — offline?");
@@ -3229,11 +3504,19 @@ async function runDiagnostic(){
 }
 
 async function forcePushToSheets(){
-  if(!confirm("Overwrite cloud with local data?")) return;
-  showToast("UPLOADING ALL DATA…");
+  if(!confirm("Re-push all data to Supabase?")) return;
+  showToast("Uploading all data…");
   try{
-    await apiCall("saveAll", _buildSavePayload());
-    showToast(`✓ ${projects.length} Projects + ${tasks.length} Tasks + Kids data pushed`);
+    await Promise.all([
+      _sbSaveProjects(), _sbSaveTasks(), _sbSaveFamilyTasks(),
+      _sbSaveJasonHome(), _sbSaveJennyHome(), _sbSaveGrocery(),
+      _sbSaveMeetings(), _sbSaveMeetingSeries(), _sbSaveWaiting(),
+      _sbSavePeople(), _sbSaveContacts(), _sbSaveHabits(),
+      _sbSaveDiscovery(), _sbSaveSignals(), _sbSaveSomeday(),
+      _sbSaveWeeklyPlan(), _sbSaveKidsTracker(), _sbSaveTbBlocks(),
+      _sbSaveSettings()
+    ]);
+    showToast(`✓ All data pushed to Supabase`);
   }catch(e){showToast("Push failed — check connection");}
 }
 
@@ -3241,7 +3524,10 @@ async function pushKidsData(){
   const d=kidsData();
   showToast("Pushing kids data…");
   try{
-    await apiCall("saveAll",{..._buildSavePayload(), kidsGame:d});
+    await _sb.from('user_settings').upsert(
+      {owner_id:_sbUserId, key:'kidsGame', value:JSON.stringify(d)},
+      {onConflict:'owner_id,key'}
+    );
     showToast("✓ Kids data synced to cloud!");
   }catch(e){showToast("Failed: "+e.message);}
 }
@@ -3639,6 +3925,15 @@ function homeTaskRow(t, type){
         ${assigneeLabel}${dueLabel}
       </div>
     </div>
+    ${!isPrivate ? `<button onclick="openFamilyCommentSheet('${t.id}')"
+      title="Comments"
+      style="padding:2px 7px;border-radius:4px;border:none;background:transparent;
+        color:${(t.comments||[]).length?'var(--accent)':'var(--text4)'};
+        font-size:12px;cursor:pointer;opacity:0.7;flex-shrink:0;white-space:nowrap;"
+      onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'"
+      >💬${(t.comments||[]).filter(c=>c.type==='comment').length
+          ? `<span style="font:700 10px/1 var(--font-ui);margin-left:2px;">${(t.comments||[]).filter(c=>c.type==='comment').length}</span>`
+          : ''}</button>` : ''}
     <button onclick="moveHomeTask('${t.id}','${arrName}','${saveFn}')"
       title="${isPrivate ? 'Move to Family' : 'Move to Personal'}"
       style="padding:2px 6px;border-radius:4px;border:none;background:transparent;
@@ -3685,7 +3980,14 @@ function toggleHomeTask(id, arrName, saveFnName){
   t.completedAt = t.done ? Date.now() : null;
   if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
   else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
-  else if(saveFnName === 'saveFamilyTasks') saveFamilyTasks();
+  else if(saveFnName === 'saveFamilyTasks'){
+    // Log history event for family tasks
+    const author = _commentAuthor();
+    logFamilyTaskHistory(id, t.done
+      ? author + ' marked this complete'
+      : author + ' reopened this task');
+    saveFamilyTasks();
+  } else saveFamilyTasks();
   renderAll();
 }
 
@@ -3712,8 +4014,10 @@ function moveHomeTask(id, fromArr, fromSave){
   if(isPrivate){
     // Move private → family
     const moved = {...task, assignedTo: [currentUser==='parent' ? 'jason' : 'jenny'],
-                   createdBy: currentUser==='parent' ? 'jason' : 'jenny'};
+                   createdBy: currentUser==='parent' ? 'jason' : 'jenny',
+                   comments: task.comments || []};
     familyTasks.unshift(moved);
+    logFamilyTaskHistory(moved.id, _commentAuthor() + ' moved to Family');
     if(fromArr === 'jasonHomeTasks') jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==id);
     else wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==id);
     saveFamilyTasks();
@@ -4059,7 +4363,7 @@ function openWeeklyPlanning(){
   // Pre-fetch calendar events for the week
   const _wpSun = new Date(weeklyPlan.weekOf+'T12:00:00');
   _wpSun.setDate(_wpSun.getDate()+6);
-  ensureCalLoaded(weeklyPlan.weekOf, _wpSun.toISOString().slice(0,10)).catch(()=>{});
+  ensureCalLoaded(weeklyPlan.weekOf, localDateStr(_wpSun)).catch(()=>{});
 
   const overlay = document.getElementById('weekly-plan-overlay');
   if(!overlay) return;
@@ -5516,13 +5820,30 @@ function saveFamilyTaskModal(){
     const assignedTo = sel && sel.selectedOptions.length
       ? Array.from(sel.selectedOptions).map(o=>o.value)
       : ['anyone'];
+    const _LABEL = {anyone:'Anyone',jason:'Jason',wife:'Jenny',jenny:'Jenny',ridley:'Ridley',connor:'Connor'};
     if(m.editId){
       const t = familyTasks.find(x=>x.id===m.editId);
-      if(t){ t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo; }
+      if(t){
+        const prevAssign = taskAssignees(t).map(k=>_LABEL[k]||k).join(', ');
+        const newAssign  = assignedTo.map(k=>_LABEL[k]||k).join(', ');
+        t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo;
+        // Log history events for changes
+        const author = _commentAuthor();
+        if(prevAssign !== newAssign)
+          logFamilyTaskHistory(m.editId, author + ' assigned to ' + newAssign);
+        if(t.dueDate !== dueDate && dueDate)
+          logFamilyTaskHistory(m.editId, author + ' set due date to ' + dueDate);
+      }
     } else {
-      familyTasks.unshift({id:'ft'+Date.now(), title, done:false,
+      const newId = 'ft'+Date.now();
+      const newTask = {id:newId, title, done:false,
         assignedTo, dueDate, createdAt:today(),
-        createdBy: isJason?'jason':'jenny'});
+        createdBy: isJason?'jason':'jenny', comments:[]};
+      familyTasks.unshift(newTask);
+      // Log creation history
+      const assignLabel = assignedTo.map(k=>_LABEL[k]||k).join(', ');
+      logFamilyTaskHistory(newId, _commentAuthor() + ' created this task' +
+        (assignLabel && assignLabel!=='Anyone' ? ' · assigned to ' + assignLabel : ''));
     }
     saveFamilyTasks();
   }
@@ -5564,7 +5885,7 @@ let kidsTracker = loadHubData('hub-kids-tracker', {
 
 function saveKidsTracker(){
   localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
-  saveHomeDebounced();
+  _queueSave('kidsTracker',_sbSaveKidsTracker);
 }
 
 const TRACKER_DAYS = ['mon','tue','wed','thu','fri'];
@@ -6050,16 +6371,16 @@ function calImportToggleItem(idx){
   renderCalImportSheet();
 }
 
-function calImportLogMeeting(idx){
-  // kept for backward compat — no longer used from import review
-}
+
 
 function tbLogMeeting(btn){
   // Read meeting details from data attributes on the button
   const title    = btn.dataset.mtgTitle || '';
   const date     = btn.dataset.mtgDate  || today();
   const startMin = parseInt(btn.dataset.mtgStart || '0');
-  const startTime = minsToTime(startMin); // e.g. "09:00"
+  // Build 24h time string for <input type='time'> compatibility
+  const _h = Math.floor(startMin/60), _m = startMin%60;
+  const startTime = String(_h).padStart(2,'0')+':'+String(_m).padStart(2,'0');
   _calMeetingPrefill = { title, date, startTime };
   openMeetingCaptureFromImport();
 }
@@ -6392,7 +6713,7 @@ function addAttachmentToRecord(recordType, recordId, attachment){
     if(!w) return;
     if(!w.attachments) w.attachments = [];
     w.attachments.push(attachment);
-    saveHubData('hub-waiting', waitingFor);
+    saveWaiting();
   } else if(recordType === 'discovery'){
     const d = discoveryList.find(x=>x.id===recordId);
     if(!d) return;
@@ -6421,7 +6742,7 @@ async function deleteAttachmentFrom(recordType, recordId, attachmentId){
     const w = waitingFor.find(x=>x.id===recordId);
     att = w?.attachments?.find(a=>a.id===attachmentId);
     if(w) w.attachments = (w.attachments||[]).filter(a=>a.id!==attachmentId);
-    saveHubData('hub-waiting', waitingFor);
+    saveWaiting();
   } else if(recordType === 'discovery'){
     const d = discoveryList.find(x=>x.id===recordId);
     att = d?.attachments?.find(a=>a.id===attachmentId);
@@ -6434,6 +6755,1031 @@ async function deleteAttachmentFrom(recordType, recordId, attachmentId){
     apiCall('deleteAttachment', {fileId: att.fileId}).catch(()=>{});
   }
   showToast('Attachment removed');
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// MEETING PREP SYSTEM
+// ── Assign logged meetings to time-block slots
+// ── Full prep view: previous meetings, waiting fors, relevant tasks
+// ── Notification 10 minutes before each scheduled meeting
+// ══════════════════════════════════════════════════════════════════
+
+// ── Meeting → Time Block ──────────────────────────────────────
+
+// tbBlocks shape: {date: [{taskId, startMin, durMin, color, meetingId?, isMeeting?}]}
+// We extend blocks to support meeting entries alongside task entries
+
+function addMeetingToTimeBlock(meetingId, date, startMin, durationMins){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  if(!tbBlocks[date]) tbBlocks[date] = [];
+  // Remove existing slot for this meeting
+  tbBlocks[date] = tbBlocks[date].filter(b=>b.meetingId!==meetingId);
+  tbBlocks[date].push({
+    meetingId,
+    taskId:     null,
+    startMin,
+    durMin:     durationMins || 60,
+    color:      '#E65100',  // orange — same as imported meetings
+    isMeeting:  true,
+    title:      m.title
+  });
+  tbBlocks[date].sort((a,b)=>a.startMin-b.startMin);
+  saveTbBlocks();
+  renderAll();
+  showToast('📅 ' + m.title + ' added to time block');
+  // Schedule prep notification
+  scheduleMeetingPrepNotif(meetingId, date, startMin);
+}
+
+function openAssignMeetingToSlot(meetingId){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  // Default date = meeting date, time = meeting startTime if available
+  const defDate = m.date || today();
+  const defTime = m.startTime || '09:00';
+  const [hh, mm] = defTime.split(':').map(Number);
+  const defMin   = hh*60 + (mm||0);
+
+  let sheet = document.getElementById('assign-mtg-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'assign-mtg-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 24px rgba(0,0,0,0.15);padding:20px 20px 40px;
+      max-height:70vh;overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  sheet.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font:700 16px/1 var(--font-ui);color:var(--text);">Add to Time Block</div>
+        <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:3px;">
+          ${esc(m.title)}</div>
+      </div>
+      <button onclick="closeAssignMeetingSheet()"
+        style="border:none;background:transparent;color:var(--text3);
+          font-size:20px;cursor:pointer;">×</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Date</div>
+        <input type="date" id="assign-mtg-date" value="${defDate}"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;"/>
+      </div>
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Start time</div>
+        <input type="time" id="assign-mtg-time" value="${defTime}"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;"/>
+      </div>
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Duration</div>
+        <select id="assign-mtg-dur"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;">
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="45">45 min</option>
+          <option value="60" selected>1 hour</option>
+          <option value="90">1.5 hours</option>
+          <option value="120">2 hours</option>
+        </select>
+      </div>
+      <button onclick="confirmAssignMeetingToSlot('${meetingId}')"
+        style="padding:14px;border-radius:var(--r3);background:var(--accent);
+          color:#fff;border:none;font:700 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 16px rgba(21,101,192,0.3);margin-top:4px;">
+        📅 Add to time block</button>
+    </div>`;
+
+  requestAnimationFrame(()=>{ sheet.style.transform='translateY(0)'; });
+  let bd = document.getElementById('assign-mtg-backdrop');
+  if(!bd){
+    bd = document.createElement('div');
+    bd.id = 'assign-mtg-backdrop';
+    bd.style.cssText = `position:fixed;inset:0;z-index:859;background:rgba(0,0,0,0.4);`;
+    bd.onclick = closeAssignMeetingSheet;
+    document.body.appendChild(bd);
+  }
+  bd.style.display = 'block';
+}
+
+function closeAssignMeetingSheet(){
+  const s = document.getElementById('assign-mtg-sheet');
+  const b = document.getElementById('assign-mtg-backdrop');
+  if(s) s.style.transform = 'translateY(100%)';
+  if(b) b.style.display = 'none';
+}
+
+function confirmAssignMeetingToSlot(meetingId){
+  const date = document.getElementById('assign-mtg-date')?.value;
+  const time = document.getElementById('assign-mtg-time')?.value;
+  const dur  = parseInt(document.getElementById('assign-mtg-dur')?.value || '60');
+  if(!date || !time) return showToast('Date and time required');
+  const [hh,mm] = time.split(':').map(Number);
+  addMeetingToTimeBlock(meetingId, date, hh*60+mm, dur);
+  closeAssignMeetingSheet();
+}
+
+// ── Meeting Prep View ─────────────────────────────────────────
+
+function openMeetingPrep(meetingId, title, date, startMin){
+  // Resolve meeting — use logged meeting if id provided, else match by title/date
+  let meeting = meetingId ? meetingLog.find(m=>m.id===meetingId) : null;
+  if(!meeting && title){
+    meeting = meetingLog
+      .filter(m=>m.title.toLowerCase()===title.toLowerCase())
+      .sort((a,b)=>b.date.localeCompare(a.date))[0] || null;
+  }
+
+  // Previous meetings with same title (excluding today's)
+  const prevMeetings = meetingLog
+    .filter(m=>m.title.toLowerCase()===(meeting?.title||title||'').toLowerCase()
+            && (!date || m.date < date))
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .slice(0, 3);
+
+  // People involved — from logged meeting or search by name
+  const personIds = meeting ? (meeting.personIds||'').split(',').filter(Boolean) : [];
+  const people    = personIds.map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const names     = people.map(p=>p.name);
+
+  // Open waiting-fors involving these people (match by name since WF uses name string)
+  const relatedWF = waitingFor.filter(w=>{
+    if(w.done) return false;
+    if(!names.length) return false;
+    return names.some(n=>w.person.toLowerCase().includes(n.toLowerCase())
+                      || n.toLowerCase().includes(w.person.toLowerCase()));
+  });
+
+  // Relevant tasks — linked tasks first, then due today fallback
+  const todayStr   = date || today();
+  const linkedTaskIds = new Set(meeting?.taskIds || []);
+  const mtgProjIds = meeting ? new Set(
+    tasks.filter(t=>t.source && t.source.includes(meeting.id)).map(t=>t.projectId)
+  ) : new Set();
+  const relevantTasks = tasks.filter(t=>{
+    if(t.status==='done') return false;
+    if(linkedTaskIds.has(t.id)) return true;  // explicitly linked — always show
+    if(t.dueDate === todayStr) return true;
+    if(mtgProjIds.has(t.projectId)) return true;
+    return false;
+  }).sort((a,b)=>{
+    // Linked tasks first
+    const aLinked = linkedTaskIds.has(a.id) ? 0 : 1;
+    const bLinked = linkedTaskIds.has(b.id) ? 0 : 1;
+    return aLinked - bLinked;
+  }).slice(0, 10);
+
+  // Previous meeting with open commits
+  const lastMeeting = prevMeetings[0] || null;
+  const openMyCommits = lastMeeting?.myCommits
+    ? lastMeeting.myCommits.split('\n').filter(s=>s.trim()) : [];
+  const openTheirCommits = lastMeeting?.theirCommits
+    ? lastMeeting.theirCommits.split('\n').filter(s=>s.trim()) : [];
+
+  let sheet = document.getElementById('prep-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'prep-sheet';
+    sheet.style.cssText = `position:fixed;inset:0;z-index:870;
+      background:var(--bg);overflow-y:auto;
+      transform:translateY(100%);transition:transform 0.3s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  const startLabel = startMin !== undefined ? minsToTime(startMin) : (meeting?.startTime||'');
+
+  sheet.innerHTML = `
+  <!-- Sticky header -->
+  <div style="position:sticky;top:0;z-index:5;background:var(--bg);
+    border-bottom:1px solid var(--border);padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button onclick="closePrepSheet()"
+        style="border:none;background:transparent;color:var(--text3);
+          font-size:22px;cursor:pointer;padding:0;flex-shrink:0;">←</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:700 17px/1.2 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${esc(meeting?.title||title||'Meeting Prep')}</div>
+        <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-top:3px;">
+          ${startLabel ? startLabel+' · ' : ''}${date||today()}</div>
+      </div>
+      <button onclick="openMeetingCaptureFromPrep('${meeting?.id||''}')"
+        style="padding:8px 14px;border-radius:20px;background:var(--accent);
+          color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;
+          white-space:nowrap;flex-shrink:0;">
+        📝 Log meeting</button>
+    </div>
+  </div>
+
+  <div style="padding:16px;display:flex;flex-direction:column;gap:16px;max-width:600px;margin:0 auto;">
+
+    ${people.length ? `
+    <!-- Attendees -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${people.map(p=>`<div style="display:flex;align-items:center;gap:6px;
+          padding:6px 12px;border-radius:20px;background:var(--surface);
+          border:1px solid var(--border);">
+          ${p.photo?`<img src="${p.photo}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;"/>`
+            :`<div style="width:20px;height:20px;border-radius:50%;background:var(--accent);
+                display:flex;align-items:center;justify-content:center;
+                color:#fff;font:700 10px/1 var(--font-ui);">${p.name[0]}</div>`}
+          <span style="font:600 12px/1 var(--font-ui);color:var(--text);">${esc(p.name)}</span>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${lastMeeting ? `
+    <!-- Last meeting context -->
+    <div style="border-radius:var(--r3);border:1px solid var(--border);overflow:hidden;">
+      <div style="padding:10px 14px;background:var(--surface);
+        display:flex;align-items:center;justify-content:space-between;">
+        <div style="font:700 12px/1 var(--font-ui);color:var(--text3);">
+          ⏮ Last meeting — ${lastMeeting.date}</div>
+        ${prevMeetings.length > 1 ? `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">
+          ${prevMeetings.length} previous</span>` : ''}
+      </div>
+      ${lastMeeting.decisions ? `
+      <div style="padding:10px 14px;border-top:1px solid var(--border);">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--green);
+          letter-spacing:0.5px;margin-bottom:6px;">✅ DECISIONS</div>
+        <div style="font:500 13px/1.5 var(--font-body);color:var(--text2);
+          white-space:pre-wrap;">${esc(lastMeeting.decisions)}</div>
+      </div>` : ''}
+      ${openMyCommits.length ? `
+      <div style="padding:10px 14px;border-top:1px solid var(--border);">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);
+          letter-spacing:0.5px;margin-bottom:6px;">⚡ YOUR OPEN COMMITS</div>
+        ${openMyCommits.map(c=>`<div style="display:flex;align-items:flex-start;gap:8px;
+            padding:4px 0;border-bottom:1px solid var(--border)20;">
+            <div style="width:14px;height:14px;border-radius:50%;border:2px solid var(--accent);
+              flex-shrink:0;margin-top:1px;"></div>
+            <div style="font:500 13px/1.4 var(--font-body);color:var(--text);">${esc(c)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+      ${openTheirCommits.length ? `
+      <div style="padding:10px 14px;border-top:1px solid var(--border);">
+        <div style="font:700 10px/1 var(--font-ui);color:#64B5F6;
+          letter-spacing:0.5px;margin-bottom:6px;">⏳ THEIR OPEN COMMITS</div>
+        ${openTheirCommits.map(c=>`<div style="display:flex;align-items:flex-start;gap:8px;
+            padding:4px 0;border-bottom:1px solid var(--border)20;">
+            <div style="width:14px;height:14px;border-radius:50%;border:2px solid #64B5F6;
+              flex-shrink:0;margin-top:1px;"></div>
+            <div style="font:500 13px/1.4 var(--font-body);color:var(--text);">${esc(c)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+      ${lastMeeting.notes ? `
+      <div style="padding:10px 14px;border-top:1px solid var(--border);">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;margin-bottom:6px;">📋 NOTES</div>
+        <div style="font:500 13px/1.5 var(--font-body);color:var(--text2);
+          white-space:pre-wrap;">${esc(lastMeeting.notes)}</div>
+      </div>` : ''}
+    </div>` : `
+    <div style="padding:14px;border-radius:var(--r3);border:1px solid var(--border);
+      background:var(--surface);text-align:center;color:var(--text4);
+      font:500 13px/1 var(--font-ui);">No previous meetings logged for this</div>`}
+
+    ${relatedWF.length ? `
+    <!-- Open waiting fors -->
+    <div>
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
+        ⏳ Waiting For (${relatedWF.length})</div>
+      ${relatedWF.map(w=>`
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;
+            border-radius:var(--r2);border:1px solid var(--border);
+            background:var(--surface);margin-bottom:6px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);">
+              ${esc(w.what)}</div>
+            <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+              from ${esc(w.person)}${w.dueDate?' · due '+w.dueDate.slice(5):''}
+            </div>
+          </div>
+          <button onclick="toggleWaitingDone('${w.id}')"
+            style="padding:4px 10px;border-radius:20px;border:1px solid var(--green);
+              background:transparent;color:var(--green);
+              font:600 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">
+            ✓ Got it</button>
+        </div>`).join('')}
+    </div>` : ''}
+
+    ${relevantTasks.length ? `
+    <!-- Relevant tasks -->
+    <div>
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
+        📋 Relevant Tasks (${relevantTasks.length})</div>
+      ${relevantTasks.map(t=>{
+        const proj = projects.find(p=>p.id===t.projectId);
+        const overdue = t.dueDate && t.dueDate < todayStr;
+        const isLinked = linkedTaskIds.has(t.id);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+            border-radius:var(--r2);
+            border:1px solid ${isLinked?'var(--accent)44':'var(--border)'};
+            background:${isLinked?'var(--accent-soft)':'var(--surface)'};margin-bottom:6px;">
+          <button onclick="completeTask('${t.id}',event)"
+            style="width:20px;height:20px;border-radius:50%;flex-shrink:0;cursor:pointer;
+              border:2px solid var(--border);background:transparent;"></button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            ${proj?`<div style="font:500 10px/1 var(--font-ui);color:${proj.color};
+              margin-top:2px;">◈ ${esc(proj.name)}</div>`:''}
+          </div>
+          ${isLinked?`<span style="font:700 9px/1 var(--font-ui);color:var(--accent);
+            padding:2px 6px;border-radius:8px;background:var(--accent-soft);
+            border:1px solid var(--accent)44;white-space:nowrap;">linked</span>`:''}
+          ${t.dueDate?`<span style="font:600 10px/1 var(--font-ui);
+            color:${overdue?'var(--red)':'var(--text4)'};">
+            ${overdue?'⚠ overdue':'📅 today'}</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    <!-- Quick talking point capture -->
+    <div>
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
+        💬 Talking Points</div>
+      <textarea id="prep-talking-points" rows="3"
+        placeholder="Add topics you want to cover…"
+        style="width:100%;padding:12px 14px;border-radius:var(--r3);
+          border:1.5px solid var(--border);background:var(--surface2);
+          color:var(--text);font:500 14px/1.5 var(--font-body);
+          outline:none;resize:none;box-sizing:border-box;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+
+    <div style="height:40px;"></div>
+  </div>`;
+
+  requestAnimationFrame(()=>{ sheet.style.transform = 'translateY(0)'; });
+}
+
+function closePrepSheet(){
+  const s = document.getElementById('prep-sheet');
+  if(s) s.style.transform = 'translateY(100%)';
+}
+
+function openMeetingCaptureFromPrep(existingId){
+  closePrepSheet();
+  setTimeout(()=> openMeetingCapture(existingId||null), 300);
+}
+
+function toggleWaitingDone(id){
+  const w = waitingFor.find(x=>x.id===id);
+  if(!w) return;
+  w.done = !w.done;
+  saveWaiting();
+  renderAll();
+  // Refresh prep sheet if still open
+  const sheet = document.getElementById('prep-sheet');
+  if(sheet && sheet.style.transform === 'translateY(0px)'){
+    // Re-render — find the meeting context from the sheet header
+    const titleEl = sheet.querySelector('div[style*="font:700 17px"]');
+    if(titleEl) showToast(w.done ? '✓ Marked received' : 'Reopened');
+  }
+}
+
+// ── Notifications ─────────────────────────────────────────────
+// Schedules a prep reminder 10 minutes before a meeting block
+
+let _prepNotifTimers = {}; // meetingId/blockKey → timer id
+
+function scheduleMeetingPrepNotif(meetingId, date, startMin){
+  // Only schedule for today
+  if(date !== today()) return;
+  if(!('Notification' in window)) return;
+
+  const key = (meetingId||'') + '_' + date + '_' + startMin;
+  if(_prepNotifTimers[key]) clearTimeout(_prepNotifTimers[key]);
+
+  const now      = new Date();
+  const nowMin   = now.getHours()*60 + now.getMinutes();
+  const prepMin  = startMin - 10; // 10 min before
+  const deltaMs  = (prepMin - nowMin) * 60 * 1000;
+
+  if(deltaMs <= 0) return; // already past
+
+  const title = meetingId
+    ? (meetingLog.find(m=>m.id===meetingId)?.title || 'Meeting')
+    : 'Meeting';
+
+  _prepNotifTimers[key] = setTimeout(()=>{
+    if(Notification.permission === 'granted'){
+      const n = new Notification('📋 Prep: ' + title, {
+        body: 'Starting in 10 minutes — tap to open prep view',
+        icon: '/icon-192.svg',
+        tag:  'prep_' + key,
+        requireInteraction: true
+      });
+      n.onclick = ()=>{
+        window.focus();
+        openMeetingPrep(meetingId||null, title, date, startMin);
+        n.close();
+      };
+    } else {
+      // Fallback: in-app toast with action button
+      showPrepToast(meetingId, title, date, startMin);
+    }
+  }, deltaMs);
+}
+
+function showPrepToast(meetingId, title, date, startMin){
+  const old = document.getElementById('prep-toast');
+  if(old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'prep-toast';
+  el.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    z-index:600;width:92%;max-width:360px;background:var(--surface);
+    border:2px solid var(--accent);border-radius:14px;padding:14px 16px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.2);
+    display:flex;align-items:center;gap:12px;`;
+  el.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <div style="font:700 13px/1 var(--font-ui);color:var(--text);">
+        📋 ${esc(title)}</div>
+      <div style="font:500 11px/1 var(--font-ui);color:var(--text3);margin-top:4px;">
+        Starting in 10 minutes</div>
+    </div>
+    <button onclick="openMeetingPrep('${meetingId||''}','${esc(title)}','${date}',${startMin});document.getElementById('prep-toast').remove()"
+      style="padding:8px 14px;border-radius:20px;background:var(--accent);
+        color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;
+        white-space:nowrap;flex-shrink:0;">Open Prep</button>
+    <button onclick="this.parentElement.remove()"
+      style="border:none;background:transparent;color:var(--text4);
+        font-size:18px;cursor:pointer;padding:0;flex-shrink:0;">×</button>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{ const e=document.getElementById('prep-toast'); if(e) e.remove(); }, 60000);
+}
+
+// Schedule all of today's meeting blocks on boot
+function scheduleAllTodayPrepNotifs(){
+  const todayStr = today();
+  const todayBlocks = (tbBlocks[todayStr]||[]).filter(b=>b.isMeeting);
+  todayBlocks.forEach(b=>{
+    scheduleMeetingPrepNotif(b.meetingId||null, todayStr, b.startMin);
+  });
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+// MEETING ↔ TASK LINKING
+// ══════════════════════════════════════════════════════════════
+
+function renderMeetingTaskList(meetingId, taskIds){
+  if(!taskIds || !taskIds.length)
+    return `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">
+      No tasks linked yet</div>`;
+  return taskIds.map(tid=>{
+    const t = tasks.find(x=>x.id===tid);
+    if(!t) return '';
+    const proj = projects.find(p=>p.id===t.projectId);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+        border-radius:var(--r2);border:1px solid var(--border);
+        background:var(--surface2);margin-bottom:4px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 12px/1.2 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${esc(t.title)}</div>
+        ${proj?`<div style="font:500 10px/1 var(--font-ui);
+          color:${proj.color};margin-top:2px;">◈ ${esc(proj.name)}</div>`:''}
+      </div>
+      <span style="font:600 10px/1 var(--font-ui);padding:2px 6px;
+        border-radius:8px;background:${t.status==='done'?'var(--green)20':'var(--surface)'};
+        color:${t.status==='done'?'var(--green)':'var(--text4)'};
+        border:1px solid ${t.status==='done'?'var(--green)':'var(--border)'};">
+        ${t.status}</span>
+      <button onclick="removeTaskFromMeeting('${meetingId}','${tid}')"
+        style="border:none;background:transparent;color:var(--text4);
+          font-size:14px;cursor:pointer;padding:2px;flex-shrink:0;">×</button>
+    </div>`;
+  }).join('');
+}
+
+function openMtgTaskPicker(meetingId){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  const linked = new Set(m.taskIds||[]);
+
+  let picker = document.getElementById('mtg-task-picker');
+  if(!picker){
+    picker = document.createElement('div');
+    picker.id = 'mtg-task-picker';
+    picker.style.cssText = `position:fixed;inset:0;z-index:900;
+      background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;
+      justify-content:center;`;
+    picker.onclick = e=>{ if(e.target===picker) picker.remove(); };
+    document.body.appendChild(picker);
+  }
+
+  const available = tasks
+    .filter(t=>t.status!=='done' && !linked.has(t.id))
+    .sort((a,b)=>{ const o={high:0,medium:1,low:2}; return (o[a.priority]||1)-(o[b.priority]||1); });
+
+  const renderRows = q => available
+    .filter(t=>!q || t.title.toLowerCase().includes(q.toLowerCase()))
+    .slice(0,20)
+    .map(t=>{
+      const proj = projects.find(p=>p.id===t.projectId);
+      return `<div onclick="addTaskToMeeting('${meetingId}','${t.id}')"
+          style="display:flex;align-items:center;gap:10px;padding:10px 16px;
+            border-bottom:1px solid var(--border);cursor:pointer;"
+          onmouseenter="this.style.background='var(--surface2)'"
+          onmouseleave="this.style.background='transparent'">
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${esc(t.title)}</div>
+            ${proj?`<div style="font:500 10px/1 var(--font-ui);color:${proj.color};
+              margin-top:2px;">◈ ${esc(proj.name)}</div>`:''}
+          </div>
+          <span style="font:600 10px/1 var(--font-ui);color:var(--text4);">
+            ${t.priority}</span>
+        </div>`;
+    }).join('') || `<div style="padding:20px;text-align:center;color:var(--text4);
+      font:500 13px/1 var(--font-ui);">No tasks found</div>`;
+
+  picker.innerHTML = `
+    <div style="width:100%;max-width:480px;background:var(--surface);
+      border-radius:20px 20px 0 0;max-height:70vh;display:flex;flex-direction:column;"
+      onclick="event.stopPropagation()">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:10px;">
+        <input id="mtg-task-search" placeholder="Search tasks…" autocomplete="off"
+          style="flex:1;padding:9px 12px;border-radius:var(--r2);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:500 14px/1 var(--font-ui);outline:none;"
+          oninput="document.getElementById('mtg-task-rows').innerHTML=
+            (()=>{const q=this.value;const available=tasks.filter(t=>t.status!=='done'&&!new Set((meetingLog.find(x=>x.id==='${meetingId}')?.taskIds||[])).has(t.id));return available.filter(t=>!q||t.title.toLowerCase().includes(q.toLowerCase())).slice(0,20).map(t=>{const proj=projects.find(p=>p.id===t.projectId);return \`<div onclick=\"addTaskToMeeting('${meetingId}','\${t.id}')\" style=\"display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;\" onmouseenter=\"this.style.background='var(--surface2)'\" onmouseleave=\"this.style.background='transparent'\"><div style=\"flex:1;min-width:0;\"><div style=\"font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">\${esc(t.title)}</div>\${proj?\`<div style=\"font:500 10px/1 var(--font-ui);color:\${proj.color};margin-top:2px;\">◈ \${esc(proj.name)}</div>\`:''}</div><span style=\"font:600 10px/1 var(--font-ui);color:var(--text4);\">\${t.priority}</span></div>\`;}).join('')||'<div style=\"padding:20px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);\">No tasks found</div>';})()"/>
+        <button onclick="document.getElementById('mtg-task-picker').remove()"
+          style="border:none;background:transparent;color:var(--text3);
+            font-size:20px;cursor:pointer;">×</button>
+      </div>
+      <div id="mtg-task-rows" style="overflow-y:auto;flex:1;">
+        ${renderRows('')}
+      </div>
+    </div>`;
+}
+
+function addTaskToMeeting(meetingId, taskId){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  if(!m.taskIds) m.taskIds = [];
+  if(!m.taskIds.includes(taskId)) m.taskIds.push(taskId);
+  saveMeetings();
+  // Refresh the task list in the modal if open
+  const listEl = document.getElementById('mtg-task-list');
+  if(listEl) listEl.innerHTML = renderMeetingTaskList(meetingId, m.taskIds);
+  // Close picker
+  const picker = document.getElementById('mtg-task-picker');
+  if(picker) picker.remove();
+  showToast('Task linked ✓');
+}
+
+function removeTaskFromMeeting(meetingId, taskId){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  m.taskIds = (m.taskIds||[]).filter(id=>id!==taskId);
+  saveMeetings();
+  const listEl = document.getElementById('mtg-task-list');
+  if(listEl) listEl.innerHTML = renderMeetingTaskList(meetingId, m.taskIds);
+  showToast('Task unlinked');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// TASK ↔ MEETING LINKING (from task side)
+// Mirror of meeting ↔ task linking — keeps both in sync
+// ══════════════════════════════════════════════════════════════
+
+function renderTaskMeetingSection(taskId){
+  // Find all meetings that have this task linked
+  const linked = meetingLog.filter(m=>(m.taskIds||[]).includes(taskId));
+
+  const listHtml = linked.length
+    ? linked.map(m=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+          border-radius:var(--r2);border:1px solid var(--border);
+          background:var(--surface2);margin-bottom:4px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 12px/1.2 var(--font-ui);color:var(--text);
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${esc(m.title)}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+            ${m.date}${m.attendees?' · '+esc(m.attendees):''}</div>
+        </div>
+        <button onclick="unlinkTaskFromMeeting('${m.id}','${taskId}')"
+          style="border:none;background:transparent;color:var(--text4);
+            font-size:14px;cursor:pointer;padding:2px;flex-shrink:0;"
+          title="Unlink">×</button>
+      </div>`).join('')
+    : `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">
+        Not linked to any meeting</div>`;
+
+  return `
+    <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+      letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">
+      📝 Related Meetings</div>
+    <div id="task-meeting-list-${taskId}">${listHtml}</div>
+    <button onclick="openTaskMeetingPicker('${taskId}')"
+      style="margin-top:6px;padding:5px 12px;border-radius:20px;
+        border:1px solid var(--border);background:transparent;
+        color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">
+      + Link a meeting</button>`;
+}
+
+function openTaskMeetingPicker(taskId){
+  // Meetings already linked to this task
+  const linkedIds = new Set(
+    meetingLog.filter(m=>(m.taskIds||[]).includes(taskId)).map(m=>m.id)
+  );
+
+  // All meetings sorted newest first, excluding already linked
+  const available = [...meetingLog]
+    .filter(m=>!linkedIds.has(m.id))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
+  let picker = document.getElementById('task-meeting-picker');
+  if(!picker){
+    picker = document.createElement('div');
+    picker.id = 'task-meeting-picker';
+    picker.style.cssText = `position:fixed;inset:0;z-index:910;
+      background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;
+      justify-content:center;`;
+    picker.onclick = e=>{ if(e.target===picker) picker.remove(); };
+    document.body.appendChild(picker);
+  }
+
+  const renderRows = q => {
+    const filtered = available
+      .filter(m=>!q || m.title.toLowerCase().includes(q.toLowerCase()))
+      .slice(0, 20);
+    if(!filtered.length)
+      return `<div style="padding:20px;text-align:center;color:var(--text4);
+        font:500 13px/1 var(--font-ui);">No meetings found</div>`;
+    return filtered.map(m=>{
+      const attendeeStr = m.attendees ? ' · ' + m.attendees : '';
+      return `<div onclick="linkTaskToMeeting('${taskId}','${m.id}')"
+          style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;
+            border-bottom:1px solid var(--border);cursor:pointer;"
+          onmouseenter="this.style.background='var(--surface2)'"
+          onmouseleave="this.style.background='transparent'">
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              ${esc(m.title)}</div>
+            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+              ${m.date}${esc(attendeeStr)}</div>
+          </div>
+        </div>`;
+    }).join('');
+  };
+
+  picker.innerHTML = `
+    <div style="width:100%;max-width:480px;background:var(--surface);
+      border-radius:20px 20px 0 0;max-height:70vh;display:flex;flex-direction:column;"
+      onclick="event.stopPropagation()">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:10px;">
+        <input id="task-mtg-search" placeholder="Search meetings…" autocomplete="off"
+          style="flex:1;padding:9px 12px;border-radius:var(--r2);
+            border:1.5px solid var(--border);background:var(--surface2);
+            color:var(--text);font:500 14px/1 var(--font-ui);outline:none;"
+          oninput="refreshTaskMeetingPickerRows('${taskId}', this.value)"/>
+        <button onclick="document.getElementById('task-meeting-picker').remove()"
+          style="border:none;background:transparent;color:var(--text3);
+            font-size:20px;cursor:pointer;">×</button>
+      </div>
+      <div id="task-mtg-rows" style="overflow-y:auto;flex:1;">
+        ${renderRows('')}
+      </div>
+    </div>`;
+}
+
+function refreshTaskMeetingPickerRows(taskId, query){
+  const linkedIds = new Set(
+    meetingLog.filter(m=>(m.taskIds||[]).includes(taskId)).map(m=>m.id)
+  );
+  const filtered = meetingLog
+    .filter(m=>!linkedIds.has(m.id) &&
+      (!query || m.title.toLowerCase().includes(query.toLowerCase())))
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .slice(0, 20);
+
+  const rowsEl = document.getElementById('task-mtg-rows');
+  if(!rowsEl) return;
+  if(!filtered.length){
+    rowsEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text4);
+      font:500 13px/1 var(--font-ui);">No meetings found</div>`;
+    return;
+  }
+  rowsEl.innerHTML = filtered.map(m=>`
+    <div onclick="linkTaskToMeeting('${taskId}','${m.id}')"
+      style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;
+        border-bottom:1px solid var(--border);cursor:pointer;"
+      onmouseenter="this.style.background='var(--surface2)'"
+      onmouseleave="this.style.background='transparent'">
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${esc(m.title)}</div>
+        <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+          ${m.date}${m.attendees?' · '+esc(m.attendees):''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function linkTaskToMeeting(taskId, meetingId){
+  // Add taskId to the meeting's taskIds array
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  if(!m.taskIds) m.taskIds = [];
+  if(!m.taskIds.includes(taskId)) m.taskIds.push(taskId);
+  saveMeetings();
+
+  // Refresh the task modal's meeting list
+  const listEl = document.getElementById('task-meeting-list-' + taskId);
+  if(listEl){
+    const mtgSection = document.getElementById('task-meetings-section');
+    if(mtgSection) mtgSection.innerHTML = renderTaskMeetingSection(taskId);
+  }
+
+  // Close picker
+  const picker = document.getElementById('task-meeting-picker');
+  if(picker) picker.remove();
+  showToast('Linked to ' + m.title + ' ✓');
+}
+
+function unlinkTaskFromMeeting(meetingId, taskId){
+  const m = meetingLog.find(x=>x.id===meetingId);
+  if(!m) return;
+  m.taskIds = (m.taskIds||[]).filter(id=>id!==taskId);
+  saveMeetings();
+
+  // Refresh section
+  const mtgSection = document.getElementById('task-meetings-section');
+  if(mtgSection) mtgSection.innerHTML = renderTaskMeetingSection(taskId);
+  showToast('Unlinked');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// FAMILY TASK COMMENTS + HISTORY
+// comments: [{id, author, text, ts, type:'comment'|'history'}]
+// ══════════════════════════════════════════════════════════════════
+
+// ── Author helpers ────────────────────────────────────────────
+function _commentAuthor(){
+  if(currentUser === 'parent') return 'Jason';
+  if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
+  if(typeof currentUser === 'object' && currentUser.role === 'kid') return currentUser.name;
+  return 'Someone';
+}
+
+function _commentAuthorColor(author){
+  if(author === 'Jason') return '#1565C0';
+  if(author === 'Jenny') return '#E91E8C';
+  if(author === 'Ridley') return '#7eb8f7';
+  if(author === 'Connor') return '#cc8ef5';
+  return 'var(--text3)';
+}
+
+function _commentInitial(author){
+  return (author||'?')[0].toUpperCase();
+}
+
+// ── Add a comment or history event to a family task ───────────
+function addFamilyTaskComment(taskId, text, type){
+  const t = familyTasks.find(x=>x.id===taskId);
+  if(!t) return;
+  if(!t.comments) t.comments = [];
+  const comment = {
+    id:     'c' + Date.now() + Math.random().toString(36).slice(2,5),
+    author: _commentAuthor(),
+    text:   text.trim(),
+    ts:     Date.now(),
+    type:   type || 'comment'
+  };
+  t.comments.push(comment);
+  saveFamilyTasks();
+
+  // Write comment directly to Supabase (real-time delivers it to other device)
+  _sbSaveFamilyComments(taskId);
+
+  // Notify the other adult if this is a real comment (not auto-history)
+  if(type !== 'history'){
+    _notifyFamilyComment(t.title, comment.author, text);
+  }
+
+  // Refresh the sheet if open
+  const sheet = document.getElementById('family-comment-sheet');
+  if(sheet && sheet.dataset.taskId === taskId){
+    _renderCommentSheetBody(taskId);
+  }
+}
+
+// ── Auto-log history events ───────────────────────────────────
+function logFamilyTaskHistory(taskId, text){
+  addFamilyTaskComment(taskId, text, 'history');
+}
+
+// ── Notification to other adult ───────────────────────────────
+function _notifyFamilyComment(taskTitle, author, text){
+  // Only notify if the other adult is not currently viewing
+  // (we can't know for sure, but we send it anyway — they'll see it on next load)
+  const title = author + ' commented on "' + taskTitle + '"';
+  const body  = text.length > 60 ? text.slice(0,60)+'…' : text;
+
+  if('Notification' in window && Notification.permission === 'granted'){
+    const n = new Notification('💬 ' + title, {
+      body,
+      icon: '/icon-192.svg',
+      tag:  'family_comment_' + Date.now(),
+    });
+    setTimeout(()=>n.close(), 8000);
+  } else {
+    // In-app toast
+    showToast('💬 ' + author + ': ' + (text.length>40?text.slice(0,40)+'…':text));
+  }
+}
+
+// ── Open comment sheet ────────────────────────────────────────
+function openFamilyCommentSheet(taskId){
+  let sheet = document.getElementById('family-comment-sheet');
+  if(!sheet){
+    sheet = document.createElement('div');
+    sheet.id = 'family-comment-sheet';
+    sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:870;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      box-shadow:0 -4px 32px rgba(0,0,0,0.2);
+      max-height:85vh;display:flex;flex-direction:column;
+      transform:translateY(100%);transition:transform 0.25s ease;`;
+    document.body.appendChild(sheet);
+  }
+
+  sheet.dataset.taskId = taskId;
+  _renderCommentSheetBody(taskId);
+  requestAnimationFrame(()=>{ sheet.style.transform = 'translateY(0)'; });
+
+  let bd = document.getElementById('family-comment-backdrop');
+  if(!bd){
+    bd = document.createElement('div');
+    bd.id = 'family-comment-backdrop';
+    bd.style.cssText = `position:fixed;inset:0;z-index:869;background:rgba(0,0,0,0.4);`;
+    bd.onclick = closeFamilyCommentSheet;
+    document.body.appendChild(bd);
+  }
+  bd.style.display = 'block';
+
+  // Focus input
+  setTimeout(()=>document.getElementById('comment-input')?.focus(), 350);
+}
+
+function closeFamilyCommentSheet(){
+  const s = document.getElementById('family-comment-sheet');
+  const b = document.getElementById('family-comment-backdrop');
+  if(s) s.style.transform = 'translateY(100%)';
+  if(b) b.style.display = 'none';
+}
+
+function _renderCommentSheetBody(taskId){
+  const sheet = document.getElementById('family-comment-sheet');
+  if(!sheet) return;
+  const t = familyTasks.find(x=>x.id===taskId);
+  if(!t){ sheet.innerHTML=''; return; }
+
+  const comments = (t.comments||[]).slice().sort((a,b)=>a.ts-b.ts);
+
+  // Format timestamp
+  const _fmtTs = ts => {
+    const d = new Date(ts);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs/60000);
+    const diffH   = Math.floor(diffMs/3600000);
+    const diffD   = Math.floor(diffMs/86400000);
+    if(diffMin < 1)  return 'just now';
+    if(diffMin < 60) return diffMin + 'm ago';
+    if(diffH   < 24) return diffH   + 'h ago';
+    if(diffD   < 7)  return diffD   + 'd ago';
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  };
+
+  const commentItems = comments.length
+    ? comments.map(c=>{
+        const isHistory = c.type === 'history';
+        const color     = _commentAuthorColor(c.author);
+        if(isHistory){
+          return `<div style="display:flex;align-items:center;gap:8px;
+              padding:6px 0;opacity:0.55;">
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+            <div style="font:500 11px/1 var(--font-ui);color:var(--text4);
+              white-space:nowrap;flex-shrink:0;">${esc(c.text)}</div>
+            <div style="font:400 10px/1 var(--font-ui);color:var(--text4);
+              flex-shrink:0;">${_fmtTs(c.ts)}</div>
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+          </div>`;
+        }
+        return `<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:${color};
+            display:flex;align-items:center;justify-content:center;
+            color:#fff;font:700 13px/1 var(--font-ui);flex-shrink:0;">
+            ${_commentInitial(c.author)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:3px;">
+              <span style="font:700 12px/1 var(--font-ui);color:${color};">
+                ${esc(c.author)}</span>
+              <span style="font:400 10px/1 var(--font-ui);color:var(--text4);">
+                ${_fmtTs(c.ts)}</span>
+            </div>
+            <div style="font:500 14px/1.5 var(--font-body);color:var(--text);
+              background:var(--surface2);padding:8px 12px;border-radius:0 12px 12px 12px;
+              border:1px solid var(--border);">
+              ${esc(c.text)}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : `<div style="text-align:center;padding:24px 0;
+        font:500 13px/1 var(--font-ui);color:var(--text4);">
+        No comments yet — start the conversation</div>`;
+
+  sheet.innerHTML = `
+    <!-- Header -->
+    <div style="padding:16px 16px 12px;border-bottom:1px solid var(--border);
+      display:flex;align-items:flex-start;gap:10px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:700 15px/1.3 var(--font-ui);color:var(--text);">
+          💬 ${esc(t.title)}</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+          ${comments.length} comment${comments.length!==1?'s':''}
+          · Created ${t.createdAt||''} by ${t.createdBy||''}
+        </div>
+      </div>
+      <button onclick="closeFamilyCommentSheet()"
+        style="border:none;background:transparent;color:var(--text3);
+          font-size:20px;cursor:pointer;flex-shrink:0;padding:0;">×</button>
+    </div>
+
+    <!-- Comment list -->
+    <div id="comment-list" style="flex:1;overflow-y:auto;padding:16px 16px 8px;">
+      ${commentItems}
+    </div>
+
+    <!-- Input -->
+    <div style="padding:12px 16px 32px;border-top:1px solid var(--border);
+      display:flex;gap:8px;align-items:flex-end;flex-shrink:0;">
+      <div style="width:30px;height:30px;border-radius:50%;
+        background:${_commentAuthorColor(_commentAuthor())};
+        display:flex;align-items:center;justify-content:center;
+        color:#fff;font:700 13px/1 var(--font-ui);flex-shrink:0;">
+        ${_commentInitial(_commentAuthor())}</div>
+      <textarea id="comment-input"
+        placeholder="Add a comment…"
+        rows="1"
+        style="flex:1;padding:10px 12px;border-radius:12px;
+          border:1.5px solid var(--border);background:var(--surface2);
+          color:var(--text);font:500 14px/1.5 var(--font-body);
+          outline:none;resize:none;box-sizing:border-box;"
+        onfocus="this.style.borderColor='var(--accent)';this.rows=3"
+        onblur="if(!this.value)this.rows=1;this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitFamilyComment('${taskId}');}"></textarea>
+      <button onclick="submitFamilyComment('${taskId}')"
+        style="width:36px;height:36px;border-radius:50%;background:var(--accent);
+          border:none;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0;
+          display:flex;align-items:center;justify-content:center;">↑</button>
+    </div>`;
+
+  // Scroll to bottom of comment list
+  setTimeout(()=>{
+    const list = document.getElementById('comment-list');
+    if(list) list.scrollTop = list.scrollHeight;
+  }, 50);
+}
+
+function submitFamilyComment(taskId){
+  const input = document.getElementById('comment-input');
+  const text  = input?.value.trim();
+  if(!text) return;
+  input.value = '';
+  input.rows  = 1;
+  addFamilyTaskComment(taskId, text, 'comment');
 }
 
 
@@ -6604,9 +7950,9 @@ function renderTaskList(container){
     if(dueActive()){
       const td=today();
       const weekEnd=new Date(); weekEnd.setDate(weekEnd.getDate()+7);
-      const weekStr=weekEnd.toISOString().slice(0,10);
+      const weekStr=localDateStr(weekEnd);
       const monthEnd=new Date(); monthEnd.setDate(monthEnd.getDate()+30);
-      const monthStr=monthEnd.toISOString().slice(0,10);
+      const monthStr=localDateStr(monthEnd);
       const dd=t.dueDate;
       const matches=[...filterDue].some(f=>{
         if(f==="overdue") return dd&&dd<td&&t.status!=="done";
@@ -7037,12 +8383,9 @@ function renderTaskRow(task,proj){
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
   const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  // Estimate badge (shown inline in collapsed view)
-  const estimateBadge = task.estimate
-    ? `<span style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:4px;flex-shrink:0;background:rgba(91,141,239,0.12);color:#7aabf0;border:1px solid rgba(91,141,239,0.25);">⏱ ${task.estimate}</span>`
-    : (task.effort
-      ? `<span style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:4px;flex-shrink:0;background:rgba(91,141,239,0.08);color:#7090c0;">${{small:'· S',medium:'◆ M',large:'◆◆ L',epic:'◆◆◆ XL'}[task.effort]||''}</span>`
-      : '');
+  // estimateBadge kept for backward compat but no longer shown in collapsed row
+  // estimate is visible in the modal "more options" and used by time-block
+  const estimateBadge = '';
 
   // Compact due badge for collapsed view
   const dueBadge = task.dueDate
@@ -7051,6 +8394,30 @@ function renderTaskRow(task,proj){
         color:${overdue?'#ff6060':task.dueDate===today()?'var(--accent)':'var(--text4)'};"
        onclick="event.stopPropagation();">${dueStr}</span>`
     : '';
+
+  // Inline status pill — always visible, tap to cycle
+  const statusColors = {todo:'var(--text4)',inprogress:'var(--accent)',blocked:'#EF5350',done:'var(--green)'};
+  const statusLabels = {todo:'Open',inprogress:'Active',blocked:'Blocked',done:'Done'};
+  const inlineStatus = !isDone ? `<button
+      onclick="event.stopPropagation();cycleTaskStatus('${task.id}')"
+      title="Cycle status"
+      style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;flex-shrink:0;
+        cursor:pointer;border:1px solid ${statusColors[task.status]||'var(--text4)'}44;
+        background:${statusColors[task.status]||'var(--text4)'}14;
+        color:${statusColors[task.status]||'var(--text4)'};"
+      >${statusLabels[task.status]||'Open'}</button>` : '';
+
+  // Inline priority pill — always visible, tap to cycle
+  const priColors = {high:'#EF5350',medium:'var(--accent)',low:'#7CB342'};
+  const priLabels = {high:'Urgent',medium:'High',low:'Normal'};
+  const inlinePriority = !isDone ? `<button
+      onclick="event.stopPropagation();cycleTaskPriority('${task.id}')"
+      title="Cycle priority"
+      style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;flex-shrink:0;
+        cursor:pointer;border:1px solid ${priColors[task.priority]||'var(--text4)'}44;
+        background:${priColors[task.priority]||'var(--text4)'}14;
+        color:${priColors[task.priority]||'var(--text4)'};"
+      >${priLabels[task.priority]||''}${mismatchDot}</button>` : '';
 
   return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":" "}${isStale&&!isDone?"opacity:0.82;":""}">
     <div class="task-row-top" onclick="toggleExpand('${task.id}')">
@@ -7082,11 +8449,9 @@ function renderTaskRow(task,proj){
             </span>`;
           })()}</div>
         </div>
-        ${!isExpanded ? estimateBadge : ''}
-        ${!isExpanded ? dueBadge : ''}
-        <button onclick="event.stopPropagation();toggleTodayPin('${task.id}')"
-          title="${isPinned?'Unpin from Today':'Pin to Today'}"
-          style="flex-shrink:0;width:28px;height:28px;border-radius:6px;border:1px solid ${isPinned?'var(--accent)':'var(--border)'};background:${isPinned?'var(--accent-soft)':'transparent'};color:${isPinned?'var(--accent)':'var(--text4)'};font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">📌</button>
+        ${inlineStatus}
+        ${inlinePriority}
+        ${dueBadge}
         <span style="font-size:11px;color:var(--text4);padding-right:4px;flex-shrink:0;transition:transform 0.15s;display:inline-block;transform:rotate(${isExpanded?'90':'0'}deg);">▶</span>
       </div>
     </div>
@@ -8965,6 +10330,12 @@ function openEditTask(id){
     _attSection.style.display = 'block';
     _attSection.innerHTML = renderAttachmentSection('task', t.id, t.attachments||[]);
   }
+  // Render meeting section for existing tasks
+  const _mtgSection = document.getElementById('task-meetings-section');
+  if(_mtgSection){
+    _mtgSection.style.display = 'block';
+    _mtgSection.innerHTML = renderTaskMeetingSection(t.id);
+  }
   openModal("modal-task");
 }
 let _modalSubtasks = [];
@@ -9192,10 +10563,9 @@ function deleteProject(){
   projects=projects.filter(p=>p.id!==editingProjectId);
   // Unassign tasks that belonged to this project
   tasks.forEach(t=>{ if(t.projectId===editingProjectId) t.projectId=''; });
-  // Save locally immediately, then push to cloud right away (not debounced)
   localStorage.setItem("hub-projects",JSON.stringify(projects));
   localStorage.setItem("hub-tasks",JSON.stringify(tasks));
-  apiCall("saveAll",{projects,tasks}).catch(()=>{});
+  _queueSave('projects', _sbSaveProjects);
   closeModal("modal-project");renderAll();
   showToast("Project deleted");
 }
@@ -9453,7 +10823,11 @@ let meetingPersonFilter = ''; // person id or '' for all
 
 // ── New hub data (persisted to cloud via getCloudStats) ──────────
 function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
-function saveHubData(key, val){ localStorage.setItem(key, JSON.stringify(val)); saveAllDebounced(); }
+function saveHubData(key, val){
+  localStorage.setItem(key, JSON.stringify(val));
+  // Legacy function — queue a full settings + tasks save
+  saveAllDebounced();
+}
 
 let waitingFor     = loadHubData('hub-waiting', []);
 
@@ -10294,7 +11668,7 @@ function resetNext(){
     const lastWeekKey = resetStreak.lastWeek || '';
     // Get previous week key
     const prevMonday = new Date(); prevMonday.setDate(prevMonday.getDate() - 7 - (new Date().getDay()===0?6:new Date().getDay()-1));
-    const prevWeekKey = prevMonday.toISOString().slice(0,10);
+    const prevWeekKey = localDateStr(prevMonday);
     if(lastWeekKey === prevWeekKey || lastWeekKey === thisWeek){
       // Consecutive week or re-doing this week
       if(lastWeekKey !== thisWeek){
@@ -10307,8 +11681,8 @@ function resetNext(){
       resetStreak.count = 1;
       resetStreak.lastWeek = thisWeek;
     }
-    saveHubData('hub-reset-streak', resetStreak);
-    saveAllDebounced();
+    localStorage.setItem('hub-reset-streak',JSON.stringify(resetStreak));
+    _queueSave('settings',_sbSaveSettings);
     closeModal('modal-reset');
     renderAll();
     const streakMsg = resetStreak.count > 1 ? ` 🔥 ${resetStreak.count} week streak!` : '';
@@ -10354,7 +11728,7 @@ function resetTaskAction(taskId, action){
 function saveWeeklyJournal({dump,close,ahead}){
   const entries = JSON.parse(localStorage.getItem('hub-journal')||'[]');
   const entry = {
-    date: new Date().toISOString().slice(0,10),
+    date: today(),
     weekLabel: getWeekLabel(),
     dump, close, ahead
   };
@@ -10650,6 +12024,16 @@ function renderMeetingsPage(container){
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
           <div style="font-family:var(--font-ui);font-size:10px;font-weight:700;color:var(--text4);">${m.date}</div>
+          <button onclick="event.stopPropagation();openMeetingPrep('${m.id}','${esc(m.title)}','${m.date}',undefined)"
+            style="padding:3px 8px;border-radius:20px;border:1px solid var(--accent)44;
+              background:transparent;color:var(--accent);
+              font:700 10px/1 var(--font-ui);cursor:pointer;line-height:1;"
+            title="Meeting prep">Prep</button>
+          <button onclick="event.stopPropagation();openAssignMeetingToSlot('${m.id}')"
+            style="padding:3px 8px;border-radius:20px;border:1px solid var(--border);
+              background:transparent;color:var(--text3);
+              font:600 10px/1 var(--font-ui);cursor:pointer;line-height:1;"
+            title="Add to time block">📅</button>
           <button onclick="event.stopPropagation();copyMeetingLink('${m.id}')"
             style="padding:3px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;line-height:1;" title="Copy link">🔗</button>
           <button onclick="event.stopPropagation();deleteMeeting('${m.id}')"
@@ -10746,15 +12130,15 @@ function toggleSeriesHistory(seriesId){
 // ═══════════════════════════════════════════════════════════════
 // WAITING FOR
 // ═══════════════════════════════════════════════════════════════
-function saveWaiting(){ saveHubData('hub-waiting', waitingFor); }
+function saveWaiting(){ localStorage.setItem('hub-waiting',JSON.stringify(waitingFor)); _queueSave('waiting',_sbSaveWaiting); }
 
 function saveJasonHomeTasks(){
   localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
-  saveHomeDebounced();
+  _queueSave('jasonHome',_sbSaveJasonHome);
 }
 function saveWifeHomeTasks(){
   localStorage.setItem('hub-wife-home', JSON.stringify(wifeHomeTasks));
-  saveHomeDebounced();
+  _queueSave('jennyHome',_sbSaveJennyHome);
 }
 
 function jennyLogout(){
@@ -10795,16 +12179,16 @@ function currentUserLabel(){
 }
 function saveGrocery(){
   localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
-  saveHomeDebounced();
+  _queueSave('grocery',_sbSaveGrocery);
 }
 
 function saveFamilyTasks(){
   localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
-  saveHomeDebounced();
+  _queueSave('familyTasks',_sbSaveFamilyTasks);
 }
 function saveWeeklyPlan(){
   localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
-  saveHomeDebounced();
+  _queueSave('weeklyPlan',_sbSaveWeeklyPlan);
 }
 
 function addWaitingFor(person, what, dueDate, taskId){
@@ -10965,12 +12349,12 @@ function submitWaitingFor(){
 // ═══════════════════════════════════════════════════════════════
 // WEEKLY INTENTIONS
 // ═══════════════════════════════════════════════════════════════
-function saveIntentions(){ saveHubData('hub-intentions', weeklyIntentions); }
+function saveIntentions(){ localStorage.setItem('hub-intentions',JSON.stringify(weeklyIntentions)); _queueSave('settings',_sbSaveSettings); }
 
 function getWeekKey(){
   const d = new Date(); const day = d.getDay();
   const monday = new Date(d); monday.setDate(d.getDate() - (day===0?6:day-1));
-  return monday.toISOString().slice(0,10);
+  return localDateStr(monday);
 }
 
 function isCurrentWeekIntentions(){
@@ -11044,7 +12428,7 @@ function saveIntentionsFromModal(){
 // ═══════════════════════════════════════════════════════════════
 // SOMEDAY LIST
 // ═══════════════════════════════════════════════════════════════
-function saveSomeday(){ saveHubData('hub-someday', somedayList); }
+function saveSomeday(){ localStorage.setItem('hub-someday',JSON.stringify(somedayList)); _queueSave('someday',_sbSaveSomeday); }
 
 function addSomeday(title){
   if(!title.trim()) return;
@@ -11097,7 +12481,7 @@ function renderSomedaySection(){
 // PEOPLE / RELATIONSHIP NUDGES
 // ═══════════════════════════════════════════════════════════════
 // ── Meeting/WaitingFor people (no nudges) ───────────────────────
-function savePeople(){ saveHubData('hub-people', peopleList); }
+function savePeople(){ localStorage.setItem('hub-people',JSON.stringify(peopleList)); _queueSave('people',_sbSavePeople); }
 
 function addPerson(name, role, priority, photo){
   if(!name.trim()) return;
@@ -11114,7 +12498,7 @@ function updatePerson(id, name, role, priority, photo){
 }
 
 // ── Relationship contacts (nudge reminders) ──────────────────────
-function saveContacts(){ saveHubData('hub-contacts', contactsList); }
+function saveContacts(){ localStorage.setItem('hub-contacts',JSON.stringify(contactsList)); _queueSave('contacts',_sbSaveContacts); }
 
 function addContact(name, role, nudgeDays, photo){
   if(!name.trim()) return;
@@ -11745,8 +13129,8 @@ function submitAddPerson(){
 // ═══════════════════════════════════════════════════════════════
 // MEETING CAPTURE
 // ═══════════════════════════════════════════════════════════════
-function saveMeetings(){ saveHubData('hub-meetings', meetingLog); }
-function saveMeetingSeries(){ saveHubData('hub-meeting-series', meetingSeries); }
+function saveMeetings(){ localStorage.setItem('hub-meetings',JSON.stringify(meetingLog)); _queueSave('meetings',_sbSaveMeetings); }
+function saveMeetingSeries(){ localStorage.setItem('hub-meeting-series',JSON.stringify(meetingSeries)); _queueSave('meetingSeries',_sbSaveMeetingSeries); }
 
 function openMeetingSeriesModal(editId){
   const existing = editId ? meetingSeries.find(s=>s.id===editId) : null;
@@ -11908,7 +13292,21 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
       </div>
     </div>
     ${isSideBySide?'</div>':''}
-    ${existingId ? `<div style="padding:0 var(--sp4) var(--sp3);">
+    ${existingId ? `
+    <div style="padding:0 var(--sp4) var(--sp3);">
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
+        letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">
+        📋 Related Tasks</div>
+      <div id="mtg-task-list">
+        ${renderMeetingTaskList(existingId, existing?.taskIds||[])}
+      </div>
+      <button onclick="openMtgTaskPicker('${existingId}')"
+        style="margin-top:6px;padding:5px 12px;border-radius:20px;
+          border:1px solid var(--border);background:transparent;
+          color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">
+        + Link a task</button>
+    </div>
+    <div style="padding:0 var(--sp4) var(--sp3);">
       ${renderAttachmentSection('meeting', existingId, existing?.attachments||[])}
     </div>` : ''}
     <div class="modal-footer" style="${isSideBySide?'grid-column:1/-1;':''}">
@@ -11935,7 +13333,9 @@ function saveMeetingCapture(){
   const theirCommits=document.getElementById('mtg-theircommits')?.value.trim()||'';
 
   const capSeriesId = document.getElementById('mtg-series-id')?.value||'';
-  const meeting = { id:id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today(), ...(capSeriesId?{seriesId:capSeriesId}:{}) };
+  // Preserve existing taskIds — they're managed separately via addTaskToMeeting
+  const existingTaskIds = id ? (meetingLog.find(m=>m.id===id)?.taskIds||[]) : [];
+  const meeting = { id:id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today(), taskIds: existingTaskIds, ...(capSeriesId?{seriesId:capSeriesId}:{}) };
 
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
@@ -11964,10 +13364,10 @@ function saveMeetingCapture(){
       waitingFor.unshift({ id:'wf'+Date.now()+Math.random().toString(36).slice(2,6), person, what, dueDate:'', taskId:'', done:false, createdAt:today() });
       waitingCreated++;
     });
-    saveHubData('hub-waiting', waitingFor);
+    saveWaiting();
   }
 
-  saveMeetings(); saveAllDebounced(); renderAll();
+  saveMeetings(); renderAll();
   closeModal('modal-meeting');
   let msg = '📝 Meeting saved';
   if(tasksCreated>0) msg += ' · '+tasksCreated+' task'+(tasksCreated>1?'s':'')+' created';
@@ -12001,7 +13401,7 @@ function minsToTime(m){
   const h=Math.floor(m/60), min=m%60, ap=h>=12?'pm':'am', h12=h%12||12;
   return min===0?`${h12}${ap}`:`${h12}:${String(min).padStart(2,'0')}${ap}`;
 }
-function saveTbBlocks(){ saveHubData('hub-tb-blocks', tbBlocks); }
+function saveTbBlocks(){ localStorage.setItem('hub-tb-blocks',JSON.stringify(tbBlocks)); _queueSave('tbBlocks',_sbSaveTbBlocks); }
 function loadTbBlocks(){
   try{ const r=localStorage.getItem('hub-tb-blocks'); if(r) tbBlocks=JSON.parse(r); }catch(e){}
 }
@@ -12026,7 +13426,7 @@ function removeTbBlock(date, taskId){
 
 function tbNavDate(delta){
   if(delta===0){ tbDate=today(); }
-  else{ const d=new Date(tbDate+'T00:00:00'); d.setDate(d.getDate()+delta); tbDate=d.toISOString().slice(0,10); }
+  else{ const d=new Date(tbDate+'T12:00:00'); d.setDate(d.getDate()+delta); tbDate=localDateStr(d); }
   renderAll();
 }
 
@@ -12050,20 +13450,43 @@ function renderTimeBlock(container){
     }
   }
 
-  // Build meeting overlay map from _calEvents + imported meetings for this date
-  const meetingSlots={}; // startMin → {title, startMin, endMin, color, isStart}
+  // Build meeting overlay map from:
+  // 1. _calEvents (Google Calendar + imported Outlook photo meetings)
+  // 2. tbBlocks entries with isMeeting:true (meetings assigned from meetings tab)
+  const meetingSlots={}; // startMin → {title, startMin, endMin, color, isStart, meetingId}
+
+  // From calendar events
   const dayMeetings = calEventsForDate(date).filter(e=>!e.allDay);
   for(const ev of dayMeetings){
     const color = calEventColor(ev);
-    // Parse local time from ISO string (no Z — already local)
     const [hh,mm] = ev.start.slice(11,16).split(':').map(Number);
     const [eh,em] = ev.end.slice(11,16).split(':').map(Number);
     const startMin = hh*60+mm;
     const endMin   = eh*60+em;
-    // Mark every 15-min slot this meeting covers
     for(let s=startMin; s<endMin; s+=15){
       meetingSlots[s] = {title:ev.title, startMin, endMin, color,
-                         isStart: s===startMin, durationMins: endMin-startMin};
+                         isStart: s===startMin, durationMins: endMin-startMin,
+                         calEventId: ev.id};
+    }
+  }
+
+  // From tbBlocks meeting entries (assigned from meetings tab)
+  const tbMeetingBlocks = (tbBlocks[date]||[]).filter(b=>b.isMeeting);
+  for(const b of tbMeetingBlocks){
+    const endMin = b.startMin + b.durMin;
+    for(let s=b.startMin; s<endMin; s+=15){
+      // tbBlocks meetings take priority over cal events in same slot
+      if(!meetingSlots[s] || b.startMin===s){
+        meetingSlots[s] = {
+          title:        b.title,
+          startMin:     b.startMin,
+          endMin,
+          color:        b.color || '#E65100',
+          isStart:      s === b.startMin,
+          durationMins: b.durMin,
+          meetingId:    b.meetingId  // links back to meetingLog record
+        };
+      }
     }
   }
 
@@ -12157,6 +13580,12 @@ function renderTimeBlock(container){
             <div style="font:600 9px/1 var(--font-ui);color:${mtg.color};
               padding:2px 6px;border-radius:8px;border:1px solid ${mtg.color}44;
               flex-shrink:0;white-space:nowrap;">mtg</div>
+              <button onclick="openMeetingPrep('${mtg.meetingId||''}','${esc(mtg.title)}','${date}',${mtg.startMin})"
+                title="Meeting prep"
+                style="padding:3px 8px;border-radius:12px;border:1px solid ${mtg.color}55;
+                  background:${mtg.color}22;color:${mtg.color};
+                  font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;
+                  flex-shrink:0;">Prep</button>
               <button data-mtg-title="${esc(mtg.title)}" data-mtg-date="${date}"
                 data-mtg-start="${mtg.startMin}" data-mtg-end="${mtg.endMin}"
                 onclick="tbLogMeeting(this)"
@@ -13327,8 +14756,8 @@ function recoverMeetingTasks(){
 // HABITS — daily self-care tracker, separate from tasks
 // ════════════════════════════════════════════════════════════════
 
-function saveHabits(){ saveHubData('hub-habits', habitList); }
-function saveHabitLog(){ saveHubData('hub-habit-log', habitLog); }
+function saveHabits(){ localStorage.setItem('hub-habits',JSON.stringify(habitList)); _queueSave('habits',_sbSaveHabits); }
+function saveHabitLog(){ localStorage.setItem('hub-habit-log',JSON.stringify(habitLog)); _queueSave('habits',_sbSaveHabits); }
 
 function getTodayHabits(){
   const d = today();
@@ -13497,7 +14926,7 @@ function deleteHabit(id){
 // Prune habit log entries older than 90 days on boot
 function pruneHabitLog(){
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-90);
-  const cutStr = cutoff.toISOString().slice(0,10);
+  const cutStr = localDateStr(cutoff);
   let changed = false;
   Object.keys(habitLog).forEach(d=>{
     if(d < cutStr){ delete habitLog[d]; changed=true; }
@@ -13607,7 +15036,7 @@ function checkStaleInitiatives(){
 function checkMeetingFollowThrough(){
   const todayStr = today();
   const fiveDaysAgo = new Date(); fiveDaysAgo.setDate(fiveDaysAgo.getDate()-5);
-  const fiveDaysStr = fiveDaysAgo.toISOString().slice(0,10);
+  const fiveDaysStr = localDateStr(fiveDaysAgo);
   // Find meetings in the last 5-14 days that had myCommits
   const recentMeetings = meetingLog.filter(m=>
     m.myCommits && m.myCommits.trim() &&
@@ -13650,8 +15079,8 @@ function dismissInitiativeInsight(iniId, idx){
   saveDiscovery(); renderAll();
 }
 
-function saveDiscovery(){ saveHubData('hub-discovery', discoveryList); }
-function saveSignals(){   saveHubData('hub-signals',   signalList);    }
+function saveDiscovery(){ localStorage.setItem('hub-discovery',JSON.stringify(discoveryList)); _queueSave('discovery',_sbSaveDiscovery); }
+function saveSignals(){ localStorage.setItem('hub-signals',JSON.stringify(signalList)); _queueSave('signals',_sbSaveSignals); }
 
 // ── Helpers ──────────────────────────────────────────────────────
 function getInitiativeSignals(id){
@@ -14751,8 +16180,7 @@ function moveTaskToSomeday(taskId){
 }
 
 function savePinned(){
-  // Pins persist to cloud via saveAllDebounced — no localStorage needed
-  saveAllDebounced();
+  _queueSave('settings',_sbSaveSettings);
 }
 
 function loadPinned(){
@@ -15069,33 +16497,33 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZE — POWER ON SEQUENCE
 // ═══════════════════════════════════════════════════════════════
-const GATE_PASSWORD="RooCon";
-const GATE_DURATION=60*60*1000; // 60 minutes in ms
-
-// ── Kid PINs — set these to whatever you want ──────────────────
-// Each maps to a player index in kidsGame.players
+// ── Kid PINs — unchanged ──────────────────────────────────────
 const KID_PINS = {
   "rooroo": 0,   // Ridley
   "connie": 1,   // Connor
 };
-const JENNY_PIN = "freckles";
-// Session user — 'parent' | {role:'kid', playerIdx:N, name:string}
+// Legacy constants — kept so nothing breaks
+const GATE_PASSWORD  = "RooCon";
+const JENNY_PIN      = "freckles";
+const GATE_DURATION  = 60*60*1000;
+
+// Session user — 'parent' | {role:'wife',name:'Jenny'} | {role:'kid',...}
 let currentUser = 'parent';
-let currentMode  = localStorage.getItem('reeves-mode') || 'work'; // 'work' | 'home'
+let currentMode = localStorage.getItem('reeves-mode') || 'work';
 
-function checkPassword(){
-  const input=document.getElementById("gate-input");
-  const err=document.getElementById("gate-error");
-  const val = input.value;
+// ── Gate input handler ────────────────────────────────────────
+// Kids use PIN → instant. Adults use email/password → Supabase.
+async function checkPassword(){
+  const input = document.getElementById('gate-input');
+  const err   = document.getElementById('gate-error');
+  const val   = input.value.trim();
 
-  // Check kid PINs first
+  // ── Kids PIN check (unchanged) ────────────────────────────
   if(KID_PINS.hasOwnProperty(val)){
     const playerIdx = KID_PINS[val];
     currentUser = {role:'kid', playerIdx, name:''};
-    // Load kids data then show kids page
-    localStorage.setItem("hub-auth-kid", JSON.stringify({playerIdx, ts:Date.now()}));
-    document.getElementById("gate").style.display="none";
-    // Boot minimal data load then show kids page
+    localStorage.setItem('hub-auth-kid', JSON.stringify({playerIdx, ts:Date.now()}));
+    document.getElementById('gate').style.display='none';
     bootApp().then(()=>{
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
@@ -15104,57 +16532,184 @@ function checkPassword(){
     return;
   }
 
-  // Jenny's PIN
-  if(val === JENNY_PIN){
-    currentUser = {role:'wife', name:'Jenny'};
-    localStorage.setItem("hub-auth-jenny", Date.now().toString());
-    document.getElementById("gate").style.display="none";
-    const _fabEl = document.getElementById("global-capture-btn");
-    if(_fabEl) _fabEl.style.display="none"; // Jenny doesn't use quick-capture
-    bootApp().then(async ()=>{
-      // Lock to home mode, hide work toggle
+  // ── Adults: sign in via Supabase ─────────────────────────
+  // Determine email from which tab is active
+  const isJennyTab = document.getElementById('gate-jenny-tab')?.classList.contains('active');
+  const email = isJennyTab ? 'jenny@reeveshq.local' : 'jason@reeveshq.local';
+
+  // Show spinner
+  const btn = document.getElementById('gate-submit-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Signing in…'; }
+
+  try{
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: val });
+    if(error) throw error;
+
+    _sbSession = data.session;
+    _sbUserId  = data.user.id;
+
+    if(_sbUserId === JASON_UID){
+      currentUser = 'parent';
+      localStorage.setItem('hub-auth', Date.now().toString());
+      document.getElementById('gate').style.display='none';
+      const _fabEl = document.getElementById('global-capture-btn');
+      if(_fabEl) _fabEl.style.display='';
+      await bootApp();
+      handleDeepLink();
+      await registerServiceWorker();
+      const notifGranted = await requestNotifPermission();
+      if(notifGranted){
+        scheduleNotifChecks(); scheduleAlarmsWithSW();
+        updateAppBadge(); if(_swReg) subscribeToPush(_swReg);
+      }
+      // Start real-time subscriptions for shared data
+      _startRealtimeSubscriptions();
+    } else {
+      // Jenny
+      currentUser = {role:'wife', name:'Jenny'};
+      localStorage.setItem('hub-auth-jenny', Date.now().toString());
+      document.getElementById('gate').style.display='none';
+      const _fabEl = document.getElementById('global-capture-btn');
+      if(_fabEl) _fabEl.style.display='none';
+      await bootApp();
       currentMode = 'home';
       localStorage.setItem('reeves-mode','home');
       applyMode();
       activeNav = 'home-today';
-      // Hide mode toggle — Jenny can't switch to work
       const modeBtn = document.getElementById('mode-toggle-btn');
-      if(modeBtn) modeBtn.style.display = 'none';
+      if(modeBtn) modeBtn.style.display='none';
       renderAll();
-    });
-    return;
-  }
+      // Jenny also gets real-time for shared data
+      _startRealtimeSubscriptions();
+    }
 
-  if(val===GATE_PASSWORD){
-    currentUser = 'parent';
-    localStorage.setItem("hub-auth",Date.now().toString());
-    document.getElementById("gate").style.display="none";
-    const _fabEl = document.getElementById("global-capture-btn");
-    if(_fabEl) _fabEl.style.display="";
-    bootApp().then(async ()=>{
-      handleDeepLink();
-      // Start SW + notifications after gate unlock (same as init fast-path)
-      await registerServiceWorker();
-      const notifGranted = await requestNotifPermission();
-      if(notifGranted){
-        scheduleNotifChecks();
-        scheduleAlarmsWithSW();
-        updateAppBadge();
-        if(_swReg) subscribeToPush(_swReg);
-      }
-    });
-  } else {
-    err.style.display="block";
-    input.value="";
-    input.style.borderColor="#7A1818";
-    input.style.boxShadow="0 0 8px rgba(255,32,32,0.3)";
+  }catch(err){
+    console.error('Sign in error:', err);
+    if(btn){ btn.disabled=false; btn.textContent='Sign in'; }
+    const errEl = document.getElementById('gate-error');
+    if(errEl){ errEl.textContent = 'Wrong password — try again'; errEl.style.display='block'; }
+    input.value=''; input.style.borderColor='#7A1818';
     setTimeout(()=>{
-      err.style.display="none";
-      input.style.borderColor="#B8860B";
-      input.style.boxShadow="none";
-    },2000);
+      if(errEl) errEl.style.display='none';
+      input.style.borderColor='#B8860B';
+    }, 2500);
     input.focus();
   }
+}
+
+// ── Real-time subscriptions for shared tables ─────────────────
+let _realtimeChannel = null;
+
+function _startRealtimeSubscriptions(){
+  if(_realtimeChannel) _realtimeChannel.unsubscribe();
+
+  _realtimeChannel = _sb
+    .channel('shared-tables')
+    .on('postgres_changes',
+      {event:'*', schema:'public', table:'family_tasks'},
+      payload => { _handleRealtimeChange('family_tasks', payload); })
+    .on('postgres_changes',
+      {event:'*', schema:'public', table:'family_task_comments'},
+      payload => { _handleRealtimeChange('family_task_comments', payload); })
+    .on('postgres_changes',
+      {event:'*', schema:'public', table:'grocery_items'},
+      payload => { _handleRealtimeChange('grocery_items', payload); })
+    .on('postgres_changes',
+      {event:'*', schema:'public', table:'weekly_plan'},
+      payload => { _handleRealtimeChange('weekly_plan', payload); })
+    .on('postgres_changes',
+      {event:'*', schema:'public', table:'kids_tracker'},
+      payload => { _handleRealtimeChange('kids_tracker', payload); })
+    .subscribe();
+}
+
+function _handleRealtimeChange(table, payload){
+  const { eventType, new: newRow, old: oldRow } = payload;
+
+  if(table === 'family_tasks'){
+    if(eventType === 'DELETE'){
+      familyTasks = familyTasks.filter(t=>t.id !== oldRow.id);
+    } else {
+      const t = {
+        id:newRow.id, title:newRow.title, done:newRow.done,
+        assignedTo:newRow.assigned_to, createdBy:newRow.created_by,
+        dueDate:newRow.due_date, attachments:newRow.attachments||[],
+        createdAt:newRow.created_at, completedAt:newRow.completed_at,
+        comments: (familyTasks.find(x=>x.id===newRow.id)||{}).comments || []
+      };
+      const idx = familyTasks.findIndex(x=>x.id===newRow.id);
+      if(idx > -1) familyTasks[idx] = t; else familyTasks.unshift(t);
+    }
+    localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
+  }
+
+  else if(table === 'family_task_comments'){
+    if(eventType === 'INSERT'){
+      const task = familyTasks.find(t=>t.id===newRow.task_id);
+      if(task){
+        if(!task.comments) task.comments=[];
+        const exists = task.comments.find(c=>c.id===newRow.id);
+        if(!exists){
+          task.comments.push({
+            id:newRow.id, author:newRow.author, text:newRow.text,
+            type:newRow.type, ts:newRow.ts
+          });
+          task.comments.sort((a,b)=>a.ts-b.ts);
+          // Show notification if comment is from the other person
+          const myName = currentUserLabel();
+          if(newRow.author !== myName){
+            _notifyFamilyComment(task.title, newRow.author, newRow.text);
+          }
+        }
+      }
+      localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
+    }
+  }
+
+  else if(table === 'grocery_items'){
+    if(eventType === 'DELETE'){
+      groceryList = groceryList.filter(g=>g.id !== oldRow.id);
+    } else {
+      const g = {id:newRow.id, name:newRow.name, checked:newRow.checked, addedBy:newRow.added_by};
+      const idx = groceryList.findIndex(x=>x.id===newRow.id);
+      if(idx > -1) groceryList[idx]=g; else groceryList.unshift(g);
+    }
+    localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
+  }
+
+  else if(table === 'weekly_plan'){
+    weeklyPlan = {
+      weekOf:newRow.week_of, lockedIn:newRow.locked_in,
+      lockedAt:newRow.locked_at, items:newRow.items||[], carryOvers:newRow.carry_overs||[]
+    };
+    localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
+  }
+
+  else if(table === 'kids_tracker'){
+    kidsTracker = {lunches:newRow.lunches||{}, schedule:newRow.schedule||{}};
+    localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+  }
+
+  // Re-render after any real-time update (debounced to avoid thrashing)
+  clearTimeout(_realtimeRenderTimeout);
+  _realtimeRenderTimeout = setTimeout(renderAll, 150);
+}
+
+let _realtimeRenderTimeout = null;
+
+// ── Sign out ──────────────────────────────────────────────────
+async function signOut(){
+  if(_realtimeChannel) _realtimeChannel.unsubscribe();
+  await _sb.auth.signOut();
+  _sbSession = null; _sbUserId = null;
+  currentUser = 'parent';
+  localStorage.removeItem('hub-auth');
+  localStorage.removeItem('hub-auth-jenny');
+  localStorage.removeItem('hub-auth-kid');
+  document.getElementById('app').style.display='none';
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('gate-input').value='';
+  setTimeout(()=>document.getElementById('gate-input').focus(), 300);
 }
 
 // ── Daily Ritual System ──────────────────────────────────────
@@ -15242,6 +16797,7 @@ function saveEodRitual(){
   // Pre-populate morning one-thing with tomorrow hint
   if(tomorrow) localStorage.setItem('hub-tomorrow-hint', tomorrow);
   localStorage.setItem('hub-eod-done', today());
+  saveAllDebounced(); // push dailyLog to cloud
   closeModal('modal-eod');
   showToast('🌙 Day closed. Rest well.');
 }
@@ -15282,6 +16838,8 @@ async function bootApp(){
   }
   // Inject any already-imported work meetings immediately (before first fetch)
   injectImportedMeetings();
+  // Schedule prep notifications for today's meeting blocks
+  scheduleAllTodayPrepNotifs();
   // Background prefetch calendar for the next 90 days so tab opens instantly
   setTimeout(()=>{
     const _calStart = today();
@@ -15407,32 +16965,44 @@ async function registerServiceWorker(){
 }
 
 async function subscribeToPush(reg){
-  // Skip if no VAPID key configured yet
-  const pubKey = VAPID_PUBLIC_KEY || localStorage.getItem('hub-vapid-pubkey');
-  if(!pubKey || pubKey === '' ){
-    console.log('[Push] No VAPID public key set — skipping push subscription');
+  if(!_sbSession || !_sbUserId){
+    console.log('[Push] Not signed in — skipping push subscription');
     return;
   }
   try{
     // Check if already subscribed
-    const existing = await reg.pushManager.getSubscription();
-    if(existing){
-      // Re-send to server in case it was lost
-      await apiCall('savePushSub', { subscription: existing.toJSON() });
-      console.log('[Push] Existing subscription re-registered');
-      return;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      // Subscribe with VAPID key
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+      console.log('[Push] New push subscription created');
     }
-    // Subscribe with VAPID key
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly:      true,
-      applicationServerKey: urlBase64ToUint8Array(pubKey)
-    });
-    // Send subscription to Apps Script for storage
-    await apiCall('savePushSub', { subscription: sub.toJSON() });
-    console.log('[Push] New subscription registered');
-    showToast('🔔 Background push enabled');
+
+    // Save subscription to Supabase (upsert so re-registers are safe)
+    const subJson = sub.toJSON();
+    const { error } = await _sb.from('push_subscriptions').upsert({
+      owner_id:   _sbUserId,
+      endpoint:   subJson.endpoint,
+      p256dh:     subJson.keys?.p256dh || '',
+      auth:       subJson.keys?.auth   || '',
+      user_agent: navigator.userAgent.slice(0, 200)
+    }, { onConflict: 'owner_id,endpoint' });
+
+    if(error){
+      console.warn('[Push] Failed to save subscription:', error.message);
+    } else {
+      console.log('[Push] Subscription registered in Supabase');
+      showToast('🔔 Background notifications enabled');
+    }
   } catch(e){
-    console.warn('[Push] Subscription failed:', e);
+    console.warn('[Push] Subscription failed:', e.message || e);
+    // Common reason on iOS: app not installed to home screen
+    if(e.name === 'NotAllowedError'){
+      console.log('[Push] Permission denied — user needs to enable in settings');
+    }
   }
 }
 
@@ -15715,48 +17285,13 @@ async function init(){
   // Sync theme toggle button icon
   const _themeBtn = document.getElementById('theme-toggle-btn');
   if(_themeBtn) _themeBtn.textContent = _savedTheme === 'dark' ? '☀' : '🌙';
-  const authTime=localStorage.getItem("hub-auth");
-  const now=Date.now();
-  if(authTime&&(now-parseInt(authTime))<GATE_DURATION){
-    // Still within 60 min window — skip gate
-    document.getElementById("gate").style.display="none";
-    await bootApp();
-    handleDeepLink();
-    // Register service worker (enables background push + offline)
-    await registerServiceWorker();
-    const notifGranted = await requestNotifPermission();
-    if(notifGranted){
-      scheduleNotifChecks();
-      scheduleAlarmsWithSW();
-      updateAppBadge();
-      if(_swReg) subscribeToPush(_swReg);
-    }
-  } else {
-    // Show gate — but first check for Jenny or kid session
+  // ── Try to restore existing Supabase session ──────────────
+  const { data: { session } } = await _sb.auth.getSession();
+  if(session){
+    _sbSession = session;
+    _sbUserId  = session.user.id;
 
-    // Restore Jenny session if still valid (60 min)
-    const _jennyAuth = localStorage.getItem('hub-auth-jenny');
-    if(_jennyAuth){
-      try{
-        if(Date.now() - parseInt(_jennyAuth) < 60*60*1000){
-          currentUser = {role:'wife', name:'Jenny'};
-          currentMode = 'home';
-          localStorage.setItem('reeves-mode','home');
-          document.getElementById('loading').style.display='none';
-          document.getElementById('app').style.display='flex';
-          applyMode();
-          activeNav = 'home-today';
-          const modeBtn = document.getElementById('mode-toggle-btn');
-          if(modeBtn) modeBtn.style.display='none';
-          renderAll();
-          return;
-        } else {
-          localStorage.removeItem('hub-auth-jenny');
-        }
-      }catch(e){}
-    }
-
-    // Restore kid session if still valid (60 min)
+    // Restore kid session if valid (60 min — kids don't use Supabase auth)
     const _kidAuth = localStorage.getItem('hub-auth-kid');
     if(_kidAuth){
       try{
@@ -15773,13 +17308,57 @@ async function init(){
       }catch(e){}
     }
 
-    localStorage.removeItem("hub-auth");
-
-  document.getElementById("gate").style.display="flex";
-    document.getElementById("loading").style.display="none";
-    const _fab = document.getElementById("global-capture-btn");
-    if(_fab) _fab.style.display="none";
-    setTimeout(()=>document.getElementById("gate-input").focus(),300);
+    // Determine user from UID
+    if(_sbUserId === JASON_UID){
+      currentUser = 'parent';
+      document.getElementById('gate').style.display='none';
+      await bootApp();
+      handleDeepLink();
+      await registerServiceWorker();
+      const notifGranted = await requestNotifPermission();
+      if(notifGranted){
+        scheduleNotifChecks(); scheduleAlarmsWithSW();
+        updateAppBadge(); if(_swReg) subscribeToPush(_swReg);
+      }
+      _startRealtimeSubscriptions();
+    } else {
+      // Jenny session restored
+      currentUser = {role:'wife', name:'Jenny'};
+      currentMode = 'home';
+      localStorage.setItem('reeves-mode','home');
+      document.getElementById('gate').style.display='none';
+      const _fabEl = document.getElementById('global-capture-btn');
+      if(_fabEl) _fabEl.style.display='none';
+      await bootApp();
+      applyMode();
+      activeNav = 'home-today';
+      const modeBtn = document.getElementById('mode-toggle-btn');
+      if(modeBtn) modeBtn.style.display='none';
+      renderAll();
+      _startRealtimeSubscriptions();
+    }
+  } else {
+    // No session — check kid PIN session, then show gate
+    const _kidAuth = localStorage.getItem('hub-auth-kid');
+    if(_kidAuth){
+      try{
+        const _ka = JSON.parse(_kidAuth);
+        if(Date.now() - _ka.ts < 60*60*1000){
+          currentUser = {role:'kid', playerIdx:_ka.playerIdx, name:''};
+          const d = kidsData();
+          currentUser.name = d.players[_ka.playerIdx]?.name || 'Player '+(_ka.playerIdx+1);
+          showKidsPage();
+          return;
+        } else {
+          localStorage.removeItem('hub-auth-kid');
+        }
+      }catch(e){}
+    }
+    document.getElementById('gate').style.display='flex';
+    document.getElementById('loading').style.display='none';
+    const _fab = document.getElementById('global-capture-btn');
+    if(_fab) _fab.style.display='none';
+    setTimeout(()=>document.getElementById('gate-input').focus(), 300);
   }
 }
 
@@ -15812,63 +17391,49 @@ window.addEventListener("offline",()=>{setSyncStatus("offline","Offline");showTo
 
 // ── Background sync: pull fresh data every 2.5 minutes ────────────
 async function backgroundSync(){
-  if(!navigator.onLine) return;
+  // Supabase real-time handles live updates for shared data.
+  // This function now only refreshes tasks/projects for Jason (owner data).
+  if(!navigator.onLine || !_sbSession || !_sbUserId) return;
   try{
-    const data = await apiCall("getAll");
-    const sheetProjects=(data.projects||[]).map(p=>({...p,collapsed:p.collapsed==="true"||p.collapsed===true})).filter(p=>p.id&&p.name);
-    const sheetTasks=(data.tasks||[]).map(t=>({...t})).filter(t=>t.id&&t.title);
-    let changed = false;
+    const [taskRows, projectRows] = await Promise.all([
+      sbGet('tasks'), sbGet('projects')
+    ]);
 
-    if(sheetTasks.length > 0){
-      projects = sheetProjects;
-      tasks    = sheetTasks;
-      localStorage.setItem("hub-projects", JSON.stringify(projects));
-      localStorage.setItem("hub-tasks",    JSON.stringify(tasks));
-      changed = true;
+    if(projectRows.length){
+      projects = projectRows.map(p=>({
+        id:p.id, name:p.name, domain:p.domain, color:p.color, collapsed:p.collapsed
+      }));
+      localStorage.setItem('hub-projects', JSON.stringify(projects));
     }
 
-    // Kids game — timestamp-based merge
-    if(data.kidsGame && data.kidsGame.players){
-      const cloudTs = data.kidsGame.lastSaved || 0;
-      const localTs = kidsGame ? (kidsGame.lastSaved || 0) : 0;
-      if(cloudTs > localTs){
-        kidsGame = data.kidsGame;
-        localStorage.setItem("hub-kids", JSON.stringify(kidsGame));
-        changed = true;
-      }
+    if(taskRows.length){
+      // Merge with local — preserve local completions that haven't synced yet
+      const localMap = {};
+      tasks.forEach(t=>{ localMap[t.id]=t; });
+      tasks = taskRows.map(t=>({
+        id:t.id, projectId:t.project_id, title:t.title,
+        priority:t.priority, status:t.status, dueDate:t.due_date,
+        notes:t.notes, source:t.source, recur:t.recur,
+        effort:t.effort, estimate:t.estimate, energy:t.energy,
+        personIds:t.person_ids, discoveryId:t.discovery_id,
+        taskIds:t.task_ids||[], subtasks:t.subtasks||[],
+        attachments:t.attachments||[],
+        createdAt:t.created_at, completedAt:t.completed_at
+      })).map(t=>{
+        const local = localMap[t.id];
+        if(!local) return t;
+        // Preserve local done state
+        if(local.status==='done' && t.status!=='done')
+          return {...t, status:'done', completedAt:local.completedAt};
+        return t;
+      });
+      localStorage.setItem('hub-tasks', JSON.stringify(tasks));
     }
 
-    // Jason rewards — timestamp-based merge
-    if(data.jasonRewards && typeof data.jasonRewards.completions !== "undefined"){
-      const lrRaw = localStorage.getItem("hub-jason-rewards");
-      const localJR = lrRaw ? JSON.parse(lrRaw) : null;
-      const cloudTs = data.jasonRewards.lastSaved || 0;
-      const localTs = localJR ? (localJR.lastSaved || 0) : 0;
-      if(cloudTs > localTs){
-        localStorage.setItem("hub-jason-rewards", JSON.stringify(data.jasonRewards));
-        changed = true;
-      }
-    }
-
-    // totalXP and longestStreak — always take the max across devices
-    if(data.jasonStats){
-      const cloudXP = data.jasonStats.totalXP || 0;
-      if(cloudXP > totalXP){
-        totalXP = cloudXP;
-        localStorage.setItem("hub-totalXP", String(totalXP));
-        changed = true;
-      }
-      const cloudLongest = data.jasonStats.longestStreak || 0;
-      const localLongest = parseInt(localStorage.getItem("hub-longest-streak")||"0");
-      if(cloudLongest > localLongest){
-        localStorage.setItem("hub-longest-streak", String(cloudLongest));
-        changed = true;
-      }
-    }
-
-    if(changed){ updateStats(); renderAll(); }
+    updateStats(); renderAll();
   }catch(e){ /* silent fail */ }
 }
+
 setInterval(backgroundSync, 2.5 * 60 * 1000);
 
 // ── Visibility sync: re-fetch when tab becomes active after being away ──
@@ -16056,7 +17621,13 @@ function saveKidsData(d) {
   kidsSyncTimeout = setTimeout(async()=>{
     // Read kidsGame fresh at fire time in case more changes accumulated
     if(kidsGame) kidsGame.lastSaved = Date.now();
-    try{ await apiCall('saveAll',{projects, tasks, kidsGame, ...getCloudStats()}); }catch(e){}
+    try{
+    // Kids game stored in user_settings as JSON
+    await _sb.from('user_settings').upsert(
+      {owner_id:_sbUserId, key:'kidsGame', value:JSON.stringify(kidsGame)},
+      {onConflict:'owner_id,key'}
+    );
+  }catch(e){}
   }, 1200);
 }
 
