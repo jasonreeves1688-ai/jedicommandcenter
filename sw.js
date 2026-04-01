@@ -4,7 +4,7 @@
 //          background badge updates, in-app alarm fallback
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'command-center-v39';
+const CACHE_NAME = 'command-center-v40';
 const SUPABASE_URL = 'https://pfsuljwznlxbfpmifdir.supabase.co';
 
 // ── Install & activate ────────────────────────────────────────
