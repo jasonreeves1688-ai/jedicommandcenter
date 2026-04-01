@@ -2825,7 +2825,7 @@ const partyActive=()=>filterParty.size>0;
 const personActive=()=>filterPerson.size>0;
 const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
-let focusOn=false, expandedTaskId=null, editingTaskId=null, selectedMissionId=null;
+let editingTaskId=null, selectedMissionId=null;
 let todayFocusMode=false;  // true = focus mode within Today screen
 let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null, kidsSyncTimeout=null;
@@ -3129,48 +3129,15 @@ async function loadAll(){
 
 
 function getCloudStats(){
+  // Used only by sendTestRaven to send context to the Morning Raven email
   return {
-    totalXP:          totalXP,
-    streak:           computeStreak(),
-    longestStreak:    getLongestStreak(),
-    jasonRewards:     getJasonRewards(),
-    todayPinned:      [...todayPinned],
-    waitingFor:       waitingFor,
-    weeklyIntentions: weeklyIntentions,
-    resetStreak:      resetStreak,
-    somedayList:      somedayList,
-    peopleList:       peopleList,
-    contactsList:     contactsList,
-    meetingLog:       meetingLog,
-    meetingSeries:    meetingSeries,
-    habitList:        habitList,
-    habitLog:         habitLog,
-    ravenSettings: {
-      email:   localStorage.getItem('hub-raven-email')||'',
-      hour:    localStorage.getItem('hub-raven-hour')||'7',
-      kingdom: localStorage.getItem('hub-raven-kingdom')||'true',
-      home:    localStorage.getItem('hub-raven-home')||'true'
-    },
-    dailyLog:    JSON.parse(localStorage.getItem('hub-daily-log')||'[]'),
-    weeklyJournal: JSON.parse(localStorage.getItem('hub-journal')||'[]'),
-    tomorrowHint: localStorage.getItem('hub-tomorrow-hint')||'',
-    tbBlocks:         tbBlocks,
-    discoveryList:    discoveryList,
-    signalList:       signalList,
-    familyTasks:      familyTasks,
-    jasonHomeTasks:   jasonHomeTasks,
-    wifeHomeTasks:    wifeHomeTasks,
-    groceryList:      groceryList,
-    weeklyPlan:       weeklyPlan,
-    kidsTracker:      kidsTracker,
-    // Comments stored as a separate map so they don't inflate the familyTasks cell
-    familyComments:   (()=>{
-      const map = {};
-      familyTasks.forEach(t=>{
-        if(t.comments && t.comments.length) map[t.id] = t.comments;
-      });
-      return map;
-    })()
+    totalXP:      totalXP,
+    todayPinned:  [...todayPinned],
+    waitingFor:   waitingFor,
+    contactsList: contactsList,
+    meetingLog:   meetingLog.slice(0, 10),
+    habitList:    habitList,
+    habitLog:     habitLog,
   };
 }
 
@@ -3445,15 +3412,6 @@ window.addEventListener('beforeunload', ()=>{
 // ── Central payload builder — single source of truth for what gets saved ──
 // getCloudStats() already includes waitingFor, peopleList, meetingLog etc.
 // We explicitly add the ones that were historically missing from saveAll.
-function _buildSavePayload(){
-  // discoveryList and signalList are included via getCloudStats() — no need to duplicate
-  return {
-    projects,
-    tasks,
-    kidsGame,
-    ...getCloudStats()
-  };
-}
 
 async function syncNow(){
   showToast("Syncing…");
@@ -7799,8 +7757,7 @@ function renderAll(){
   if(activeNav==="family"){     renderFamilyPage(main);    return; }
   if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
   if(activeNav==="tracker"){    renderKidsTrackerPage(main); return; }
-  if(activeNav==="today"||activeNav==="focus"||focusOn){renderTodayView(main);return;}
-  if(activeNav==="cal"){renderCalendar(main);return;}
+  if(activeNav==="today"||activeNav==="focus"){renderTodayView(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
   if(activeNav==="discovery"){ renderDiscoveryPage(main); return; }
   if(activeNav==="people"){  renderPeoplePage(main);  return; }
@@ -8268,215 +8225,204 @@ function relativeDue(dueDate,isDone){
 }
 
 function renderTaskRow(task,proj){
-  const isExpanded=expandedTaskId===task.id;
   const isDone=task.status==="done";
   const todayStr=today();
   const overdue=task.dueDate&&task.dueDate<todayStr&&!isDone;
   const dueStr=relativeDue(task.dueDate,isDone);
   const isPinned=todayPinned.has(task.id);
 
-  // Task aging
+  // Task aging badge
   const ageMs = task.createdAt ? Date.now()-parseInt(task.createdAt) : 0;
   const ageDays = Math.floor(ageMs/86400000);
   const isStale = !isDone && ageDays>=14;
   const isAncient = !isDone && ageDays>=60;
   const ageBadge = isAncient
-    ? `<span title="${ageDays} days old" style="font-size:11px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
+    ? `<span title="${ageDays} days old" style="font-size:10px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:3px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
     : isStale
-    ? `<span title="${ageDays} days old" style="font-size:11px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
+    ? `<span title="${ageDays} days old" style="font-size:10px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:3px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
     : '';
 
-  // Priority button
-  const pLabels={high:"🔴 Urgent",medium:"🟠 High",low:"🟡 Normal"};
-  const pClass={high:"active-high",medium:"active-medium",low:"active-low"}[task.priority]||"";
+  // Smart priority mismatch dot
   const { suggested: sugPri, reasons: sugReasons } = scorePriority(task);
   const hasMismatch = sugPri !== (task.priority||'medium');
   const mismatchDot = hasMismatch
     ? `<span onclick="event.stopPropagation();applySmartPriority('${task.id}')"
-        title="Smart priority suggests: ${sugPri} (${sugReasons.join(', ')}) — tap to apply"
-        style="cursor:pointer;display:inline-block;width:7px;height:7px;border-radius:50%;
+        title="Smart priority suggests: ${sugPri} — tap to apply"
+        style="cursor:pointer;display:inline-block;width:6px;height:6px;border-radius:50%;
                background:${sugPri==='high'?'#EF5350':sugPri==='low'?'#888':'#E8A838'};
-               margin-left:4px;vertical-align:middle;box-shadow:0 0 0 2px rgba(255,255,255,0.3);
-               flex-shrink:0;" ></span>`
+               margin-left:3px;vertical-align:middle;flex-shrink:0;"></span>`
     : '';
-  const priorityBtn=`<button class="tctl-btn ${pClass}" onclick="event.stopPropagation();cycleTaskPriority('${task.id}')" title="Change priority">${pLabels[task.priority]||"Priority"}${mismatchDot}</button>`;
 
-  // Status button
-  const sLabels={todo:"○ Open",inprogress:"● Active",blocked:"⊘ Blocked",done:"✓ Done"};
-  const sClass={todo:"active-todo",inprogress:"active-inprogress",blocked:"active-blocked",done:"active-done"}[task.status]||"";
-  const statusBtn=`<button class="tctl-btn ${sClass}" onclick="event.stopPropagation();cycleTaskStatus('${task.id}')" title="Change status">${sLabels[task.status]||"Status"}</button>`;
+  // Accent bar
+  const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
+  const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
 
-  // Due date input — always visible
-  const dueDateBtn=`<input type="date" class="tctl-date" value="${task.dueDate||''}" title="Set due date"
-    style="color-scheme:dark;"
-    onclick="event.stopPropagation()"
-    onchange="event.stopPropagation();saveTaskDueDate('${task.id}',this.value)"/>`;
+  // ── Inline controls ──────────────────────────────────────────
 
-  // Pin button
-  const pinBtn=`<button class="tctl-btn ${isPinned?'pinned':''}" onclick="event.stopPropagation();toggleTodayPin('${task.id}')" title="${isPinned?'Unpin from Today':'Pin to Today'}">${isPinned?'📌 PINNED':'📌 PIN'}</button>`;
+  // Status dropdown
+  const statusColors = {todo:'var(--text4)',inprogress:'var(--accent)',blocked:'#EF5350',done:'var(--green)'};
+  const statusLabels = {todo:'Open',inprogress:'Active',blocked:'Blocked',done:'Done'};
+  const sColor = statusColors[task.status]||'var(--text4)';
+  const statusDropdown = `<select
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();updateTaskField('${task.id}','status',this.value)"
+      title="Set status"
+      style="font:700 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
+        cursor:pointer;border:1px solid ${sColor}44;background:${sColor}14;color:${sColor};
+        appearance:none;-webkit-appearance:none;outline:none;max-width:70px;">
+    <option value="todo"       ${task.status==='todo'?'selected':''}>Open</option>
+    <option value="inprogress" ${task.status==='inprogress'?'selected':''}>Active</option>
+    <option value="blocked"    ${task.status==='blocked'?'selected':''}>Blocked</option>
+    <option value="done"       ${task.status==='done'?'selected':''}>Done</option>
+  </select>`;
 
-  // Party chip
-  const projChip=proj?`<span class="row-chip" style="color:${proj.color};border-color:${proj.color}55;background:${proj.color}14;">◈ ${esc(proj.name)}</span>`:"";
+  // Priority dropdown
+  const priColors = {high:'#EF5350',medium:'var(--accent)',low:'#7CB342'};
+  const priLabels = {high:'Urgent',medium:'High',low:'Normal'};
+  const pColor2 = priColors[task.priority]||'var(--text4)';
+  const priorityDropdown = `<select
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();updateTaskField('${task.id}','priority',this.value)"
+      title="Set priority"
+      style="font:700 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
+        cursor:pointer;border:1px solid ${pColor2}44;background:${pColor2}14;color:${pColor2};
+        appearance:none;-webkit-appearance:none;outline:none;max-width:68px;">
+    <option value="high"   ${task.priority==='high'?'selected':''}>Urgent</option>
+    <option value="medium" ${task.priority==='medium'?'selected':''}>High</option>
+    <option value="low"    ${task.priority==='low'?'selected':''}>Normal</option>
+  </select>${mismatchDot}`;
+
+  // Project dropdown
+  const projOptHtml = projects.map(p=>`<option value="${p.id}" ${task.projectId===p.id?'selected':''}>${p.name.length>18?p.name.slice(0,17)+'…':p.name}</option>`).join('');
+  const projDropdown = `<select
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();updateTaskField('${task.id}','projectId',this.value)"
+      title="Set project"
+      style="font:600 10px/1 var(--font-ui);padding:3px 5px;border-radius:10px;flex-shrink:0;
+        cursor:pointer;border:1px solid ${proj?proj.color+'55':'var(--border)'};
+        background:${proj?proj.color+'12':'var(--surface2)'};
+        color:${proj?proj.color:'var(--text4)'};
+        appearance:none;-webkit-appearance:none;outline:none;max-width:90px;">
+    <option value="">No project</option>
+    ${projOptHtml}
+  </select>`;
+
+  // Due date picker
+  const dueDatePicker = `<input type="date" class="tctl-date"
+      value="${task.dueDate||''}"
+      title="Set due date"
+      style="color-scheme:dark;font-size:10px;padding:3px 5px;border-radius:10px;
+        border:1px solid ${overdue?'rgba(239,83,80,0.4)':task.dueDate===todayStr?'rgba(232,168,56,0.4)':'var(--border)'};
+        background:${overdue?'rgba(239,83,80,0.08)':task.dueDate===todayStr?'rgba(232,168,56,0.08)':'var(--surface2)'};
+        color:${overdue?'#ff6060':task.dueDate===todayStr?'var(--accent)':'var(--text4)'};
+        flex-shrink:0;max-width:110px;outline:none;"
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();saveTaskDueDate('${task.id}',this.value)"/>`;
+
+  // ── Association indicators ──────────────────────────────────
+  // People assigned
+  const personIds = (task.personIds||'').split(',').filter(Boolean);
+  const personChip = personIds.length > 0
+    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
+        title="${personIds.map(id=>getPersonNameById(id)).join(', ')}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
+          cursor:pointer;border:1px solid rgba(232,168,56,0.35);background:rgba(232,168,56,0.08);color:var(--accent);">
+        👤 ${personIds.length}
+      </span>`
+    : '';
+
+  // Attachments
+  const attachments = task.attachments||[];
+  const attachChip = attachments.length > 0
+    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
+        title="${attachments.length} attachment${attachments.length!==1?'s':''}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
+          cursor:pointer;border:1px solid rgba(100,181,246,0.35);background:rgba(100,181,246,0.08);color:#64B5F6;">
+        📎 ${attachments.length}
+      </span>`
+    : '';
+
+  // Linked meeting (from source field)
+  const mtgChip = (()=>{
+    if(!task.source||!task.source.startsWith('meeting:')) return '';
+    const mtgId = task.source.split(':')[1];
+    const mtg = meetingLog.find(m=>m.id===mtgId);
+    if(!mtg) return '';
+    return `<span onclick="event.stopPropagation();openMeetingCapture('${mtgId}')"
+        title="From: ${esc(mtg.title)}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
+          cursor:pointer;border:1px solid rgba(100,181,246,0.3);background:rgba(100,181,246,0.08);color:#64B5F6;">
+        📝
+      </span>`;
+  })();
+
+  // Discovery link
+  const discChip = (()=>{
+    if(!task.discoveryId) return '';
+    const ini = discoveryList.find(i=>i.id===task.discoveryId);
+    if(!ini) return '';
+    return `<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')"
+        title="Discovery: ${esc(ini.title)}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
+          cursor:pointer;border:1px solid rgba(186,104,200,0.3);background:rgba(186,104,200,0.08);color:#BA68C8;">
+        🔭
+      </span>`;
+  })();
 
   // Subtask pill
   const subs = task.subtasks||[];
   const subDone = subs.filter(s=>s.done).length;
   const subTotal = subs.length;
-  const subPill = subTotal>0 ? `<span class="subtask-pill ${subDone===subTotal?'complete':''}" onclick="event.stopPropagation();toggleExpand('${task.id}')" title="Subtasks">☑ ${subDone}/${subTotal}</span>` : '';
-
-  // Notes toggle
-  const hasNotes=task.notes&&task.notes.replace(/<[^>]*>/g,"").trim().length>0;
-  const notesToggle=`<div class="task-notes-toggle" onclick="event.stopPropagation();toggleExpand('${task.id}')">
-    ${isExpanded?'▾ HIDE':'▸ '+(hasNotes?'NOTES':subTotal>0?'SUBTASKS':'ADD NOTES')}
-  </div>`;
-
-  // Notes expand area (only collapsible section)
-  let notesHtml="";
-  if(isExpanded){
-    // Build inline subtask list
-    const subListHtml = subs.map(s=>`
-      <div class="subtask-row" id="subrow-${s.id}">
-        <button class="subtask-check ${s.done?'done':''}" onclick="toggleRowSubtask('${task.id}','${s.id}')">✓</button>
-        <span class="subtask-text ${s.done?'done':''}">${esc(s.text)}</span>
-        <button class="subtask-del" onclick="deleteRowSubtask('${task.id}','${s.id}')" title="Remove">✕</button>
-      </div>`).join('');
-    notesHtml=`<div class="task-expand open" style="padding:8px 10px 10px;">
-      ${subTotal>0?`
-        <div class="subtask-progress">
-          <div class="subtask-bar-track"><div class="subtask-bar-fill" style="width:${subTotal?Math.round(subDone/subTotal*100):0}%;"></div></div>
-          <span class="subtask-count">${subDone}/${subTotal}</span>
-        </div>`:''}
-      <div class="subtask-list" id="rowsubs-${task.id}">${subListHtml}</div>
-      <div class="subtask-add-row">
-        <input class="subtask-add-input" id="rowsub-input-${task.id}" placeholder="Add a subtask…"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();addRowSubtask('${task.id}');}"/>
-        <button class="subtask-add-btn" onclick="addRowSubtask('${task.id}')">+ ADD</button>
-      </div>
-      ${task.notes?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">
-        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;">
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
-        </div>
-        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Task INTEL…"
-          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
-          spellcheck="false">${task.notes||''}</div>
-      </div>`:`
-        <div class="notes-toolbar" style="border-radius:3px 3px 0 0;margin-top:10px;border-top:1px solid var(--border);">
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','bold')"><b>B</b></button>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','italic')"><i>I</i></button>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','underline')"><u>U</u></button>
-          <div class="ntb-sep"></div>
-          <button class="ntb" onmousedown="event.preventDefault();expandNoteCmd('${task.id}','insertUnorderedList')">• LIST</button>
-          <button class="ntb" onmousedown="event.preventDefault();insertExpandCheckbox('${task.id}')">☑ CHECK</button>
-        </div>
-        <div class="notes-editor" id="enotes-${task.id}" contenteditable="true" data-placeholder="Notes…"
-          onblur="updateTaskField('${task.id}','notes',document.getElementById('enotes-${task.id}').innerHTML)"
-          spellcheck="false">${task.notes||''}</div>`}
-    </div>`;
-  }
-
-  // Accent bar color
-  const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
-  const pBg={high:"rgba(139,24,24,0.03)",medium:"rgba(139,92,0,0.02)",low:""}[task.priority]||"";
-
-  // estimateBadge kept for backward compat but no longer shown in collapsed row
-  // estimate is visible in the modal "more options" and used by time-block
-  const estimateBadge = '';
-
-  // Compact due badge for collapsed view
-  const dueBadge = task.dueDate
-    ? `<span style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:4px;flex-shrink:0;
-        background:${overdue?'rgba(139,24,24,0.15)':task.dueDate===today()?'rgba(232,168,56,0.15)':'var(--surface2)'};
-        color:${overdue?'#ff6060':task.dueDate===today()?'var(--accent)':'var(--text4)'};"
-       onclick="event.stopPropagation();">${dueStr}</span>`
+  const subPill = subTotal>0
+    ? `<span onclick="event.stopPropagation();openEditTask('${task.id}')"
+        title="Subtasks: ${subDone}/${subTotal} done"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;
+          cursor:pointer;border:1px solid ${subDone===subTotal?'rgba(61,184,122,0.4)':'var(--border)'};
+          background:${subDone===subTotal?'rgba(61,184,122,0.08)':'var(--surface2)'};
+          color:${subDone===subTotal?'var(--green)':'var(--text4)'};">
+        ☑ ${subDone}/${subTotal}
+      </span>`
     : '';
 
-  // Inline status pill — always visible, tap to cycle
-  const statusColors = {todo:'var(--text4)',inprogress:'var(--accent)',blocked:'#EF5350',done:'var(--green)'};
-  const statusLabels = {todo:'Open',inprogress:'Active',blocked:'Blocked',done:'Done'};
-  const inlineStatus = !isDone ? `<button
-      onclick="event.stopPropagation();cycleTaskStatus('${task.id}')"
-      title="Cycle status"
-      style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;flex-shrink:0;
-        cursor:pointer;border:1px solid ${statusColors[task.status]||'var(--text4)'}44;
-        background:${statusColors[task.status]||'var(--text4)'}14;
-        color:${statusColors[task.status]||'var(--text4)'};"
-      >${statusLabels[task.status]||'Open'}</button>` : '';
+  // Project chip in meta row (display only)
+  const projChip = proj
+    ? `<span class="row-chip" style="color:${proj.color};border-color:${proj.color}55;background:${proj.color}14;">◈ ${esc(proj.name)}</span>`
+    : '';
 
-  // Inline priority pill — always visible, tap to cycle
-  const priColors = {high:'#EF5350',medium:'var(--accent)',low:'#7CB342'};
-  const priLabels = {high:'Urgent',medium:'High',low:'Normal'};
-  const inlinePriority = !isDone ? `<button
-      onclick="event.stopPropagation();cycleTaskPriority('${task.id}')"
-      title="Cycle priority"
-      style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;flex-shrink:0;
-        cursor:pointer;border:1px solid ${priColors[task.priority]||'var(--text4)'}44;
-        background:${priColors[task.priority]||'var(--text4)'}14;
-        color:${priColors[task.priority]||'var(--text4)'};"
-      >${priLabels[task.priority]||''}${mismatchDot}</button>` : '';
+  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}"
+      style="${pBg?'background:'+pBg+';':''}${isStale&&!isDone?'opacity:0.82;':''}">
 
-  return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}" style="${pBg?"background:"+pBg+";":" "}${isStale&&!isDone?"opacity:0.82;":""}">
-    <div class="task-row-top" onclick="toggleExpand('${task.id}')">
-      <button class="check-btn ${isDone?'checked':''}" onclick="event.stopPropagation();completeTask('${task.id}',event)" title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
-      <div class="priority-bar" style="background:${isDone?"rgba(140,100,50,0.2)":pColor};"></div>
+    <!-- Top row: check + title + meta -->
+    <div class="task-row-top" onclick="openEditTask('${task.id}')">
+      <button class="check-btn ${isDone?'checked':''}"
+        onclick="event.stopPropagation();completeTask('${task.id}',event)"
+        title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
+      <div class="priority-bar" style="background:${isDone?'rgba(140,100,50,0.2)':pColor};"></div>
       <div class="task-body-wrap">
         <div class="task-body" style="flex:1;min-width:0;">
           <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-          <div class="task-meta">${projChip}${subPill}${ageBadge}${(()=>{
-            if(!task.discoveryId) return '';
-            const ini = discoveryList.find(i=>i.id===task.discoveryId);
-            if(!ini) return '';
-            return `<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')"
-              style="font-size:10px;font-family:var(--font-ui);padding:2px 7px;border-radius:4px;
-                     background:rgba(186,104,200,0.1);color:#BA68C8;border:1px solid rgba(186,104,200,0.25);
-                     cursor:pointer;flex-shrink:0;white-space:nowrap;" title="Discovery: ${esc(ini.title)}">
-              🔭 ${esc(ini.title.length>18?ini.title.slice(0,18)+'…':ini.title)}
-            </span>`;
-          })()}${(()=>{
-            if(!task.source||!task.source.startsWith('meeting:')) return '';
-            const mtgId = task.source.split(':')[1];
-            const mtg = meetingLog.find(m=>m.id===mtgId);
-            if(!mtg) return '';
-            return `<span onclick="event.stopPropagation();openMeetingCapture('${mtgId}')"
-              style="font-size:10px;font-family:var(--font-ui);padding:2px 7px;border-radius:4px;
-                     background:rgba(100,181,246,0.1);color:#64B5F6;border:1px solid rgba(100,181,246,0.25);
-                     cursor:pointer;flex-shrink:0;white-space:nowrap;" title="From: ${esc(mtg.title)}">
-              📝 ${esc(mtg.title.length>20?mtg.title.slice(0,20)+'…':mtg.title)}
-            </span>`;
-          })()}</div>
+          <div class="task-meta">${projChip}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}</div>
         </div>
-        ${inlineStatus}
-        ${inlinePriority}
-        ${dueBadge}
-        <span style="font-size:11px;color:var(--text4);padding-right:4px;flex-shrink:0;transition:transform 0.15s;display:inline-block;transform:rotate(${isExpanded?'90':'0'}deg);">▶</span>
       </div>
     </div>
-    ${isExpanded ? `
-    <div class="task-controls">
-      ${statusBtn}${priorityBtn}${dueDateBtn}${pinBtn}
-      <span class="tctl-spacer"></span>
-      <button class="tctl-btn" onclick="event.stopPropagation();openEditTask('${task.id}')" title="Edit task" style="color:var(--text2);">✏ EDIT</button>
-      <button class="tctl-btn" onclick="event.stopPropagation();openTaskAI('${task.id}')" title="AI Assist" style="color:var(--accent);border-color:rgba(232,168,56,0.4);">🤖 AI</button>
-      <button class="tctl-btn" onclick="event.stopPropagation();copyTaskLink('${task.id}')" title="Copy link to this task" style="color:var(--text3);">🔗</button>
-      <button class="tctl-btn" onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')" title="Move to Someday" style="color:var(--text3);">💭</button>
-      <button class="tctl-danger" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')">☠</button>
-    </div>
-    ${notesToggle}
-    ${notesHtml}` : ''}
+
+    <!-- Controls bar: always visible, never expands -->
+    ${!isDone ? `<div class="task-controls" style="display:flex;align-items:center;gap:5px;padding:5px 10px 7px 38px;flex-wrap:wrap;">
+      ${statusDropdown}
+      ${priorityDropdown}
+      ${projDropdown}
+      ${dueDatePicker}
+      <span style="flex:1;"></span>
+      <button onclick="event.stopPropagation();openEditTask('${task.id}')"
+        title="Edit task"
+        style="font:700 10px/1 var(--font-ui);padding:4px 9px;border-radius:8px;flex-shrink:0;
+          cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);">
+        ✏ Edit
+      </button>
+    </div>` : ''}
   </div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Focus + BATTLE PLANNER (focus + pomodoro)
-// ═══════════════════════════════════════════════════════════════
-let pomoState={mode:"work",timeLeft:25*60,running:false,sessions:0,customWork:25,interval:null};
-
-// ═══════════════════════════════════════════════════════════════
-// JASON'S REWARD SYSTEM
-// ═══════════════════════════════════════════════════════════════
 
 function checkJasonRewardMilestone(){
   const r = getJasonRewards();
@@ -8868,240 +8814,6 @@ function renderJasonPrizeEditor(){
   </div>`;
 }
 
-function renderFocusPanel(container){
-  const todayStr=today();
-  const mc=pomoState.mode==="work"?"#7A1818":pomoState.mode==="shortBreak"?"#1A5C28":"#1A4A8A";
-  const ml=pomoState.mode==="work"?"FOCUSED":pomoState.mode==="shortBreak"?"RESTING":"DEEP REST";
-  const streakCount=computeStreak();
-  const totalDur=pomoState.mode==="work"?pomoState.customWork*60:pomoState.mode==="shortBreak"?300:900;
-  const pct=1-(pomoState.timeLeft/totalDur);
-  const R=44;const circ=2*Math.PI*R;
-  const tipAngle=pct*2*Math.PI-Math.PI/2;
-  const tipX=52+R*Math.cos(tipAngle);const tipY=52+R*Math.sin(tipAngle);
-  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  const dots=Array.from({length:4}).map((_,i)=>i<(pomoState.sessions%4));
-
-  // ── Selected mission display ──────────────────────────────────
-  const sel=selectedMissionId?tasks.find(t=>t.id===selectedMissionId):null;
-  const selProj=sel?projects.find(p=>p.id===sel.projectId):null;
-  const selHtml=sel
-    ?`<div style="background:rgba(122,74,16,0.10);border:1px solid rgba(232,168,56,0.35);border-radius:3px;padding:8px 11px;margin-top:8px;display:flex;align-items:center;gap:var(--sp2);">
-        <span style="font-size:14px;color:var(--accent);font-family:var(--font-ui);letter-spacing:0.5px;flex-shrink:0;">● Active Task:</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(sel.title)}</div>
-          ${selProj?`<div style="font-size:8px;color:${selProj.color};font-family:var(--font-ui);letter-spacing:0.5px;margin-top:1px;">◈ ${esc(selProj.name)}</div>`:""}
-        </div>
-        <button onclick="selectedMissionId=null;renderAll();" style="background:transparent;border:none;color:var(--text3);font-size:14px;cursor:pointer;flex-shrink:0;padding:0 2px;">✕</button>
-      </div>`
-    :`<div style="margin-top:8px;font:var(--type-caption);color:var(--text3);letter-spacing:0.5px;text-align:center;">↓ SELECT A Task BELOW</div>`;
-
-  // ── Today tasks — work first then personal ────────────────────
-  const workProjIds=new Set(projects.filter(p=>p.domain==="work").map(p=>p.id));
-  const persProjIds=new Set(projects.filter(p=>p.domain==="personal").map(p=>p.id));
-
-  const isToday=t=>t.dueDate===todayStr&&t.status!=="done";
-  const isOverdue=t=>t.dueDate&&t.dueDate<todayStr&&t.status!=="done";
-  const todayRelevant=t=>isToday(t)||isOverdue(t);
-
-  const workTasks=tasks.filter(t=>todayRelevant(t)&&workProjIds.has(t.projectId))
-    .sort((a,b)=>{
-      if(isOverdue(a)&&!isOverdue(b)) return -1;
-      if(!isOverdue(a)&&isOverdue(b)) return 1;
-      return ({high:0,medium:1,low:2}[a.priority]||1)-({high:0,medium:1,low:2}[b.priority]||1);
-    });
-  const persTasks=tasks.filter(t=>todayRelevant(t)&&persProjIds.has(t.projectId))
-    .sort((a,b)=>{
-      if(isOverdue(a)&&!isOverdue(b)) return -1;
-      if(!isOverdue(a)&&isOverdue(b)) return 1;
-      return ({high:0,medium:1,low:2}[a.priority]||1)-({high:0,medium:1,low:2}[b.priority]||1);
-    });
-
-  const totalToday=workTasks.length+persTasks.length;
-
-  function todayTaskRow(t){
-    const proj=projects.find(p=>p.id===t.projectId);
-    const sc=STATUS_COLOR[t.status]||"#555580";
-    const overdue=isOverdue(t);
-    const isSel=selectedMissionId===t.id;
-    const selStyle=isSel
-      ?`background:var(--accent-soft);border-color:rgba(232,168,56,0.45);`
-      :`background:transparent;border-color:var(--border2);`;
-    const srcBadge="";
-    return `<div onclick="selectMission('${t.id}')" style="display:flex;align-items:flex-start;gap:var(--sp2);padding:8px 10px;border-radius:3px;border:1px solid;margin-bottom:5px;cursor:pointer;transition:all 0.15s;${selStyle}">
-
-
-
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;color:var(--text);line-height:1.3;">${esc(t.title)}</div>
-        <div style="display:flex;gap:4px;margin-top:3px;align-items:center;flex-wrap:wrap;">
-          ${overdue?`<span style="font-size:8px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 5px;border-radius:2px;font-family:var(--font-ui);">⚠ OVERDUE ${t.dueDate.slice(5)}</span>`:`<span style="font-size:8px;color:var(--accent);font-family:var(--font-ui);">📅 TODAY</span>`}
-          ${proj?`<span style="font-size:8px;color:${proj.color};font-family:var(--font-ui);">◈ ${esc(proj.name)}</span>`:""}
-          ${srcBadge}
-        </div>
-      </div>
-      ${isSel?`<span style="font-size:12px;flex-shrink:0;margin-top:2px;color:var(--accent);">▶</span>`:""}
-    </div>`;
-  }
-
-  function todaySection(label, color, taskArr){
-    if(taskArr.length===0) return `<div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);letter-spacing:0.5px;padding:6px 2px;font-style:italic;">— All clear —</div>`;
-    return taskArr.map(t=>todayTaskRow(t)).join("");
-  }
-
-  const workOverdueCount=workTasks.filter(t=>isOverdue(t)).length;
-  const persOverdueCount=persTasks.filter(t=>isOverdue(t)).length;
-
-  // ── NEXT Task: pinned first, then overdue, then priority, then due soonest
-  const allActive=tasks.filter(t=>t.status!=="done"&&t.status!=="blocked");
-  const todayStrFocus=todayStr;
-  allActive.sort((a,b)=>{
-    const aPinned=todayPinned.has(a.id)?1:0;
-    const bPinned=todayPinned.has(b.id)?1:0;
-    if(aPinned!==bPinned) return bPinned-aPinned;
-    const aOver=a.dueDate&&a.dueDate<todayStrFocus?1:0;
-    const bOver=b.dueDate&&b.dueDate<todayStrFocus?1:0;
-    if(aOver!==bOver) return bOver-aOver;
-    const pOrd={high:0,medium:1,low:2};
-    const pd=(pOrd[a.priority]??1)-(pOrd[b.priority]??1);
-    if(pd!==0) return pd;
-    if(a.dueDate&&b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-    if(a.dueDate) return -1;
-    if(b.dueDate) return 1;
-    return 0;
-  });
-
-  // ── Blocked tasks warning section
-  const blockedTasks=tasks.filter(t=>t.status==="blocked");
-  const blockedHtml=blockedTasks.length>0?`
-    <div style="background:rgba(122,24,24,0.08);border:1px solid rgba(122,24,24,0.35);border-radius:4px;padding:10px 12px;margin-bottom:var(--sp2);">
-      <div style="font-size:10px;font-family:var(--font-ui);font-weight:700;color:#C0392B;letter-spacing:0.5px;margin-bottom:6px;">⊘ BLOCKED — ${blockedTasks.length} task${blockedTasks.length!==1?"s":""} need attention</div>
-      ${blockedTasks.map(t=>{
-        const proj=projects.find(p=>p.id===t.projectId);
-        return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(122,24,24,0.15);" onclick="openEditTask('${t.id}')">
-          <span style="font-size:10px;color:#C0392B;flex-shrink:0;">⊘</span>
-          <span style="flex:1;font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">${esc(t.title)}</span>
-          ${proj?`<span style="font-size:11px;color:${proj.color};font-family:var(--font-ui);flex-shrink:0;">◈ ${esc(proj.name)}</span>`:""}
-        </div>`;
-      }).join("")}
-    </div>`
-  :"";
-  const nextQ=allActive[0]||null;
-  const nextQProj=nextQ?projects.find(p=>p.id===nextQ.projectId):null;
-  const nextQDue=nextQ?.dueDate?nextQ.dueDate:"";
-  const isNextSelected=nextQ&&selectedMissionId===nextQ.id;
-  const nextPriorityColor={high:"#8B1818",medium:"#7A4A00",low:"#5C5C40"}[nextQ?.priority]||"var(--gold)";
-  const nextFocusHtml=nextQ
-    ?`<div style="background:linear-gradient(135deg,rgba(122,74,16,0.15),rgba(122,74,16,0.08));border:2px solid rgba(122,74,16,0.5);border-left:5px solid ${nextPriorityColor};border-radius:4px;padding:var(--sp4);margin-top:0;">
-        <div style="font-family:var(--font-ui);font-size:13px;font-weight:900;color:var(--accent);letter-spacing:0.5px;margin-bottom:10px;">▶ Focus Now</div>
-        <div style="display:flex;align-items:center;gap:var(--sp3);">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:16px;color:var(--text);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(nextQ.title)}</div>
-            <div style="display:flex;gap:6px;margin-top:5px;align-items:center;flex-wrap:wrap;">
-              <span style="font-size:12px;font-family:var(--font-ui);font-weight:700;color:${nextPriorityColor};">${PRIORITY_LABEL[nextQ.priority]||""}</span>
-              ${nextQProj?`<span style="font-size:12px;color:${nextQProj.color};font-family:var(--font-ui);">◈ ${esc(nextQProj.name)}</span>`:""}
-              ${nextQDue?`<span style="font:var(--type-label);color:var(--text3);">📅 ${nextQDue}</span>`:""}
-              ${nextQ.estimate?`<span style="font:var(--type-label);color:var(--text2);">⏳ ${nextQ.estimate}</span>`:""}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <button onclick="selectMission('${nextQ.id}')" style="background:${isNextSelected?"var(--gold)":"rgba(122,74,16,0.2)"};border:2px solid ${isNextSelected?"var(--gold)":"rgba(122,74,16,0.6)"};color:${isNextSelected?"#fff":"var(--gold)"};font-family:var(--font-ui);font-size:13px;font-weight:900;letter-spacing:0.5px;padding:10px 16px;border-radius:4px;cursor:pointer;white-space:nowrap;">
-              ${isNextSelected?"▶ FOCUSED":"▶ START"}
-            </button>
-            <button onclick="completeTask('${nextQ.id}',event)" style="background:rgba(26,92,40,0.15);border:2px solid rgba(26,92,40,0.5);color:#1A5C28;font-family:var(--font-ui);font-size:12px;font-weight:900;letter-spacing:0.5px;padding:7px 16px;border-radius:4px;cursor:pointer;white-space:nowrap;">
-              ✓ DONE
-            </button>
-          </div>
-        </div>
-      </div>`
-    :`<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);text-align:center;padding:12px;font-style:italic;">— All tasks complete 🎉 —</div>`;
-
-  container.innerHTML=`<div>
-    <!-- Timer -->
-    <div class="pomo-card" style="border-color:${mc}44;">
-      <div class="pomo-header">
-        <div class="pomo-title">⏳ Timer</div>
-        <div class="pomo-mode-btns">
-          <button class="pomo-mbtn ${pomoState.mode==='work'?'active-work':''}" onclick="setPomoMode('work')">FOCUS</button>
-          <button class="pomo-mbtn ${pomoState.mode==='shortBreak'?'active-shortBreak':''}" onclick="setPomoMode('shortBreak')">SHORT</button>
-          <button class="pomo-mbtn ${pomoState.mode==='longBreak'?'active-longBreak':''}" onclick="setPomoMode('longBreak')">LONG</button>
-        </div>
-      </div>
-      <div class="pomo-body">
-        <div class="pomo-ring-wrap">
-          <svg width="104" height="104" viewBox="0 0 104 104">
-            <circle cx="52" cy="52" r="${R}" fill="none" stroke="rgba(140,100,50,0.15)" stroke-width="5"/>
-            <circle cx="52" cy="52" r="${R-8}" fill="none" stroke="rgba(140,100,50,0.10)" stroke-width="1" stroke-dasharray="3 5"/>
-            <circle cx="52" cy="52" r="${R}" fill="none" stroke="${mc}" stroke-width="5"
-              stroke-linecap="round" stroke-dasharray="${circ*pct} ${circ}"
-              transform="rotate(-90 52 52)" style="filter:drop-shadow(0 0 5px ${mc});"/>
-            ${pct>0.01&&pomoState.running?`<circle cx="${tipX}" cy="${tipY}" r="4" fill="${mc}" style="filter:drop-shadow(0 0 6px ${mc});"/>`:""}
-            <line x1="52" y1="8" x2="52" y2="96" stroke="${mc}22" stroke-width="0.5"/>
-            <line x1="8" y1="52" x2="96" y2="52" stroke="${mc}22" stroke-width="0.5"/>
-          </svg>
-          <div class="pomo-time">
-            <div class="pomo-digits" style="color:${mc};text-shadow:0 0 10px ${mc}99;">${fmt(pomoState.timeLeft)}</div>
-            <div class="pomo-mode-lbl" style="color:${mc};text-shadow:0 0 6px ${mc}66;">${ml}</div>
-          </div>
-        </div>
-        <div class="pomo-controls">
-          <div class="pomo-dots">
-            ${dots.map(f=>`<div class="pomo-dot ${f?'filled':''}"></div>`).join("")}
-            <span class="pomo-sessions">${pomoState.sessions} sessions</span>
-          </div>
-          <div class="pomo-btns">
-            <button class="pomo-start" id="pomo-start-btn"
-              style="background:${pomoState.running?'rgba(20,0,0,0.8)':`${mc}18`};border:1px solid ${mc};color:${mc};text-shadow:0 0 8px ${mc}99;box-shadow:${pomoState.running?'none':`0 0 14px ${mc}33`};"
-              onclick="togglePomo()">
-              ${pomoState.timeLeft===0?"↺ RESET":pomoState.running?"⏸ HOLD":"▶ Start"}
-            </button>
-            <button class="pomo-reset" onclick="resetPomo()">↺</button>
-          </div>
-          <div class="pomo-next">${pomoState.mode==="work"?`NEXT: ${pomoState.sessions%4===3?"LONG REST 🛋️":"SHORT REST ☕"}`:"NEXT: Work 🎯"}</div>
-        </div>
-      </div>
-      ${selHtml}
-    </div>
-
-    <!-- NEXT Task RECOMMENDATION -->
-    ${nextFocusHtml}
-
-    <!-- BLOCKED WARNING -->
-    ${blockedHtml}
-
-    <!-- TODAY PANEL -->
-    <div style="background:var(--surface);border:1px solid rgba(58,68,104,0.4);border-radius:4px;padding:14px;margin-top:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp3);">
-        <div>
-          <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--accent);letter-spacing:0.3px;">📋 Today's Tasks</div>
-          <div style="font:var(--type-caption);color:var(--text3);margin-top:2px;letter-spacing:0.5px;">Tap a task to target it</div>
-        </div>
-        <span style="background:${totalToday>0?'rgba(255,215,0,0.1)':'rgba(26,92,40,0.1)'};border:1px solid ${totalToday>0?'var(--gold2)':'rgba(26,92,40,0.35)'};color:${totalToday>0?'var(--gold)':'var(--green)'};font-family:var(--font-ui);font-size:12px;font-weight:900;padding:3px 12px;border-radius:2px;">${totalToday>0?totalToday+" LEFT":"BOARD CLEAR ✓"}</span>
-      </div>
-
-      <!-- WORK -->
-      <div style="margin-bottom:var(--sp3);">
-        <div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(26,74,138,0.3);">
-          <span style="font-size:11px;font-family:var(--font-ui);font-weight:900;color:#1A4A8A;letter-spacing:0px;">Work</span>
-          ${workTasks.length>0?`<span style="font-size:11px;color:#1A4A8A;font-family:var(--font-ui);">${workTasks.length} task${workTasks.length>1?'s':''}</span>`:""}
-          ${workOverdueCount>0?`<span style="font-size:8px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 6px;border-radius:2px;font-family:var(--font-ui);">${workOverdueCount} OVERDUE</span>`:""}
-        </div>
-        ${todaySection("Work","#5B8DEF",workTasks)}
-      </div>
-
-      <!-- PERSONAL -->
-      <div>
-        <div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid rgba(26,92,40,0.3);">
-          <span style="font-size:11px;font-family:var(--font-ui);font-weight:900;color:#1A5C28;letter-spacing:0.5px;">🏡 Personal</span>
-          ${persTasks.length>0?`<span style="font-size:11px;color:#1A5C28;font-family:var(--font-ui);">${persTasks.length} task${persTasks.length>1?'s':''}</span>`:""}
-          ${persOverdueCount>0?`<span style="font-size:8px;color:#7A1818;background:rgba(122,24,24,0.1);border:1px solid rgba(122,24,24,0.35);padding:1px 6px;border-radius:2px;font-family:var(--font-ui);">${persOverdueCount} OVERDUE</span>`:""}
-        </div>
-        ${todaySection("Home","#3DB87A",persTasks)}
-      </div>
-    </div>
-  </div>`;
-  // Redraw wheel canvas after DOM update
-  if(jasonWheelOpen) setTimeout(()=>drawJasonWheel(), 30);
-}
 
 function selectMission(id){
   selectedMissionId=selectedMissionId===id?null:id;
@@ -9224,188 +8936,6 @@ function playBeep(){
 // ═══════════════════════════════════════════════════════════════
 let calSelectedDay = null;
 
-function renderCalendar(container){
-  const y=calendarDate.getFullYear(), m=calendarDate.getMonth();
-  const firstDay=new Date(y,m,1).getDay();
-  const daysInMonth=new Date(y,m+1,0).getDate();
-  const todayStr=today();
-  const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-  // Build date→tasks map (exclude done)
-  const byDate={};
-  tasks.forEach(t=>{
-    if(!t.dueDate||t.status==="done") return;
-    const k=t.dueDate.slice(0,10);
-    if(!byDate[k]) byDate[k]=[];
-    byDate[k].push(t);
-  });
-  // Build date→meetings map
-  const meetingsByDate={};
-  meetingLog.forEach(m=>{
-    if(!m.date) return;
-    const k=m.date.slice(0,10);
-    if(!meetingsByDate[k]) meetingsByDate[k]=[];
-    meetingsByDate[k].push(m);
-  });
-
-  // ── Grid ──
-  let gridHtml = DAYS.map(d=>`<div class="cal-day-hdr">${d}</div>`).join("");
-  for(let i=0;i<firstDay;i++) gridHtml+=`<div></div>`;
-
-  for(let d=1;d<=daysInMonth;d++){
-    const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const dt=byDate[ds]||[];
-    const isToday=ds===todayStr;
-    const isOverdue=ds<todayStr&&dt.length>0;
-    const isSelected=calSelectedDay===ds;
-
-    let cls="cal-cell";
-    if(dt.length>0) cls+=" has-tasks";
-    if(isToday) cls+=" today";
-    if(isOverdue) cls+=" overdue-day";
-    if(isSelected) cls+=" today"; // highlight selected same as today
-
-    const numCls=isToday||isSelected?"today":isOverdue?"overdue":"";
-
-    // Dots — tasks (project color) + meetings (blue)
-    let dotHtml="";
-    const dm=meetingsByDate[ds]||[];
-    if(dt.length>0||dm.length>0){
-      const shownTasks=dt.slice(0,5);
-      const shownMtgs=dm.slice(0,2);
-      dotHtml=`<div class="cal-dots-row">
-        ${shownTasks.map(t=>{
-          const proj=projects.find(p=>p.id===t.projectId);
-          const c=proj?.color||"#E8A838";
-          return `<div class="cal-dot" style="background:${c};"></div>`;
-        }).join("")}
-        ${shownMtgs.map(()=>`<div class="cal-dot" style="background:#64B5F6;border-radius:2px;"></div>`).join("")}
-      </div>`;
-      const total=dt.length+dm.length;
-      if(total>7) dotHtml+=`<div class="cal-count-badge">+${total-7}</div>`;
-      else if(total>1) dotHtml+=`<div class="cal-count-badge">${total}</div>`;
-    }
-
-    const onclick=dt.length>0||dm.length>0||isToday?`calDayClick('${ds}')`:"";
-    gridHtml+=`<div class="${cls}" onclick="${onclick}">
-      <div class="cal-day-num ${numCls}">${d}</div>
-      ${dotHtml}
-    </div>`;
-  }
-
-  // ── Selected day panel ──
-  let dayPanelHtml="";
-  if(calSelectedDay){
-    const dt=byDate[calSelectedDay]||[];
-    const dObj=new Date(calSelectedDay+"T00:00:00");
-    const label=dObj.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
-    const isOv=calSelectedDay<todayStr;
-    const isT=calSelectedDay===todayStr;
-    const heading=isT?"Today · "+label:isOv?"⚠ Overdue · "+label:label;
-
-    const dm2=meetingsByDate[calSelectedDay]||[];
-    if(dt.length===0 && dm2.length===0){
-      dayPanelHtml=`<div class="cal-day-panel">
-        <div class="cal-day-panel-hdr">
-          <span class="cal-day-panel-title">${heading}</span>
-          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
-        </div>
-        <div style="padding:18px 14px;color:var(--text4);font-family:var(--font-ui);font-size:12px;">Nothing scheduled this day.</div>
-      </div>`;
-    } else {
-      const rows=dt.map(t=>{
-        const proj=projects.find(p=>p.id===t.projectId);
-        const c=proj?.color||"#E8A838";
-        const pDot=`<div class="cal-day-task-dot" style="background:${PRIORITY_COLOR[t.priority]||c};"></div>`;
-        const isDoneTask = t.status==='done';
-        return `<div class="cal-day-task" onclick="openEditTask('${t.id}')" style="${isDoneTask?'opacity:0.5;':''}cursor:pointer;">
-          <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:36px;height:36px;border-radius:50%;border:2px solid ${isDoneTask?'var(--green)':'var(--text3)'};background:${isDoneTask?'var(--green)':'transparent'};color:${isDoneTask?'#fff':'var(--text4)'};font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="${isDoneTask?'Mark incomplete':'Mark complete'}">✓</button>
-          <div style="flex:1;min-width:0;">
-            <div class="cal-day-task-title" style="${isDoneTask?'text-decoration:line-through;':''}">${esc(t.title)}</div>
-            ${proj?`<div class="cal-day-task-proj">◈ ${esc(proj.name)}</div>`:""}
-          </div>
-          <span style="font-size:11px;font-family:var(--font-ui);font-weight:700;padding:3px 7px;border-radius:5px;background:${c}20;color:${c};flex-shrink:0;">${(t.priority||"normal").toUpperCase()}</span>
-        </div>`;
-      }).join("");
-      // Meeting rows for this day
-      const mtgRows=dm2.map(m=>{
-        const mPersonChips=(m.personIds||'').split(',').filter(Boolean)
-          .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
-          .map(p=>p.name).join(', ');
-        const timeLabel=m.startTime?m.startTime+(m.duration?' · '+
-          (m.duration>=60?Math.floor(m.duration/60)+'h'+(m.duration%60?m.duration%60+'m':''):m.duration+'min'):''):'';
-        return `<div onclick="openMeetingCapture('${m.id}')" style="display:flex;align-items:center;gap:var(--sp2);padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:rgba(100,181,246,0.04);">
-          <div style="width:8px;height:8px;border-radius:2px;background:#64B5F6;flex-shrink:0;"></div>
-          <div style="flex:1;min-width:0;">
-            <div style="font:600 13px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
-            <div style="font-size:11px;color:#64B5F6;font-family:var(--font-ui);margin-top:1px;">
-              ${timeLabel?timeLabel+' · ':''}📝 Meeting${mPersonChips?' with '+esc(mPersonChips.slice(0,40)):''}
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-
-      const totalCount=dt.length+dm2.length;
-      dayPanelHtml=`<div class="cal-day-panel">
-        <div class="cal-day-panel-hdr">
-          <span class="cal-day-panel-title">${heading}${totalCount>0?' · '+totalCount+' item'+(totalCount>1?'s':''):''}</span>
-          <button class="cal-day-panel-close" onclick="calDayClose()">✕</button>
-        </div>
-        ${dm2.length>0?`<div style="padding:4px 14px 2px;font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;">MEETINGS</div>${mtgRows}`:''}
-        ${dt.length>0?`<div style="padding:4px 14px 2px;font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;">TASKS DUE</div>${rows}`:''}
-      </div>`;
-    }
-  }
-
-  // ── Upcoming list ──
-  const upcoming=tasks
-    .filter(t=>t.dueDate&&t.status!=="done")
-    .sort((a,b)=>a.dueDate.localeCompare(b.dueDate))
-    .slice(0,10);
-
-  let upcomingHtml="";
-  if(!upcoming.length){
-    upcomingHtml=`<div style="padding:16px;text-align:center;color:var(--text4);font-family:var(--font-ui);font-size:12px;">No upcoming deadlines — all clear!</div>`;
-  } else {
-    upcomingHtml=upcoming.map(t=>{
-      const proj=projects.find(p=>p.id===t.projectId);
-      const c=proj?.color||"#E8A838";
-      const overdue=t.dueDate<todayStr;
-      const isT=t.dueDate===todayStr;
-      const daysUntil=Math.ceil((new Date(t.dueDate)-new Date(todayStr))/86400000);
-      const badgeBg=overdue?"rgba(255,80,80,0.15)":isT?"rgba(232,168,56,0.15)":"var(--surface2)";
-      const badgeColor=overdue?"#ff6060":isT?"var(--accent)":"var(--text3)";
-      const lbl=overdue?`-${Math.abs(daysUntil)}d`:isT?"TODAY":`+${daysUntil}d`;
-      const dateStr=new Date(t.dueDate+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
-      return `<div class="cal-upcoming-row" style="cursor:default;">
-        <div class="cal-upcoming-badge" style="background:${badgeBg};color:${badgeColor};cursor:pointer;" onclick="calDayClick('${t.dueDate.slice(0,10)}')">
-          <div style="font-size:10px;">${lbl}</div>
-          <div style="font-size:11px;opacity:0.7;">${dateStr}</div>
-        </div>
-        <div class="cal-dot" style="background:${PRIORITY_COLOR[t.priority]||c};width:8px;height:8px;flex-shrink:0;"></div>
-        <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
-          <div style="font:600 13px/1.4 var(--font-ui);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(t.title)}</div>
-          ${proj?`<div style="font-size:10px;color:${c};font-family:var(--font-ui);">◈ ${esc(proj.name)}</div>`:""}
-        </div>
-        <button onclick="event.stopPropagation();completeTask('${t.id}',event);" style="width:36px;height:36px;border-radius:50%;border:2px solid var(--text3);background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;" title="Complete">✓</button>
-      </div>`;
-    }).join("");
-  }
-
-  container.innerHTML=`
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
-      <div class="cal-month">${MONTHS[m]} ${y}</div>
-      <button class="cal-nav-btn" onclick="calNext()">›</button>
-    </div>
-    <div class="cal-grid">${gridHtml}</div>
-    ${dayPanelHtml}
-    <div class="cal-upcoming">
-      <div class="cal-upcoming-title">⏱ All Upcoming</div>
-      ${upcomingHtml}
-    </div>`;
-}
 
 function calPrev(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()-1,1);calSelectedDay=null;renderAll();}
 function calNext(){calendarDate=new Date(calendarDate.getFullYear(),calendarDate.getMonth()+1,1);calSelectedDay=null;renderAll();}
@@ -9920,13 +9450,7 @@ function renderSettings(container){
         <div style="padding:10px 4px 0;">
           <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
           <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="recoverMeetingTasks()">🔁 Recover Meeting Tasks</button>
-          <div style="margin-bottom:var(--sp2);">
-            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">🔔 VAPID PUBLIC KEY (for background push)</div>
-            <input id="vapid-key-input" class="field-input" style="margin:0 0 5px;font-size:11px;font-family:monospace;"
-              placeholder="Paste public key from vapidkeys.com…"
-              value="${localStorage.getItem('hub-vapid-pubkey')||''}"/>
-            <button onclick="saveVAPIDKey()" style="width:100%;padding:7px;border-radius:6px;border:none;background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;">Save VAPID Key</button>
-          </div>
+          
           <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
           <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
           <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
@@ -10005,7 +9529,6 @@ function renderSettings(container){
 // ═══════════════════════════════════════════════════════════════
 // Task ACTIONS
 // ═══════════════════════════════════════════════════════════════
-function toggleExpand(id){expandedTaskId=expandedTaskId===id?null:id;renderAll();}
 
 function xpForTask(t){
   const base={high:100,medium:50,low:25}[t.priority]||50;
@@ -10510,7 +10033,7 @@ function renderRecurChips(selected){
 function confirmDeleteTask(id){
   if(confirm("Delete THIS Task?")){ 
     tasks=tasks.filter(t=>t.id!==id);
-    expandedTaskId=null;saveAllDebounced();closeModal("modal-task");renderAll();
+    saveAllDebounced();closeModal("modal-task");renderAll();
     showToast("Task REMOVED");
   }
 }
@@ -10754,7 +10277,7 @@ function closeMoreOnOutside(){}
 function setNav(nav){
   closeFdd();
   closeNavGrid();
-  activeNav=nav;focusOn=nav==="focus";
+  activeNav=nav;
   if(nav==="focus"){ activeNav='today'; todayFocusMode=true; }
   else if(nav==="today"){ todayFocusMode=false; }
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
@@ -11108,7 +10631,7 @@ function renderTodayTaskRow(t, accentColor, badgeHtml, extraActions){
 }
 
 function renderTodayView(container){
-  if(todayFocusMode || activeNav==='focus' || focusOn){ renderTodayFocusMode(container); return; }
+  if(todayFocusMode || activeNav==='focus'){ renderTodayFocusMode(container); return; }
   if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
 
   const todayStr = today();
@@ -16163,12 +15686,6 @@ function fcSubmit(type, initiativeId){
 }
 
 
-function saveVAPIDKey(){
-  const key = document.getElementById('vapid-key-input')?.value.trim()||'';
-  if(!key){ showToast('Paste your VAPID public key first'); return; }
-  localStorage.setItem('hub-vapid-pubkey', key);
-  showToast('✓ VAPID key saved — restart app to activate push');
-}
 
 function moveTaskToSomeday(taskId){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
@@ -16364,7 +15881,7 @@ function updateAllFddBtns(){
 }
 
 function setView(v){
-  viewMode=v;if(v==="calendar") activeNav="cal"; else activeNav="tasks";
+  viewMode=v;if(v==="calendar") activeNav="calendar"; else activeNav="tasks";
   ["list","cal"].forEach(vv=>{
     const b=document.getElementById(`fv-${vv}`);if(!b) return;
     b.className="vbtn"+(vv===v?" active":"");
