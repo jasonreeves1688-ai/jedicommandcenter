@@ -2864,7 +2864,7 @@ let todayPinned=new Set();       // task IDs pinned to Today view
 let viewMode="list", activeNav="today";
 // VAPID public key — must match the key stored in Apps Script Properties
 // After running generateVAPIDKeysManual(), paste your public key here
-const VAPID_PUBLIC_KEY = '9RXkNvu4gCN2F3m24gUxJg6TCE4p2VNWabTZRVbLBcwCHrXlYouuQX7hlGkA9DpcBP0yPw5UOw_HAF1oDf_GlA';
+const VAPID_PUBLIC_KEY = 'BAkFnUu4C-z6CGARHwQVmOCbw88kiJogv4Lt_Ji9Elbsy2eBgwUxgP7MfqrURPH1SLdL32zSaZ4tUFEETT2AUNg';
 
 // Derived helpers
 const realmActive=()=>filterRealm.size>0;
@@ -2959,7 +2959,7 @@ async function loadAll(){
       _sb.from('weekly_plan').select('*').eq('id','current').single(),
       _sb.from('kids_tracker').select('*').eq('id','current').single(),
       sbGet('time_blocks').then(r=>r.filter(b=>b.owner_id===_sbUserId)),
-      _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId)
+      _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId).then(r=>r.data||[])
     ]);
 
     // ── Projects ──────────────────────────────────────────────
