@@ -1926,18 +1926,17 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
     <div class="gate-subtitle">The Reeves family, all in one place</div>
     <div class="gate-divider"></div>
     <!-- User tabs -->
-    <div style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(184,134,11,0.3);">
-      <button id="gate-jason-tab"
-        onclick="document.getElementById('gate-jason-tab').classList.add('active');document.getElementById('gate-jenny-tab').classList.remove('active');document.getElementById('gate-input').placeholder='Jason's password…'"
-        class="active"
-        style="flex:1;padding:10px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
-          background:rgba(21,101,192,0.15);color:#5b8def;border-right:1px solid rgba(184,134,11,0.3);">
-        👤 Jason</button>
-      <button id="gate-jenny-tab"
-        onclick="document.getElementById('gate-jenny-tab').classList.add('active');document.getElementById('gate-jason-tab').classList.remove('active');document.getElementById('gate-input').placeholder='Jenny's password…'"
-        style="flex:1;padding:10px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
+    <div style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid rgba(184,134,11,0.3);width:100%;">
+      <button id="gate-jason-tab" onclick="selectGateUser('jason')"
+        style="flex:1;padding:12px 16px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
+          display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+          background:rgba(21,101,192,0.25);color:#7aabf0;border-right:1px solid rgba(184,134,11,0.3);">
+        <span style="font-size:16px;line-height:1;">👤</span> Jason</button>
+      <button id="gate-jenny-tab" onclick="selectGateUser('jenny')"
+        style="flex:1;padding:12px 16px;border:none;cursor:pointer;font-family:var(--font-ui);font-size:13px;font-weight:700;
+          display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
           background:transparent;color:var(--text4);">
-        👤 Jenny</button>
+        <span style="font-size:16px;line-height:1;">👤</span> Jenny</button>
     </div>
     <input id="gate-input" type="password" placeholder="Jason's password…"
       onkeydown="if(event.key==='Enter')checkPassword()"/>
@@ -8512,7 +8511,7 @@ function showJasonSpinPrompt(type){
   const el = document.createElement('div');
   el.id = 'jason-spin-prompt';
   el.style.cssText = `position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:600;
-    width:92%;max-width:340px;background:var(--surface);
+    width:92%;max-width:400px;background:var(--surface);
     border:2px solid ${isBig?'#FFD700':'var(--accent)'};
     border-radius:14px;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);
     font-family:var(--font-ui);animation:slideDown 0.25s ease;text-align:center;`;
@@ -9172,7 +9171,7 @@ function showPomoFinishPrompt(task){
   const el=document.createElement('div');
   el.id='pomo-finish-prompt';
   el.style.cssText=`position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:500;
-    width:90%;max-width:340px;background:var(--surface);border:2px solid var(--accent);
+    width:90%;max-width:400px;background:var(--surface);border:2px solid var(--accent);
     border-radius:var(--r3);padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
     font-family:var(--font-ui);animation:slideDown 0.2s ease;`;
   el.innerHTML=`
@@ -14846,7 +14845,7 @@ function openHabitModal(editId){
   const old = document.getElementById('modal-habit'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-habit'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:340px;">
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--text);">
         ${existing ? '✏ Edit Habit' : '🫀 New Habit'}
@@ -16513,6 +16512,27 @@ let currentMode = localStorage.getItem('reeves-mode') || 'work';
 
 // ── Gate input handler ────────────────────────────────────────
 // Kids use PIN → instant. Adults use email/password → Supabase.
+function selectGateUser(who){
+  const jasonBtn = document.getElementById('gate-jason-tab');
+  const jennyBtn = document.getElementById('gate-jenny-tab');
+  const input    = document.getElementById('gate-input');
+  if(who === 'jenny'){
+    jennyBtn.style.background = 'rgba(233,30,140,0.2)';
+    jennyBtn.style.color      = '#f472b6';
+    jasonBtn.style.background = 'transparent';
+    jasonBtn.style.color      = 'var(--text4)';
+    input.placeholder = "Jenny's password…";
+  } else {
+    jasonBtn.style.background = 'rgba(21,101,192,0.25)';
+    jasonBtn.style.color      = '#7aabf0';
+    jennyBtn.style.background = 'transparent';
+    jennyBtn.style.color      = 'var(--text4)';
+    input.placeholder = "Jason's password…";
+  }
+  input.value = '';
+  input.focus();
+}
+
 async function checkPassword(){
   const input = document.getElementById('gate-input');
   const err   = document.getElementById('gate-error');
@@ -16534,7 +16554,7 @@ async function checkPassword(){
 
   // ── Adults: sign in via Supabase ─────────────────────────
   // Determine email from which tab is active
-  const isJennyTab = document.getElementById('gate-jenny-tab')?.classList.contains('active');
+  const isJennyTab = document.getElementById('gate-jenny-tab')?.style.background?.includes('233,30');
   const email = isJennyTab ? 'jenny@reeveshq.local' : 'jason@reeveshq.local';
 
   // Show spinner
@@ -19332,7 +19352,7 @@ init();
 </div>
 
 <div class="modal-overlay" id="modal-kids-setup" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-setup')">
-  <div class="modal-box" style="max-width:340px;">
+  <div class="modal-box" style="max-width:400px;">
     <div class="modal-title">Player Setup</div>
     <div class="field-group">
       <label class="field-label">Player 1 Name</label>
@@ -19349,7 +19369,7 @@ init();
 </div>
 
 <div class="modal-overlay" id="modal-kids-prizes" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-prizes')">
-  <div class="modal-box" style="max-width:340px;">
+  <div class="modal-box" style="max-width:400px;">
     <div class="modal-title" id="kids-prizes-modal-title">🎁 Small Prize Wheel (25pts)</div>
     <div id="kids-prizes-modal-sub" style="font:var(--type-caption);color:var(--text3);margin-bottom:10px;">These smaller prizes are spun when a player hits 25, 50, 75 (non-100) points.</div>
     <div id="kids-wheel-prizes-list"></div>
