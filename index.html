@@ -16584,6 +16584,8 @@ async function checkPassword(){
       }
       // Start real-time subscriptions for shared data
       _startRealtimeSubscriptions();
+      // Store session in SW so lock-screen "Done" can call Supabase directly
+      _storeSessionInSW();
     } else {
       // Jenny
       currentUser = {role:'wife', name:'Jenny'};
@@ -16601,6 +16603,7 @@ async function checkPassword(){
       renderAll();
       // Jenny also gets real-time for shared data
       _startRealtimeSubscriptions();
+      _storeSessionInSW();
     }
 
   }catch(err){
@@ -16975,6 +16978,30 @@ async function registerServiceWorker(){
       if(type === 'NOTIF_CLICK' && tag === 'kids-prizes' && action !== 'later'){
         setNav('kids');
       }
+
+      // Lock-screen "Mark Done" completed a family task — update local state
+      if(type === 'TASK_COMPLETED_FROM_SW'){
+        const t = familyTasks.find(x=>x.id===event.data.taskId);
+        if(t){
+          t.done        = true;
+          t.completedAt = Date.now();
+          logFamilyTaskHistory(t.id, _commentAuthor() + ' marked this complete');
+          saveFamilyTasks();
+          renderAll();
+          showToast('✓ Task completed from notification');
+        }
+      }
+
+      // Handle deep-link navigation from notification tap
+      if(type === 'NOTIF_CLICK'){
+        const { url } = event.data;
+        if(url && url.includes('tab=')){
+          const tabMatch = url.match(/tab=([^&]+)/);
+          if(tabMatch){ setNav(tabMatch[1]); renderAll(); }
+        }
+        if(url && url.includes('action=morning')){ openModal('modal-morning'); }
+        if(url && url.includes('action=eod'))    { openEodRitual(); }
+      }
     });
 
     return reg;
@@ -16982,6 +17009,16 @@ async function registerServiceWorker(){
     console.warn('[SW] Registration failed:', e);
     return null;
   }
+}
+
+function _storeSessionInSW(){
+  // Pass the current Supabase access token to the service worker
+  // so it can complete family tasks from the lock screen without opening the app
+  if(!_swReg?.active || !_sbSession?.access_token) return;
+  _swReg.active.postMessage({
+    type:        'STORE_SESSION',
+    accessToken: _sbSession.access_token
+  });
 }
 
 async function subscribeToPush(reg){
@@ -17341,6 +17378,7 @@ async function init(){
         updateAppBadge(); if(_swReg) subscribeToPush(_swReg);
       }
       _startRealtimeSubscriptions();
+      _storeSessionInSW();
     } else {
       // Jenny session restored
       currentUser = {role:'wife', name:'Jenny'};
@@ -17356,6 +17394,7 @@ async function init(){
       if(modeBtn) modeBtn.style.display='none';
       renderAll();
       _startRealtimeSubscriptions();
+      _storeSessionInSW();
     }
   } else {
     // No session — check kid PIN session, then show gate
@@ -17381,6 +17420,14 @@ async function init(){
     setTimeout(()=>document.getElementById('gate-input').focus(), 300);
   }
 }
+
+// Re-store session in SW whenever Supabase refreshes the token
+_sb.auth.onAuthStateChange((event, session) => {
+  if(session && _swReg?.active){
+    _sbSession = session;
+    _storeSessionInSW();
+  }
+});
 
 // PWA install prompt
 let _installPrompt = null;
