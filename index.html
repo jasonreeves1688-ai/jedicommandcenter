@@ -2053,9 +2053,6 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-charts" onclick="setNav('charts')">
-        <span class="nav-icon">📊</span><span class="nav-label">Charts</span>
-      </button>
       <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
         <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
       </button>
@@ -2276,40 +2273,7 @@ input[type="date"].row-ctrl{
       <div id="nav-grid-title">Go to…</div>
       <button id="nav-grid-close" onclick="closeNavGrid()">✕</button>
     </div>
-    <div id="nav-grid">
-
-      <button class="nav-grid-tile" id="grid-today" onclick="setNav('today');closeNavGrid()">
-        <span class="nav-grid-tile-icon">☀</span><span>Today</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
-        <span class="nav-grid-tile-icon">☰</span><span>Tasks</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
-        <span class="nav-grid-tile-icon">📝</span><span>Meetings</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-kids" onclick="setNav('kids');closeNavGrid()">
-        <span class="nav-grid-tile-icon">⭐</span><span>Kids</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
-        <span class="nav-grid-tile-icon">⏳</span><span>Waiting For</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-discovery" onclick="setNav('discovery');closeNavGrid()">
-        <span class="nav-grid-tile-icon">🔭</span><span>Discovery</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
-        <span class="nav-grid-tile-icon">👥</span><span>People</span>
-      </button>
-      <button class="nav-grid-tile" id="grid-charts" onclick="setNav('charts');closeNavGrid()">
-        <span class="nav-grid-tile-icon">📊</span><span>Charts</span>
-      </button>
-
-      <button class="nav-grid-tile" id="grid-settings" onclick="setNav('settings');closeNavGrid()">
-        <span class="nav-grid-tile-icon">⚙</span><span>Settings</span>
-      </button>
-      <button class="nav-grid-tile" onclick="openMeetingCapture();closeNavGrid()">
-        <span class="nav-grid-tile-icon">🎙</span><span>New Meeting</span>
-      </button>
-    </div>
+    
   </div>
 </div>
 
@@ -2429,7 +2393,14 @@ input[type="date"].row-ctrl{
       <button class="modal-btn cancel" onclick="closeModal('modal-task')">Cancel</button>
     </div>
     <div id="task-delete-wrap" style="display:none;margin-bottom:var(--sp4);">
-      <button class="modal-btn danger" style="width:100%;" onclick="deleteCurrentTask()">☠ Delete Task</button>
+      <div style="display:flex;gap:var(--sp2);">
+        <button onclick="if(editingTaskId){moveTaskToSomeday(editingTaskId);closeModal('modal-task');}"
+          style="flex:1;padding:var(--sp3);border-radius:var(--r3);border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;min-height:var(--touch);">
+          💭 Someday
+        </button>
+        <button class="modal-btn danger" style="flex:1;" onclick="deleteCurrentTask()">☠ Delete</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2874,6 +2845,7 @@ const personActive=()=>filterPerson.size>0;
 const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
 let editingTaskId=null, selectedMissionId=null;
+let _projPanelOpen=null; // project id with inline edit panel open
 let todayFocusMode=false;  // true = focus mode within Today screen
 let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null, kidsSyncTimeout=null;
@@ -7812,7 +7784,7 @@ function renderAll(){
   if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
   if(activeNav==="settings"){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
-  if(activeNav==="charts"){renderCharts(main);return;}
+
   if(massEditMode){ renderMassEdit(main); return; }
   renderTaskList(main);
 }
@@ -8133,12 +8105,50 @@ function renderTaskList(container){
           <span class="proj-group-name" style="color:${projColor};">${projName}</span>
           ${_statusBadge}
           <span class="proj-group-count">${doneCount>0?`${doneCount}/${count} done`:`${count} task${count!==1?"s":""}`}</span>
-          ${proj?`<button onclick="event.stopPropagation();openEditProject('${proj.id}')"
+          ${proj?`<button onclick="event.stopPropagation();_projPanelOpen=_projPanelOpen==='${proj.id}'?null:'${proj.id}';renderAll();"
             style="margin-left:var(--sp1);padding:2px var(--sp2);border-radius:var(--r1);
-            border:1px solid var(--border);background:transparent;color:var(--text4);
+            border:1px solid ${_projPanelOpen==='${proj.id}'?'var(--accent)':'var(--border)'};
+            background:${_projPanelOpen==='${proj.id}'?'var(--accent-soft)':'transparent'};
+            color:${_projPanelOpen==='${proj.id}'?'var(--accent)':'var(--text4)'};
             font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;min-height:24px;"
-            title="Edit project">✏</button>`:''}
+            title="Manage project">⚙</button>`:''}
         </div>`;
+      // Inline project management panel
+      if(proj && _projPanelOpen===proj.id){
+        const _pc = proj.color||'#E8A838';
+        g+=`<div onclick="event.stopPropagation()"
+          style="padding:10px 12px;border-top:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input id="pp-name-${proj.id}" value="${esc(proj.name)}"
+              style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+                padding:5px 8px;font:600 13px/1 var(--font-ui);color:var(--text);outline:none;"
+              onclick="event.stopPropagation()"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border)'"/>
+            <input type="color" value="${_pc}"
+              title="Color"
+              style="width:32px;height:32px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface2);"
+              onclick="event.stopPropagation()"
+              oninput="document.getElementById('pp-name-${proj.id}').dataset.color=this.value;this.style.outlineColor=this.value"/>
+            <select onclick="event.stopPropagation()"
+              style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+                padding:5px 8px;font:600 11px/1 var(--font-ui);color:var(--text3);cursor:pointer;outline:none;"
+              onchange="event.stopPropagation()" id="pp-status-${proj.id}">
+              <option value="active"   ${(proj.status||'active')==='active'?'selected':''}>Active</option>
+              <option value="paused"   ${proj.status==='paused'?'selected':''}>Paused</option>
+              <option value="archived" ${proj.status==='archived'?'selected':''}>Archived</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;">
+            <button onclick="event.stopPropagation();inlineSaveProject('${proj.id}')"
+              style="padding:5px 14px;border-radius:6px;border:none;background:var(--accent);color:#1a1f2e;
+                font:700 11px/1 var(--font-ui);cursor:pointer;">Save</button>
+            <button onclick="event.stopPropagation();inlineDeleteProject('${proj.id}')"
+              style="padding:5px 10px;border-radius:6px;border:1px solid rgba(239,83,80,0.4);background:transparent;
+                color:#EF5350;font:600 11px/1 var(--font-ui);cursor:pointer;">Delete</button>
+          </div>
+        </div>`;
+      }
       if(!isCollapsed){
         g+=`<div class="proj-group-tasks"><div class="task-list" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r1);">`;
         for(const task of grpTasks) g+=renderTaskRow(task,proj);
@@ -8272,6 +8282,36 @@ function relativeDue(dueDate,isDone){
   return `<span class="due-label ${cls}">${label}</span>`;
 }
 
+// ── Inline project management (from task view) ───────────────
+function inlineSaveProject(id){
+  const p = projects.find(x=>x.id===id); if(!p) return;
+  const nameEl   = document.getElementById('pp-name-'+id);
+  const statusEl = document.getElementById('pp-status-'+id);
+  const colorPicker = nameEl?.closest('div')?.querySelector('input[type="color"]');
+  if(!nameEl||!nameEl.value.trim()){ showToast('Project needs a name'); return; }
+  p.name   = nameEl.value.trim();
+  p.status = statusEl?.value || 'active';
+  if(colorPicker) p.color = colorPicker.value;
+  _projPanelOpen = null;
+  saveAllDebounced(); renderAll();
+  showToast('✓ Project updated');
+}
+
+function inlineDeleteProject(id){
+  const p = projects.find(x=>x.id===id); if(!p) return;
+  const taskCount = tasks.filter(t=>t.projectId===id).length;
+  if(taskCount > 0){
+    if(!confirm(`"${p.name}" has ${taskCount} task${taskCount>1?'s':''}. Delete anyway? Tasks will become unassigned.`)) return;
+  } else {
+    if(!confirm(`Delete "${p.name}"?`)) return;
+  }
+  projects = projects.filter(x=>x.id!==id);
+  tasks.forEach(t=>{ if(t.projectId===id) t.projectId=''; });
+  _projPanelOpen = null;
+  saveAllDebounced(); renderAll();
+  showToast('Project deleted');
+}
+
 function renderTaskRow(task,proj){
   const isDone=task.status==="done";
   const todayStr=today();
@@ -8378,6 +8418,8 @@ function renderTaskRow(task,proj){
             <span style="flex:1;min-width:0;"></span>
             <button onclick="event.stopPropagation();openEditTask('${task.id}')" class="row-ctrl"
               style="color:var(--text3);background:transparent;">✏ Edit</button>
+          <button onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')" class="row-ctrl"
+            title="Move to Someday" style="color:var(--text4);background:transparent;">💭</button>
           </div>` : `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">${ageBadge}${subPill}</div>`}
         </div>
       </div>
@@ -9011,261 +9053,7 @@ function calDayClose(){calSelectedDay=null;renderAll();}
 // ═══════════════════════════════════════════════════════════════
 let chartRange=30; // days
 
-function renderCharts(container){
-  // Page identity
-  const _ph_sub = tasks.filter(t=>t.status==='done').length+' completed tasks';
-  pageHeader(container, 'charts', '📊 Insights', 'Your Progress', _ph_sub);
 
-  const now=Date.now();
-  const msDay=86400000;
-  const ranges=[30,90,180,365];
-  const rangeLabels={"30":"30 DAYS","90":"90 DAYS","180":"6 MONTHS","365":"1 YEAR"};
-
-  // Filter tasks completed within range
-  function inRange(t,days){
-    if(t.status!=="done") return false;
-    // use createdAt as proxy if no completedAt — good enough
-    const ts=t.completedAt||t.createdAt||0;
-    return (now - Number(ts)) <= days*msDay;
-  }
-  function allInRange(days){
-    return tasks.filter(t=>inRange(t,days));
-  }
-
-  const completed=allInRange(chartRange);
-  const totalActive=tasks.filter(t=>t.status!=="done").length;
-  const totalDone=tasks.filter(t=>t.status==="done").length;
-  const totalBlocked=tasks.filter(t=>t.status==="blocked").length;
-
-  // ── Summary stats
-  const statsHtml=`
-    <div class="chart-stat-row">
-      <div class="chart-stat">
-        <div class="chart-stat-num" style="color:#1A5C28;">${completed.length}</div>
-        <div class="chart-stat-lbl">Done</div>
-      </div>
-      <div class="chart-stat">
-        <div class="chart-stat-num" style="color:#FFD700;">${totalActive}</div>
-        <div class="chart-stat-lbl">Active</div>
-      </div>
-      <div class="chart-stat">
-        <div class="chart-stat-num" style="color:#7A1818;">${totalBlocked}</div>
-        <div class="chart-stat-lbl">Blocked</div>
-      </div>
-      <div class="chart-stat">
-        <div class="chart-stat-num" style="color:#1A4A8A;">${tasks.length}</div>
-        <div class="chart-stat-lbl">Total</div>
-      </div>
-    </div>`;
-
-  // ── Completed over time (weekly bars)
-  function weeklyBars(){
-    const weeks=Math.ceil(chartRange/7);
-    const buckets=[];
-    for(let i=weeks-1;i>=0;i--){
-      const end=now-(i*7*msDay);
-      const start=end-(7*msDay);
-      const lbl=new Date(start);
-      const label=(lbl.getMonth()+1)+"/"+(lbl.getDate());
-      const count=tasks.filter(t=>{
-        if(t.status!=="done") return false;
-        const ts=t.completedAt||t.createdAt||0;
-        return Number(ts)>=start && Number(ts)<end;
-      }).length;
-      buckets.push({label,count});
-    }
-    const max=Math.max(...buckets.map(b=>b.count),1);
-    const barW=Math.max(24, Math.floor((window.innerWidth-80)/buckets.length)-4);
-    const svgW=buckets.length*(barW+4);
-    const svgH=90;
-    const bars=buckets.map((b,i)=>{
-      const h=Math.round((b.count/max)*(svgH-24));
-      const x=i*(barW+4);
-      const y=svgH-24-h;
-      return `<g>
-        <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="2"
-          fill="${b.count>0?'rgba(26,92,40,0.75)':'rgba(61,184,122,0.12)'}"/>
-        <text x="${x+barW/2}" y="${svgH-10}" text-anchor="middle" font-size="8"
-          fill="#555580" font-family="monospace">${b.label}</text>
-        ${b.count>0?`<text x="${x+barW/2}" y="${y-3}" text-anchor="middle" font-size="9"
-          fill="#1A5C28" font-family="monospace">${b.count}</text>`:""}
-      </g>`;
-    }).join("");
-    return `<div class="sparkline-wrap"><svg width="${svgW}" height="${svgH}" style="display:block;">${bars}</svg></div>`;
-  }
-
-  // ── Donut chart (pure SVG)
-  function donut(slices, cx=70, cy=70, r=50, ir=32){
-    let total=slices.reduce((s,x)=>s+x.val,0);
-    if(total===0) return `<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="11" fill="#555580" font-family="monospace">NO DATA</text>`;
-    let angle=-Math.PI/2;
-    const paths=slices.filter(s=>s.val>0).map(s=>{
-      const sweep=(s.val/total)*2*Math.PI;
-      const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
-      angle+=sweep;
-      const x2=cx+r*Math.cos(angle), y2=cy+r*Math.sin(angle);
-      const ix1=cx+ir*Math.cos(angle-sweep), iy1=cy+ir*Math.sin(angle-sweep);
-      const ix2=cx+ir*Math.cos(angle), iy2=cy+ir*Math.sin(angle);
-      const lg=sweep>Math.PI?1:0;
-      return `<path d="M${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 ${lg},0 ${ix1},${iy1} Z"
-        fill="${s.color}" opacity="0.85"/>`;
-    }).join("");
-    const totalLbl=`<text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="16" font-weight="bold" fill="#FFD700" font-family="monospace">${total}</text>
-      <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="8" fill="#555580" font-family="monospace">TOTAL</text>`;
-    return paths+totalLbl;
-  }
-
-  // ── Status donut
-  const statusSlices=[
-    {label:"Open",    val:tasks.filter(t=>t.status==="todo").length,       color:"#7A8298"},
-    {label:"Active",   val:tasks.filter(t=>t.status==="inprogress").length,  color:"#E8A838"},
-    {label:"Blocked", val:tasks.filter(t=>t.status==="blocked").length,  color:"#E05252"},
-    {label:"Done",val:totalDone, color:"#3DB87A"},
-  ];
-  const statusDonut=`<div class="donut-wrap">
-    <svg width="140" height="140" style="flex-shrink:0;">${donut(statusSlices)}</svg>
-    <div class="donut-legend">${statusSlices.map(s=>`
-      <div class="donut-legend-item">
-        <div class="donut-legend-dot" style="background:${s.color};box-shadow:0 0 4px ${s.color};"></div>
-        <span>${s.label}</span>
-        <span style="margin-left:auto;color:${s.color};font-weight:900;">${s.val}</span>
-      </div>`).join("")}
-    </div></div>`;
-
-  // ── Priority donut (active tasks only)
-  const activeTasks=tasks.filter(t=>t.status!=="done");
-  const prioSlices=[
-    {label:"URGENT",  val:activeTasks.filter(t=>t.priority==="high").length,   color:"#8B2020"},
-    {label:"HIGH",    val:activeTasks.filter(t=>t.priority==="medium").length,  color:"var(--accent)"},
-    {label:"NORMAL",  val:activeTasks.filter(t=>t.priority==="low").length,     color:"#5C5C40"},
-  ];
-  const prioDonut=`<div class="donut-wrap">
-    <svg width="140" height="140" style="flex-shrink:0;">${donut(prioSlices)}</svg>
-    <div class="donut-legend">${prioSlices.map(s=>`
-      <div class="donut-legend-item">
-        <div class="donut-legend-dot" style="background:${s.color};box-shadow:0 0 4px ${s.color};"></div>
-        <span>${s.label}</span>
-        <span style="margin-left:auto;color:${s.color};font-weight:900;">${s.val}</span>
-      </div>`).join("")}
-    </div></div>`;
-
-  // ── By squadron bars
-  function squadronBars(){
-    const projData=projects.map(p=>{
-      const pt=tasks.filter(t=>t.projectId===p.id);
-      const done=pt.filter(t=>t.status==="done").length;
-      const active=pt.filter(t=>t.status!=="done").length;
-      return {name:p.name,color:p.color||"#FFD700",done,active,total:pt.length};
-    }).filter(p=>p.total>0).sort((a,b)=>b.total-a.total);
-    const max=Math.max(...projData.map(p=>p.total),1);
-    return projData.map(p=>`
-      <div class="bar-row">
-        <div class="bar-label" title="${p.name}">${p.name}</div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${Math.round(p.done/max*100)}%;background:${p.color};opacity:0.8;"></div>
-        </div>
-        <div class="bar-count" style="color:${p.color};">${p.done}<span style="color:var(--text4);">/${p.total}</span></div>
-      </div>`).join("");
-  }
-
-  function effortBars(){
-    const effortData=DIFFICULTY_LEVELS.map(e=>{
-      const all=tasks.filter(t=>t.effort===e.val);
-      const done=all.filter(t=>t.status==="done").length;
-      return {label:e.icon+' '+e.label,color:e.color,total:all.length,done};
-    }).filter(e=>e.total>0);
-    if(!effortData.length) return "";
-    const max=Math.max(...effortData.map(e=>e.total),1);
-    return effortData.map(e=>`
-      <div class="bar-row">
-        <div class="bar-label">${e.label}</div>
-        <div class="bar-track" style="position:relative;">
-          <div style="position:absolute;top:0;left:0;width:${Math.round(e.total/max*100)}%;height:100%;background:${e.color};opacity:0.18;border-radius:2px;"></div>
-          <div class="bar-fill" style="width:${Math.round(e.done/max*100)}%;background:${e.color};opacity:0.8;position:relative;"></div>
-        </div>
-        <div class="bar-count" style="color:${e.color};">${e.done}<span style="color:var(--text4);">/${e.total}</span></div>
-      </div>`).join("");
-  }
-
-  // Effort donut (all tasks)
-  const effortSlices=DIFFICULTY_LEVELS.map(e=>({
-    label:e.label, val:tasks.filter(t=>t.effort===e.val).length, color:e.color
-  }));
-  const effortDonut=`<div class="donut-wrap">
-    <svg width="140" height="140" style="flex-shrink:0;">${donut(effortSlices)}</svg>
-    <div class="donut-legend">${effortSlices.map(s=>`
-      <div class="donut-legend-item">
-        <div class="donut-legend-dot" style="background:${s.color};box-shadow:0 0 4px ${s.color};"></div>
-        <span>${s.label}</span>
-        <span style="margin-left:auto;color:${s.color};font-weight:900;">${s.val}</span>
-      </div>`).join("")}
-    </div></div>`;
-
-  function sourceBars(){ return ""; }
-
-  // ── Range buttons
-  const rangeBtns=ranges.map(r=>`
-    <button class="crng${chartRange===r?' active':''}" onclick="setChartRange(${r})">${rangeLabels[r]}</button>`).join("");
-
-  container.innerHTML=`<div class="charts-screen">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
-      <div style="font-family:var(--font-ui);font-size:11px;font-weight:900;color:var(--accent);letter-spacing:0.3px;">📜 CHRONICLES</div>
-      <div class="chart-range-bar">${rangeBtns}</div>
-    </div>
-
-    <!-- Summary stats -->
-    <div class="chart-card">
-      <div class="chart-card-title">Overview</div>
-      ${statsHtml}
-    </div>
-
-    <!-- Completed over time -->
-    <div class="chart-card">
-      <div class="chart-card-title">◈ TaskS COMPLETED — LAST ${rangeLabels[String(chartRange)]} (BY WEEK)</div>
-      ${weeklyBars()}
-    </div>
-
-    <!-- Status + Priority side by side -->
-    <div style="display:flex;gap:var(--sp2);">
-      <div class="chart-card" style="flex:1;min-width:0;">
-        <div class="chart-card-title">◈ BY STATUS</div>
-        ${statusDonut}
-      </div>
-      <div class="chart-card" style="flex:1;min-width:0;">
-        <div class="chart-card-title">◈ BY PRIORITY</div>
-        ${prioDonut}
-      </div>
-    </div>
-
-    <!-- By squadron -->
-    <div class="chart-card">
-      <div class="chart-card-title">◈ BY Project <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
-      ${squadronBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-ui);">NO DATA</div>'}
-    </div>
-
-    <!-- Effort donut + effort bars -->
-    <div style="display:flex;gap:var(--sp2);">
-      <div class="chart-card" style="flex:1;min-width:0;">
-        <div class="chart-card-title">◈ BY Task DIFFICULTY</div>
-        ${effortDonut}
-      </div>
-    </div>
-
-    <!-- Effort bars breakdown -->
-    <div class="chart-card">
-      <div class="chart-card-title">◈ DIFFICULTY BREAKDOWN <span style="font-size:8px;color:var(--text3);font-weight:400;">(DONE / TOTAL)</span></div>
-      ${effortBars()||'<div style="color:var(--text4);font-size:11px;font-family:var(--font-ui);">NO DATA — SET Task SIZE ON YOUR TASKS</div>'}
-    </div>
-
-
-  </div>`;
-}
-
-function setChartRange(days){
-  chartRange=days;
-  const main=document.getElementById("main");
-  renderCharts(main);
-}
 
 async function saveRavenSettings(){
   const email=document.getElementById("raven-email")?.value?.trim();
@@ -9406,126 +9194,47 @@ function journalLineToTask(idx, field, line){
 
 function renderSettings(container){
   container.innerHTML=`
-    <div style="margin-bottom:var(--sp4);display:flex;gap:var(--sp2);">
-      <button onclick="setNav('charts')" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">📊 VIEW INSIGHTS</button>
-    </div>
-    <div style="margin-bottom:20px;">
-      <div class="section-title">📓 Weekly Journal <span style="font-size:10px;color:var(--text4);font-weight:400;">(last 4 resets)</span></div>
-      ${renderJournalSection()}
-    </div>
-    <div style="margin-bottom:var(--sp4);">
-      <div class="section-title">Projects</div>
-      ${['work','personal'].map(domain=>{
-        const domainProjs=projects.filter(p=>(p.domain||'work')===domain).sort((a,b)=>a.name.localeCompare(b.name));
-        if(domainProjs.length===0) return '';
-        const key='hub-settings-proj-'+domain+'-collapsed';
-        const isCollapsed=localStorage.getItem(key)==='true';
-        const label=domain==='work'?'Work':'🏡 Personal';
-        return `<div style="margin-bottom:4px;">
-          <div onclick="toggleSettingsProjGroup('${domain}')" style="display:flex;align-items:center;gap:var(--sp2);padding:7px 10px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;user-select:none;margin-bottom:2px;">
-            <span style="font-size:10px;color:var(--text3);transition:transform 0.15s;display:inline-block;transform:rotate(${isCollapsed?'0':'90'}deg);">▶</span>
-            <span style="flex:1;font-size:11px;font-family:var(--font-ui);font-weight:700;letter-spacing:0.5px;color:var(--text2);">${label}</span>
-            <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${domainProjs.length} project${domainProjs.length!==1?'s':''}</span>
-          </div>
-          ${isCollapsed?'':domainProjs.map(p=>`
-            <div style="display:flex;align-items:center;gap:var(--sp2);padding:8px 10px 8px 24px;border-bottom:1px solid var(--border);">
-              <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;display:inline-block;box-shadow:0 0 6px ${p.color};"></span>
-              <span style="flex:1;font:500 11px/1 var(--font-ui);color:${p.color};">${esc(p.name)}</span>
-              ${p.status==='archived'?'<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);color:var(--text4);">ARCHIVED</span>':''}
-              ${p.status==='paused'?'<span style="font:600 9px/1 var(--font-ui);padding:1px 5px;border-radius:3px;background:var(--surface3);color:var(--text4);">PAUSED</span>':''}
-              <button onclick="openEditProject('${p.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:var(--r1);border:1px solid var(--border);background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;">✏ Edit</button>
-            </div>`).join('')}
-        </div>`;
-      }).join('')}
-      <button class="hbtn" style="margin-top:10px;width:100%;" onclick="openAddProject()">+ Add Project</button>
-    </div>
-    <div style="margin-bottom:var(--sp4);">
-      <div class="section-title">⬆ Import (CSV)</div>
-      <div class="import-zone" onclick="document.getElementById('csv-file-input').click()">
-        <div style="font-size:24px;margin-bottom:6px;">📡</div>
-        <div style="font-size:11px;color:var(--text2);font-family:var(--font-ui);letter-spacing:0.5px;">Tap to import CSV</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:3px;">COLUMNS: title, project, domain, priority, status, dueDate, notes</div>
+  <div id="guild-hall" style="padding:var(--sp3) var(--sp3) 80px;">
+
+
+
+    <!-- Sync & Notifications -->
+    <div class="section-title">📡 Sync & Notifications</div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
+      <button class="hbtn" style="width:100%;" onclick="syncNow()">↻ Sync Now</button>
+      <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'🔔 Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable Notifications</button>
+      <div id="settings-notif-status" style="padding:10px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;">
+        Loading…
       </div>
-      <div id="import-preview-area"></div>
-    </div>
-    <div style="margin-bottom:var(--sp4);">
-      <div class="section-title">📡 Sync / Cloud</div>
-      <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="syncNow()">↻ Sync Now</button>
-      <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="requestNotifPermission().then(g=>showToast(g?'🔔 Notifications enabled!':'Notifications blocked — check browser settings'))">🔔 Enable Notifications</button>
-      <details style="margin-bottom:var(--sp2);">
-        <summary style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);list-style:none;display:flex;align-items:center;gap:6px;">
-          🧪 Notifications
-        </summary>
-        <div style="padding:10px 4px 0;display:flex;flex-direction:column;gap:6px;">
-          <div id="notif-status-panel" style="padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;margin-bottom:4px;">
-            ${(()=>{
-              const perm = 'Notification' in window ? Notification.permission : 'not supported';
-              const permColor = perm==='granted'?'var(--green)':perm==='denied'?'#EF5350':'var(--accent)';
-              const swOk = typeof _swReg !== 'undefined' && _swReg && _swReg.active;
-              const swColor = swOk ? 'var(--green)' : '#EF5350';
-              const swLabel = swOk ? '✓ active' : _swReg ? '⚠ installing…' : '✗ not registered';
-              const email = localStorage.getItem('hub-raven-email')||'';
-              return `
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                  <span style="color:var(--text3);">Notifications</span>
-                  <span style="font-weight:800;color:${permColor};">${perm}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                  <span style="color:var(--text3);">Service Worker</span>
-                  <span style="font-weight:800;color:${swColor};">${swLabel}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;">
-                  <span style="color:var(--text3);">Email</span>
-                  <span style="font-weight:700;color:${email?'var(--text)':'#EF5350'};">${email||'⚠ not set — save in settings'}</span>
-                </div>`;
-            })()}
-          </div>
-          <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'✓ Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable / re-enable notifications</button>
-          <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);margin-top:4px;margin-bottom:2px;">Test — fires immediately regardless of time:</div>
-          <button class="hbtn" style="width:100%;" onclick="testNotif('morning')">☀ Test Morning Nudge</button>
-          <button class="hbtn" style="width:100%;" onclick="testNotif('overdue')">⚠ Test Overdue Reminder</button>
-          <button class="hbtn" style="width:100%;" onclick="testNotif('eod')">🌙 Test EOD Nudge</button>
-          <button class="hbtn" style="width:100%;" onclick="testNotif('nudge')">👥 Test Contact Nudge</button>
-          <button class="hbtn" style="width:100%;" onclick="testNotif('kids-prizes')">🎁 Test Kids Prize Reminder</button>
-        </div>
-      </details>
-      <!-- Theme switcher -->
-      <div style="margin-bottom:var(--sp4);">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">APPEARANCE</div>
-        <div style="display:flex;gap:var(--sp2);">
-          <button onclick="setTheme('dark')"
-            style="${localStorage.getItem('hub-theme')!=='light'?'border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent);':'border:1px solid var(--border);background:transparent;color:var(--text3);'} flex:1;padding:var(--sp3);border-radius:var(--r2);cursor:pointer;font:700 12px/1 var(--font-ui);min-height:var(--touch);">
-            🌙 Dark
-          </button>
-          <button onclick="setTheme('light')"
-            style="${localStorage.getItem('hub-theme')==='light'?'border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent);':'border:1px solid var(--border);background:transparent;color:var(--text3);'} flex:1;padding:var(--sp3);border-radius:var(--r2);cursor:pointer;font:700 12px/1 var(--font-ui);min-height:var(--touch);">
-            ☀ Light
-          </button>
-        </div>
-        <button class="hbtn" style="width:100%;margin-top:8px;" onclick="toggleCalmMode()">🌿 Calm Mode</button>
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;margin-top:4px;">TEST NOTIFICATIONS</div>
+      <div style="display:flex;gap:var(--sp2);flex-wrap:wrap;">
+        <button class="hbtn" style="flex:1;" onclick="testNotif('morning')">☀ Morning</button>
+        <button class="hbtn" style="flex:1;" onclick="testNotif('overdue')">⚠ Overdue</button>
+        <button class="hbtn" style="flex:1;" onclick="testNotif('eod')">🌙 EOD</button>
       </div>
-      <details style="margin-bottom:var(--sp2);">
-        <summary style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;cursor:pointer;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);list-style:none;display:flex;align-items:center;gap:6px;">
-          ⚙ Advanced / Debug
-        </summary>
-        <div style="padding:10px 4px 0;">
-          <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
-          <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);" onclick="recoverMeetingTasks()">🔁 Recover Meeting Tasks</button>
-          
-          <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
-          <button class="hbtn" style="width:100%;margin-bottom:var(--sp2);border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data to Cloud</button>
-          <div style="font-size:10px;color:var(--text3);line-height:1.7;font-family:var(--font-ui);letter-spacing:0.5px;">
-            Use "Push all local data" if cloud appears empty. Tasks sync automatically within ~1 second.
-          </div>
-        </div>
-      </details>
     </div>
-    <div style="margin-bottom:24px;">
-      <div class="section-title">🗓 Time Block Hours</div>
-      <div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:var(--sp2);">
+
+    <!-- Appearance -->
+    <div class="section-title">🎨 Appearance</div>
+    <div style="display:flex;gap:var(--sp2);margin-bottom:var(--sp2);">
+      <button onclick="setTheme('dark')"
+        style="${localStorage.getItem('hub-theme')!=='light'?'border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent);':'border:1px solid var(--border);background:transparent;color:var(--text3);'} flex:1;padding:var(--sp3);border-radius:var(--r2);cursor:pointer;font:700 12px/1 var(--font-ui);min-height:var(--touch);">
+        🌙 Dark
+      </button>
+      <button onclick="setTheme('light')"
+        style="${localStorage.getItem('hub-theme')==='light'?'border:2px solid var(--accent);background:var(--accent-soft);color:var(--accent);':'border:1px solid var(--border);background:transparent;color:var(--text3);'} flex:1;padding:var(--sp3);border-radius:var(--r2);cursor:pointer;font:700 12px/1 var(--font-ui);min-height:var(--touch);">
+        ☀ Light
+      </button>
+    </div>
+    <button class="hbtn" style="width:100%;margin-bottom:var(--sp4);" onclick="toggleCalmMode()">🌿 Calm Mode</button>
+
+    <!-- Time Block Hours -->
+    <div class="section-title">🗓 Time Block Hours</div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
+      <div style="display:flex;align-items:center;gap:var(--sp2);">
         <span style="font:var(--type-label);color:var(--text3);white-space:nowrap;min-width:80px;">Day starts:</span>
         <select class="field-select" onchange="localStorage.setItem('hub-tb-start',this.value)" style="flex:1;">
-          ${[5,6,7,8,9].map(h=>`<option value="${h}" ${getTbHourStart()===h?'selected':''}>${h<12?h+'am':h+'pm'}</option>`).join('')}
+          ${[5,6,7,8,9].map(h=>`<option value="${h}" ${getTbHourStart()===h?'selected':''}>${h}:00 am</option>`).join('')}
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:var(--sp2);">
@@ -9535,56 +9244,49 @@ function renderSettings(container){
         </select>
       </div>
     </div>
-    <div style="margin-bottom:32px;">
-      <div class="section-title">⏳ Timer CONFIG</div>
-      <div style="display:flex;align-items:center;gap:var(--sp2);">
-        <span style="font:500 10px/1.4 var(--font-ui);color:var(--text3);letter-spacing:0.5px;white-space:nowrap;">FOCUS TIME:</span>
-        <input type="range" min="5" max="60" value="${pomoState.customWork}"
-          style="flex:1;accent-color:var(--saber-red);"
-          oninput="pomoState.customWork=Number(this.value);document.getElementById('pomo-dur-lbl').textContent=this.value+'m'"/>
-        <span id="pomo-dur-lbl" style="font-size:11px;color:var(--accent);min-width:32px;font-family:var(--font-ui);">${pomoState.customWork}m</span>
-      </div>
+
+    <!-- Focus Timer -->
+    <div class="section-title">⏳ Focus Timer</div>
+    <div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:var(--sp4);">
+      <span style="font:var(--type-label);color:var(--text3);white-space:nowrap;">Work session:</span>
+      <input type="range" min="5" max="60" value="${pomoState.customWork}"
+        style="flex:1;accent-color:var(--accent);"
+        oninput="pomoState.customWork=Number(this.value);document.getElementById('pomo-dur-lbl').textContent=this.value+'m'"/>
+      <span id="pomo-dur-lbl" style="font:700 12px/1 var(--font-ui);color:var(--accent);min-width:32px;">${pomoState.customWork}m</span>
     </div>
-    <div style="margin-bottom:32px;">
-      <div class="section-title">📜 Email Briefing (EMAIL BRIEFING)</div>
-      <div style="font:var(--type-caption);color:var(--text3);letter-spacing:0.5px;line-height:1.7;margin-bottom:10px;">
-        A daily email to your inbox — your priorities, overdue items, and today's focus. Designed to work with how your brain operates.
+
+    <!-- Advanced -->
+    <details style="margin-bottom:var(--sp4);">
+      <summary style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;cursor:pointer;
+        padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);
+        list-style:none;display:flex;align-items:center;gap:6px;">⚙ Advanced</summary>
+      <div style="padding:10px 4px 0;display:flex;flex-direction:column;gap:var(--sp2);">
+        <button class="hbtn" style="width:100%;" onclick="runDiagnostic()">🔮 Diagnose Sync</button>
+        <button class="hbtn" style="width:100%;" onclick="recoverMeetingTasks()">🔁 Recover Meeting Tasks</button>
+        <button class="hbtn" style="width:100%;border-color:var(--accent);color:var(--accent);" onclick="forcePushToSheets()">⬆ Push All Local Data</button>
+        <button class="hbtn" style="width:100%;border-color:#64B5F6;color:#64B5F6;" onclick="pushKidsData()">⭐ Push Kids Data</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:var(--sp2);">
-        <input class="field-input" id="raven-email" placeholder="YOUR EMAIL ADDRESS…"
-          type="email" autocomplete="email"
-          value="${localStorage.getItem('hub-raven-email')||''}"
-          style="font-size:13px;"/>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <span style="font:var(--type-caption);color:var(--text3);white-space:nowrap;">SEND AT:</span>
-          <select class="field-select" id="raven-time" style="flex:1;font-size:13px;">
-            <option value="6" ${(localStorage.getItem('hub-raven-hour')||'7')==='6'?'selected':''}>6:00 AM</option>
-            <option value="7" ${(localStorage.getItem('hub-raven-hour')||'7')==='7'?'selected':''}>7:00 AM</option>
-            <option value="8" ${(localStorage.getItem('hub-raven-hour')||'7')==='8'?'selected':''}>8:00 AM</option>
-            <option value="9" ${(localStorage.getItem('hub-raven-hour')||'7')==='9'?'selected':''}>9:00 AM</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <span style="font:var(--type-caption);color:var(--text3);white-space:nowrap;">INCLUDE:</span>
-          <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--font-ui);cursor:pointer;">
-            <input type="checkbox" id="raven-inc-kingdom" ${localStorage.getItem('hub-raven-kingdom')!=='false'?'checked':''}/> Work
-          </label>
-          <label style="display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--font-ui);cursor:pointer;">
-            <input type="checkbox" id="raven-inc-home" ${localStorage.getItem('hub-raven-home')!=='false'?'checked':''}/> 🏡 Personal
-          </label>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="hbtn" style="flex:1;border-color:var(--accent);color:var(--accent);" onclick="saveRavenSettings()">💾 Save settings</button>
-          <button class="hbtn" style="flex:1;" onclick="sendTestRaven()">Send test now</button>
-        </div>
-        <div id="raven-status" style="font:var(--type-caption);color:var(--text3);min-height:16px;text-align:center;"></div>
-      </div>
-      <div style="margin-top:12px;padding:10px;background:var(--accent-soft);border:1px solid rgba(232,168,56,0.25);border-radius:4px;">
-        <div style="font-size:11px;color:var(--text2);font-family:var(--font-ui);letter-spacing:0.5px;line-height:1.8;">
-          ⚙ TO ENABLE DAILY DELIVERY: open your Apps Script editor → Run <code style="background:rgba(0,0,0,0.1);padding:1px 4px;border-radius:2px;">setupDailyRaven()</code> once to create the time trigger. The raven will fly every morning at your chosen hour.
-        </div>
-      </div>
-    </div>`;
+    </details>
+
+    <!-- Sign out -->
+    <button class="hbtn" style="width:100%;border-color:rgba(239,83,80,0.4);color:#EF5350;" onclick="signOut()">Sign Out</button>
+  </div>`;
+  // Populate live notification status
+  const _nsEl = document.getElementById('settings-notif-status');
+  if(_nsEl){
+    const perm = 'Notification' in window ? Notification.permission : 'not supported';
+    const permColor = perm==='granted'?'var(--green)':perm==='denied'?'#EF5350':'var(--accent)';
+    const swOk = typeof _swReg !== 'undefined' && _swReg && _swReg.active;
+    _nsEl.innerHTML =
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">' +
+        '<span style="color:var(--text3);">Notifications</span>' +
+        '<span style="font-weight:800;color:' + permColor + ';">' + perm + '</span>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;">' +
+        '<span style="color:var(--text3);">Service Worker</span>' +
+        '<span style="font-weight:800;color:' + (swOk?'var(--green)':'#EF5350') + ';">' + (swOk?'✓ active':'✗ not registered') + '</span>' +
+      '</div>';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -10325,7 +10027,7 @@ function updateNavGridActive(){
   document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(el=>el.classList.remove('active'));
   const map = {today:'grid-today',tasks:'grid-tasks',
     meetings:'grid-meetings',kids:'grid-kids',waiting:'grid-waiting',
-    people:'grid-people',charts:'grid-charts',settings:'grid-settings'};
+    people:'grid-people',settings:'grid-settings'};
   const el = document.getElementById(map[activeNav]);
   if(el) el.classList.add('active');
 }
@@ -15547,7 +15249,7 @@ function handleDeepLink(){
   delete window._startAction;
 
   // Tab navigation first
-  const validTabs = ['today','tasks','meetings','waiting','people','discovery','kids','charts','settings'];
+  const validTabs = ['today','tasks','meetings','waiting','people','discovery','kids','settings'];
   if(tab && validTabs.includes(tab)){
     setNav(tab);
   }
