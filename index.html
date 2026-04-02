@@ -210,6 +210,28 @@ body.light-mode .kids-player-card.player-0 .kids-prize-bar-fill{
 body.light-mode .kids-player-card.player-1 .kids-prize-bar-fill{
   background:linear-gradient(90deg,#7c3aed,#a78bfa);
 }
+/* Fix all inline white text inside kids cards in light mode */
+body.light-mode .kids-player-card{ color:#1a1a2e; }
+body.light-mode .kids-player-card .kids-prize-label{ color:rgba(0,0,0,0.45); }
+body.light-mode .kids-player-card .kids-prize-milestones{ color:rgba(0,0,0,0.35); }
+/* Sub-text below score (next prize countdown) */
+body.light-mode .kids-player-card div[style*="rgba(255,255,255,0.5)"]{ color:rgba(0,0,0,0.45) !important; }
+/* Section labels (Give credit for…, Deduct for…) */
+body.light-mode .kids-player-card div[style*="rgba(255,255,255,0.35)"]{ color:rgba(0,0,0,0.35) !important; }
+/* Edit button on card */
+body.light-mode .kids-player-card button[style*="rgba(255,255,255"]{ 
+  border-color:rgba(0,0,0,0.2) !important; 
+  background:rgba(0,0,0,0.06) !important; 
+  color:rgba(0,0,0,0.55) !important; 
+}
+/* Quick earn/lose buttons */
+body.light-mode .kids-player-card .kids-quick-btn{ color:#1a1a2e; }
+body.light-mode .kids-player-card .kids-quick-btn.earn{ 
+  background:rgba(22,101,52,0.15); border-color:rgba(22,101,52,0.4); color:#166534;
+}
+body.light-mode .kids-player-card .kids-quick-btn.lose{ 
+  background:rgba(153,27,27,0.12); border-color:rgba(153,27,27,0.35); color:#991b1b;
+}
 body.light-mode .kids-prize-bar-track{ background:rgba(0,0,0,0.1); }
 body.light-mode .kids-prize-milestones{ color:rgba(0,0,0,0.35); }
 body.light-mode .kids-prize-label{ color:rgba(0,0,0,0.5); }
@@ -15851,6 +15873,7 @@ async function checkPassword(){
       }catch(e){ /* fall back to whatever loadAll got */ }
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
+      _startKidsBroadcast(); // kids page also receives live score updates
       showKidsPage();
     });
     return;
@@ -15888,6 +15911,7 @@ async function checkPassword(){
       }
       // Start real-time subscriptions for shared data
       _startRealtimeSubscriptions();
+      _startKidsBroadcast();
       // Store session in SW so lock-screen "Done" can call Supabase directly
       _storeSessionInSW();
     } else {
@@ -15907,6 +15931,7 @@ async function checkPassword(){
       renderAll();
       // Jenny also gets real-time for shared data
       _startRealtimeSubscriptions();
+      _startKidsBroadcast();
       _storeSessionInSW();
     }
 
@@ -15928,6 +15953,43 @@ async function checkPassword(){
 
 // ── Real-time subscriptions for shared tables ─────────────────
 let _realtimeChannel = null;
+
+let _kidsBroadcastChannel = null;
+
+function _startKidsBroadcast(){
+  // Kids scores use a broadcast channel so all sessions see updates instantly
+  // regardless of who owns the user_settings row
+  if(_kidsBroadcastChannel) _kidsBroadcastChannel.unsubscribe();
+  _kidsBroadcastChannel = _sb
+    .channel('kids-scores-sync')
+    .on('broadcast', { event: 'kids-update' }, async (payload) => {
+      // Another session saved kidsGame — fetch fresh copy and re-render
+      if(payload?.payload?.lastSaved && kidsGame?.lastSaved >= payload.payload.lastSaved) return;
+      try{
+        const fresh = await sbGetSetting('kidsGame', null);
+        if(fresh && fresh.players){
+          kidsGame = fresh;
+          localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+          // Re-render kids view if visible
+          const main = document.getElementById('main');
+          if(activeNav === 'kids') renderKidsGame(main);
+          // Re-render kids page if a kid is logged in
+          const kp = document.getElementById('kids-page');
+          if(kp && kp.style.display !== 'none') renderKidsPageForKid();
+        }
+      }catch(e){}
+    })
+    .subscribe();
+}
+
+function _broadcastKidsUpdate(){
+  if(!_kidsBroadcastChannel) return;
+  _kidsBroadcastChannel.send({
+    type: 'broadcast',
+    event: 'kids-update',
+    payload: { lastSaved: kidsGame?.lastSaved || Date.now() }
+  });
+}
 
 function _startRealtimeSubscriptions(){
   if(_realtimeChannel) _realtimeChannel.unsubscribe();
@@ -17030,6 +17092,7 @@ function saveKidsData(d) {
       {owner_id:_sbUserId, key:'kidsGame', value:JSON.stringify(kidsGame)},
       {onConflict:'owner_id,key'}
     );
+    _broadcastKidsUpdate(); // notify other open sessions instantly
   }catch(e){}
   }, 1200);
 }
@@ -17761,17 +17824,31 @@ function spinWheel() {
   const canvas = document.getElementById('kids-wheel-canvas');
   if (!canvas) return;
 
-  const extraSpins = 5 + Math.random() * 5;
-  const landingSlice = Math.floor(Math.random() * prizes.length);
-  const slice = (2 * Math.PI) / prizes.length;
-  // Pointer is at top (angle = -PI/2). Winning slice center should land at top.
-  const targetAngle = (-Math.PI/2) - (landingSlice * slice) - (slice/2) + (Math.random() * slice * 0.7 - slice*0.35);
-  const totalRotation = extraSpins * 2 * Math.PI + (targetAngle - kidsWheelAngle);
+  const n = prizes.length;
+  const slice = (2 * Math.PI) / n;
+
+  // Pick a random target slice and compute the exact end angle so that
+  // slice lands under the pointer (top = -PI/2).
+  // drawWheel draws slice i starting at: kidsWheelAngle + i * slice
+  // For slice i to be at top: kidsWheelAngle + i*slice + slice/2 = -PI/2 (mod 2PI)
+  // => kidsWheelAngle = -PI/2 - i*slice - slice/2
+  const landingSlice = Math.floor(Math.random() * n);
+  const jitter = (Math.random() - 0.5) * slice * 0.5; // small random within slice
+  const targetWheelAngle = -Math.PI/2 - landingSlice * slice - slice/2 + jitter;
+
+  // Add enough full rotations (min 6) so the spin looks satisfying
+  const extraSpins = 6 + Math.floor(Math.random() * 4);
+  // We need to rotate forward (positive direction) to reach targetWheelAngle
+  // Calculate how much to add to current angle
+  let delta = (targetWheelAngle - kidsWheelAngle) % (2 * Math.PI);
+  // Normalise so delta is always positive (spin forward)
+  while (delta < 0) delta += 2 * Math.PI;
+  const totalRotation = extraSpins * 2 * Math.PI + delta;
+
   const startAngle = kidsWheelAngle;
   const endAngle = startAngle + totalRotation;
-  const duration = 4000;
+  const duration = 4500;
   const startTime = performance.now();
-  const tickSlice = (2 * Math.PI) / prizes.length;
   let lastTickSlice = -1;
 
   function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
@@ -17779,23 +17856,25 @@ function spinWheel() {
   function frame(now) {
     const elapsed = now - startTime;
     const t = Math.min(elapsed / duration, 1);
-    kidsWheelAngle = startAngle + (endAngle - startAngle) * easeOut(t);
+    kidsWheelAngle = startAngle + totalRotation * easeOut(t);
     drawWheel(canvas, prizes, kidsWheelAngle);
 
-    // Tick sound each time pointer crosses a new slice
-    const currentSlice = Math.floor(((-kidsWheelAngle % (2*Math.PI) + 2*Math.PI) % (2*Math.PI)) / tickSlice);
-    if (currentSlice !== lastTickSlice) {
-      lastTickSlice = currentSlice;
-      // Ticks slow down as wheel decelerates
-      if (t < 0.92) playKidsSound('spin-tick');
-    }
+    // Tick sound
+    const cur = Math.floor((((-kidsWheelAngle % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI)) / slice);
+    if (cur !== lastTickSlice) { lastTickSlice = cur; if (t < 0.92) playKidsSound('spin-tick'); }
 
     if (t < 1) {
       requestAnimationFrame(frame);
     } else {
-      kidsWheelAngle = endAngle % (2 * Math.PI);
+      kidsWheelAngle = endAngle;
       kidsSpinning = false;
-      onSpinComplete(prizes[landingSlice]);
+      // Derive winner from final angle — which slice is under the pointer (top = -PI/2)?
+      // drawWheel puts slice i at [angle + i*slice, angle + (i+1)*slice]
+      // So slice at pointer = floor((-PI/2 - angle) / slice) mod n
+      let _wi = ((-Math.PI/2 - kidsWheelAngle) / slice) % n;
+      _wi = ((_wi % n) + n) % n;
+      const winnerIdx = Math.floor(_wi);
+      onSpinComplete(prizes[winnerIdx]);
     }
   }
   requestAnimationFrame(frame);
