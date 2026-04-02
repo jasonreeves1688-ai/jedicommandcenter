@@ -16100,10 +16100,12 @@ const GATE_DURATION  = 60*60*1000;
 // Session user — 'parent' | {role:'wife',name:'Jenny'} | {role:'kid',...}
 let currentUser = 'parent';
 let currentMode = localStorage.getItem('reeves-mode') || 'work';
+let _gateSelectedUser = 'jason'; // tracks which tab is active on the gate screen
 
 // ── Gate input handler ────────────────────────────────────────
 // Kids use PIN → instant. Adults use email/password → Supabase.
 function selectGateUser(who){
+  _gateSelectedUser = who; // persist selection reliably
   const jasonBtn = document.getElementById('gate-jason-tab');
   const jennyBtn = document.getElementById('gate-jenny-tab');
   const input    = document.getElementById('gate-input');
@@ -16135,7 +16137,16 @@ async function checkPassword(){
     currentUser = {role:'kid', playerIdx, name:''};
     localStorage.setItem('hub-auth-kid', JSON.stringify({playerIdx, ts:Date.now()}));
     document.getElementById('gate').style.display='none';
-    bootApp().then(()=>{
+    bootApp().then(async ()=>{
+      // bootApp loads kidsGame from Supabase but it may not have resolved yet.
+      // Explicitly fetch fresh kidsGame from cloud before rendering the kids page.
+      try{
+        const kgFresh = await sbGetSetting('kidsGame', null);
+        if(kgFresh && kgFresh.players){
+          kidsGame = kgFresh;
+          localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+        }
+      }catch(e){ /* fall back to whatever loadAll got */ }
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
       showKidsPage();
@@ -16145,8 +16156,8 @@ async function checkPassword(){
 
   // ── Adults: sign in via Supabase ─────────────────────────
   // Determine email from which tab is active
-  const isJennyTab = document.getElementById('gate-jenny-tab')?.style.background?.includes('233,30');
-  const email = isJennyTab ? 'jenny@reeveshq.local' : 'jason@reeveshq.local';
+  const email = _gateSelectedUser === 'jenny' ? 'jenny@reeveshq.local' : 'jason@reeveshq.local';
+  console.log('[Login] attempting sign in as:', email, '| tab selected:', _gateSelectedUser);
 
   // Show spinner
   const btn = document.getElementById('gate-submit-btn');
@@ -16201,12 +16212,14 @@ async function checkPassword(){
     console.error('Sign in error:', err);
     if(btn){ btn.disabled=false; btn.textContent='Sign in'; }
     const errEl = document.getElementById('gate-error');
-    if(errEl){ errEl.textContent = 'Wrong password — try again'; errEl.style.display='block'; }
+    // Show the ACTUAL error message so we can diagnose
+    const errMsg = err?.message || err?.error_description || JSON.stringify(err) || 'Unknown error';
+    if(errEl){ errEl.textContent = errMsg; errEl.style.display='block'; }
     input.value=''; input.style.borderColor='#7A1818';
     setTimeout(()=>{
       if(errEl) errEl.style.display='none';
       input.style.borderColor='#B8860B';
-    }, 2500);
+    }, 8000); // longer timeout so you can read the message
     input.focus();
   }
 }
