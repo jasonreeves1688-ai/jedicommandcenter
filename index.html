@@ -2720,7 +2720,7 @@ const SUPABASE_URL  = 'https://pfsuljwznlxbfpmifdir.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_26IDRbgOEzYuDYIO2Ty6xQ_1aUBIx--';
 // Edge Functions require the JWT anon key (starts with eyJ), not the publishable key.
 // Get this from: Supabase Dashboard → Project Settings → API → anon public key
-const SUPABASE_JWT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI';
+const SUPABASE_JWT_KEY = 'PASTE_YOUR_ANON_JWT_KEY_HERE';
 const JASON_UID     = '4c9e616a-5be9-4205-86d6-763130f27afc';
 const JENNY_UID     = 'b65f69ae-057b-4865-95b1-a1ebd834cc41';
 
@@ -4226,19 +4226,41 @@ async function mealFetchRecipes(isAuto){
 
   area.innerHTML = '<div style="padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:8px;">✨</div><div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);">Finding kid-friendly recipes…</div></div>';
 
-  const systemPrompt = 'You are a family meal planning assistant. Suggest dinner recipes that are kid-friendly, reasonably quick (under 45 min), and use everyday ingredients. Return ONLY valid JSON — no markdown, no explanation.';
+  const systemPrompt = 'You are a family meal planning assistant. You MUST respond with ONLY a raw JSON array — no markdown fences, no explanation text, no preamble. Start your response with [ and end with ]. Any other format will break the app.';
   const userPrompt = 'Suggest 4 dinner recipes'
     + (query ? ' related to: "' + query + '"' : ' that kids will love')
     + '. Return a JSON array of 4 objects: [{name, description (1 sentence, max 60 chars), cookTime (e.g. "25 min"), ingredients:[{name, qty}]}]. Each recipe should have 4-10 ingredients with quantities (e.g. "400g", "2 cups", "1 tbsp").';
 
   try{
     const raw = await aiCall(systemPrompt, userPrompt, 1200);
-    const cleaned = raw.replace(/```json|```/g,'').trim();
-    _mealRecipes = JSON.parse(cleaned);
+
+    // Robustly extract JSON array — Gemini sometimes wraps in markdown or objects
+    let cleaned = raw.replace(/```json|```/g,'').trim();
+
+    // If response is wrapped in an object like {"recipes":[...]} extract the array
+    let parsed;
+    try{
+      parsed = JSON.parse(cleaned);
+    }catch(e1){
+      // Try to find a JSON array anywhere in the response
+      const match = cleaned.match(/\[[\s\S]*\]/);
+      if(match) parsed = JSON.parse(match[0]);
+      else throw new Error('No JSON array found in response: ' + cleaned.slice(0,200));
+    }
+
+    // Handle {recipes:[...]} or {dinners:[...]} wrapper objects
+    if(parsed && !Array.isArray(parsed)){
+      parsed = parsed.recipes || parsed.dinners || parsed.suggestions || Object.values(parsed)[0];
+    }
+
+    if(!Array.isArray(parsed) || !parsed.length) throw new Error('Empty recipe array');
+
+    _mealRecipes = parsed;
     _mealSelectedIdx = null;
     mealRenderRecipes();
   }catch(e){
-    if(area) area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">Couldn&#39;t load recipes — type a dish name and tap Save to set it manually.</div>';
+    console.error('[Meal] Recipe fetch failed:', e);
+    if(area) area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">Couldn&#39;t load recipes — ' + (e.message||'unknown error') + '<br><br>Type a dish name and tap Save to set it manually.</div>';
   }
 }
 
