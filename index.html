@@ -9659,6 +9659,13 @@ function renderSettings(container){
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
       <button class="hbtn" style="width:100%;" onclick="syncNow()">↻ Sync Now</button>
       <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'🔔 Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable Notifications</button>
+
+    <!-- AI Diagnostics -->
+    <div class="section-title" style="margin-top:var(--sp4);">🤖 AI Features</div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
+      <button class="hbtn" style="width:100%;" onclick="testAIProxy()">🧪 Test AI Connection</button>
+      <div id="ai-diag-result" style="display:none;padding:10px 12px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font:500 11px/1.6 var(--font-ui);color:var(--text2);white-space:pre-wrap;word-break:break-word;"></div>
+    </div>
       <div id="settings-notif-status" style="padding:10px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;">
         Loading…
       </div>
@@ -13696,6 +13703,32 @@ function toggleTodayPin(taskId){
 // ════════════════════════════════════════════════════════════════
 
 const AI_PROXY_URL = SUPABASE_URL + '/functions/v1/ai-proxy';
+
+async function testAIProxy(){
+  const resultEl = document.getElementById('ai-diag-result');
+  if(resultEl){ resultEl.style.display='block'; resultEl.textContent='Running diagnostics…'; }
+  try{
+    const res = await fetch(AI_PROXY_URL + '?diagnose=true', {
+      headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    });
+    const data = await res.json();
+    if(resultEl){
+      let out = data.summary + '\n\n';
+      (data.steps||[]).forEach(s=>{
+        out += (s.ok ? '✅' : '❌') + ' ' + s.step + '\n';
+        out += '   ' + s.detail + '\n\n';
+      });
+      if(data.fix) out += '👉 ' + data.fix;
+      resultEl.textContent = out.trim();
+      resultEl.style.borderColor = data.ok ? 'var(--green)' : 'var(--red)';
+    }
+  }catch(e){
+    if(resultEl){
+      resultEl.textContent = '❌ Could not reach ai-proxy Edge Function.\n\nMake sure it is deployed in Supabase Dashboard → Edge Functions.\n\nError: ' + e.message;
+      resultEl.style.borderColor = 'var(--red)';
+    }
+  }
+}
 
 async function aiCall(systemPrompt, userPrompt, maxTokens=800){
   // Calls Supabase Edge Function (ai-proxy/Gemini) — API key stored in Edge Function secrets
