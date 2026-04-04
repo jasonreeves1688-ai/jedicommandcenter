@@ -16392,21 +16392,26 @@ async function checkPassword(){
     currentUser = {role:'kid', playerIdx, name:''};
     localStorage.setItem('hub-auth-kid', JSON.stringify({playerIdx, ts:Date.now()}));
     document.getElementById('gate').style.display='none';
-    bootApp().then(async ()=>{
-      // bootApp loads kidsGame from Supabase but it may not have resolved yet.
-      // Explicitly fetch fresh kidsGame from shared kids_tracker row before rendering.
+    // Kids don't have Supabase auth — skip bootApp/loadAll entirely.
+    // Just fetch the shared kids_tracker row directly (no auth needed).
+    (async ()=>{
       try{
         const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
         if(kgRow && kgRow.game_data && kgRow.game_data.players){
           kidsGame = kgRow.game_data;
           localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
         }
-      }catch(e){ /* fall back to whatever loadAll got */ }
+      }catch(e){
+        // Fall back to localStorage if fetch fails
+        const raw = localStorage.getItem('hub-kids');
+        if(raw) try{ kidsGame = JSON.parse(raw); }catch(e2){}
+      }
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
-      _startKidsBroadcast(); // kids page also receives live score updates
+      // Subscribe to realtime so scores update live while kid is playing
+      _startRealtimeSubscriptions();
       showKidsPage();
-    });
+    })();
     return;
   }
 
@@ -19134,9 +19139,20 @@ function renderKidsPageForKid(){
   kp.style.fontFamily = 'var(--font-ui)';
   kp.style.color      = '#1a1a2e';
 
-  // ── Chore buttons ──────────────────────────────────────────────
-  const dueCats    = myCats.filter(c=>choreStatus(c,playerIdx,auditLog).due);
-  const notDueCats = myCats.filter(c=>!choreStatus(c,playerIdx,auditLog).due);
+  // ── Separate by type then due/not-due ────────────────────────
+  // Chores: scheduled items (have a freq that isn't anytime/onetime)
+  // Behaviours: anytime items (always available, no schedule)
+  // One-time: already filtered out by myCats if completed
+  const isChore     = c => c.type === 'chore' || (!c.type && c.freq && c.freq !== 'anytime' && c.freq !== 'onetime');
+  const isBehaviour = c => c.type === 'behaviour' || (!c.type && (!c.freq || c.freq === 'anytime'));
+  const isOnetime   = c => c.type === 'onetime' || c.freq === 'onetime';
+
+  const choreCats      = myCats.filter(c=>isChore(c));
+  const behaviourCats  = myCats.filter(c=>isBehaviour(c));
+  const onetimeCats    = myCats.filter(c=>isOnetime(c));
+
+  const dueCats    = choreCats.filter(c=>choreStatus(c,playerIdx,auditLog).due);
+  const notDueCats = choreCats.filter(c=>!choreStatus(c,playerIdx,auditLog).due);
 
   function choreBtn(c, isDue){
     const st = choreStatus(c,playerIdx,auditLog);
@@ -19193,25 +19209,61 @@ function renderKidsPageForKid(){
     </div>`;
   }
 
+  function sectionHeader(emoji, label, color){
+    return '<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px 2px;">'
+      + '<span style="font-size:18px;">'+emoji+'</span>'
+      + '<span style="font:800 12px/1 var(--font-ui);letter-spacing:1px;text-transform:uppercase;color:'+color+';">'+label+'</span>'
+      + '</div>';
+  }
+
   let choreHtml = '';
   if(myCats.length === 0){
-    choreHtml = `<div style="text-align:center;padding:60px 20px;">
-      <div style="font-size:56px;margin-bottom:12px;">🎉</div>
-      <div style="font:700 18px/1.4 var(--font-ui);color:#888;">No chores yet!<br>Ask a parent to add some.</div>
-    </div>`;
-  } else if(dueCats.length === 0){
-    choreHtml = `<div style="text-align:center;padding:32px 20px 16px;">
-      <div style="font-size:64px;margin-bottom:10px;">🥳</div>
-      <div style="font:900 24px/1.3 var(--font-ui);color:${th.accent};">All done for now!</div>
-      <div style="font:600 14px/1.5 var(--font-ui);color:#888;margin-top:6px;">Amazing job! Check back later.</div>
-    </div>`;
-    if(notDueCats.length) choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+    choreHtml = '<div style="text-align:center;padding:60px 20px;">'
+      + '<div style="font-size:56px;margin-bottom:12px;">🎉</div>'
+      + '<div style="font:700 18px/1.4 var(--font-ui);color:#888;">No chores yet!<br>Ask a parent to add some.</div>'
+      + '</div>';
   } else {
-    choreHtml += dueCats.map(c=>choreBtn(c,true)).join('');
-    if(notDueCats.length){
-      choreHtml += `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;
-          color:#bbb;text-transform:uppercase;margin:18px 0 10px 4px;">Not due yet</div>`;
-      choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+
+    // ── Chores section ──────────────────────────────────────
+    if(choreCats.length > 0){
+      choreHtml += sectionHeader('🧹', 'Chores', th.accent);
+      if(dueCats.length === 0){
+        choreHtml += '<div style="text-align:center;padding:24px 16px 8px;">'
+          + '<div style="font-size:48px;margin-bottom:8px;">🥳</div>'
+          + '<div style="font:800 18px/1.3 var(--font-ui);color:'+th.accent+';">All chores done!</div>'
+          + '<div style="font:600 13px/1.5 var(--font-ui);color:#888;margin-top:4px;">Amazing job — check back later.</div>'
+          + '</div>';
+        if(notDueCats.length){
+          choreHtml += '<div style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:#bbb;text-transform:uppercase;margin:12px 0 8px 2px;">Not due yet</div>';
+          choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+        }
+      } else {
+        choreHtml += dueCats.map(c=>choreBtn(c,true)).join('');
+        if(notDueCats.length){
+          choreHtml += '<div style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:#bbb;text-transform:uppercase;margin:14px 0 8px 2px;">Not due yet</div>';
+          choreHtml += notDueCats.map(c=>choreBtn(c,false)).join('');
+        }
+      }
+    }
+
+    // ── Behaviour rewards section ───────────────────────────
+    if(behaviourCats.length > 0){
+      choreHtml += sectionHeader('💛', 'Earn Stars For Being Great', '#888');
+      choreHtml += behaviourCats.map(c=>choreBtn(c,true)).join('');
+    }
+
+    // ── One-time goals section ──────────────────────────────
+    if(onetimeCats.length > 0){
+      choreHtml += sectionHeader('⭐', 'Special Goals', th.accent);
+      choreHtml += onetimeCats.map(c=>choreBtn(c,true)).join('');
+    }
+
+    // Fallback if all cats were filtered somehow
+    if(!choreCats.length && !behaviourCats.length && !onetimeCats.length){
+      choreHtml = '<div style="text-align:center;padding:60px 20px;">'
+        + '<div style="font-size:56px;margin-bottom:12px;">🎉</div>'
+        + '<div style="font:700 18px/1.4 var(--font-ui);color:#888;">Nothing to do right now!</div>'
+        + '</div>';
     }
   }
 
@@ -19554,14 +19606,21 @@ function kidsPageCelebSound(pts){
   } catch(e){}
 }
 
-function kidsPageRefresh(){
+async function kidsPageRefresh(){
   const btn = document.getElementById('kp-refresh-btn');
   if(btn){ btn.textContent = '↻ Syncing…'; btn.disabled = true; }
-  loadAll().then(()=>{
-    const d = kidsData();
-    currentUser.name = d.players[currentUser.playerIdx]?.name || currentUser.name;
-    renderKidsPageForKid();
-  });
+  try{
+    // Fetch directly from kids_tracker — no adult auth needed, table is public
+    const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
+    if(kgRow && kgRow.game_data && kgRow.game_data.players){
+      kidsGame = kgRow.game_data;
+      localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+    }
+  }catch(e){ console.warn('[Kids] Refresh failed:', e); }
+  const d = kidsData();
+  currentUser.name = d.players[currentUser.playerIdx]?.name || currentUser.name;
+  if(btn){ btn.textContent = '↻'; btn.disabled = false; }
+  renderKidsPageForKid();
 }
 
 function kidsPageLogout(){
