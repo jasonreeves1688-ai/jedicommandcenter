@@ -16426,19 +16426,29 @@ async function checkPassword(){
     localStorage.setItem('hub-auth-kid', JSON.stringify({playerIdx, ts:Date.now()}));
     document.getElementById('gate').style.display='none';
     // Kids don't have Supabase auth — skip bootApp/loadAll entirely.
-    // Just fetch the shared kids_tracker row directly (no auth needed).
+    // Fetch kids_tracker directly (needs public read RLS policy — see kids_tracker_setup.sql)
     (async ()=>{
+      // Start from localStorage immediately so page shows something fast
+      const cached = localStorage.getItem('hub-kids');
+      if(cached) try{ kidsGame = JSON.parse(cached); }catch(e){}
+
       try{
-        const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
+        const { data: kgRow, error: kgErr } = await _sb
+          .from('kids_tracker').select('*').eq('id','kids-game').single();
+        if(kgErr){
+          console.warn('[Kids] kids_tracker fetch error:', kgErr.message,
+            kgErr.code === 'PGRST116' ? '(row not found)' :
+            kgErr.code === '42501'     ? '(RLS blocked — run kids_tracker_setup.sql)' : '');
+        }
         if(kgRow && kgRow.game_data && kgRow.game_data.players){
           kidsGame = kgRow.game_data;
           localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
         }
       }catch(e){
-        // Fall back to localStorage if fetch fails
-        const raw = localStorage.getItem('hub-kids');
-        if(raw) try{ kidsGame = JSON.parse(raw); }catch(e2){}
+        console.warn('[Kids] kids_tracker network error:', e);
+        // Already have localStorage fallback above
       }
+
       const d = kidsData();
       currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
       // Subscribe to realtime so scores update live while kid is playing
@@ -19643,8 +19653,12 @@ async function kidsPageRefresh(){
   const btn = document.getElementById('kp-refresh-btn');
   if(btn){ btn.textContent = '↻ Syncing…'; btn.disabled = true; }
   try{
-    // Fetch directly from kids_tracker — no adult auth needed, table is public
-    const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
+    const { data: kgRow, error: kgErr } = await _sb
+      .from('kids_tracker').select('*').eq('id','kids-game').single();
+    if(kgErr){
+      console.warn('[Kids] Refresh error:', kgErr.message,
+        kgErr.code === '42501' ? '— RLS blocking read, run kids_tracker_setup.sql' : '');
+    }
     if(kgRow && kgRow.game_data && kgRow.game_data.players){
       kidsGame = kgRow.game_data;
       localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
