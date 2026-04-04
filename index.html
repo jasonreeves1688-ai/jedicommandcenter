@@ -2718,6 +2718,9 @@ const API_URL = APPS_SCRIPT_URL;
 // ── Supabase client ────────────────────────────────────────────
 const SUPABASE_URL  = 'https://pfsuljwznlxbfpmifdir.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_26IDRbgOEzYuDYIO2Ty6xQ_1aUBIx--';
+// Edge Functions require the JWT anon key (starts with eyJ), not the publishable key.
+// Get this from: Supabase Dashboard → Project Settings → API → anon public key
+const SUPABASE_JWT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI';
 const JASON_UID     = '4c9e616a-5be9-4205-86d6-763130f27afc';
 const JENNY_UID     = 'b65f69ae-057b-4865-95b1-a1ebd834cc41';
 
@@ -13710,7 +13713,7 @@ async function testAIProxy(){
   try{
     // Step 1: check function is reachable and has diagnose mode
     const res = await fetch(AI_PROXY_URL + '?diagnose=true', {
-      headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY }
+      headers: { 'Authorization': 'Bearer ' + SUPABASE_JWT_KEY }
     });
     const httpStatus = res.status;
     let data = {};
@@ -13738,7 +13741,7 @@ async function testAIProxy(){
         try{
           const testRes = await fetch(AI_PROXY_URL, {
             method: 'POST',
-            headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + SUPABASE_JWT_KEY },
             body: JSON.stringify({ messages:[{role:'user',content:'Say "working" and nothing else.'}], max_tokens:10 })
           });
           const testData = await testRes.json();
@@ -13776,7 +13779,7 @@ async function aiCall(systemPrompt, userPrompt, maxTokens=800){
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_JWT_KEY,
       },
       body: JSON.stringify({
         system:     systemPrompt,
@@ -13800,7 +13803,7 @@ async function aiCallVision(messages, maxTokens=1000){
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_JWT_KEY,
     },
     body: JSON.stringify({ max_tokens: maxTokens, messages })
   });
