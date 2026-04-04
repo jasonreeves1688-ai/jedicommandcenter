@@ -13706,25 +13706,64 @@ const AI_PROXY_URL = SUPABASE_URL + '/functions/v1/ai-proxy';
 
 async function testAIProxy(){
   const resultEl = document.getElementById('ai-diag-result');
-  if(resultEl){ resultEl.style.display='block'; resultEl.textContent='Running diagnostics…'; }
+  if(resultEl){ resultEl.style.display='block'; resultEl.textContent='Running diagnostics…'; resultEl.style.borderColor='var(--border)'; }
   try{
+    // Step 1: check function is reachable and has diagnose mode
     const res = await fetch(AI_PROXY_URL + '?diagnose=true', {
       headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
-    const data = await res.json();
+    const httpStatus = res.status;
+    let data = {};
+    try{ data = await res.json(); }catch(e){ data = {_raw: await res.text()}; }
+
     if(resultEl){
-      let out = data.summary + '\n\n';
-      (data.steps||[]).forEach(s=>{
-        out += (s.ok ? '✅' : '❌') + ' ' + s.step + '\n';
-        out += '   ' + s.detail + '\n\n';
-      });
-      if(data.fix) out += '👉 ' + data.fix;
-      resultEl.textContent = out.trim();
-      resultEl.style.borderColor = data.ok ? 'var(--green)' : 'var(--red)';
+      // New diagnose format
+      if(data.summary){
+        let out = 'HTTP ' + httpStatus + '\n' + data.summary + '\n\n';
+        (data.steps||[]).forEach(s=>{
+          out += (s.ok ? '✅' : '❌') + ' ' + s.step + '\n';
+          out += '   ' + s.detail + '\n\n';
+        });
+        if(data.fix) out += '👉 ' + data.fix;
+        resultEl.textContent = out.trim();
+        resultEl.style.borderColor = data.ok ? 'var(--green)' : 'var(--red)';
+      } else {
+        // Old function deployed — show raw response so we can see what's happening
+        // Also try a real AI call to see if it works at all
+        let out = 'HTTP ' + httpStatus + ' — Old function version (no diagnose mode).\n';
+        out += 'Raw response: ' + JSON.stringify(data).slice(0,200) + '\n\n';
+        out += 'Trying a real AI call…\n';
+        resultEl.textContent = out;
+
+        try{
+          const testRes = await fetch(AI_PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            body: JSON.stringify({ messages:[{role:'user',content:'Say "working" and nothing else.'}], max_tokens:10 })
+          });
+          const testData = await testRes.json();
+          if(testData.text){
+            out += '✅ AI call worked! Response: "' + testData.text.trim() + '"\n';
+            out += '\n👉 Deploy the new ai-proxy.ts to get full diagnostics.';
+            resultEl.style.borderColor = 'var(--green)';
+          } else if(testData.error){
+            out += '❌ AI call failed: ' + testData.error;
+            if(testData.hint) out += '\n👉 ' + testData.hint;
+            resultEl.style.borderColor = 'var(--red)';
+          } else {
+            out += '⚠ Unexpected response: ' + JSON.stringify(testData).slice(0,150);
+            resultEl.style.borderColor = 'var(--orange)';
+          }
+        }catch(e2){
+          out += '❌ AI call error: ' + e2.message;
+          resultEl.style.borderColor = 'var(--red)';
+        }
+        resultEl.textContent = out.trim();
+      }
     }
   }catch(e){
     if(resultEl){
-      resultEl.textContent = '❌ Could not reach ai-proxy Edge Function.\n\nMake sure it is deployed in Supabase Dashboard → Edge Functions.\n\nError: ' + e.message;
+      resultEl.textContent = '❌ Could not reach the ai-proxy Edge Function at all.\n\nHTTP fetch failed: ' + e.message + '\n\n👉 Check that ai-proxy is deployed in Supabase Dashboard → Edge Functions.';
       resultEl.style.borderColor = 'var(--red)';
     }
   }
