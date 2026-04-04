@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -1872,12 +1872,12 @@ input[type="date"].row-ctrl{
 }
 </style>
 
-<!-- TEMPORARY DEBUG PANEL — remove after diagnosis -->
-<script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+<!-- vConsole hidden — re-enable if needed for push notification debugging -->
+<!-- <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
 <script>
   window._vc = new VConsole({ theme: 'dark' });
   console.log('[DEBUG] vConsole loaded');
-</script>
+</script> -->
 </head>
 </head>
 <body class="light-mode">
@@ -2295,7 +2295,44 @@ input[type="date"].row-ctrl{
       <div id="nav-grid-title">Go to…</div>
       <button id="nav-grid-close" onclick="closeNavGrid()">✕</button>
     </div>
-    
+    <div id="nav-grid">
+      <button class="nav-grid-tile" id="grid-today" onclick="setNav('today');closeNavGrid()">
+        <div class="nav-grid-tile-icon">☀</div><div>Today</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
+        <div class="nav-grid-tile-icon">☰</div><div>Tasks</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
+        <div class="nav-grid-tile-icon">📝</div><div>Meetings</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-kids" onclick="setNav('kids');closeNavGrid()">
+        <div class="nav-grid-tile-icon">⭐</div><div>Kids</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
+        <div class="nav-grid-tile-icon">⏳</div><div>Waiting</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-discovery" onclick="setNav('discovery');closeNavGrid()">
+        <div class="nav-grid-tile-icon">🔭</div><div>Discovery</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
+        <div class="nav-grid-tile-icon">👥</div><div>People</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-home-today" onclick="setNav('home-today');closeNavGrid()">
+        <div class="nav-grid-tile-icon">🏠</div><div>Home</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-family" onclick="setNav('family');closeNavGrid()">
+        <div class="nav-grid-tile-icon">👨‍👩‍👧‍👦</div><div>Family</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-grocery" onclick="setNav('grocery');closeNavGrid()">
+        <div class="nav-grid-tile-icon">🛒</div><div>Grocery</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-calendar" onclick="setNav('calendar');closeNavGrid()">
+        <div class="nav-grid-tile-icon">📅</div><div>Calendar</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-settings" onclick="setNav('settings');closeNavGrid()">
+        <div class="nav-grid-tile-icon">⚙</div><div>Settings</div>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -3093,6 +3130,15 @@ async function loadAll(){
       localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
     }
 
+    // Load meal plan from shared kids_tracker row
+    try{
+      const { data: mpRow } = await _sb.from('kids_tracker').select('*').eq('id','meal-plan').single();
+      if(mpRow && mpRow.game_data){
+        mealPlan = mpRow.game_data;
+        localStorage.setItem('hub-meal-plan', JSON.stringify(mealPlan));
+      }
+    }catch(e){}
+
     // ── Kids tracker ──────────────────────────────────────────
     if(kidsTrackerRow.data){
       kidsTracker = {
@@ -3153,11 +3199,11 @@ async function loadAll(){
     setSyncStatus('error','Using cached data');
   }
 
-  // Kids game — load from Supabase settings, fall back to localStorage
+  // Kids game — load from shared kids_tracker row (id='kids-game'), fall back to localStorage
   try{
-    const kgRaw = await sbGetSetting('kidsGame', null);
-    if(kgRaw && kgRaw.players){
-      kidsGame = kgRaw;
+    const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
+    if(kgRow && kgRow.game_data && kgRow.game_data.players){
+      kidsGame = kgRow.game_data;
       localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
     } else {
       const lk = localStorage.getItem('hub-kids');
@@ -3281,7 +3327,8 @@ async function _sbSaveJennyHome(){
 
 async function _sbSaveGrocery(){
   const rows = groceryList.map(g=>({
-    id:g.id, name:g.name||'', checked:!!g.checked, added_by:g.addedBy||''
+    id:g.id, name:g.name||'', checked:!!g.checked, added_by:g.addedBy||'',
+    category: g.category || groceryCatFor(g.name)
   }));
   if(rows.length) await sbUpsert('grocery_items', rows);
 }
@@ -3827,7 +3874,43 @@ async function renderHomeTodayView(container){
         background:transparent;font:700 11px/1 var(--font-ui);">
       ${planBtnLabel}</button>
   </div>
+  ${(()=>{
+    if(!weeklyPlan || !weeklyPlan.lockedIn || !weeklyPlan.items || !weeklyPlan.items.length) return '';
+    const total = weeklyPlan.items.length;
+    const done  = weeklyPlan.items.filter(i=>i.done).length;
+    const pct   = Math.round((done/total)*100);
+    const barColor = pct===100 ? 'var(--green)' : 'var(--accent)';
+    return '<div style="margin:0 16px 10px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">'
+      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">This week</span>'
+      + '<span style="font:700 12px/1 var(--font-ui);color:' + barColor + ';">' + done + ' / ' + total + (pct===100?' 🎉':' done') + '</span>'
+      + '</div>'
+      + '<div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">'
+      + '<div style="height:100%;border-radius:3px;background:' + barColor + ';width:' + pct + '%;transition:width 0.4s;"></div>'
+      + '</div>'
+      + '</div>';
+  })()}
 
+  ${(()=>{
+    if(!kidsGame || !kidsGame.players || !kidsGame.cats) return '';
+    const d2 = kidsGame;
+    const summary = d2.players.map((p,pi)=>{
+      const dueCats = (d2.cats||[]).filter(c=>c.pts>0 && isChoreMine(c,pi) && choreStatus(c,pi,d2.auditLog||[]).due);
+      return {name:p.name, count:dueCats.length, score:p.score||0};
+    }).filter(s=>s.count>0);
+    if(!summary.length) return '';
+    const playerColors = ['#7eb8f7','#cc8ef5'];
+    return '<div style="margin:4px 16px 8px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);cursor:pointer;" onclick="setNav(&quot;kids&quot;)">'
+      + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">⭐ Chores due today</div>'
+      + '<div style="display:flex;gap:12px;">'
+      + summary.map((s,i)=>'<div style="display:flex;align-items:center;gap:6px;">'
+          + '<span style="width:8px;height:8px;border-radius:50%;background:' + playerColors[i] + ';flex-shrink:0;"></span>'
+          + '<span style="font:600 12px/1 var(--font-ui);color:var(--text);">' + esc(s.name) + '</span>'
+          + '<span style="font:700 12px/1 var(--font-ui);color:' + playerColors[i] + ';">' + s.count + ' due</span>'
+          + '</div>').join('')
+      + '</div>'
+      + '</div>';
+  })()}
   <!-- Private task add button -->
   <div style="padding:8px 16px 12px;display:flex;align-items:center;gap:10px;">
     <button onclick="openPrivateTaskModal(null)"
@@ -4036,6 +4119,224 @@ function moveHomeTask(id, fromArr, fromSave){
   renderAll();
 }
 
+let _familyTab = 0; // 0=tasks, 1=meals
+
+function renderMealPlanner(){
+  const DAYS = 7;
+  const todayStr = today();
+  const rows = [];
+  for(let i=0; i<DAYS; i++){
+    const d = new Date(todayStr + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    const ds = d.toISOString().slice(0,10);
+    const label = i===0 ? 'Today' : i===1 ? 'Tomorrow' : d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const meal = (mealPlan[ds] && mealPlan[ds].dinner) || '';
+    const isToday = ds === todayStr;
+    rows.push({ds, label, meal, isToday});
+  }
+
+  let html = '<div style="padding:0 16px 80px;">';
+  html += '<div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);margin-bottom:12px;">Tap any day to set dinner. Shared with Jenny in real time.</div>';
+
+  rows.forEach(r=>{
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">';
+    html += '<div style="width:72px;flex-shrink:0;">';
+    html += '<div style="font:700 11px/1 var(--font-ui);color:' + (r.isToday ? 'var(--accent)' : 'var(--text3)') + ';">' + r.label.split(',')[0] + '</div>';
+    if(r.label.includes(',')) html += '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">' + r.label.split(',').slice(1).join(',').trim() + '</div>';
+    html += '</div>';
+    html += '<div style="flex:1;min-width:0;" onclick="openMealEdit(&quot;' + r.ds + '&quot;)">';
+    const savedRecipe = mealPlan[r.ds] && mealPlan[r.ds].recipe;
+    const ingCount = savedRecipe ? (savedRecipe.ingredients||[]).length : 0;
+    if(r.meal){
+      html += '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);cursor:pointer;">' + esc(r.meal) + '</div>';
+      if(ingCount) html += '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">🥕 ' + ingCount + ' ingredients · tap to view recipe</div>';
+    } else {
+      html += '<div style="font:500 13px/1 var(--font-ui);color:var(--text4);cursor:pointer;font-style:italic;">Tap to plan dinner…</div>';
+    }
+    html += '</div>';
+    if(r.meal){
+      html += '<button onclick="clearMeal(&quot;' + r.ds + '&quot;)" style="padding:3px 7px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;opacity:0.5;">✕</button>';
+    }
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// ── Meal planner state ───────────────────────────────────────
+let _mealRecipes      = [];   // [{name, description, cookTime, ingredients:[]}]
+let _mealSelectedIdx  = null; // which recipe card is selected
+let _mealCurrentDs    = null; // date string being edited
+
+function openMealEdit(ds){
+  _mealCurrentDs   = ds;
+  _mealRecipes     = [];
+  _mealSelectedIdx = null;
+  const existing = (mealPlan[ds] && mealPlan[ds].dinner) || '';
+  const old2 = document.getElementById('modal-meal'); if(old2) old2.remove();
+  const d = new Date(ds + 'T00:00:00');
+  const label = d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+
+  const m = document.createElement('div');
+  m.id = 'modal-meal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:800;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;';
+  m.innerHTML =
+    '<div id="meal-sheet" style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
+    + '<div style="padding:18px 18px 12px;flex-shrink:0;">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+    +     '<div>'
+    +       '<div style="font:700 15px/1 var(--font-ui);color:var(--text);">🍽 ' + label + '</div>'
+    +       '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Find a recipe or type your own</div>'
+    +     '</div>'
+    +     '<button onclick="document.getElementById(&quot;modal-meal&quot;).remove()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'
+    +   '</div>'
+    +   '<div style="display:flex;gap:8px;">'
+    +     '<input id="meal-input" style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font:500 14px/1 var(--font-ui);outline:none;" placeholder="Type a dish or ingredient…" value="' + esc(existing) + '" autocomplete="off"/>'
+    +     '<button id="meal-ai-btn" onclick="mealFetchRecipes()" style="padding:10px 14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">✨ Find</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="meal-recipe-area" style="flex:1;overflow-y:auto;padding:0 18px 24px;"></div>'
+    + '<div id="meal-footer" style="padding:12px 18px 32px;border-top:1px solid var(--border);flex-shrink:0;display:none;">'
+    +   '<div style="display:flex;gap:8px;">'
+    +     '<button onclick="saveMeal()" style="flex:2;padding:12px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 13px/1 var(--font-ui);cursor:pointer;">Save dinner</button>'
+    +     '<button id="meal-grocery-btn" onclick="mealAddToGrocery()" style="flex:3;padding:12px;border-radius:var(--r3);border:1.5px solid var(--green);background:transparent;color:var(--green);font:700 13px/1 var(--font-ui);cursor:pointer;display:none;">🛒 Add ingredients</button>'
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+
+  const inp = document.getElementById('meal-input');
+  setTimeout(()=>inp && inp.focus(), 100);
+  inp && inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mealFetchRecipes(); } });
+
+  // Auto-fetch on open with a neutral prompt
+  mealFetchRecipes(true);
+}
+
+async function mealFetchRecipes(isAuto){
+  const inp = document.getElementById('meal-input');
+  const query = inp ? inp.value.trim() : '';
+  const area = document.getElementById('meal-recipe-area');
+  if(!area) return;
+
+  area.innerHTML = '<div style="padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:8px;">✨</div><div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);">Finding kid-friendly recipes…</div></div>';
+
+  const systemPrompt = 'You are a family meal planning assistant. Suggest dinner recipes that are kid-friendly, reasonably quick (under 45 min), and use everyday ingredients. Return ONLY valid JSON — no markdown, no explanation.';
+  const userPrompt = 'Suggest 4 dinner recipes'
+    + (query ? ' related to: "' + query + '"' : ' that kids will love')
+    + '. Return a JSON array of 4 objects: [{name, description (1 sentence, max 60 chars), cookTime (e.g. "25 min"), ingredients:[{name, qty}]}]. Each recipe should have 4-10 ingredients with quantities (e.g. "400g", "2 cups", "1 tbsp").';
+
+  try{
+    const raw = await aiCall(systemPrompt, userPrompt, 1200);
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    _mealRecipes = JSON.parse(cleaned);
+    _mealSelectedIdx = null;
+    mealRenderRecipes();
+  }catch(e){
+    if(area) area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">Couldn&#39;t load recipes — type a dish name and tap Save to set it manually.</div>';
+  }
+}
+
+function mealRenderRecipes(){
+  const area = document.getElementById('meal-recipe-area');
+  const footer = document.getElementById('meal-footer');
+  const groceryBtn = document.getElementById('meal-grocery-btn');
+  if(!area) return;
+
+  if(!_mealRecipes.length){
+    area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">No recipes found — try a different search.</div>';
+    return;
+  }
+
+  area.innerHTML = _mealRecipes.map((r,i)=>{
+    const sel = _mealSelectedIdx === i;
+    const ingList = (r.ingredients||[]).slice(0,5).map(ing=>'<span style="font:500 10px/1 var(--font-ui);color:var(--text4);padding:2px 6px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);">' + esc(ing.qty||'') + ' ' + esc(ing.name||'') + '</span>').join('');
+    const more = (r.ingredients||[]).length > 5 ? '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">+' + ((r.ingredients||[]).length-5) + ' more</span>' : '';
+    return '<div onclick="mealSelectRecipe(' + i + ')" style="margin-bottom:10px;border-radius:var(--r3);border:2px solid ' + (sel?'var(--accent)':'var(--border)') + ';background:' + (sel?'var(--accent-soft)':'var(--surface)') + ';padding:12px;cursor:pointer;transition:all 0.15s;">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
+      +   '<div style="flex:1;min-width:0;">'
+      +     '<div style="font:700 13px/1.3 var(--font-ui);color:' + (sel?'var(--accent)':'var(--text)') + ';">' + esc(r.name||'') + '</div>'
+      +     '<div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">' + esc(r.description||'') + '</div>'
+      +   '</div>'
+      +   '<span style="font:700 10px/1 var(--font-ui);color:var(--text4);white-space:nowrap;padding:3px 7px;border-radius:10px;background:var(--surface2);flex-shrink:0;">⏱ ' + esc(r.cookTime||'') + '</span>'
+      + '</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">' + ingList + more + '</div>'
+      + (sel ? '<div style="margin-top:10px;font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:0.5px;">✓ SELECTED — tap Save or add ingredients to grocery list</div>' : '')
+      + '</div>';
+  }).join('');
+
+  if(footer) footer.style.display = 'block';
+  if(groceryBtn) groceryBtn.style.display = _mealSelectedIdx !== null ? 'block' : 'none';
+}
+
+function mealSelectRecipe(idx){
+  _mealSelectedIdx = _mealSelectedIdx === idx ? null : idx;
+  const inp = document.getElementById('meal-input');
+  if(inp && _mealSelectedIdx !== null) inp.value = _mealRecipes[_mealSelectedIdx].name || '';
+  mealRenderRecipes();
+  const groceryBtn = document.getElementById('meal-grocery-btn');
+  if(groceryBtn) groceryBtn.style.display = _mealSelectedIdx !== null ? 'block' : 'none';
+}
+
+function mealAddToGrocery(){
+  if(_mealSelectedIdx === null) return;
+  const recipe = _mealRecipes[_mealSelectedIdx];
+  if(!recipe || !recipe.ingredients) return;
+
+  const existing = new Set(groceryList.map(g=>g.name.toLowerCase().trim()));
+  let added = 0;
+
+  recipe.ingredients.forEach(ing=>{
+    const name = (ing.name||'').trim();
+    if(!name) return;
+    // Skip duplicates silently
+    if(existing.has(name.toLowerCase())) return;
+    existing.add(name.toLowerCase());
+    const fullName = ing.qty ? ing.qty + ' ' + name : name;
+    groceryList.unshift({
+      id: 'gr' + Date.now() + Math.random().toString(36).slice(2,5),
+      name: fullName,
+      checked: false,
+      category: groceryCatFor(name),
+      addedBy: currentUser === 'parent' ? 'jason' : 'wife'
+    });
+    added++;
+  });
+
+  saveGrocery();
+  const groceryBtn = document.getElementById('meal-grocery-btn');
+  if(groceryBtn){
+    groceryBtn.textContent = added > 0 ? '✓ ' + added + ' items added!' : '✓ Already on list';
+    groceryBtn.style.background = 'var(--green-soft)';
+    groceryBtn.disabled = true;
+  }
+  showToast(added > 0 ? '🛒 ' + added + ' ingredients added to grocery list' : 'All ingredients already on your list');
+}
+
+function saveMeal(){
+  const val = (document.getElementById('meal-input')?.value || '').trim();
+  const ds = _mealCurrentDs;
+  if(!ds) return;
+  if(!mealPlan[ds]) mealPlan[ds] = {};
+  mealPlan[ds].dinner = val;
+  // Save selected recipe ingredients for reference
+  if(_mealSelectedIdx !== null && _mealRecipes[_mealSelectedIdx]){
+    mealPlan[ds].recipe = _mealRecipes[_mealSelectedIdx];
+  }
+  saveMealPlan();
+  document.getElementById('modal-meal')?.remove();
+  renderAll();
+  showToast('🍽 Dinner saved!');
+}
+
+function clearMeal(ds){
+  if(mealPlan[ds]) delete mealPlan[ds];
+  saveMealPlan();
+  renderAll();
+}
+
 function renderFamilyPage(container){
   const ASSIGNEES = [
     {key:'anyone', label:'Anyone', color:'var(--text3)'},
@@ -4048,68 +4349,51 @@ function renderFamilyPage(container){
   const open = familyTasks.filter(t=>!t.done);
   const done = familyTasks.filter(t=>t.done).slice(0,10);
 
-  let html = `
-  <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Family Tasks</div>
-    <div style="font:500 11px/1 var(--font-ui);color:var(--text4);">${open.length} open</div>
-  </div>
+  let html = '<div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">'
+    + '<div style="font:700 20px/1 var(--font-ui);color:var(--text);">Family</div>'
+    + '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + open.length + ' open tasks</div>'
+    + '</div>'
+    + '<div style="display:flex;border-bottom:2px solid var(--border);margin:0 16px 12px;">'
+    + '<button onclick="_familyTab=0;renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (_familyTab===0?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (_familyTab===0?'var(--accent)':'transparent') + ';margin-bottom:-2px;">✅ Tasks</button>'
+    + '<button onclick="_familyTab=1;renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (_familyTab===1?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (_familyTab===1?'var(--accent)':'transparent') + ';margin-bottom:-2px;">🍽 Dinners</button>'
+    + '</div>';
 
-  <!-- Add task button -->
-  <div style="padding:0 16px 12px;">
-    <button onclick="openFamilyTaskModal(null)"
-      style="width:100%;padding:12px;border-radius:var(--r3);
-        border:2px dashed var(--border);background:transparent;
-        color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;
-        display:flex;align-items:center;justify-content:center;gap:8px;
-        transition:all var(--t-fast);"
-      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
-      + Add Family Task</button>
-  </div>`;
+  if(_familyTab === 1){
+    container.innerHTML = html + renderMealPlanner();
+    return;
+  }
+
+  html += '<div style="padding:0 16px 12px;">'
+    + '<button onclick="openFamilyTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add Family Task</button>'
+    + '</div>';
 
   if(open.length === 0){
-    html += `<div style="text-align:center;padding:32px 20px;">
-      <div style="font-size:36px;margin-bottom:8px;">✅</div>
-      <div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div>
-    </div>`;
+    html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
   } else {
     open.forEach(t=>{
       const _taskAsgns = taskAssignees(t);
       const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;
-          border-bottom:1px solid var(--border);">
-        <button onclick="toggleFamilyTask('${t.id}')"
-          style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;
-            border:2px solid var(--border);background:transparent;color:transparent;
-            font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>
-        <div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal('${t.id}')">
-          <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">${esc(t.title)}</div>
-          ${t.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${t.dueDate<today()?'var(--red)':'var(--text4)'};margin-top:3px;">
-            📅 ${t.dueDate<=today()?'Today':t.dueDate.slice(5)}</div>`:''}
-        </div>
-        <!-- Assignee pills — tap to open modal -->
-        <div onclick="openFamilyTaskModal('${t.id}')"
-          style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">
-          ${_asgnLabels.map(a=>`<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ${a.color};color:${a.color};font:700 10px/1 var(--font-ui);white-space:nowrap;">${a.label}</span>`).join('')}
-        </div>
-        <button onclick="deleteFamilyTask('${t.id}')"
-          style="padding:2px 6px;border:none;background:transparent;
-            color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
-      </div>`;
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'
+        + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'
+        + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'
+        + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'
+        + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':'var(--text4)') + ';margin-top:3px;">📅 ' + (t.dueDate<=today()?'Today':t.dueDate.slice(5)) + '</div>' : '')
+        + '</div>'
+        + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'
+        + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')
+        + '</div>'
+        + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'
+        + '</div>';
     });
   }
 
   if(done.length){
-    html += `<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">
-      ✓ ${done.length} recently completed</div>`;
+    html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + done.length + ' recently completed</div>';
     done.forEach(t=>{
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">
-        <div style="width:24px;height:24px;border-radius:50%;background:var(--green);
-          display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>
-        <div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);
-          text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-      </div>`;
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'
+        + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'
+        + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'
+        + '</div>';
     });
   }
 
@@ -4136,11 +4420,19 @@ function addFamilyTask(){
   renderAll();
 }
 
+// Track recently self-completed task IDs to suppress the realtime echo notification
+const _selfCompletedTasks = new Set();
+
 function toggleFamilyTask(id){
   const t = familyTasks.find(x=>x.id===id);
   if(!t) return;
   t.done = !t.done;
   t.completedAt = t.done ? Date.now() : null;
+  if(t.done){
+    // Mark as self-completed so realtime echo doesn't fire a notification on our own device
+    _selfCompletedTasks.add(id);
+    setTimeout(()=>_selfCompletedTasks.delete(id), 5000);
+  }
   saveFamilyTasks();
   renderAll();
 }
@@ -4170,81 +4462,189 @@ function cycleFamilyAssignee(id){
   openFamilyTaskModal(id);
 }
 
+// ── Grocery categories ────────────────────────────────────────
+const GROCERY_CATS = [
+  { id:'produce',   label:'Produce',    emoji:'🥦' },
+  { id:'dairy',     label:'Dairy',      emoji:'🥛' },
+  { id:'meat',      label:'Meat',       emoji:'🥩' },
+  { id:'bakery',    label:'Bakery',     emoji:'🍞' },
+  { id:'frozen',    label:'Frozen',     emoji:'🧊' },
+  { id:'pantry',    label:'Pantry',     emoji:'🥫' },
+  { id:'drinks',    label:'Drinks',     emoji:'🧃' },
+  { id:'household', label:'Household',  emoji:'🧹' },
+  { id:'other',     label:'Other',      emoji:'🛒' },
+];
+
+// Keyword → category auto-suggest
+const GROCERY_KEYWORDS = {
+  produce:  ['apple','banana','orange','grape','strawberr','blueberr','raspberry','mango','peach','pear','plum','cherry','lemon','lime','avocado','tomato','lettuce','spinach','kale','broccoli','carrot','celery','cucumber','pepper','onion','garlic','potato','sweet potato','zucchini','mushroom','corn','herb','basil','cilantro','parsley','mint','ginger','salad','veggie','vegetable','fruit','berry','berries'],
+  dairy:    ['milk','cheese','yogurt','yoghurt','butter','cream','egg','eggs','sour cream','cream cheese','cottage cheese','mozzarella','cheddar','parmesan','brie','feta','whipped','half and half'],
+  meat:     ['chicken','beef','pork','lamb','turkey','bacon','sausage','steak','ground','mince','fish','salmon','tuna','shrimp','prawn','seafood','deli','ham','salami','pepperoni'],
+  bakery:   ['bread','roll','bun','bagel','muffin','croissant','tortilla','wrap','pita','loaf','sourdough','cake','cookie','biscuit','pastry','donut'],
+  frozen:   ['frozen','ice cream','popsicle','pizza','nugget','fries','edamame','waffle'],
+  pantry:   ['rice','pasta','noodle','flour','sugar','salt','pepper','oil','vinegar','sauce','ketchup','mustard','mayo','mayonnaise','dressing','soup','broth','stock','bean','lentil','chickpea','oat','cereal','granola','nut','almond','peanut','cashew','honey','jam','jelly','syrup','chocolate','cocoa','spice','seasoning','canned','tin','jar'],
+  drinks:   ['water','juice','coffee','tea','soda','beer','wine','kombucha','coconut water','sports drink','energy drink','lemonade','milk alternative','oat milk','almond milk','soy milk'],
+  household:['soap','shampoo','conditioner','detergent','laundry','dish','sponge','toilet','paper towel','tissue','foil','wrap','bag','bin liner','trash','cleaner','spray','bleach','toothpaste','toothbrush','razor','deodorant','lotion','sunscreen','nappy','diaper','wipe','vitamin','medicine','bandage'],
+};
+
+function groceryCatFor(name){
+  const n = (name||'').toLowerCase();
+  for(const [cat, words] of Object.entries(GROCERY_KEYWORDS)){
+    if(words.some(w => n.includes(w))) return cat;
+  }
+  return 'other';
+}
+
+let _groceryCatOpen = {}; // track collapsed state per category
+
 function renderGroceryPage(container){
-  const open   = groceryList.filter(g=>!g.checked);
+  const open    = groceryList.filter(g=>!g.checked);
   const checked = groceryList.filter(g=>g.checked);
+
+  // Group open items by category
+  const groups = {};
+  GROCERY_CATS.forEach(c=>{ groups[c.id] = []; });
+  open.forEach(g=>{
+    const cat = g.category || groceryCatFor(g.name);
+    if(groups[cat]) groups[cat].push(g); else groups['other'].push(g);
+  });
+  const activeGroups = GROCERY_CATS.filter(c=>groups[c.id].length > 0);
 
   let html = `
   <div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Grocery List</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="font:700 20px/1 var(--font-ui);color:var(--text);">Grocery List</div>
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;background:rgba(61,184,122,0.1);border:1px solid rgba(61,184,122,0.25);">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;"></span>
+        <span style="font:700 9px/1 var(--font-ui);color:var(--green);letter-spacing:0.5px;">LIVE</span>
+      </span>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;">
       <button onclick="refreshGrocery()"
         style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);
           background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">
         ↻ Sync</button>
-      ${checked.length ? `<button onclick="clearCheckedGrocery()"
-      style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);
-        background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">
-      Clear ${checked.length} done</button>` : ''}
+      ${checked.length ? '<button onclick="clearCheckedGrocery()" style="padding:4px 10px;border-radius:var(--r2);border:1px solid var(--border);background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;">Clear ' + checked.length + ' done</button>' : ''}
     </div>
   </div>
-  <div style="padding:0 16px 12px;display:flex;gap:8px;">
+  <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
     <input id="grocery-input" placeholder="Add item…"
       style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
         background:var(--surface);color:var(--text);font:var(--type-label);outline:none;"
       onkeydown="if(event.key==='Enter')addGroceryItem()"
+      oninput="_groceryAutocat(this.value)"
       onfocus="this.style.borderColor='var(--accent)'"
       onblur="this.style.borderColor='var(--border)'"/>
     <button onclick="addGroceryItem()"
       style="padding:10px 16px;border-radius:var(--r3);background:var(--accent);
         color:#fff;border:none;font:700 13px/1 var(--font-ui);cursor:pointer;">+</button>
+  </div>
+  <div id="grocery-cat-hint" style="padding:0 16px 8px;display:none;">
+    <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">Category: </span>
+    <span id="grocery-cat-hint-label" style="font:700 11px/1 var(--font-ui);color:var(--accent);"></span>
+    <span style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-left:6px;">— tap to change</span>
+    <div id="grocery-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
   </div>`;
 
   if(open.length === 0 && checked.length === 0){
-    html += `<div style="text-align:center;padding:40px 20px;">
-      <div style="font-size:36px;margin-bottom:8px;">🛒</div>
-      <div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">List is empty — add something!</div>
-    </div>`;
+    html += '<div style="text-align:center;padding:40px 20px;"><div style="font-size:36px;margin-bottom:8px;">🛒</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">List is empty — add something!</div></div>';
   }
 
-  open.forEach(g=>{
-    html += `<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;
-        border-bottom:1px solid var(--border);">
-      <button onclick="toggleGroceryItem('${g.id}')"
-        style="width:26px;height:26px;border-radius:6px;flex-shrink:0;cursor:pointer;
-          border:2px solid var(--border);background:transparent;">
-      </button>
-      <span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);">${esc(g.name)}</span>
-      <button onclick="deleteGroceryItem('${g.id}')"
-        style="padding:2px 6px;border:none;background:transparent;
-          color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>
-    </div>`;
+  // Render grouped open items
+  activeGroups.forEach(cat=>{
+    const items = groups[cat.id];
+    const isOpen = _groceryCatOpen[cat.id] !== false; // default open
+    html += '<div style="border-bottom:1px solid var(--border);">';
+    html += '<div onclick="toggleGroceryCat(&quot;' + cat.id + '&quot;)" style="display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;background:var(--surface2);">';
+    html += '<span style="font-size:16px;">' + cat.emoji + '</span>';
+    html += '<span style="flex:1;font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">' + cat.label + '</span>';
+    html += '<span style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + items.length + '</span>';
+    html += '<span style="font-size:12px;color:var(--text4);margin-left:4px;">' + (isOpen ? '▾' : '▸') + '</span>';
+    html += '</div>';
+    if(isOpen){
+      items.forEach(g=>{
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:11px 16px 11px 40px;border-top:1px solid var(--border)22;">';
+        html += '<button onclick="toggleGroceryItem(&quot;' + g.id + '&quot;)" style="width:24px;height:24px;border-radius:6px;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;"></button>';
+        html += '<span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);" onclick="cycleGroceryCat(&quot;' + g.id + '&quot;)" title="Tap to change category">' + esc(g.name) + '</span>';
+        const thisCat = GROCERY_CATS.find(c=>c.id===(g.category||groceryCatFor(g.name)));
+        html += '<span onclick="cycleGroceryCat(&quot;' + g.id + '&quot;)" style="font-size:15px;cursor:pointer;opacity:0.5;" title="Change category">' + (thisCat ? thisCat.emoji : '🛒') + '</span>';
+        html += '<button onclick="deleteGroceryItem(&quot;' + g.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
   });
 
+  // Done items (flat, collapsed summary)
   if(checked.length){
+    html += '<div style="padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);">';
+    html += '<span style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0.8px;text-transform:uppercase;">✓ Done (' + checked.length + ')</span></div>';
     checked.forEach(g=>{
-      html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;
-          border-bottom:1px solid var(--border);opacity:0.4;">
-        <div style="width:26px;height:26px;border-radius:6px;flex-shrink:0;
-          background:var(--green);border:2px solid var(--green);
-          display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">✓</div>
-        <span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);
-          text-decoration:line-through;">${esc(g.name)}</span>
-      </div>`;
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);opacity:0.4;">';
+      html += '<div style="width:24px;height:24px;border-radius:6px;flex-shrink:0;background:var(--green);border:2px solid var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>';
+      html += '<span style="flex:1;font:500 15px/1 var(--font-ui);color:var(--text);text-decoration:line-through;">' + esc(g.name) + '</span>';
+      html += '</div>';
     });
   }
 
   container.innerHTML = html;
 }
 
+// Auto-suggest category while typing
+let _groceryPendingCat = null;
+function _groceryAutocat(val){
+  const hint = document.getElementById('grocery-cat-hint');
+  const lbl  = document.getElementById('grocery-cat-hint-label');
+  const chips = document.getElementById('grocery-cat-chips');
+  if(!val.trim()){ if(hint) hint.style.display='none'; _groceryPendingCat=null; return; }
+  const cat = groceryCatFor(val);
+  _groceryPendingCat = cat;
+  const catObj = GROCERY_CATS.find(c=>c.id===cat);
+  if(hint){ hint.style.display='block'; }
+  if(lbl && catObj){ lbl.textContent = catObj.emoji + ' ' + catObj.label; }
+  // Show all category chips for override
+  if(chips){
+    chips.innerHTML = GROCERY_CATS.map(c=>'<button onclick="_setGroceryPendingCat(&quot;' + c.id + '&quot;)" style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + (c.id===_groceryPendingCat?'var(--accent)':'var(--border)') + ';background:' + (c.id===_groceryPendingCat?'var(--accent-soft)':'transparent') + ';color:' + (c.id===_groceryPendingCat?'var(--accent)':'var(--text3)') + ';font:600 11px/1 var(--font-ui);cursor:pointer;">' + c.emoji + ' ' + c.label + '</button>').join('');
+  }
+}
+
+function _setGroceryPendingCat(catId){
+  _groceryPendingCat = catId;
+  const val = document.getElementById('grocery-input')?.value || '';
+  _groceryAutocat(val); // re-render chips with new selection
+}
+
+function toggleGroceryCat(catId){
+  _groceryCatOpen[catId] = _groceryCatOpen[catId] === false ? true : false;
+  renderAll();
+}
+
+function cycleGroceryCat(id){
+  const g = groceryList.find(x=>x.id===id);
+  if(!g) return;
+  const cats = GROCERY_CATS.map(c=>c.id);
+  const cur = g.category || groceryCatFor(g.name);
+  const next = cats[(cats.indexOf(cur)+1) % cats.length];
+  g.category = next;
+  const catObj = GROCERY_CATS.find(c=>c.id===next);
+  showToast((catObj ? catObj.emoji + ' ' : '') + esc(g.name) + ' → ' + (catObj ? catObj.label : next));
+  saveGrocery();
+  renderAll();
+}
+
 function addGroceryItem(){
   const input = document.getElementById('grocery-input');
   const name = input?.value.trim();
   if(!name) return;
+  const cat = _groceryPendingCat || groceryCatFor(name);
   groceryList.unshift({id:'gr'+Date.now(), name, checked:false,
+    category: cat,
     addedBy: currentUser==='parent'?'jason':'wife'});
   saveGrocery();
   input.value = '';
+  _groceryPendingCat = null;
+  const hint = document.getElementById('grocery-cat-hint');
+  if(hint) hint.style.display = 'none';
   renderAll();
 }
 
@@ -7600,6 +8000,21 @@ function logFamilyTaskHistory(taskId, text){
 }
 
 // ── Notification to other adult ───────────────────────────────
+function _notifyFamilyComplete(taskTitle, actor){
+  // Fired when realtime detects the other person completed a family task
+  const msg = actor + ' completed “' + taskTitle + '” ✓';
+  if('Notification' in window && Notification.permission === 'granted'){
+    const n = new Notification('✅ ' + msg, {
+      icon: '/icon-192.svg',
+      tag:  'family_done_' + Date.now(),
+      silent: false,
+    });
+    setTimeout(()=>n.close(), 7000);
+  } else {
+    showToast('✅ ' + msg, 4000);
+  }
+}
+
 function _notifyFamilyComment(taskTitle, author, text){
   // Only notify if the other adult is not currently viewing
   // (we can't know for sure, but we send it anyway — they'll see it on next load)
@@ -7826,9 +8241,33 @@ function dateMinusDays(dateStr, n){
 }
 
 function computeStreak(){
-  const todayStr=today();
+  // Use habitLog (synced from cloud) if habits exist — more reliable across devices
+  // Falls back to task completion streak if no habits set up
+  const todayStr = today();
+  if(habitList && habitList.length > 0 && habitLog && Object.keys(habitLog).length > 0){
+    // Habit streak: a day counts if ALL habits were logged that day
+    let streak = 0;
+    for(let i = 0; i < 365; i++){
+      const dayStr = dateMinusDays(todayStr, i);
+      if(i === 0){
+        // Today: partial — don't break streak if not done yet
+        continue;
+      }
+      const logged = habitLog[dayStr] || [];
+      const allDone = habitList.every(h => logged.includes(h.id));
+      if(allDone){
+        streak++;
+      } else {
+        break;
+      }
+    }
+    const prev = parseInt(localStorage.getItem('hub-longest-streak')||'0');
+    if(streak > prev) localStorage.setItem('hub-longest-streak', String(streak));
+    return streak;
+  }
+  // Fallback: task completion streak
   let streak=0;
-  let missedOne=false; // grace day tracker
+  let missedOne=false;
   for(let i=0;i<365;i++){
     const dayStr=dateMinusDays(todayStr,i);
     const done=completedOnDate(dayStr);
@@ -7836,17 +8275,13 @@ function computeStreak(){
       streak++;
       missedOne=false;
     } else if(i===0){
-      // Today not done yet — check if yesterday keeps streak alive
       continue;
     } else if(!missedOne){
-      // First miss — grant grace day, keep going
       missedOne=true;
     } else {
-      // Two consecutive misses — streak ends
       break;
     }
   }
-  // Update longest streak
   const prev=parseInt(localStorage.getItem('hub-longest-streak')||'0');
   if(streak>prev){ localStorage.setItem('hub-longest-streak',String(streak)); }
   return streak;
@@ -8442,6 +8877,8 @@ function renderTaskRow(task,proj){
               style="color:var(--text3);background:transparent;">✏ Edit</button>
           <button onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')" class="row-ctrl"
             title="Move to Someday" style="color:var(--text4);background:transparent;">💭</button>
+          <button onclick="event.stopPropagation();toggleSnoozePanel('${task.id}',this)" class="row-ctrl"
+            title="Snooze" style="color:var(--text4);background:transparent;position:relative;">💤</button>
           </div>` : `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">${ageBadge}${subPill}</div>`}
         </div>
       </div>
@@ -9487,6 +9924,62 @@ function saveTaskDueDate(id, val){
   renderAll();
 }
 
+function snoozeTask(id, when){
+  const t = tasks.find(t=>t.id===id);
+  if(!t) return;
+  const base = new Date();
+  let d;
+  if(when === 'tomorrow'){
+    d = new Date(base); d.setDate(d.getDate()+1);
+  } else if(when === 'nextweek'){
+    d = new Date(base); d.setDate(d.getDate()+7);
+  } else if(when === 'monday'){
+    d = new Date(base);
+    const day = d.getDay(); // 0=Sun
+    const diff = day === 0 ? 1 : (8 - day); // days until next Monday
+    d.setDate(d.getDate() + diff);
+  }
+  const iso = d.toISOString().slice(0,10);
+  t.dueDate = iso;
+  saveAllDebounced();
+  // Close any open snooze panel
+  document.querySelectorAll('.snooze-panel').forEach(el=>el.remove());
+  const label = when==='tomorrow'?'Tomorrow':when==='nextweek'?'Next week':'Monday';
+  showToast('💤 Snoozed to ' + label + ' (' + iso.slice(5) + ')');
+  renderAll();
+}
+
+function toggleSnoozePanel(taskId, btnEl){
+  // Remove any existing panel
+  const existing = document.querySelector('.snooze-panel');
+  if(existing){
+    if(existing.dataset.taskId === taskId){ existing.remove(); return; }
+    existing.remove();
+  }
+  const panel = document.createElement('div');
+  panel.className = 'snooze-panel';
+  panel.dataset.taskId = taskId;
+  panel.style.cssText = 'position:absolute;z-index:300;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.18);padding:4px;display:flex;flex-direction:column;gap:2px;min-width:130px;';
+  [['tomorrow','Tomorrow'],['nextweek','Next week'],['monday','Next Monday']].forEach(([k,lbl])=>{
+    const b = document.createElement('button');
+    b.textContent = lbl;
+    b.style.cssText = 'padding:7px 12px;border:none;background:transparent;color:var(--text2);font:600 12px/1 var(--font-ui);cursor:pointer;border-radius:6px;text-align:left;';
+    b.onmouseover = ()=>b.style.background='var(--surface2)';
+    b.onmouseout  = ()=>b.style.background='transparent';
+    b.onclick = (e)=>{ e.stopPropagation(); snoozeTask(taskId, k); };
+    panel.appendChild(b);
+  });
+  // Position near the button
+  const rect = btnEl.getBoundingClientRect();
+  panel.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  panel.style.left = Math.max(8, rect.left + window.scrollX - 40) + 'px';
+  document.body.appendChild(panel);
+  // Close on outside click
+  setTimeout(()=>{
+    document.addEventListener('click', function _close(){ panel.remove(); document.removeEventListener('click',_close); }, {once:true});
+  }, 10);
+}
+
 function updateTaskField(id,field,val){
   const t=tasks.find(t=>t.id===id);if(!t) return;
   if(field==="status"){
@@ -10143,6 +10636,7 @@ let familyTasks    = loadHubData('hub-family-tasks', []);  // shared, visible to
 let jasonHomeTasks = loadHubData('hub-jason-home',   []);  // private to Jason
 let wifeHomeTasks  = loadHubData('hub-wife-home',    []);  // private to Jenny
 let groceryList    = loadHubData('hub-grocery',      []);  // shared grocery list
+let mealPlan       = loadHubData('hub-meal-plan',    {});  // {YYYY-MM-DD: {dinner:'...'}}
 let weeklyPlan     = loadHubData('hub-weekly-plan',  null); // {weekOf, lockedIn, lockedAt, items:[]}    // [{id,person,what,dueDate,taskId,done,createdAt}]
 let weeklyIntentions = loadHubData('hub-intentions', {week:'',wins:['','','']});
 let resetStreak      = loadHubData('hub-reset-streak', {count:0, lastWeek:'', longest:0}); // {week, wins:[3 strings]}
@@ -11488,6 +11982,21 @@ function saveGrocery(){
   localStorage.setItem('hub-grocery', JSON.stringify(groceryList));
   _queueSave('grocery',_sbSaveGrocery);
 }
+
+function saveMealPlan(){
+  localStorage.setItem('hub-meal-plan', JSON.stringify(mealPlan));
+  // Store in shared kids_tracker row id='meal-plan'
+  clearTimeout(_mealPlanSyncTimer);
+  _mealPlanSyncTimer = setTimeout(async()=>{
+    try{
+      await _sb.from('kids_tracker').upsert(
+        { id:'meal-plan', game_data: mealPlan },
+        { onConflict:'id' }
+      );
+    }catch(e){}
+  }, 800);
+}
+let _mealPlanSyncTimer = null;
 
 function saveFamilyTasks(){
   localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
@@ -15863,11 +16372,11 @@ async function checkPassword(){
     document.getElementById('gate').style.display='none';
     bootApp().then(async ()=>{
       // bootApp loads kidsGame from Supabase but it may not have resolved yet.
-      // Explicitly fetch fresh kidsGame from cloud before rendering the kids page.
+      // Explicitly fetch fresh kidsGame from shared kids_tracker row before rendering.
       try{
-        const kgFresh = await sbGetSetting('kidsGame', null);
-        if(kgFresh && kgFresh.players){
-          kidsGame = kgFresh;
+        const { data: kgRow } = await _sb.from('kids_tracker').select('*').eq('id','kids-game').single();
+        if(kgRow && kgRow.game_data && kgRow.game_data.players){
+          kidsGame = kgRow.game_data;
           localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
         }
       }catch(e){ /* fall back to whatever loadAll got */ }
@@ -15933,6 +16442,12 @@ async function checkPassword(){
       _startRealtimeSubscriptions();
       _startKidsBroadcast();
       _storeSessionInSW();
+      // Register push notifications for Jenny
+      const _jennySWReg = await registerServiceWorker();
+      if(_jennySWReg){
+        const _jennyNotifGranted = await requestNotifPermission();
+        if(_jennyNotifGranted) await subscribeToPush(_jennySWReg);
+      }
     }
 
   }catch(err){
@@ -15954,42 +16469,11 @@ async function checkPassword(){
 // ── Real-time subscriptions for shared tables ─────────────────
 let _realtimeChannel = null;
 
-let _kidsBroadcastChannel = null;
-
-function _startKidsBroadcast(){
-  // Kids scores use a broadcast channel so all sessions see updates instantly
-  // regardless of who owns the user_settings row
-  if(_kidsBroadcastChannel) _kidsBroadcastChannel.unsubscribe();
-  _kidsBroadcastChannel = _sb
-    .channel('kids-scores-sync')
-    .on('broadcast', { event: 'kids-update' }, async (payload) => {
-      // Another session saved kidsGame — fetch fresh copy and re-render
-      if(payload?.payload?.lastSaved && kidsGame?.lastSaved >= payload.payload.lastSaved) return;
-      try{
-        const fresh = await sbGetSetting('kidsGame', null);
-        if(fresh && fresh.players){
-          kidsGame = fresh;
-          localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
-          // Re-render kids view if visible
-          const main = document.getElementById('main');
-          if(activeNav === 'kids') renderKidsGame(main);
-          // Re-render kids page if a kid is logged in
-          const kp = document.getElementById('kids-page');
-          if(kp && kp.style.display !== 'none') renderKidsPageForKid();
-        }
-      }catch(e){}
-    })
-    .subscribe();
-}
-
-function _broadcastKidsUpdate(){
-  if(!_kidsBroadcastChannel) return;
-  _kidsBroadcastChannel.send({
-    type: 'broadcast',
-    event: 'kids-update',
-    payload: { lastSaved: kidsGame?.lastSaved || Date.now() }
-  });
-}
+// Kids scores sync via Supabase realtime postgres_changes on kids_tracker (id='kids-game')
+// No separate broadcast channel needed — the shared row triggers all sessions automatically.
+let _kidsBroadcastChannel = null; // kept for reference, unused
+function _startKidsBroadcast(){ /* no-op: realtime handles sync via kids_tracker row */ }
+function _broadcastKidsUpdate(){ /* no-op */ }
 
 function _startRealtimeSubscriptions(){
   if(_realtimeChannel) _realtimeChannel.unsubscribe();
@@ -16021,12 +16505,32 @@ function _handleRealtimeChange(table, payload){
     if(eventType === 'DELETE'){
       familyTasks = familyTasks.filter(t=>t.id !== oldRow.id);
     } else {
+      // Check if this is a completion event from the other person
+      const existing = familyTasks.find(x=>x.id===newRow.id);
+      const wasNotDone = existing && !existing.done;
+      const isNowDone  = !!newRow.done;
+      const myName     = currentUserLabel();
+      // completed_by is stored as created_by on the row when toggled
+      // We infer "other person did it" if done flipped and it wasn't us who triggered it
+      if(wasNotDone && isNowDone){
+        // Figure out who completed it — use assignedTo or created_by heuristic
+        const completedBy = (newRow.assigned_to && newRow.assigned_to !== myName)
+          ? newRow.assigned_to
+          : (newRow.created_by && newRow.created_by !== myName ? newRow.created_by : null);
+        const actor = completedBy || (myName === 'Jason' ? 'Jenny' : 'Jason');
+        // Only notify if we're not the one who just did it
+        // (realtime fires on the same device too, so guard with a short timestamp window)
+        if(actor !== myName && !_selfCompletedTasks.has(newRow.id)){
+          _notifyFamilyComplete(newRow.title, actor);
+        }
+      }
+
       const t = {
         id:newRow.id, title:newRow.title, done:newRow.done,
         assignedTo:newRow.assigned_to, createdBy:newRow.created_by,
         dueDate:newRow.due_date, attachments:newRow.attachments||[],
         createdAt:newRow.created_at, completedAt:newRow.completed_at,
-        comments: (familyTasks.find(x=>x.id===newRow.id)||{}).comments || []
+        comments: (existing||{}).comments || []
       };
       const idx = familyTasks.findIndex(x=>x.id===newRow.id);
       if(idx > -1) familyTasks[idx] = t; else familyTasks.unshift(t);
@@ -16061,7 +16565,7 @@ function _handleRealtimeChange(table, payload){
     if(eventType === 'DELETE'){
       groceryList = groceryList.filter(g=>g.id !== oldRow.id);
     } else {
-      const g = {id:newRow.id, name:newRow.name, checked:newRow.checked, addedBy:newRow.added_by};
+      const g = {id:newRow.id, name:newRow.name, checked:newRow.checked, addedBy:newRow.added_by, category:newRow.category||null};
       const idx = groceryList.findIndex(x=>x.id===newRow.id);
       if(idx > -1) groceryList[idx]=g; else groceryList.unshift(g);
     }
@@ -16077,8 +16581,25 @@ function _handleRealtimeChange(table, payload){
   }
 
   else if(table === 'kids_tracker'){
-    kidsTracker = {lunches:newRow.lunches||{}, schedule:newRow.schedule||{}};
-    localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+    if(newRow.id === 'kids-game'){
+      // Shared kidsGame row — sync scores across all users/devices
+      if(newRow.game_data && newRow.game_data.players){
+        if(!kidsGame || !kidsGame.lastSaved || newRow.game_data.lastSaved > kidsGame.lastSaved){
+          kidsGame = newRow.game_data;
+          localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+        }
+      }
+    } else if(newRow.id === 'meal-plan'){
+      // Shared meal plan row
+      if(newRow.game_data){
+        mealPlan = newRow.game_data;
+        localStorage.setItem('hub-meal-plan', JSON.stringify(mealPlan));
+      }
+    } else {
+      // id='current' row — lunch/schedule tracker
+      kidsTracker = {lunches:newRow.lunches||{}, schedule:newRow.schedule||{}};
+      localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+    }
   }
 
   // Re-render after any real-time update (debounced to avoid thrashing)
@@ -16299,7 +16820,7 @@ let _swReg = null; // global SW registration
 async function registerServiceWorker(){
   if(!('serviceWorker' in navigator)) return null;
   try{
-    const reg = await navigator.serviceWorker.register('./sw.js', {scope:'./'});
+    const reg = await navigator.serviceWorker.register('./sw.js');
     _swReg = reg;
     console.log('[SW] Registered:', reg.scope);
 
@@ -17087,14 +17608,14 @@ function saveKidsData(d) {
     // Read kidsGame fresh at fire time in case more changes accumulated
     if(kidsGame) kidsGame.lastSaved = Date.now();
     try{
-    // Kids game stored in user_settings as JSON
-    await _sb.from('user_settings').upsert(
-      {owner_id:_sbUserId, key:'kidsGame', value:JSON.stringify(kidsGame)},
-      {onConflict:'owner_id,key'}
-    );
-    _broadcastKidsUpdate(); // notify other open sessions instantly
-  }catch(e){}
-  }, 1200);
+      // Kids game stored in shared kids_tracker row (id='kids-game') — visible to ALL users/sessions
+      await _sb.from('kids_tracker').upsert(
+        { id: 'kids-game', game_data: kidsGame },
+        { onConflict: 'id' }
+      );
+      // Supabase realtime postgres_changes on kids_tracker notifies all sessions automatically
+    }catch(e){}
+  }, 800);
 }
 
 let kidsEditCatId = null;
@@ -17259,11 +17780,95 @@ function kidsSetSpinType(type) {
   renderKidsGame(main);
 }
 
+function _kidsWeeklyChart(d){
+  // Build a 7-day points-per-day bar chart from auditLog
+  const log = d.auditLog || [];
+  const players = d.players || [];
+  const DAYS = 7;
+  const now = Date.now();
+  const MS_DAY = 86400000;
+
+  // Day labels: Mon, Tue … today
+  const dayLabels = [];
+  const dayStarts = [];
+  for(let i = DAYS-1; i >= 0; i--){
+    const d2 = new Date(now - i * MS_DAY);
+    dayLabels.push(i === 0 ? 'Today' : d2.toLocaleDateString('en-US',{weekday:'short'}));
+    // midnight local time for that day
+    const m = new Date(d2); m.setHours(0,0,0,0);
+    dayStarts.push(m.getTime());
+  }
+
+  // Sum pts per player per day (only positive pts for "earned" view)
+  const playerColors = ['#7eb8f7','#cc8ef5'];
+  const totals = players.map(()=> Array(DAYS).fill(0));
+  log.forEach(e=>{
+    if(!e.ts || !e.pts || e.pts <= 0) return;
+    for(let di = 0; di < DAYS; di++){
+      const start = dayStarts[di];
+      const end   = di < DAYS-1 ? dayStarts[di+1] : now + MS_DAY;
+      if(e.ts >= start && e.ts < end){
+        totals[e.playerIdx] && (totals[e.playerIdx][di] += e.pts);
+      }
+    }
+  });
+
+  // Max value for scaling (min 10 so empty chart still looks ok)
+  const allVals = totals.flat();
+  const maxVal  = Math.max(10, ...allVals);
+
+  // Weekly totals per player
+  const weekTotals = totals.map(t => t.reduce((a,b)=>a+b,0));
+
+  let html = '<div style="margin-bottom:14px;background:rgba(0,0,0,0.2);border-radius:12px;padding:14px 14px 10px;">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+  html += '<span style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.45);text-transform:uppercase;">This week</span>';
+  html += '<div style="display:flex;gap:12px;">';
+  players.forEach((p,i)=>{
+    html += '<span style="font:700 11px/1 var(--font-ui);color:' + playerColors[i] + ';">' + esc(p.name.split(' ')[0]) + ' <span style=\"opacity:0.8;\">' + weekTotals[i] + ' pts</span></span>';
+  });
+  html += '</div></div>';
+
+  // Chart grid + bars
+  html += '<div style="display:flex;align-items:flex-end;gap:4px;height:60px;">';
+  for(let di = 0; di < DAYS; di++){
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">';
+    // Bars for each player side by side
+    html += '<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:50px;">';
+    players.forEach((_p,pi)=>{
+      const val = totals[pi][di];
+      const pct = val > 0 ? Math.max(4, Math.round((val/maxVal)*50)) : 2;
+      const alpha = val > 0 ? '1' : '0.15';
+      html += '<div style="flex:1;background:' + playerColors[pi] + ';opacity:' + alpha + ';border-radius:3px 3px 0 0;height:' + pct + 'px;align-self:flex-end;" title="' + (_p.name) + ': ' + val + ' pts"></div>';
+    });
+    html += '</div>';
+    // Day label
+    const isToday = di === DAYS-1;
+    html += '<div style="font:' + (isToday?'700':'500') + ' 9px/1 var(--font-ui);color:rgba(255,255,255,' + (isToday?'0.7':'0.35') + ');text-align:center;margin-top:3px;">' + dayLabels[di] + '</div>';
+    html += '</div>';
+  }
+  html += '</div>'; // bars row
+
+  // Legend
+  html += '<div style="display:flex;gap:12px;margin-top:8px;">';
+  players.forEach((p,i)=>{
+    html += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:' + playerColors[i] + ';"></div><span style="font:500 9px/1 var(--font-ui);color:rgba(255,255,255,0.4);">' + esc(p.name.split(' ')[0]) + '</span></div>';
+  });
+  html += '</div>';
+
+  html += '</div>'; // card
+  return html;
+}
+
 function renderKidsScores(d) {
-  let html = `<div style="display:flex;gap:var(--sp2);justify-content:flex-end;margin-bottom:10px;">
-    <button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>
-  </div>
-  <div class="kids-scores-row">`;
+  let html = '<div style="display:flex;gap:var(--sp2);justify-content:flex-end;margin-bottom:10px;">'
+    + '<button class="kids-cat-btn" onclick="openKidsSetup()">✏ Edit Names</button>'
+    + '</div>';
+
+  // 7-day history chart
+  html += _kidsWeeklyChart(d);
+
+  html += '<div class="kids-scores-row">';
 
   d.players.forEach((p, i) => {
     const score = p.score || 0;
