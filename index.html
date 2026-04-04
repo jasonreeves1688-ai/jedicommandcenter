@@ -6722,31 +6722,21 @@ Rules:
 - Only return the JSON array, nothing else — no markdown fences, no explanation`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: 'image/jpeg',
-                data: _calImportState.imageData
-              }
-            },
-            { type: 'text', text: prompt }
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    const raw  = data.content?.find(b=>b.type==='text')?.text || '[]';
+    // Use ai-proxy Edge Function (supports vision/image inputs)
+    const raw = await aiCallVision([{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type:       'base64',
+            media_type: 'image/jpeg',
+            data:        _calImportState.imageData
+          }
+        },
+        { type: 'text', text: prompt }
+      ]
+    }], 1000, 'claude-sonnet-4-20250514');
 
     // Strip any accidental markdown fences
     const cleaned = raw.replace(/```json|```/g, '').trim();
@@ -13705,21 +13695,46 @@ function toggleTodayPin(taskId){
 // AI ASSIST — shared helper + four features
 // ════════════════════════════════════════════════════════════════
 
+const AI_PROXY_URL = SUPABASE_URL + '/functions/v1/ai-proxy';
+
 async function aiCall(systemPrompt, userPrompt, maxTokens=800){
-  // Routes through Apps Script proxy — API key stored securely in Script Properties
+  // Calls Supabase Edge Function (ai-proxy/Gemini) — API key stored in Edge Function secrets
   try{
-    const data = await apiCall('aiProxy', {
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      system:     systemPrompt,
-      messages:   [{role:'user', content: userPrompt}]
+    const res = await fetch(AI_PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+      },
+      body: JSON.stringify({
+        system:     systemPrompt,
+        max_tokens: maxTokens,
+        messages:   [{role:'user', content: userPrompt}]
+      })
     });
-    if(data.error) throw new Error(data.error);
+    const data = await res.json();
+    if(data.error) throw new Error('[AI] ' + data.error + (data.hint ? ' — ' + data.hint : ''));
     return data.text || '';
   } catch(e){
-    console.error('AI call failed:', e);
+    console.error('[AI] aiCall failed:', e);
     throw e;
   }
+}
+
+// Vision-capable AI call — for image inputs (calendar import etc.)
+// Proxy auto-detects image content and routes to gemini-1.5-pro
+async function aiCallVision(messages, maxTokens=1000){
+  const res = await fetch(AI_PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+    },
+    body: JSON.stringify({ max_tokens: maxTokens, messages })
+  });
+  const data = await res.json();
+  if(data.error) throw new Error('[AI] ' + data.error);
+  return data.text || '';
 }
 
 function aiContext(){
@@ -19077,6 +19092,7 @@ function renderKidsPageForKid(){
   const myName    = player.name;
   const myScore   = player.score || 0;
   const others    = d.players.map((p,i)=>({...p,i})).filter(p=>p.i!==playerIdx);
+  const auditLog  = d.auditLog || [];
   // Exclude hidden one-time items and items not assigned to this player
   const myCats = (d.cats||[]).filter(c=>{
     if(c.pts <= 0) return false;
@@ -19084,7 +19100,6 @@ function renderKidsPageForKid(){
     const st = choreStatus(c, playerIdx, auditLog);
     return !st.hidden;
   });
-  const auditLog  = d.auditLog || [];
 
   const nextSmall = myScore<=0?25:(25-(myScore%25===0?0:myScore%25))||25;
   const nextBig   = myScore<=0?100:(100-(myScore%100===0?0:myScore%100))||100;
