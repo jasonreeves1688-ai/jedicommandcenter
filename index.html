@@ -4226,26 +4226,31 @@ async function mealFetchRecipes(isAuto){
 
   area.innerHTML = '<div style="padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:8px;">✨</div><div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);">Finding kid-friendly recipes…</div></div>';
 
-  const systemPrompt = 'You are a family meal planning assistant. You MUST respond with ONLY a raw JSON array — no markdown fences, no explanation text, no preamble. Start your response with [ and end with ]. Any other format will break the app.';
-  const userPrompt = 'Suggest 4 dinner recipes'
-    + (query ? ' related to: "' + query + '"' : ' that kids will love')
-    + '. Return a JSON array of 4 objects: [{name, description (1 sentence, max 60 chars), cookTime (e.g. "25 min"), ingredients:[{name, qty}]}]. Each recipe should have 4-10 ingredients with quantities (e.g. "400g", "2 cups", "1 tbsp").';
+  const systemPrompt = 'You are a family dinner planner. Output ONLY a JSON array, nothing else. No markdown, no explanation, no intro. The array starts with [ and ends with ].';
+  const userPrompt = 'Return a JSON array of exactly 4 kid-friendly dinner recipes'
+    + (query ? ' related to: "' + query + '"' : '')
+    + '. Format: [{"name":"...","description":"...","cookTime":"...","ingredients":[{"name":"...","qty":"..."}]}]. Keep descriptions under 60 chars. Include 5-8 ingredients each.';
 
   try{
-    const raw = await aiCall(systemPrompt, userPrompt, 1200);
+    const raw = await aiCall(systemPrompt, userPrompt, 2000);
+    console.log('[Meal] Raw AI response:', raw); // log full response for debugging
 
     // Robustly extract JSON array — Gemini sometimes wraps in markdown or objects
-    let cleaned = raw.replace(/```json|```/g,'').trim();
+    let cleaned = raw.replace(/```json|```/gi,'').trim();
 
-    // If response is wrapped in an object like {"recipes":[...]} extract the array
+    // Remove any leading/trailing text before/after the JSON array
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket  = cleaned.lastIndexOf(']');
+    if(firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket){
+      cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+    }
+
     let parsed;
     try{
       parsed = JSON.parse(cleaned);
     }catch(e1){
-      // Try to find a JSON array anywhere in the response
-      const match = cleaned.match(/\[[\s\S]*\]/);
-      if(match) parsed = JSON.parse(match[0]);
-      else throw new Error('No JSON array found in response: ' + cleaned.slice(0,200));
+      console.error('[Meal] JSON parse failed:', e1.message, '| raw was:', raw.slice(0,500));
+      throw new Error('Parse error — check console for raw response');
     }
 
     // Handle {recipes:[...]} or {dinners:[...]} wrapper objects
