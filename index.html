@@ -435,6 +435,11 @@ body.light-mode #focus-now-btn{
 }
 body.light-mode #focus-now-btn:hover{ background:rgba(184,72,8,0.14); }
 body.light-mode #focus-now-btn.active{ background:rgba(184,72,8,0.14); border-color:var(--orange); }
+body.light-mode .fab-capture{
+  background:var(--accent); color:#fff;
+  box-shadow:0 4px 20px rgba(21,101,192,0.35);
+}
+body.light-mode .fab-capture:hover{ box-shadow:0 6px 24px rgba(21,101,192,0.5); }
 body.light-mode #search-bar{ background:var(--surface); border-color:var(--border); }
 body.light-mode #search-input{ background:var(--surface2); border-color:var(--border); color:var(--text); }
 body.light-mode #search-input::placeholder{ color:var(--text4); }
@@ -1363,10 +1368,26 @@ input,select,textarea{ font-size:16px !important; }
 .modal-sheet{
   background:var(--surface); border:1px solid var(--border2);
   border-radius:var(--r4) var(--r4) 0 0;
-  padding:var(--sp4) var(--sp4) calc(var(--sp5) + env(safe-area-inset-bottom));
-  width:100%; max-width:540px; max-height:90vh; overflow-y:auto;
+  width:100%; max-width:540px; max-height:90vh;
   box-shadow:var(--shadow-modal);
   animation:slideUp var(--t-med);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.modal-sheet .modal-title{
+  padding:var(--sp4) var(--sp4) var(--sp3);
+  flex-shrink:0;
+  border-bottom:1px solid var(--border);
+}
+.modal-sheet .field-group{
+  flex:1; overflow-y:auto;
+  padding:var(--sp3) var(--sp4);
+}
+.modal-sheet .modal-actions{
+  flex-shrink:0;
+  padding:var(--sp3) var(--sp4) calc(var(--sp3) + env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);
+  margin-top:0;
+  background:var(--surface);
 }
 /* Full screen */
 .modal-fullscreen{
@@ -1792,15 +1813,15 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 .kids-player-card.player-0{ background:linear-gradient(135deg,#1a2a4a,#1e3460); border-color:#3a6fd8; }
 .kids-player-card.player-1{ background:linear-gradient(135deg,#2a1a3a,#3d1f5a); border-color:#9b59b6; }
 .kids-player-name{ font:700 22px/1 var(--font-body); margin-bottom:var(--sp1); }
-.kids-player-card.player-0 .kids-player-name{ color:#7eb8f7; }
-.kids-player-card.player-1 .kids-player-name{ color:#cc8ef5; }
+.kids-player-card.player-0 .kids-player-name{ color:#E91E8C; }
+.kids-player-card.player-1 .kids-player-name{ color:#0066CC; }
 .kids-score-big{ font:700 52px/1 var(--font-body); margin:var(--sp1) 0; }
 .kids-prize-bar-wrap{ margin:var(--sp3) 0 var(--sp1); }
 .kids-prize-label{ font:600 10px/1 var(--font-ui); letter-spacing:0.8px; color:rgba(255,255,255,0.6); margin-bottom:var(--sp1); }
 .kids-prize-bar-track{ height:8px; background:rgba(255,255,255,0.1); border-radius:var(--r1); overflow:hidden; }
 .kids-prize-bar-fill{ height:100%; border-radius:var(--r1); transition:width 0.5s ease; }
-.kids-player-card.player-0 .kids-prize-bar-fill{ background:linear-gradient(90deg,#3a6fd8,#7eb8f7); }
-.kids-player-card.player-1 .kids-prize-bar-fill{ background:linear-gradient(90deg,#9b59b6,#cc8ef5); }
+.kids-player-card.player-0 .kids-prize-bar-fill{ background:linear-gradient(90deg,#C2185B,#E91E8C); }
+.kids-player-card.player-1 .kids-prize-bar-fill{ background:linear-gradient(90deg,#003D7A,#0066CC); }
 .kids-prize-milestones{ display:flex; justify-content:space-between; font:400 11px/1 var(--font-ui); color:rgba(255,255,255,0.4); margin-top:3px; }
 .kids-action-row{ display:flex; gap:var(--sp2); flex-wrap:wrap; margin-top:var(--sp3); }
 .kids-quick-btn{ flex:1; min-width:80px; max-width:140px; padding:var(--sp2); border-radius:var(--r3); border:1px solid rgba(255,255,255,0.15); font:700 11px/1.3 var(--font-ui); letter-spacing:0.3px; cursor:pointer; text-align:center; transition:all 0.15s; color:#fff; background:transparent; min-height:40px; }
@@ -2083,7 +2104,7 @@ input[type="date"].row-ctrl{
     <!-- Home nav (desktop) -->
     <div id="rail-home-items" style="display:none;">
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
-        <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        <span class="nav-icon">☀️</span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
         <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
@@ -2097,8 +2118,8 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
-        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
+        <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
       </button>
     </div>
 
@@ -2133,7 +2154,7 @@ input[type="date"].row-ctrl{
         display:flex;align-items:center;gap:5px;
         font:700 11px/1 var(--font-ui);color:var(--text3);
         transition:all var(--t-fast);"
-      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+    + '<button onclick="openPrivateTaskModal(null)" style="flex:1;padding:11px 14px;border-radius:var(--r3);border:1.5px dashed var(--border);background:transparent;color:var(--text3);font:500 13px/1 var(--font-ui);cursor:pointer;text-align:left;">+ Add personal task…</button>'
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
       🏠 <span id="mode-label">Home</span>
     </button>
@@ -2269,7 +2290,7 @@ input[type="date"].row-ctrl{
     <!-- Home mode nav -->
     <div id="nav-home-items" style="display:none;flex:1;">
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
-        <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        <span class="nav-icon">☀️</span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
         <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
@@ -2283,8 +2304,8 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
-        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
+        <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
       </button>
     </div>
   </div>
@@ -2318,7 +2339,7 @@ input[type="date"].row-ctrl{
         <div class="nav-grid-tile-icon">👥</div><div>People</div>
       </button>
       <button class="nav-grid-tile" id="grid-home-today" onclick="setNav('home-today');closeNavGrid()">
-        <div class="nav-grid-tile-icon">🏠</div><div>Home</div>
+        <div class="nav-grid-tile-icon">☀️</div><div>Today</div>
       </button>
       <button class="nav-grid-tile" id="grid-family" onclick="setNav('family');closeNavGrid()">
         <div class="nav-grid-tile-icon">👨‍👩‍👧‍👦</div><div>Family</div>
@@ -2328,6 +2349,9 @@ input[type="date"].row-ctrl{
       </button>
       <button class="nav-grid-tile" id="grid-calendar" onclick="setNav('calendar');closeNavGrid()">
         <div class="nav-grid-tile-icon">📅</div><div>Calendar</div>
+      </button>
+      <button class="nav-grid-tile" id="grid-tracker" onclick="setNav('tracker');closeNavGrid()">
+        <div class="nav-grid-tile-icon">📋</div><div>Daily</div>
       </button>
       <button class="nav-grid-tile" id="grid-settings" onclick="setNav('settings');closeNavGrid()">
         <div class="nav-grid-tile-icon">⚙</div><div>Settings</div>
@@ -2450,15 +2474,15 @@ input[type="date"].row-ctrl{
     <div class="modal-actions">
       <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">Save</button>
       <button class="modal-btn cancel" onclick="closeModal('modal-task')">Cancel</button>
-    </div>
-    <div id="task-delete-wrap" style="display:none;margin-bottom:var(--sp4);">
-      <div style="display:flex;gap:var(--sp2);">
-        <button onclick="if(editingTaskId){moveTaskToSomeday(editingTaskId);closeModal('modal-task');}"
-          style="flex:1;padding:var(--sp3);border-radius:var(--r3);border:1px solid var(--border);
-            background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;min-height:var(--touch);">
-          💭 Someday
-        </button>
-        <button class="modal-btn danger" style="flex:1;" onclick="deleteCurrentTask()">☠ Delete</button>
+      <div id="task-delete-wrap" style="display:none;width:100%;margin-top:var(--sp2);">
+        <div style="display:flex;gap:var(--sp2);">
+          <button onclick="if(editingTaskId){moveTaskToSomeday(editingTaskId);closeModal('modal-task');}"
+            style="flex:1;padding:var(--sp3);border-radius:var(--r3);border:1px solid var(--border);
+              background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;min-height:var(--touch);">
+            💭 Someday
+          </button>
+          <button class="modal-btn danger" style="flex:1;" onclick="deleteCurrentTask()">☠ Delete</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2883,7 +2907,7 @@ function getJasonRewards(){
 function saveJasonRewards(r){
   r.lastSaved = Date.now(); // timestamp for cross-device conflict resolution
   localStorage.setItem('hub-jason-rewards', JSON.stringify(r));
-  saveAllDebounced(); // push to cloud so prizes persist across devices
+  _queueSave('settings', _sbSaveSettings); // push to cloud so prizes persist across devices
 }
 let kidsCloudLoaded=false; // true once loadAll has completed
 // Multi-select filter state (Sets of selected values; empty = all)
@@ -3183,6 +3207,23 @@ async function loadAll(){
       tbBlocks = cloudTb;
     }
 
+    // Jason rewards — prizes, completions, spin credits
+    const cloudRewards = _parseS('jasonRewards', null);
+    if(cloudRewards){
+      const localRaw = localStorage.getItem('hub-jason-rewards');
+      const localRewards = localRaw ? JSON.parse(localRaw) : null;
+      // Use whichever has more completions (most complete data)
+      const useCloud = !localRewards || (cloudRewards.completions||0) >= (localRewards.completions||0);
+      if(useCloud){
+        // Preserve custom prizes if cloud version is missing them
+        if((!cloudRewards.prizes||!cloudRewards.prizes.length) && localRewards?.prizes?.length)
+          cloudRewards.prizes = localRewards.prizes;
+        if((!cloudRewards.bigPrizes||!cloudRewards.bigPrizes.length) && localRewards?.bigPrizes?.length)
+          cloudRewards.bigPrizes = localRewards.bigPrizes;
+        localStorage.setItem('hub-jason-rewards', JSON.stringify(cloudRewards));
+      }
+    }
+
     // Raven settings
     const ravenS = _parseS('ravenSettings', {});
     if(ravenS.email)   localStorage.setItem('hub-raven-email',   ravenS.email);
@@ -3333,7 +3374,24 @@ async function _sbSaveGrocery(){
     id:g.id, name:g.name||'', checked:!!g.checked, added_by:g.addedBy||'',
     category: g.category || groceryCatFor(g.name)
   }));
+
+  // Upsert current items
   if(rows.length) await sbUpsert('grocery_items', rows);
+
+  // Delete any rows in Supabase that are no longer in the local list.
+  // Without this, deleted items come back on realtime sync from other devices.
+  // We always run this (even when list is empty) to handle clearAll scenarios.
+  try{
+    const { data: remoteRows } = await _sb.from('grocery_items').select('id');
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(groceryList.map(g=>g.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length){
+        await _sb.from('grocery_items').delete().in('id', toDelete);
+        console.log('[Grocery] Deleted', toDelete.length, 'stale items from Supabase');
+      }
+    }
+  }catch(e){ console.warn('[Grocery] Cleanup failed:', e); }
 }
 
 async function _sbSaveMeetings(){
@@ -3452,6 +3510,7 @@ async function _sbSaveSettings(){
     {owner_id:_sbUserId, key:'resetStreak',      value:JSON.stringify(resetStreak)},
     {owner_id:_sbUserId, key:'todayPinned',      value:JSON.stringify([...todayPinned])},
     {owner_id:_sbUserId, key:'tbBlocks',         value:JSON.stringify(tbBlocks)},
+    {owner_id:_sbUserId, key:'jasonRewards',     value:JSON.stringify(getJasonRewards())},
   ];
   await _sb.from('user_settings').upsert(settings, {onConflict:'owner_id,key'});
 }
@@ -3816,153 +3875,158 @@ function applyMode(){
 }
 
 async function renderHomeTodayView(container){
-  const isJason  = currentUser === 'parent';
-  const isJenny  = typeof currentUser === 'object' && currentUser.role === 'wife';
-  const myPrivateTasks = isJason ? jasonHomeTasks : wifeHomeTasks;
-  const myPrivateSave  = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
+  const isJason = currentUser === 'parent';
+  const isJenny = typeof currentUser === 'object' && currentUser.role === 'wife';
   const todayStr = today();
-
-  // Fetch today's calendar events (non-blocking — shows strip when ready)
-  const tomorrow = new Date(todayStr+'T12:00:00');
-  tomorrow.setDate(tomorrow.getDate()+1);
-  ensureCalLoaded(todayStr, localDateStr(tomorrow)).catch(()=>{});
-
-  // Due today from private + family
-  const privateDue = myPrivateTasks.filter(t=>!t.done && t.dueDate && t.dueDate <= todayStr);
-  const privateNoDue = myPrivateTasks.filter(t=>!t.done && !t.dueDate);
-  const familyDue  = familyTasks.filter(t=>!t.done &&
-    (t.dueDate ? t.dueDate <= todayStr : false) &&
-    taskAssignedTo(t, isJason?'jason':'wife')
-  );
-  const familyOpen = familyTasks.filter(t=>!t.done && !t.dueDate &&
-    taskAssignedTo(t, isJason?'jason':'wife')
-  );
-
+  const todayDay = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
   const greeting = getHomeGreeting();
 
-  // Sunday nudge + plan button
-  const isSun = new Date().getDay() === 0;
-  const planBtnColor = weeklyPlan?.lockedIn ? 'var(--green)' : 'var(--accent)';
-  const planBtnLabel = weeklyPlan?.lockedIn
-    ? '📅 View the week'
-    : (isSun ? '📅 Plan the week →' : '📅 Plan the week');
+  // ── Kids today data ───────────────────────────────────────────
+  const ridleyLunch  = (kidsTracker.lunches?.ridley  || {})[todayDay] || '';
+  const connorLunch  = (kidsTracker.lunches?.connor   || {})[todayDay] || '';
+  const ridleySched  = kidsTracker.schedule?.ridley   || {};
+  const connorSched  = kidsTracker.schedule?.connor   || {};
+  const ridleyEss    = Array.isArray(ridleySched[todayDay]) ? ridleySched[todayDay][0] : ridleySched[todayDay] || '';
+  const connorEss    = Array.isArray(connorSched[todayDay]) ? connorSched[todayDay][0] : connorSched[todayDay] || '';
+  const todayDinner  = (mealPlan[todayStr] && mealPlan[todayStr].dinner) || '';
 
-  let html = `
-  ${isSun && !weeklyPlan?.lockedIn ? `
-  <div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r3);
-    background:var(--accent-soft);border:1.5px solid var(--accent);
-    display:flex;align-items:center;gap:12px;">
-    <div style="flex:1;">
-      <div style="font:700 13px/1 var(--font-ui);color:var(--accent);">It's Sunday!</div>
-      <div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">
-        Ready to plan the week with Jenny?</div>
-    </div>
-    <button onclick="openWeeklyPlanning()"
-      style="padding:8px 14px;border-radius:20px;background:var(--accent);
-        color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
-      Start →</button>
-  </div>` : ''}
-  <div style="padding:16px 16px 4px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <div style="font:600 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;margin-bottom:4px;">${todayStr}</div>
-      <div style="font:700 24px/1.2 var(--font-ui);color:var(--text);">${greeting}</div>
-      ${isJenny ? `<button onclick="jennyLogout()"
-        style="margin-top:6px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);
-          background:transparent;color:var(--text4);font:500 11px/1 var(--font-ui);cursor:pointer;">
-        Sign out</button>` : ''}
-    </div>
-    <button onclick="openWeeklyPlanning()"
-      style="padding:8px 14px;border-radius:20px;cursor:pointer;
-        border:1.5px solid ${planBtnColor};color:${planBtnColor};
-        background:transparent;font:700 11px/1 var(--font-ui);">
-      ${planBtnLabel}</button>
-  </div>
-  ${(()=>{
-    if(!weeklyPlan || !weeklyPlan.lockedIn || !weeklyPlan.items || !weeklyPlan.items.length) return '';
-    const total = weeklyPlan.items.length;
-    const done  = weeklyPlan.items.filter(i=>i.done).length;
-    const pct   = Math.round((done/total)*100);
-    const barColor = pct===100 ? 'var(--green)' : 'var(--accent)';
-    return '<div style="margin:0 16px 10px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">'
-      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">This week</span>'
-      + '<span style="font:700 12px/1 var(--font-ui);color:' + barColor + ';">' + done + ' / ' + total + (pct===100?' 🎉':' done') + '</span>'
-      + '</div>'
-      + '<div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">'
-      + '<div style="height:100%;border-radius:3px;background:' + barColor + ';width:' + pct + '%;transition:width 0.4s;"></div>'
-      + '</div>'
-      + '</div>';
-  })()}
+  // ── Tasks due today ───────────────────────────────────────────
+  const myPrivateTasks = isJason ? jasonHomeTasks : wifeHomeTasks;
+  const privateDue     = myPrivateTasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayStr);
+  const familyDueToday = familyTasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayStr);
 
-  ${(()=>{
-    if(!kidsGame || !kidsGame.players || !kidsGame.cats) return '';
+  // ── Kids chores due today ─────────────────────────────────────
+  const kidsChoresSummary = (() => {
+    if (!kidsGame || !kidsGame.players || !kidsGame.cats) return '';
     const d2 = kidsGame;
-    const summary = d2.players.map((p,pi)=>{
-      const dueCats = (d2.cats||[]).filter(c=>c.pts>0 && isChoreMine(c,pi) && choreStatus(c,pi,d2.auditLog||[]).due);
-      return {name:p.name, count:dueCats.length, score:p.score||0};
-    }).filter(s=>s.count>0);
-    if(!summary.length) return '';
-    const playerColors = ['#7eb8f7','#cc8ef5'];
-    return '<div style="margin:4px 16px 8px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);cursor:pointer;" onclick="setNav(&quot;kids&quot;)">'
+    const colors = ['#E91E8C', '#0066CC'];
+    const summary = d2.players.map((p, pi) => {
+      const dueCats = (d2.cats || []).filter(c => c.pts > 0 && isChoreMine(c, pi) && choreStatus(c, pi, d2.auditLog || []).due);
+      return { name: p.name, count: dueCats.length, color: colors[pi] };
+    }).filter(s => s.count > 0);
+    if (!summary.length) return '';
+    return '<div style="margin:0 16px 8px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);cursor:pointer;" onclick="setNav(&quot;kids&quot;)">'
       + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">⭐ Chores due today</div>'
       + '<div style="display:flex;gap:12px;">'
-      + summary.map((s,i)=>'<div style="display:flex;align-items:center;gap:6px;">'
-          + '<span style="width:8px;height:8px;border-radius:50%;background:' + playerColors[i] + ';flex-shrink:0;"></span>'
-          + '<span style="font:600 12px/1 var(--font-ui);color:var(--text);">' + esc(s.name) + '</span>'
-          + '<span style="font:700 12px/1 var(--font-ui);color:' + playerColors[i] + ';">' + s.count + ' due</span>'
+      + summary.map(s => '<div style="display:flex;align-items:center;gap:6px;">'
+          + '<span style="width:8px;height:8px;border-radius:50%;background:' + s.color + ';flex-shrink:0;"></span>'
+          + '<span style="font:700 12px/1 var(--font-ui);color:' + s.color + ';">' + esc(s.name) + ' · ' + s.count + ' due</span>'
           + '</div>').join('')
-      + '</div>'
+      + '</div></div>';
+  })();
+
+  // Sunday plan nudge
+  const isSun = new Date().getDay() === 0;
+  const planBtnColor = weeklyPlan?.lockedIn ? 'var(--green)' : 'var(--accent)';
+  const planBtnLabel = weeklyPlan?.lockedIn ? '📅 View the week' : (isSun ? '📅 Plan the week →' : '📅 Plan the week');
+
+  let html = '';
+
+  // Sunday nudge banner
+  if(isSun && !weeklyPlan?.lockedIn){
+    html += '<div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r3);background:var(--accent-soft);border:1.5px solid var(--accent);display:flex;align-items:center;gap:12px;">'
+      + '<div style="flex:1;"><div style="font:700 13px/1 var(--font-ui);color:var(--accent);">It&#39;s Sunday!</div>'
+      + '<div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">Ready to plan the week with Jenny?</div></div>'
+      + '<button onclick="openWeeklyPlanning()" style="padding:8px 14px;border-radius:20px;background:var(--accent);color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">Start →</button>'
       + '</div>';
-  })()}
-  <!-- Private task add button -->
-  <div style="padding:8px 16px 12px;display:flex;align-items:center;gap:10px;">
-    <button onclick="openPrivateTaskModal(null)"
-      style="flex:1;padding:11px 14px;border-radius:var(--r3);
-        border:1.5px dashed var(--border);background:transparent;
-        color:var(--text3);font:500 13px/1 var(--font-ui);cursor:pointer;
-        text-align:left;"
-      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
-      + Add personal task…</button>
-    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 private</div>
-  </div>`;
+  }
 
-  // Private tasks
-  if(myPrivateTasks.filter(t=>!t.done).length > 0){
-    html += `<div style="padding:0 16px 4px;font:700 11px/1 var(--font-ui);
-      letter-spacing:1px;color:var(--accent);text-transform:uppercase;">My Tasks</div>`;
-    myPrivateTasks.filter(t=>!t.done).forEach(t=>{
-      html += homeTaskRow(t, 'private');
+  // Greeting + plan button
+  html += '<div style="padding:16px 16px 4px;display:flex;align-items:center;justify-content:space-between;">'
+    + '<div>'
+    + '<div style="font:600 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;margin-bottom:4px;">' + todayStr + '</div>'
+    + '<div style="font:700 24px/1.2 var(--font-ui);color:var(--text);">' + greeting + '</div>'
+    + (isJenny ? '<button onclick="jennyLogout()" style="margin-top:6px;padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text4);font:500 11px/1 var(--font-ui);cursor:pointer;">Sign out</button>' : '')
+    + '</div>'
+    + '<button onclick="openWeeklyPlanning()" style="padding:8px 14px;border-radius:20px;cursor:pointer;border:1.5px solid ' + planBtnColor + ';color:' + planBtnColor + ';background:transparent;font:700 11px/1 var(--font-ui);">' + planBtnLabel + '</button>'
+    + '</div>';
+
+  // Weekly plan progress
+  if(weeklyPlan?.lockedIn && weeklyPlan.items?.length){
+    const total = weeklyPlan.items.length;
+    const done2 = weeklyPlan.items.filter(i => i.done).length;
+    const pct   = Math.round((done2/total)*100);
+    const barC  = pct === 100 ? 'var(--green)' : 'var(--accent)';
+    html += '<div style="margin:0 16px 10px;padding:10px 14px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">'
+      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">This week</span>'
+      + '<span style="font:700 12px/1 var(--font-ui);color:' + barC + ';">' + done2 + ' / ' + total + (pct===100?' 🎉':' done') + '</span>'
+      + '</div>'
+      + '<div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;">'
+      + '<div style="height:100%;border-radius:3px;background:' + barC + ';width:' + pct + '%;transition:width 0.4s;"></div>'
+      + '</div></div>';
+  }
+
+  // ── Weather card (async, filled after render) ─────────────────
+  html += '<div id="weather-card"></div>';
+
+  // ── Family snapshot card ──────────────────────────────────────
+  const kidColor = ['#E91E8C','#0066CC'];
+  const kidsNames = kidsGame?.players?.map(p=>p.name) || ['Ridley','Connor'];
+  const lunches  = [ridleyLunch, connorLunch];
+  const essentials = [ridleyEss, connorEss];
+  const hasKidsInfo = lunches.some(l=>l) || essentials.some(e=>e) || todayDinner;
+
+  if(hasKidsInfo){
+    html += '<div style="margin:0 16px 8px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);overflow:hidden;">'
+      + '<div style="padding:10px 14px 6px;display:flex;align-items:center;justify-content:space-between;">'
+      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">📋 Today&#39;s Snapshot</span>'
+      + '</div>';
+
+    // Dinner row
+    html += '<div style="padding:6px 14px 8px;border-top:1px solid var(--border);">'
+      + '<div style="font:700 10px/1 var(--font-ui);color:var(--text4);margin-bottom:4px;">🍽 Dinner</div>'
+      + '<div style="font:600 13px/1 var(--font-ui);color:var(--text);">' + (todayDinner ? esc(todayDinner) : '<span style="color:var(--text4);font-style:italic;">Nothing planned — <button onclick="setNav(&quot;dinners&quot;)" style="border:none;background:transparent;color:var(--accent);font:600 12px/1 var(--font-ui);cursor:pointer;">plan it →</button></span>') + '</div>'
+      + '</div>';
+
+    // Per-kid lunch + essentials
+    [0,1].forEach(i => {
+      const name = esc(kidsNames[i] || 'Kid '+(i+1));
+      const lunch = lunches[i];
+      const ess   = essentials[i];
+      html += '<div style="padding:6px 14px 8px;border-top:1px solid var(--border);">'
+        + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+        + '<span style="width:8px;height:8px;border-radius:50%;background:' + kidColor[i] + ';flex-shrink:0;"></span>'
+        + '<span style="font:700 11px/1 var(--font-ui);color:' + kidColor[i] + ';">' + name + '</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:16px;flex-wrap:wrap;">'
+        + '<div><span style="font:500 10px/1 var(--font-ui);color:var(--text4);">🥪 Lunch: </span><span style="font:600 11px/1 var(--font-ui);color:var(--text);">' + (lunch ? esc(lunch) : '<em style="color:var(--text4);">not set</em>') + '</span></div>'
+        + (ess ? '<div><span style="font:500 10px/1 var(--font-ui);color:var(--text4);">📚 Essential: </span><span style="font:600 11px/1 var(--font-ui);color:var(--text);">' + esc(ess) + '</span></div>' : '')
+        + '</div>'
+        + '</div>';
     });
-    // Done tasks collapsed
-    const doneTasks = myPrivateTasks.filter(t=>t.done);
-    if(doneTasks.length){
-      html += `<div style="padding:2px 16px 8px;font:500 11px/1 var(--font-ui);color:var(--text4);cursor:pointer;"
-        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-        ✓ ${doneTasks.length} done — tap to show</div>
-        <div style="display:none;">
-        ${doneTasks.map(t=>homeTaskRow(t,'private')).join('')}
-        </div>`;
-    }
+
+    html += '</div>';
   }
 
-  // Family tasks
-  const allFamilyOpen = familyTasks.filter(t=>!t.done &&
-    (taskAssignees(t).includes('anyone')||taskAssignees(t).some(k=>['jason','wife','jenny','ridley','connor'].includes(k))));
-  if(allFamilyOpen.length > 0){
-    html += `<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);
-      letter-spacing:1px;color:var(--text3);text-transform:uppercase;">Family Tasks</div>`;
-    allFamilyOpen.forEach(t=>{ html += homeTaskRow(t,'family'); });
+  // ── Kids chores summary ───────────────────────────────────────
+  html += kidsChoresSummary;
+
+  // ── Tasks due today ───────────────────────────────────────────
+  const allDueToday = [...privateDue, ...familyDueToday];
+  if(allDueToday.length){
+    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Due Today</div>';
+    privateDue.forEach(t => { html += homeTaskRow(t, 'private'); });
+    familyDueToday.forEach(t => { html += homeTaskRow(t, 'family'); });
   }
 
-  if(myPrivateTasks.filter(t=>!t.done).length===0 && allFamilyOpen.length===0){
-    html += `<div style="text-align:center;padding:40px 20px;">
-      <div style="font-size:40px;margin-bottom:10px;">🌟</div>
-      <div style="font:600 16px/1.4 var(--font-ui);color:var(--text3);">All clear — great job!</div>
-    </div>`;
+  // Add task button
+  html += '<div style="padding:8px 16px 12px;display:flex;align-items:center;gap:10px;">'
+    + '<button onclick="openPrivateTaskModal(null)" style="flex:1;padding:11px 14px;border-radius:var(--r3);border:1.5px dashed var(--border);background:transparent;color:var(--text3);font:500 13px/1 var(--font-ui);cursor:pointer;text-align:left;">+ Add personal task…</button>'
+    + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 private</div>'
+    + '</div>';
+
+  if(allDueToday.length === 0 && !hasKidsInfo){
+    html += '<div style="text-align:center;padding:40px 20px;">'
+      + '<div style="font-size:40px;margin-bottom:10px;">🌟</div>'
+      + '<div style="font:600 16px/1.4 var(--font-ui);color:var(--text3);">All clear today!</div>'
+      + '</div>';
   }
 
   container.innerHTML = html;
+
+  // Load weather async — fills #weather-card when ready
+  loadAndRenderWeather();
 }
 
 function getHomeGreeting(){
@@ -4122,7 +4186,7 @@ function moveHomeTask(id, fromArr, fromSave){
   renderAll();
 }
 
-let _familyTab = 0; // 0=tasks, 1=meals
+let _familyTab = 0; // 0=my tasks, 1=family tasks, 2=dinners
 
 function renderMealPlanner(){
   const DAYS = 7;
@@ -4139,7 +4203,7 @@ function renderMealPlanner(){
   }
 
   let html = '<div style="padding:0 16px 80px;">';
-  html += '<div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);margin-bottom:12px;">Tap any day to set dinner. Shared with Jenny in real time.</div>';
+  html += '<div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);margin-bottom:12px;">Tap any day to plan dinner. Tap ⭐ to save to favourites. Shared with Jenny in real time.</div>';
 
   rows.forEach(r=>{
     html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">';
@@ -4148,16 +4212,14 @@ function renderMealPlanner(){
     if(r.label.includes(',')) html += '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">' + r.label.split(',').slice(1).join(',').trim() + '</div>';
     html += '</div>';
     html += '<div style="flex:1;min-width:0;" onclick="openMealEdit(&quot;' + r.ds + '&quot;)">';
-    const savedRecipe = mealPlan[r.ds] && mealPlan[r.ds].recipe;
-    const ingCount = savedRecipe ? (savedRecipe.ingredients||[]).length : 0;
     if(r.meal){
       html += '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);cursor:pointer;">' + esc(r.meal) + '</div>';
-      if(ingCount) html += '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">🥕 ' + ingCount + ' ingredients · tap to view recipe</div>';
     } else {
       html += '<div style="font:500 13px/1 var(--font-ui);color:var(--text4);cursor:pointer;font-style:italic;">Tap to plan dinner…</div>';
     }
     html += '</div>';
     if(r.meal){
+      html += '<button onclick="addMealFavourite(\''+r.meal+'\');showToast(\'⭐ Added to favourites\')" style="padding:3px 7px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;" title="Save to favourites">⭐</button>';
       html += '<button onclick="clearMeal(&quot;' + r.ds + '&quot;)" style="padding:3px 7px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;opacity:0.5;">✕</button>';
     }
     html += '</div>';
@@ -4167,204 +4229,147 @@ function renderMealPlanner(){
   return html;
 }
 
-// ── Meal planner state ───────────────────────────────────────
-let _mealRecipes      = [];   // [{name, description, cookTime, ingredients:[]}]
-let _mealSelectedIdx  = null; // which recipe card is selected
-let _mealCurrentDs    = null; // date string being edited
+// ── Meal planner ─────────────────────────────────────────────
+let _mealCurrentDs = null; // date string being edited
+
+// Favourites stored in localStorage
+function getMealFavourites(){
+  try{ return JSON.parse(localStorage.getItem('hub-meal-favs')||'[]'); }catch(e){ return []; }
+}
+function saveMealFavourites(favs){
+  localStorage.setItem('hub-meal-favs', JSON.stringify(favs));
+}
+function addMealFavourite(name){
+  if(!name.trim()) return;
+  const favs = getMealFavourites();
+  if(!favs.includes(name.trim())){
+    favs.unshift(name.trim());
+    saveMealFavourites(favs.slice(0, 30)); // cap at 30
+  }
+}
+function removeMealFavourite(name){
+  const favs = getMealFavourites().filter(f => f !== name);
+  saveMealFavourites(favs);
+  renderMealModal();
+}
 
 function openMealEdit(ds){
-  _mealCurrentDs   = ds;
-  _mealRecipes     = [];
-  _mealSelectedIdx = null;
+  _mealCurrentDs = ds;
   const existing = (mealPlan[ds] && mealPlan[ds].dinner) || '';
   const old2 = document.getElementById('modal-meal'); if(old2) old2.remove();
-  const d = new Date(ds + 'T00:00:00');
-  const label = d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const d2 = new Date(ds + 'T00:00:00');
+  const label = d2.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
 
   const m = document.createElement('div');
   m.id = 'modal-meal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:800;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;';
-  m.innerHTML =
-    '<div id="meal-sheet" style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">'
-    + '<div style="padding:18px 18px 12px;flex-shrink:0;">'
-    +   '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
-    +     '<div>'
-    +       '<div style="font:700 15px/1 var(--font-ui);color:var(--text);">🍽 ' + label + '</div>'
-    +       '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Find a recipe or type your own</div>'
-    +     '</div>'
-    +     '<button onclick="document.getElementById(&quot;modal-meal&quot;).remove()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'
-    +   '</div>'
-    +   '<div style="display:flex;gap:8px;">'
-    +     '<input id="meal-input" style="flex:1;padding:10px 14px;border-radius:var(--r3);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font:500 14px/1 var(--font-ui);outline:none;" placeholder="Type a dish or ingredient…" value="' + esc(existing) + '" autocomplete="off"/>'
-    +     '<button id="meal-ai-btn" onclick="mealFetchRecipes()" style="padding:10px 14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">✨ Find</button>'
-    +   '</div>'
-    + '</div>'
-    + '<div id="meal-recipe-area" style="flex:1;overflow-y:auto;padding:0 18px 24px;"></div>'
-    + '<div id="meal-footer" style="padding:12px 18px 32px;border-top:1px solid var(--border);flex-shrink:0;display:none;">'
-    +   '<div style="display:flex;gap:8px;">'
-    +     '<button onclick="saveMeal()" style="flex:2;padding:12px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 13px/1 var(--font-ui);cursor:pointer;">Save dinner</button>'
-    +     '<button id="meal-grocery-btn" onclick="mealAddToGrocery()" style="flex:3;padding:12px;border-radius:var(--r3);border:1.5px solid var(--green);background:transparent;color:var(--green);font:700 13px/1 var(--font-ui);cursor:pointer;display:none;">🛒 Add ingredients</button>'
-    +   '</div>'
-    + '</div>'
-    + '</div>';
+  m.innerHTML = '<div id="meal-sheet" style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;"></div>';
   m.onclick = e => { if(e.target===m) m.remove(); };
   document.body.appendChild(m);
+  renderMealModal(existing, label);
 
-  const inp = document.getElementById('meal-input');
-  setTimeout(()=>inp && inp.focus(), 100);
-  inp && inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mealFetchRecipes(); } });
-
-  // Auto-fetch on open with a neutral prompt
-  mealFetchRecipes(true);
+  setTimeout(()=>{
+    const inp = document.getElementById('meal-input');
+    if(inp){
+      inp.focus();
+      inp.addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){ e.preventDefault(); saveMeal(); }
+      });
+      inp.addEventListener('input', ()=>{ renderMealFavSuggestions(inp.value); });
+    }
+  }, 80);
 }
 
-async function mealFetchRecipes(isAuto){
-  const inp = document.getElementById('meal-input');
-  const query = inp ? inp.value.trim() : '';
-  const area = document.getElementById('meal-recipe-area');
-  if(!area) return;
+function renderMealModal(existingVal, labelVal){
+  const sheet = document.getElementById('meal-sheet');
+  if(!sheet) return;
+  const ds = _mealCurrentDs;
+  const existing = existingVal !== undefined ? existingVal : (document.getElementById('meal-input')?.value || '');
+  const label    = labelVal || '';
+  const favs     = getMealFavourites();
 
-  area.innerHTML = '<div style="padding:24px;text-align:center;"><div style="font-size:24px;margin-bottom:8px;">✨</div><div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);">Finding kid-friendly recipes…</div></div>';
+  sheet.innerHTML =
+    '<div style="padding:18px 18px 10px;flex-shrink:0;">'    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'    +   '<div><div style="font:700 15px/1 var(--font-ui);color:var(--text);">🍽 ' + (label||'Dinner') + '</div>'    +   '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">What&#39;s for dinner?</div></div>'    +   '<button onclick="document.getElementById(&quot;modal-meal&quot;).remove()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'    + '</div>'    + '<input id="meal-input" style="width:100%;padding:11px 14px;border-radius:var(--r3);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font:500 15px/1 var(--font-ui);outline:none;box-sizing:border-box;" placeholder="e.g. Tacos, Pasta, Roast chicken…" value="' + esc(existing) + '" autocomplete="off"/>'    + '<div id="meal-fav-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>'    + '</div>'    + '<div style="flex:1;overflow-y:auto;padding:0 18px 8px;" id="meal-favs-area"></div>'    + '<div style="padding:12px 18px 32px;border-top:1px solid var(--border);flex-shrink:0;">'    +   '<button onclick="saveMeal()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 14px/1 var(--font-ui);cursor:pointer;">Save dinner</button>'    + '</div>';
 
-  const systemPrompt = 'You are a family dinner planner. Output ONLY a JSON array, nothing else. No markdown, no explanation, no intro. The array starts with [ and ends with ].';
-  const userPrompt = 'Return a JSON array of exactly 4 kid-friendly dinner recipes'
-    + (query ? ' related to: "' + query + '"' : '')
-    + '. Format: [{"name":"...","description":"...","cookTime":"...","ingredients":[{"name":"...","qty":"..."}]}]. Keep descriptions under 60 chars. Include 5-8 ingredients each.';
+  renderMealFavsArea(favs);
+  renderMealFavSuggestions('');
 
-  try{
-    const raw = await aiCall(systemPrompt, userPrompt, 2000);
-    console.log('[Meal] Raw AI response:', raw); // log full response for debugging
-
-    // Robustly extract JSON array — Gemini sometimes wraps in markdown or objects
-    let cleaned = raw.replace(/```json|```/gi,'').trim();
-
-    // Remove any leading/trailing text before/after the JSON array
-    const firstBracket = cleaned.indexOf('[');
-    const lastBracket  = cleaned.lastIndexOf(']');
-    if(firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket){
-      cleaned = cleaned.slice(firstBracket, lastBracket + 1);
+  // Re-attach listeners after re-render
+  setTimeout(()=>{
+    const inp = document.getElementById('meal-input');
+    if(inp){
+      inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveMeal(); } });
+      inp.addEventListener('input', ()=>{ renderMealFavSuggestions(inp.value); });
     }
-
-    let parsed;
-    try{
-      parsed = JSON.parse(cleaned);
-    }catch(e1){
-      console.error('[Meal] JSON parse failed:', e1.message, '| raw was:', raw.slice(0,500));
-      throw new Error('Parse error — check console for raw response');
-    }
-
-    // Handle {recipes:[...]} or {dinners:[...]} wrapper objects
-    if(parsed && !Array.isArray(parsed)){
-      parsed = parsed.recipes || parsed.dinners || parsed.suggestions || Object.values(parsed)[0];
-    }
-
-    if(!Array.isArray(parsed) || !parsed.length) throw new Error('Empty recipe array');
-
-    _mealRecipes = parsed;
-    _mealSelectedIdx = null;
-    mealRenderRecipes();
-  }catch(e){
-    console.error('[Meal] Recipe fetch failed:', e);
-    if(area) area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">Couldn&#39;t load recipes — ' + (e.message||'unknown error') + '<br><br>Type a dish name and tap Save to set it manually.</div>';
-  }
+  }, 50);
 }
 
-function mealRenderRecipes(){
-  const area = document.getElementById('meal-recipe-area');
-  const footer = document.getElementById('meal-footer');
-  const groceryBtn = document.getElementById('meal-grocery-btn');
+function renderMealFavsArea(favs){
+  const area = document.getElementById('meal-favs-area');
   if(!area) return;
-
-  if(!_mealRecipes.length){
-    area.innerHTML = '<div style="padding:16px;text-align:center;font:500 12px/1.5 var(--font-ui);color:var(--text4);">No recipes found — try a different search.</div>';
+  if(!favs.length){
+    area.innerHTML = '<div style="padding:8px 0;font:500 11px/1.5 var(--font-ui);color:var(--text4);">Your saved favourites will appear here. Save a meal to add it — tap ♥ to keep it.</div>';
     return;
   }
-
-  area.innerHTML = _mealRecipes.map((r,i)=>{
-    const sel = _mealSelectedIdx === i;
-    const ingList = (r.ingredients||[]).slice(0,5).map(ing=>'<span style="font:500 10px/1 var(--font-ui);color:var(--text4);padding:2px 6px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);">' + esc(ing.qty||'') + ' ' + esc(ing.name||'') + '</span>').join('');
-    const more = (r.ingredients||[]).length > 5 ? '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">+' + ((r.ingredients||[]).length-5) + ' more</span>' : '';
-    return '<div onclick="mealSelectRecipe(' + i + ')" style="margin-bottom:10px;border-radius:var(--r3);border:2px solid ' + (sel?'var(--accent)':'var(--border)') + ';background:' + (sel?'var(--accent-soft)':'var(--surface)') + ';padding:12px;cursor:pointer;transition:all 0.15s;">'
-      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'
-      +   '<div style="flex:1;min-width:0;">'
-      +     '<div style="font:700 13px/1.3 var(--font-ui);color:' + (sel?'var(--accent)':'var(--text)') + ';">' + esc(r.name||'') + '</div>'
-      +     '<div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">' + esc(r.description||'') + '</div>'
-      +   '</div>'
-      +   '<span style="font:700 10px/1 var(--font-ui);color:var(--text4);white-space:nowrap;padding:3px 7px;border-radius:10px;background:var(--surface2);flex-shrink:0;">⏱ ' + esc(r.cookTime||'') + '</span>'
-      + '</div>'
-      + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">' + ingList + more + '</div>'
-      + (sel ? '<div style="margin-top:10px;font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:0.5px;">✓ SELECTED — tap Save or add ingredients to grocery list</div>' : '')
-      + '</div>';
-  }).join('');
-
-  if(footer) footer.style.display = 'block';
-  if(groceryBtn) groceryBtn.style.display = _mealSelectedIdx !== null ? 'block' : 'none';
+  area.innerHTML = '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">⭐ Favourites</div>'
+    + favs.map(f =>
+        '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)22;">'
+        + '<span style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);cursor:pointer;" onclick="document.getElementById(&quot;meal-input&quot;).value=&quot;' + esc(f) + '&quot;">' + esc(f) + '</span>'
+        + '<button onclick="removeMealFavourite(&quot;' + esc(f) + '&quot;)" style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;padding:2px 4px;">✕</button>'
+        + '</div>'
+      ).join('');
 }
 
-function mealSelectRecipe(idx){
-  _mealSelectedIdx = _mealSelectedIdx === idx ? null : idx;
-  const inp = document.getElementById('meal-input');
-  if(inp && _mealSelectedIdx !== null) inp.value = _mealRecipes[_mealSelectedIdx].name || '';
-  mealRenderRecipes();
-  const groceryBtn = document.getElementById('meal-grocery-btn');
-  if(groceryBtn) groceryBtn.style.display = _mealSelectedIdx !== null ? 'block' : 'none';
-}
-
-function mealAddToGrocery(){
-  if(_mealSelectedIdx === null) return;
-  const recipe = _mealRecipes[_mealSelectedIdx];
-  if(!recipe || !recipe.ingredients) return;
-
-  const existing = new Set(groceryList.map(g=>g.name.toLowerCase().trim()));
-  let added = 0;
-
-  recipe.ingredients.forEach(ing=>{
-    const name = (ing.name||'').trim();
-    if(!name) return;
-    // Skip duplicates silently
-    if(existing.has(name.toLowerCase())) return;
-    existing.add(name.toLowerCase());
-    const fullName = ing.qty ? ing.qty + ' ' + name : name;
-    groceryList.unshift({
-      id: 'gr' + Date.now() + Math.random().toString(36).slice(2,5),
-      name: fullName,
-      checked: false,
-      category: groceryCatFor(name),
-      addedBy: currentUser === 'parent' ? 'jason' : 'wife'
-    });
-    added++;
-  });
-
-  saveGrocery();
-  const groceryBtn = document.getElementById('meal-grocery-btn');
-  if(groceryBtn){
-    groceryBtn.textContent = added > 0 ? '✓ ' + added + ' items added!' : '✓ Already on list';
-    groceryBtn.style.background = 'var(--green-soft)';
-    groceryBtn.disabled = true;
-  }
-  showToast(added > 0 ? '🛒 ' + added + ' ingredients added to grocery list' : 'All ingredients already on your list');
+function renderMealFavSuggestions(query){
+  const sugArea = document.getElementById('meal-fav-suggestions');
+  if(!sugArea) return;
+  const favs = getMealFavourites();
+  const q = (query||'').toLowerCase().trim();
+  const matches = q
+    ? favs.filter(f => f.toLowerCase().includes(q))
+    : []; // only show matches when typing, not on empty input
+  sugArea.innerHTML = matches.map(f =>
+    '<button onclick="document.getElementById(&quot;meal-input&quot;).value=&quot;' + esc(f) + '&quot;;renderMealFavSuggestions(&quot;&quot;)" '
+    + 'style="padding:5px 12px;border-radius:20px;border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--accent);font:600 12px/1 var(--font-ui);cursor:pointer;">'
+    + esc(f) + '</button>'
+  ).join('');
 }
 
 function saveMeal(){
   const val = (document.getElementById('meal-input')?.value || '').trim();
   const ds = _mealCurrentDs;
   if(!ds) return;
+  if(!val){ showToast('Type a meal name first'); return; }
   if(!mealPlan[ds]) mealPlan[ds] = {};
   mealPlan[ds].dinner = val;
-  // Save selected recipe ingredients for reference
-  if(_mealSelectedIdx !== null && _mealRecipes[_mealSelectedIdx]){
-    mealPlan[ds].recipe = _mealRecipes[_mealSelectedIdx];
-  }
+  delete mealPlan[ds].recipe; // remove old AI recipe data if present
   saveMealPlan();
   document.getElementById('modal-meal')?.remove();
   renderAll();
   showToast('🍽 Dinner saved!');
 }
 
+function saveMealAndFavourite(){
+  const val = (document.getElementById('meal-input')?.value || '').trim();
+  if(!val){ showToast('Type a meal name first'); return; }
+  addMealFavourite(val);
+  saveMeal();
+}
+
 function clearMeal(ds){
   if(mealPlan[ds]) delete mealPlan[ds];
   saveMealPlan();
   renderAll();
+}
+
+
+function renderDinnersPage(container){
+  pageHeader(container, 'dinners', '🍽 Dinners', 'Meal Planner', 'Weekly dinners');
+  container.innerHTML = '<div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">'
+    + '<div style="font:700 20px/1 var(--font-ui);color:var(--text);">🍽 Dinners</div>'
+    + '<button onclick="setNav(\'family\')" style="font:500 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:none;cursor:pointer;">Family →</button>'
+    + '</div>'
+    + renderMealPlanner();
 }
 
 function renderFamilyPage(container){
@@ -4379,54 +4384,59 @@ function renderFamilyPage(container){
   const open = familyTasks.filter(t=>!t.done);
   const done = familyTasks.filter(t=>t.done).slice(0,10);
 
+  const isJason2 = currentUser === 'parent';
+  const myFamilyTasks = isJason2 ? jasonHomeTasks : wifeHomeTasks;
+
+  function ftab(idx, label){
+    const a = _familyTab === idx;
+    return '<button onclick="_familyTab=' + idx + ';renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (a?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (a?'var(--accent)':'transparent') + ';margin-bottom:-2px;">' + label + '</button>';
+  }
+
   let html = '<div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">'
     + '<div style="font:700 20px/1 var(--font-ui);color:var(--text);">Family</div>'
-    + '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + open.length + ' open tasks</div>'
+    + '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + open.length + ' open</div>'
     + '</div>'
     + '<div style="display:flex;border-bottom:2px solid var(--border);margin:0 16px 12px;">'
-    + '<button onclick="_familyTab=0;renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (_familyTab===0?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (_familyTab===0?'var(--accent)':'transparent') + ';margin-bottom:-2px;">✅ Tasks</button>'
-    + '<button onclick="_familyTab=1;renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (_familyTab===1?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (_familyTab===1?'var(--accent)':'transparent') + ';margin-bottom:-2px;">🍽 Dinners</button>'
+    + ftab(0, '\u{1F464} My Tasks')
+    + ftab(1, '\u{1F46A} Family Tasks')
     + '</div>';
 
-  if(_familyTab === 1){
-    container.innerHTML = html + renderMealPlanner();
-    return;
-  }
 
-  html += '<div style="padding:0 16px 12px;">'
-    + '<button onclick="openFamilyTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add Family Task</button>'
-    + '</div>';
-
-  if(open.length === 0){
-    html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
+  // Tab 0 = My Tasks (private home tasks), Tab 1 = Family Tasks
+  if(_familyTab === 0){
+    const myOpen = myFamilyTasks.filter(t=>!t.done);
+    const myDone = myFamilyTasks.filter(t=>t.done).slice(0,5);
+    html += '<div style="padding:0 16px 12px;">'      + '<button onclick="openPrivateTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add My Task</button>'      + '</div>';
+    if(myOpen.length === 0){
+      html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">Nothing on your plate!</div></div>';
+    } else {
+      myOpen.forEach(t=>{ html += homeTaskRow(t, 'private'); });
+    }
+    if(myDone.length){
+      html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + myDone.length + ' recently done</div>';
+      myDone.forEach(t=>{
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
+      });
+    }
   } else {
-    open.forEach(t=>{
-      const _taskAsgns = taskAssignees(t);
-      const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
-      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'
-        + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'
-        + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'
-        + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'
-        + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':'var(--text4)') + ';margin-top:3px;">📅 ' + (t.dueDate<=today()?'Today':t.dueDate.slice(5)) + '</div>' : '')
-        + '</div>'
-        + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'
-        + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')
-        + '</div>'
-        + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'
-        + '</div>';
-    });
+    // Family Tasks
+    html += '<div style="padding:0 16px 12px;">'      + '<button onclick="openFamilyTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add Family Task</button>'      + '</div>';
+    if(open.length === 0){
+      html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
+    } else {
+      open.forEach(t=>{
+        const _taskAsgns = taskAssignees(t);
+        const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'          + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'          + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'          + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'          + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':'var(--text4)') + ';margin-top:3px;">📅 ' + (t.dueDate<=today()?'Today':t.dueDate.slice(5)) + '</div>' : '')          + '</div>'          + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'          + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')          + '</div>'          + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'          + '</div>';
+      });
+    }
+    if(done.length){
+      html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + done.length + ' recently completed</div>';
+      done.forEach(t=>{
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
+      });
+    }
   }
-
-  if(done.length){
-    html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + done.length + ' recently completed</div>';
-    done.forEach(t=>{
-      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'
-        + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'
-        + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'
-        + '</div>';
-    });
-  }
-
   container.innerHTML = html;
 }
 
@@ -8239,6 +8249,7 @@ function renderAll(){
   if(activeNav==="home-today"){ renderHomeTodayView(main); return; }
   if(activeNav==="calendar"){   renderCalendarPage(main);  return; }
   if(activeNav==="family"){     renderFamilyPage(main);    return; }
+  if(activeNav==="dinners"){    renderDinnersPage(main);   return; }
   if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
   if(activeNav==="tracker"){    renderKidsTrackerPage(main); return; }
   if(activeNav==="today"||activeNav==="focus"){renderTodayView(main);return;}
@@ -11926,10 +11937,14 @@ function renderMeetingsPage(container){
     </div>`;
   }).join('');
 
-  // Standalone meetings
+  // Standalone meetings — collapsible
+  const standaloneCollapsed = localStorage.getItem('hub-standalone-meetings-collapsed') === '1';
   const standaloneHtml = standaloneMeetings.length===0 ? '' : `
-    <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;padding:8px 14px 4px;">ONE-OFF MEETINGS</div>
-    <div style="margin:0 0 10px;border-radius:0;border-top:1px solid var(--border);background:var(--surface);overflow:hidden;">
+    <div onclick="toggleStandaloneMeetings()" style="display:flex;align-items:center;gap:6px;padding:8px 14px 4px;cursor:pointer;user-select:none;">
+      <span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;flex:1;">ONE-OFF MEETINGS (${standaloneMeetings.length})</span>
+      <span style="font-size:10px;color:var(--text4);">${standaloneCollapsed?'▸':'▾'}</span>
+    </div>
+    <div id="standalone-meetings-list" style="margin:0 0 10px;border-radius:0;border-top:1px solid var(--border);background:var(--surface);overflow:hidden;display:${standaloneCollapsed?'none':'block'};">
       ${standaloneMeetings.map(m=>renderOccurrence(m,false)).join('')}
     </div>`;
 
@@ -11954,11 +11969,21 @@ function toggleSeriesHistory(seriesId){
   const s = meetingSeries.find(x=>x.id===seriesId); if(!s) return;
   s.collapsed = !s.collapsed;
   saveMeetingSeries();
-  // Toggle DOM directly without full re-render
   const hist = document.getElementById('series-history-'+seriesId);
   const caret = document.getElementById('series-caret-'+seriesId);
   if(hist) hist.style.display = s.collapsed ? 'none' : 'block';
   if(caret) caret.textContent = s.collapsed ? '▸' : '▾';
+}
+
+function toggleStandaloneMeetings(){
+  const cur = localStorage.getItem('hub-standalone-meetings-collapsed') === '1';
+  localStorage.setItem('hub-standalone-meetings-collapsed', cur ? '0' : '1');
+  const list  = document.getElementById('standalone-meetings-list');
+  const caret = document.querySelector('#standalone-meetings-list ~ div span:last-child') ||
+                document.querySelector('[onclick="toggleStandaloneMeetings()"] span:last-child');
+  if(list) list.style.display = cur ? 'block' : 'none';
+  // Re-render to update caret — simple and reliable
+  renderAll();
 }
 
 
@@ -13217,7 +13242,10 @@ function saveMeetingCapture(){
     saveWaiting();
   }
 
-  saveMeetings(); renderAll();
+  saveMeetings();
+  // Save tasks if any were created from commitments
+  if(tasksCreated > 0) saveAllDebounced();
+  renderAll();
   closeModal('modal-meeting');
   let msg = '📝 Meeting saved';
   if(tasksCreated>0) msg += ' · '+tasksCreated+' task'+(tasksCreated>1?'s':'')+' created';
@@ -13837,6 +13865,146 @@ async function aiCallVision(messages, maxTokens=1000){
   const data = await res.json();
   if(data.error) throw new Error('[AI] ' + data.error);
   return data.text || '';
+}
+
+// ── Weather system ───────────────────────────────────────────
+// Uses Open-Meteo API — free, no key needed
+// Falls back to Shawnee, KS 66226 coords if geolocation denied
+
+let _weatherCache = null; // { fetchedAt, lat, lon, daily: [...] }
+
+const WEATHER_CONDITION = {
+  0:'☀ Clear', 1:'🌤 Mostly clear', 2:'⛅ Partly cloudy', 3:'☁ Overcast',
+  45:'🌫 Foggy', 48:'🌫 Icy fog',
+  51:'🌦 Light drizzle', 53:'🌦 Drizzle', 55:'🌧 Heavy drizzle',
+  61:'🌧 Light rain', 63:'🌧 Rain', 65:'🌧 Heavy rain',
+  71:'🌨 Light snow', 73:'🌨 Snow', 75:'❄ Heavy snow', 77:'🌨 Snow grains',
+  80:'🌦 Showers', 81:'🌧 Heavy showers', 82:'⛈ Violent showers',
+  85:'🌨 Snow showers', 86:'❄ Heavy snow showers',
+  95:'⛈ Thunderstorm', 96:'⛈ Thunderstorm+hail', 99:'⛈ Severe thunderstorm',
+};
+
+function weatherClothingAdvice(maxF, minF, wmoCode){
+  const rain = [51,53,55,61,63,65,80,81,82].includes(wmoCode);
+  const snow = [71,73,75,77,85,86].includes(wmoCode);
+  const storm = [95,96,99].includes(wmoCode);
+
+  let layers = [];
+  if(maxF >= 85)       layers = ['T-shirt','shorts','sandals'];
+  else if(maxF >= 75)  layers = ['T-shirt','light pants or shorts'];
+  else if(maxF >= 65)  layers = ['Light jacket','jeans'];
+  else if(maxF >= 55)  layers = ['Hoodie or sweater','jeans'];
+  else if(maxF >= 40)  layers = ['Warm jacket','jeans','closed shoes'];
+  else if(maxF >= 25)  layers = ['Heavy coat','warm layers','hat & gloves'];
+  else                 layers = ['Heavy coat','thermal layers','hat','gloves','boots'];
+
+  if(rain || storm)  layers.push('rain jacket');
+  if(snow)           layers.push('snow boots','waterproof coat');
+  if(maxF < 32)      layers.push('extra layer');
+
+  return layers.join(' · ');
+}
+
+async function fetchWeather(){
+  // Return cached if fresh (< 1 hour old)
+  if(_weatherCache && Date.now() - _weatherCache.fetchedAt < 3600000){
+    return _weatherCache;
+  }
+
+  // Get location — try browser geolocation, fallback to Shawnee, KS
+  const getCoords = () => new Promise(res => {
+    if(!navigator.geolocation){ res({lat:38.9370, lon:-94.7149}); return; }
+    navigator.geolocation.getCurrentPosition(
+      p => res({lat:p.coords.latitude, lon:p.coords.longitude}),
+      () => res({lat:38.9370, lon:-94.7149}),
+      {timeout:5000, maximumAge:86400000}
+    );
+  });
+
+  const {lat, lon} = await getCoords();
+
+  // Open-Meteo: 7-day daily forecast, Fahrenheit
+  const url = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat.toFixed(4)
+    + '&longitude=' + lon.toFixed(4)
+    + '&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max'
+    + '&temperature_unit=fahrenheit'
+    + '&forecast_days=7'
+    + '&timezone=auto';
+
+  const res  = await fetch(url);
+  const data = await res.json();
+  const daily = data.daily;
+
+  const days = daily.time.map((date, i) => ({
+    date,
+    wmo:   daily.weathercode[i],
+    maxF:  Math.round(daily.temperature_2m_max[i]),
+    minF:  Math.round(daily.temperature_2m_min[i]),
+    rain:  daily.precipitation_probability_max[i] || 0,
+    label: WEATHER_CONDITION[daily.weathercode[i]] || '🌡 Unknown',
+    clothing: weatherClothingAdvice(
+      daily.temperature_2m_max[i],
+      daily.temperature_2m_min[i],
+      daily.weathercode[i]
+    )
+  }));
+
+  _weatherCache = { fetchedAt: Date.now(), lat, lon, daily: days };
+  return _weatherCache;
+}
+
+function renderWeatherCard(weatherData){
+  if(!weatherData || !weatherData.daily.length) return '';
+  const days = weatherData.daily.slice(0, 5); // show 5 days
+  const todayStr = today();
+
+  let html = '<div style="margin:0 16px 10px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);overflow:hidden;">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">'
+    + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">🌤 Weather</span>'
+    + '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">Shawnee, KS</span>'
+    + '</div>';
+
+  // 5-day strip
+  html += '<div style="display:flex;border-top:1px solid var(--border);overflow-x:auto;">';
+  days.forEach((d, i) => {
+    const isToday = d.date === todayStr;
+    const dayLabel = isToday ? 'Today' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
+    const icon = (d.label.split(' ')[0]) || '🌡';
+    html += '<div style="flex:1;min-width:52px;text-align:center;padding:8px 4px;'
+      + (isToday ? 'background:var(--accent-soft);' : '')
+      + (i < days.length-1 ? 'border-right:1px solid var(--border);' : '')
+      + '">'
+      + '<div style="font:700 10px/1 var(--font-ui);color:' + (isToday?'var(--accent)':'var(--text3)') + ';margin-bottom:4px;">' + dayLabel + '</div>'
+      + '<div style="font-size:18px;line-height:1;margin-bottom:4px;">' + icon + '</div>'
+      + '<div style="font:700 12px/1 var(--font-ui);color:var(--text);">' + d.maxF + '°</div>'
+      + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">' + d.minF + '°</div>'
+      + (d.rain >= 30 ? '<div style="font:600 9px/1 var(--font-ui);color:#64B5F6;margin-top:3px;">' + d.rain + '%💧</div>' : '')
+      + '</div>';
+  });
+  html += '</div>';
+
+  // Today's clothing advice
+  const todayWeather = days.find(d => d.date === todayStr) || days[0];
+  html += '<div style="padding:8px 14px 10px;border-top:1px solid var(--border);">'
+    + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;margin-bottom:5px;">👕 Kids should wear today</div>'
+    + '<div style="font:500 11px/1.5 var(--font-ui);color:var(--text2);">' + todayWeather.clothing + '</div>'
+    + '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+async function loadAndRenderWeather(){
+  try{
+    const w = await fetchWeather();
+    const el = document.getElementById('weather-card');
+    if(el) el.innerHTML = renderWeatherCard(w);
+  }catch(e){
+    console.warn('[Weather] Failed:', e);
+    const el = document.getElementById('weather-card');
+    if(el) el.style.display = 'none';
+  }
 }
 
 function aiContext(){
@@ -16722,14 +16890,21 @@ function _handleRealtimeChange(table, payload){
   else if(table === 'kids_tracker'){
     if(newRow.id === 'kids-game'){
       // Shared kidsGame row — sync scores across all users/devices
-      // Use >= so equal timestamps (same debounce fire) still update;
-      // the server is always the authoritative source on a realtime event.
       if(newRow.game_data && newRow.game_data.players){
         const remoteTs = newRow.game_data.lastSaved || 0;
         const localTs  = kidsGame?.lastSaved || 0;
         // Only skip if our local copy is strictly newer (we just saved it)
         if(!kidsGame || remoteTs >= localTs){
-          kidsGame = newRow.game_data;
+          const incoming = newRow.game_data;
+          // Preserve prizes if the incoming row is missing them (old save format)
+          // — prevents custom prizes from being wiped by a stale server row
+          if(!incoming.wheelPrizesSmall && kidsGame?.wheelPrizesSmall)
+            incoming.wheelPrizesSmall = kidsGame.wheelPrizesSmall;
+          if(!incoming.wheelPrizesBig && kidsGame?.wheelPrizesBig)
+            incoming.wheelPrizesBig = kidsGame.wheelPrizesBig;
+          if(!incoming.cats && kidsGame?.cats)
+            incoming.cats = kidsGame.cats;
+          kidsGame = incoming;
           localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
         }
       }
@@ -17764,7 +17939,15 @@ function kidsData() {
   if (kidsGame) return kidsGame;
   // Fall back to localStorage while cloud loads
   const raw = localStorage.getItem('hub-kids');
-  if (raw) try { kidsGame = JSON.parse(raw); return kidsGame; } catch(e) {}
+  if (raw) try { kidsGame = JSON.parse(raw); } catch(e) {}
+  // Repair missing prize arrays — these can get lost if a partial save overwrites the row
+  if(kidsGame){
+    if(!kidsGame.wheelPrizesSmall || !kidsGame.wheelPrizesSmall.length)
+      kidsGame.wheelPrizesSmall = [...KIDS_DEFAULT_SMALL_PRIZES];
+    if(!kidsGame.wheelPrizesBig || !kidsGame.wheelPrizesBig.length)
+      kidsGame.wheelPrizesBig = [...KIDS_DEFAULT_BIG_PRIZES];
+    return kidsGame;
+  }
   // First visit — create defaults, persist locally immediately
   kidsGame = {
     players: [{name:'Player 1', score:0, prizeLog:[]}, {name:'Player 2', score:0, prizeLog:[]}],
@@ -17963,6 +18146,46 @@ function kidsSetSpinType(type) {
   renderKidsGame(main);
 }
 
+// Render earn cats broken down by type with done-state for parent scores tab
+function kidsScoresCatSection(playerIdx, earnCats, auditLog){
+  const isChore2     = c => c.type === 'chore'     || (!c.type && c.freq && c.freq !== 'anytime' && c.freq !== 'onetime');
+  const isBehaviour2 = c => c.type === 'behaviour' || (!c.type && (!c.freq || c.freq === 'anytime'));
+  const isOnetime2   = c => c.type === 'onetime'   || c.freq === 'onetime';
+  const mine = earnCats.filter(c => isChoreMine(c, playerIdx));
+  const chores2     = mine.filter(c => isChore2(c));
+  const behaviours2 = mine.filter(c => isBehaviour2(c));
+  const onetimes2   = mine.filter(c => isOnetime2(c));
+  const secLabel = 'font:700 9px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.35);text-transform:uppercase;margin:var(--sp2) 0 var(--sp1);';
+
+  function catBtn(c){
+    const st = choreStatus(c, playerIdx, auditLog);
+    const isDue = st.due !== false;
+    const style = isDue
+      ? 'background:rgba(255,255,255,0.12);opacity:1;'
+      : 'background:rgba(255,255,255,0.04);opacity:0.45;cursor:default;';
+    const click = isDue ? 'onclick="kidsAward(' + playerIdx + ',&quot;' + c.id + '&quot;)"' : '';
+    const sub = st.sublabel
+      ? '<br><span style="font-size:10px;opacity:0.7;">' + st.sublabel + '</span>'
+      : '<br><span style="font-size:10px;opacity:0.7;">+' + c.pts + ' ⭐</span>';
+    return '<button class="kids-quick-btn earn" ' + click + ' style="' + style + '">' + c.emoji + ' ' + esc(c.name) + sub + '</button>';
+  }
+
+  function behaviourBtn(c){
+    return '<button class="kids-quick-btn earn" onclick="kidsAward(' + playerIdx + ',&quot;' + c.id + '&quot;)">'
+      + c.emoji + ' ' + esc(c.name)
+      + '<br><span style="font-size:10px;opacity:0.7;">+' + c.pts + ' ⭐</span></button>';
+  }
+
+  let out = '';
+  if(chores2.length)
+    out += '<div style="' + secLabel + '">🧹 Chores</div><div class="kids-action-row">' + chores2.map(catBtn).join('') + '</div>';
+  if(behaviours2.length)
+    out += '<div style="' + secLabel + '">💛 Behaviour</div><div class="kids-action-row">' + behaviours2.map(behaviourBtn).join('') + '</div>';
+  if(onetimes2.length)
+    out += '<div style="' + secLabel + '">⭐ One-Time</div><div class="kids-action-row">' + onetimes2.map(catBtn).join('') + '</div>';
+  return out;
+}
+
 function _kidsWeeklyChart(d){
   // Build a 7-day points-per-day bar chart from auditLog
   const log = d.auditLog || [];
@@ -17983,7 +18206,8 @@ function _kidsWeeklyChart(d){
   }
 
   // Sum pts per player per day (only positive pts for "earned" view)
-  const playerColors = ['#7eb8f7','#cc8ef5'];
+  // Colors match kids' own page: player 0 (Ridley) = pink, player 1 (Connor) = blue
+  const playerColors = ['#E91E8C','#0066CC'];
   const totals = players.map(()=> Array(DAYS).fill(0));
   log.forEach(e=>{
     if(!e.ts || !e.pts || e.pts <= 0) return;
@@ -18003,12 +18227,12 @@ function _kidsWeeklyChart(d){
   // Weekly totals per player
   const weekTotals = totals.map(t => t.reduce((a,b)=>a+b,0));
 
-  let html = '<div style="margin-bottom:14px;background:rgba(0,0,0,0.2);border-radius:12px;padding:14px 14px 10px;">';
+  let html = '<div style="margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 10px;">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-  html += '<span style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.45);text-transform:uppercase;">This week</span>';
+  html += '<span style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:var(--text3);text-transform:uppercase;">This week</span>';
   html += '<div style="display:flex;gap:12px;">';
   players.forEach((p,i)=>{
-    html += '<span style="font:700 11px/1 var(--font-ui);color:' + playerColors[i] + ';">' + esc(p.name.split(' ')[0]) + ' <span style=\"opacity:0.8;\">' + weekTotals[i] + ' pts</span></span>';
+    html += '<span style="font:700 11px/1 var(--font-ui);color:' + playerColors[i] + ';">' + esc(p.name.split(' ')[0]) + ' <span style=\"opacity:0.7;\">' + weekTotals[i] + ' pts</span></span>';
   });
   html += '</div></div>';
 
@@ -18027,7 +18251,7 @@ function _kidsWeeklyChart(d){
     html += '</div>';
     // Day label
     const isToday = di === DAYS-1;
-    html += '<div style="font:' + (isToday?'700':'500') + ' 9px/1 var(--font-ui);color:rgba(255,255,255,' + (isToday?'0.7':'0.35') + ');text-align:center;margin-top:3px;">' + dayLabels[di] + '</div>';
+    html += '<div style="font:' + (isToday?'700':'500') + ' 9px/1 var(--font-ui);color:' + (isToday?'var(--text2)':'var(--text4)') + ';text-align:center;margin-top:3px;">' + dayLabels[di] + '</div>';
     html += '</div>';
   }
   html += '</div>'; // bars row
@@ -18035,7 +18259,7 @@ function _kidsWeeklyChart(d){
   // Legend
   html += '<div style="display:flex;gap:12px;margin-top:8px;">';
   players.forEach((p,i)=>{
-    html += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:' + playerColors[i] + ';"></div><span style="font:500 9px/1 var(--font-ui);color:rgba(255,255,255,0.4);">' + esc(p.name.split(' ')[0]) + '</span></div>';
+    html += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:' + playerColors[i] + ';"></div><span style="font:500 9px/1 var(--font-ui);color:var(--text4);">' + esc(p.name.split(' ')[0]) + '</span></div>';
   });
   html += '</div>';
 
@@ -18088,16 +18312,9 @@ function renderKidsScores(d) {
         <div class="kids-prize-bar-track"><div class="kids-prize-bar-fill" style="width:${pctIn25}%;"></div></div>
         <div class="kids-prize-milestones"><span>0</span><span>+25</span></div>
       </div>
-      <!-- Earn: show chores assigned to this player (or unassigned) -->
-      <div style="margin-top:var(--sp2);">
-        <div style="font:700 9px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.35);text-transform:uppercase;margin-bottom:var(--sp2);">Give credit for…</div>
-        <div class="kids-action-row">
-          ${earnCats.filter(c=>isChoreMine(c,i)).map(c =>
-            `<button class="kids-quick-btn earn" onclick="kidsAward(${i},'${c.id}')">${c.emoji} ${esc(c.name)}<br><span style="font-size:11px;opacity:0.75;">+${c.pts} ⭐</span></button>`
-          ).join('')}
-        </div>
-      </div>
-      <!-- Lose points -->
+      <!-- Earn: broken down by type matching kids page -->
+      ${kidsScoresCatSection(i, earnCats, d.auditLog||[])}
+            <!-- Lose points -->
       ${loseCats.length ? `
       <div style="margin-top:var(--sp2);">
         <div style="font:700 9px/1 var(--font-ui);letter-spacing:1px;color:rgba(255,255,255,0.35);text-transform:uppercase;margin-bottom:var(--sp2);">Deduct for…</div>
@@ -18125,7 +18342,7 @@ function renderKidsCats(d) {
     return players.map((p,i)=>{
       const assigned = cat.assignedTo && cat.assignedTo.length > 0;
       const active   = !assigned || cat.assignedTo.includes(i);
-      const colors   = ['#7eb8f7','#cc8ef5'];
+      const colors   = ['#E91E8C','#0066CC'];
       return `<button onclick="event.stopPropagation();assignChoreToKid('${cat.id}',${i})"
         style="padding:2px 8px;border-radius:20px;font:600 10px/1 var(--font-ui);cursor:pointer;
           border:1px solid ${active?colors[i]:'var(--border)'};
