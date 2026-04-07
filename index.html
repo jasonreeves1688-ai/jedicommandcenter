@@ -2121,6 +2121,9 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
         <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
       </button>
+      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
+        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      </button>
     </div>
 
   </div>
@@ -2278,20 +2281,20 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
         <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
       </button>
+      <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
+        <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
+      </button>
       <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
       <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
-        <span class="nav-icon">⊞</span><span class="nav-label">All</span>
+        <span class="nav-icon">⊞</span><span class="nav-label">More</span>
       </button>
     </div>
     <!-- Home mode nav -->
     <div id="nav-home-items" style="display:none;flex:1;">
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
         <span class="nav-icon">☀️</span><span class="nav-label">Today</span>
-      </button>
-      <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
-        <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
       </button>
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
         <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
@@ -2302,8 +2305,11 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
-        <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
+      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
+        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      </button>
+      <button class="nav-btn" id="nav-home-grid-btn" onclick="toggleNavGrid()">
+        <span class="nav-icon">⊞</span><span class="nav-label">More</span>
       </button>
     </div>
   </div>
@@ -3688,7 +3694,7 @@ function renderStatsStrip(){
   const _overdueBg  = _lm ? 'rgba(176,30,30,0.08)' : 'rgba(224,82,82,0.08)';
   const _overdueCol = _lm ? 'var(--red)'    : '#FF6B6B';
 
-  const KIDS_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
+  const KIDS_COLORS = ['#E91E8C','#0066CC','#f5a742','#5DD89A','#f06b6b'];
   let kidsBarsHtml = '';
   if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
     const MILESTONE = 25;
@@ -3715,7 +3721,7 @@ function renderStatsStrip(){
   const overdueCount = getOverdueCount();
 
   // Kids player index colors matching kids tab CSS
-  const KIDS_PLAYER_COLORS = ['#7eb8f7','#cc8ef5','#f5a742','#5DD89A','#f06b6b'];
+  const KIDS_PLAYER_COLORS = ['#E91E8C','#0066CC','#f5a742','#5DD89A','#f06b6b'];
 
   strip.innerHTML = `
     <!-- Row 1: stat pills -->
@@ -4375,8 +4381,8 @@ function renderFamilyPage(container){
     {key:'anyone', label:'Anyone', color:'var(--text3)'},
     {key:'jason',  label:'Jason',  color:'var(--accent)'},
     {key:'wife',   label:'Jenny',  color:'#E91E8C'},
-    {key:'ridley', label:'Ridley', color:'#7eb8f7'},
-    {key:'connor', label:'Connor', color:'#cc8ef5'},
+    {key:'ridley', label:'Ridley', color:'#E91E8C'},
+    {key:'connor', label:'Connor', color:'#0066CC'},
   ];
 
   const open = familyTasks.filter(t=>!t.done);
@@ -6098,8 +6104,8 @@ const FAMILY_ASSIGNEES = [
   {key:'anyone', label:'Anyone',  color:'var(--text3)'},
   {key:'jason',  label:'Jason',   color:'#1565C0'},
   {key:'jenny',  label:'Jenny',   color:'#E91E8C'},
-  {key:'ridley', label:'Ridley',  color:'#7eb8f7'},
-  {key:'connor', label:'Connor',  color:'#cc8ef5'},
+  {key:'ridley', label:'Ridley',  color:'#E91E8C'},
+  {key:'connor', label:'Connor',  color:'#0066CC'},
 ];
 
 let _familyTaskModal = {
@@ -10573,8 +10579,33 @@ function confirmImport(){
 function toggleNavGrid(){
   const overlay = document.getElementById('nav-grid-overlay');
   if(!overlay) return;
-  if(overlay.classList.contains('open')){ closeNavGrid(); }
-  else { updateNavGridActive(); overlay.classList.add('open'); }
+  if(overlay.classList.contains('open')){ closeNavGrid(); return; }
+
+  // Rebuild grid — overflow items only (not already on bottom nav)
+  const grid = document.getElementById('nav-grid');
+  if(grid){
+    const isHome = currentMode === 'home';
+    const tiles = isHome
+      ? [
+          // Home overflow: Calendar + Dinners
+          {icon:'📅', label:'Calendar', nav:'calendar'},
+          {icon:'🍽', label:'Dinners',  nav:'dinners'},
+        ]
+      : [
+          // Work overflow: Discovery + People + Settings
+          {icon:'🔭', label:'Discovery', nav:'discovery'},
+          {icon:'👥', label:'People',    nav:'people'},
+          {icon:'⚙',  label:'Settings',  nav:'settings'},
+        ];
+    grid.innerHTML = tiles.map(function(t){
+      return '<button class="nav-grid-tile" onclick="setNav(&quot;'+t.nav+'&quot;);closeNavGrid()">'
+        + '<div class="nav-grid-tile-icon">'+t.icon+'</div><div>'+t.label+'</div>'
+        + '</button>';
+    }).join('');
+  }
+
+  updateNavGridActive();
+  overlay.classList.add('open');
 }
 
 function closeNavGrid(){
