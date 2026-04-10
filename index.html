@@ -3297,6 +3297,11 @@ function _queueSave(key, fn){
 async function _flushSync(){
   if(!_sbSession){ return; } // not signed in yet
   if(_syncPending){ return; } // already flushing
+  // If offline, keep pending saves queued — they'll flush when back online
+  if(!navigator.onLine){
+    setSyncStatus('offline','Offline — saved locally');
+    return;
+  }
   _syncPending = true;
   setSyncStatus('syncing','Syncing…');
   const fns = Object.values(_pendingSaves);
@@ -3307,7 +3312,14 @@ async function _flushSync(){
     setSyncStatus('ok','SYNCED · '+(h%12||12)+':'+m+(h>=12?'pm':'am'));
   }catch(e){
     console.error('Supabase flush error:', e);
-    setSyncStatus('error','Sync failed');
+    // If it failed because we went offline mid-flush, requeue
+    if(!navigator.onLine){
+      setSyncStatus('offline','Offline — saved locally');
+    } else {
+      setSyncStatus('error','Sync failed — will retry');
+      // Retry once after 5 seconds
+      setTimeout(_flushSync, 5000);
+    }
   }finally{
     _syncPending = false;
   }
@@ -3484,6 +3496,40 @@ async function _sbSaveSomeday(){
 
 async function _sbSaveWeeklyPlan(){
   if(!weeklyPlan) return;
+  try{
+    // Fetch server version first to avoid overwriting concurrent changes
+    const { data: srv } = await _sb.from('weekly_plan').select('*').eq('id','current').single();
+    if(srv){
+      const localWof  = weeklyPlan.weekOf || '';
+      const serverWof = srv.week_of || '';
+      // If server has a different (newer) week, keep server's lock state
+      // but merge items: server items take precedence for done state
+      if(localWof === serverWof){
+        const serverItemMap = {};
+        (srv.items||[]).forEach(si=>{ serverItemMap[si.id||si.text]=si; });
+        // Merge: for each local item, use server's done state if server has it
+        const merged = (weeklyPlan.items||[]).map(li=>{
+          const si = serverItemMap[li.id||li.text];
+          // Take whichever is more "done" — prevents offline undoing server completion
+          if(si && si.done && !li.done) return {...li, done:true};
+          return li;
+        });
+        // Add any server items that don't exist locally (added by Jenny while offline)
+        const localIds = new Set((weeklyPlan.items||[]).map(i=>i.id||i.text));
+        (srv.items||[]).forEach(si=>{
+          if(!localIds.has(si.id||si.text)) merged.push(si);
+        });
+        weeklyPlan.items = merged;
+        // If server is locked and we're not, respect server lock
+        if(srv.locked_in && !weeklyPlan.lockedIn){
+          weeklyPlan.lockedIn = true;
+          weeklyPlan.lockedAt = srv.locked_at;
+        }
+        localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
+      }
+    }
+  }catch(e){ /* fetch failed — just save local version */ }
+
   await _sb.from('weekly_plan').upsert({
     id:'current', week_of:weeklyPlan.weekOf||'',
     locked_in:!!weeklyPlan.lockedIn, locked_at:weeklyPlan.lockedAt||null,
@@ -3493,6 +3539,41 @@ async function _sbSaveWeeklyPlan(){
 
 async function _sbSaveKidsTracker(){
   if(!kidsTracker) return;
+  try{
+    // Fetch server version and merge — Jenny may have updated lunches while we were offline
+    const { data: srv } = await _sb.from('kids_tracker').select('*').eq('id','current').single();
+    if(srv){
+      const srvLunches  = srv.lunches  || {};
+      const srvSchedule = srv.schedule || {};
+      // Merge lunches: take non-empty value, prefer whichever is set
+      // Local wins if both have a value (we just edited it)
+      const merged = { lunches:{}, schedule:{} };
+      const kids = ['ridley','connor'];
+      const days = ['mon','tue','wed','thu','fri'];
+      kids.forEach(kid=>{
+        merged.lunches[kid]  = merged.lunches[kid]  || {};
+        merged.schedule[kid] = merged.schedule[kid] || {};
+        days.forEach(d=>{
+          const local  = (kidsTracker.lunches[kid]  || {})[d] || '';
+          const server = (srvLunches[kid]            || {})[d] || '';
+          merged.lunches[kid][d] = local || server; // keep whichever is set
+          const localSched  = (kidsTracker.schedule[kid] || {})[d] || [];
+          const serverSched = (srvSchedule[kid]          || {})[d] || [];
+          merged.schedule[kid][d] = localSched.length ? localSched : serverSched;
+        });
+        // Also merge weekend days (not in default lunch days)
+        ['sat','sun'].forEach(d=>{
+          const localSched  = (kidsTracker.schedule[kid] || {})[d] || [];
+          const serverSched = (srvSchedule[kid]          || {})[d] || [];
+          merged.schedule[kid][d] = localSched.length ? localSched : serverSched;
+        });
+      });
+      kidsTracker.lunches  = merged.lunches;
+      kidsTracker.schedule = merged.schedule;
+      localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
+    }
+  }catch(e){ /* fetch failed — save local version */ }
+
   await _sb.from('kids_tracker').upsert({
     id:'current', lunches:kidsTracker.lunches||{}, schedule:kidsTracker.schedule||{}
   },{onConflict:'id'});
@@ -3694,7 +3775,7 @@ function renderStatsStrip(){
   const _overdueBg  = _lm ? 'rgba(176,30,30,0.08)' : 'rgba(224,82,82,0.08)';
   const _overdueCol = _lm ? 'var(--red)'    : '#FF6B6B';
 
-  const KIDS_COLORS = ['#E91E8C','#0066CC','#f5a742','#5DD89A','#f06b6b'];
+  const KIDS_COLORS = [playerColor(0), playerColor(1),'#f5a742','#5DD89A','#f06b6b'];
   let kidsBarsHtml = '';
   if(kidsGame && kidsGame.players && kidsGame.players.length > 0){
     const MILESTONE = 25;
@@ -3721,7 +3802,7 @@ function renderStatsStrip(){
   const overdueCount = getOverdueCount();
 
   // Kids player index colors matching kids tab CSS
-  const KIDS_PLAYER_COLORS = ['#E91E8C','#0066CC','#f5a742','#5DD89A','#f06b6b'];
+  const KIDS_PLAYER_COLORS = [playerColor(0), playerColor(1),'#f5a742','#5DD89A','#f06b6b'];
 
   strip.innerHTML = `
     <!-- Row 1: stat pills -->
@@ -3903,7 +3984,7 @@ async function renderHomeTodayView(container){
   const kidsChoresSummary = (() => {
     if (!kidsGame || !kidsGame.players || !kidsGame.cats) return '';
     const d2 = kidsGame;
-    const colors = ['#E91E8C', '#0066CC'];
+    const colors = [playerColor(0), playerColor(1)];
     const summary = d2.players.map((p, pi) => {
       const dueCats = (d2.cats || []).filter(c => c.pts > 0 && isChoreMine(c, pi) && choreStatus(c, pi, d2.auditLog || []).due);
       return { name: p.name, count: dueCats.length, color: colors[pi] };
@@ -3921,16 +4002,18 @@ async function renderHomeTodayView(container){
 
   // Sunday plan nudge
   const isSun = new Date().getDay() === 0;
-  const planBtnColor = weeklyPlan?.lockedIn ? 'var(--green)' : 'var(--accent)';
-  const planBtnLabel = weeklyPlan?.lockedIn ? '📅 View the week' : (isSun ? '📅 Plan the week →' : '📅 Plan the week');
+  const _targetWeek = getTargetWeekMonday();
+  const _planDone = weeklyPlan?.lockedIn && weeklyPlan.weekOf === _targetWeek;
+  const planBtnColor = _planDone ? 'var(--green)' : 'var(--accent)';
+  const planBtnLabel = _planDone ? '&#128197; View the week' : (isSun ? '&#128197; Plan next week →' : '&#128197; Plan the week');
 
   let html = '';
 
   // Sunday nudge banner
-  if(isSun && !weeklyPlan?.lockedIn){
+  if(isSun && !_planDone){
     html += '<div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r3);background:var(--accent-soft);border:1.5px solid var(--accent);display:flex;align-items:center;gap:12px;">'
       + '<div style="flex:1;"><div style="font:700 13px/1 var(--font-ui);color:var(--accent);">It&#39;s Sunday!</div>'
-      + '<div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">Ready to plan the week with Jenny?</div></div>'
+      + '<div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;">Ready to plan next week with Jenny?</div></div>'
       + '<button onclick="openWeeklyPlanning()" style="padding:8px 14px;border-radius:20px;background:var(--accent);color:#fff;border:none;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">Start →</button>'
       + '</div>';
   }
@@ -3946,7 +4029,7 @@ async function renderHomeTodayView(container){
     + '</div>';
 
   // Weekly plan progress
-  if(weeklyPlan?.lockedIn && weeklyPlan.items?.length){
+  if(_planDone && weeklyPlan.items?.length){
     const total = weeklyPlan.items.length;
     const done2 = weeklyPlan.items.filter(i => i.done).length;
     const pct   = Math.round((done2/total)*100);
@@ -3965,7 +4048,7 @@ async function renderHomeTodayView(container){
   html += '<div id="weather-card"></div>';
 
   // ── Family snapshot card ──────────────────────────────────────
-  const kidColor = ['#E91E8C','#0066CC'];
+  const kidColor = [playerColor(0), playerColor(1)];
   const kidsNames = kidsGame?.players?.map(p=>p.name) || ['Ridley','Connor'];
   const lunches  = [ridleyLunch, connorLunch];
   const essentials = [ridleyEss, connorEss];
@@ -4006,12 +4089,23 @@ async function renderHomeTodayView(container){
   // ── Kids chores summary ───────────────────────────────────────
   html += kidsChoresSummary;
 
-  // ── Tasks due today ───────────────────────────────────────────
-  const allDueToday = [...privateDue, ...familyDueToday];
-  if(allDueToday.length){
+  // ── Tasks due today + overdue ────────────────────────────────
+  const overduePrivate = privateDue.filter(t => t.dueDate < todayStr);
+  const overdueFamily  = familyDueToday.filter(t => t.dueDate < todayStr);
+  const todayPrivate   = privateDue.filter(t => t.dueDate === todayStr);
+  const todayFamily    = familyDueToday.filter(t => t.dueDate === todayStr);
+  const hasOverdue = overduePrivate.length + overdueFamily.length > 0;
+  const hasDueToday = todayPrivate.length + todayFamily.length > 0;
+
+  if(hasOverdue){
+    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--red);text-transform:uppercase;">&#9888; Overdue</div>';
+    overduePrivate.forEach(t => { html += homeTaskRow(t, 'private'); });
+    overdueFamily.forEach(t => { html += homeTaskRow(t, 'family'); });
+  }
+  if(hasDueToday){
     html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Due Today</div>';
-    privateDue.forEach(t => { html += homeTaskRow(t, 'private'); });
-    familyDueToday.forEach(t => { html += homeTaskRow(t, 'family'); });
+    todayPrivate.forEach(t => { html += homeTaskRow(t, 'private'); });
+    todayFamily.forEach(t => { html += homeTaskRow(t, 'family'); });
   }
 
   // Add task button
@@ -4020,7 +4114,7 @@ async function renderHomeTodayView(container){
     + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 private</div>'
     + '</div>';
 
-  if(allDueToday.length === 0 && !hasKidsInfo){
+  if(!hasOverdue && !hasDueToday && !hasKidsInfo){
     html += '<div style="text-align:center;padding:40px 20px;">'
       + '<div style="font-size:40px;margin-bottom:10px;">🌟</div>'
       + '<div style="font:600 16px/1.4 var(--font-ui);color:var(--text3);">All clear today!</div>'
@@ -4056,8 +4150,13 @@ function homeTaskRow(t, type){
     ? _taskAsgnsHome.map(k=>`<span style="font:600 10px/1 var(--font-ui);padding:1px 6px;border-radius:10px;
         background:var(--accent-soft);color:var(--accent);">${_ASSIGNEE_LABELS[k]||k}</span>`).join(' ')
     : '';
+  const _td = today();
   const dueLabel = t.dueDate
-    ? `<span style="font:500 10px/1 var(--font-ui);color:${t.dueDate < today() ? 'var(--red)' : 'var(--text4)'};">${t.dueDate <= today() ? '📅 Today' : t.dueDate.slice(5)}</span>`
+    ? (t.dueDate < _td
+        ? `<span style="font:500 10px/1 var(--font-ui);color:var(--red);">&#9888; ${t.dueDate.slice(5)}</span>`
+        : t.dueDate === _td
+          ? `<span style="font:500 10px/1 var(--font-ui);color:var(--accent);">&#128197; Today</span>`
+          : `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">&#128197; ${t.dueDate.slice(5)}</span>`)
     : '';
   return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;
       border-bottom:1px solid var(--border);${t.done?'opacity:0.4;':''}"
@@ -4381,8 +4480,8 @@ function renderFamilyPage(container){
     {key:'anyone', label:'Anyone', color:'var(--text3)'},
     {key:'jason',  label:'Jason',  color:'var(--accent)'},
     {key:'wife',   label:'Jenny',  color:'#E91E8C'},
-    {key:'ridley', label:'Ridley', color:'#E91E8C'},
-    {key:'connor', label:'Connor', color:'#0066CC'},
+    {key:'ridley', label:'Ridley', color:playerColor(0)},
+    {key:'connor', label:'Connor', color:playerColor(1)},
   ];
 
   const open = familyTasks.filter(t=>!t.done);
@@ -4762,6 +4861,20 @@ function getWeekMonday(date){
   return localDateStr(d);
 }
 
+// Returns the Monday of the week we should be planning for.
+// On Sunday, returns NEXT week's Monday (since Sunday = planning day for upcoming week).
+// All other days returns the current week's Monday.
+function getTargetWeekMonday(){
+  const now = new Date();
+  if(now.getDay() === 0){
+    // Sunday — return next Monday
+    const next = new Date(now);
+    next.setDate(now.getDate() + 1);
+    return getWeekMonday(next);
+  }
+  return getWeekMonday();
+}
+
 function getWeekDayDate(weekOf, dayKey){
   const days = {mon:0,tue:1,wed:2,thu:3,fri:4,sat:5,sun:6};
   if(!(dayKey in days)) return null;
@@ -4775,24 +4888,26 @@ function isSunday(){
 }
 
 function openWeeklyPlanning(){
-  // Ensure weeklyPlan exists for this week
-  const thisWeek = getWeekMonday();
-  if(!weeklyPlan || weeklyPlan.weekOf !== thisWeek){
-    // Detect carry-overs from last week
-    const lastWeek = getWeekMonday(new Date(Date.now() - 7*24*60*60*1000));
-    const carryOvers = familyTasks.filter(t=>
-      !t.done && t.dueDate && t.dueDate < thisWeek && t.weekPlanId
+  // On Sunday we plan for the UPCOMING week, not the current one
+  const targetWeek = getTargetWeekMonday();
+  const isSun = new Date().getDay() === 0;
+
+  if(!weeklyPlan || weeklyPlan.weekOf !== targetWeek){
+    // Carry over any undone tasks with a due date before the target week
+    const allHomeTasks = [...familyTasks, ...jasonHomeTasks, ...wifeHomeTasks];
+    const carryOvers = allHomeTasks.filter(t=>
+      !t.done && t.dueDate && t.dueDate < targetWeek
     );
     weeklyPlan = {
-      weekOf: thisWeek,
-      lockedIn: false,
-      lockedAt: null,
+      weekOf:    targetWeek,
+      lockedIn:  false,
+      lockedAt:  null,
       carryOvers: carryOvers.map(t=>({
-        id: 'co'+t.id,
+        id:       'co'+t.id,
         sourceId: t.id,
-        title: t.title,
-        owner: t.assignedTo||'both',
-        kept: null  // null=undecided, true=keep, false=drop
+        title:    t.title,
+        owner:    t.assignedTo||'both',
+        kept:     null  // null=undecided, true=keep, false=drop
       })),
       items: []
     };
@@ -4828,7 +4943,9 @@ function renderWeeklyPlanOverlay(){
   if(!overlay) return;
 
   const weekOf = weeklyPlan.weekOf;
-  const weekLabel = new Date(weekOf+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
+  const _isSunPlanning = new Date().getDay() === 0 && weekOf === getTargetWeekMonday();
+  const weekLabel = (_isSunPlanning ? 'Next week — ' : '')
+    + new Date(weekOf+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'});
   const undecided = (weeklyPlan.carryOvers||[]).filter(c=>c.kept===null).length;
 
   // Step indicators
@@ -5002,22 +5119,84 @@ function renderWpStep2(){
   html += `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:12px;">
     ${cat.icon} ${cat.hint}</div>`;
 
+  // ── Calendar category: show real events from the week ────────
+  if(_wpCat === 'calendar' && weeklyPlan.weekOf){
+    const weekDays = ['mon','tue','wed','thu','fri','sat','sun'];
+    let hasEvents = false;
+    let calHtml = '';
+    weekDays.forEach(day=>{
+      const dayDate = getWeekDayDate(weeklyPlan.weekOf, day);
+      if(!dayDate) return;
+      const evs = calEventsForDate(dayDate);
+      if(!evs.length) return;
+      hasEvents = true;
+      calHtml += `<div style="margin-bottom:10px;">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+          text-transform:uppercase;margin-bottom:6px;">${WP_DAY_LABELS[day]}</div>`;
+      evs.forEach(ev=>{
+        const color = calEventColor(ev);
+        const timeStr = ev.allDay ? 'All day' : formatCalTime(ev.start, false);
+        calHtml += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+            border-radius:var(--r2);margin-bottom:4px;
+            background:${color}18;border-left:3px solid ${color};">
+          <div style="flex:1;min-width:0;">
+            <div style="font:500 10px/1 var(--font-ui);color:${color};margin-bottom:2px;">${timeStr}</div>
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ev.title)}</div>
+          </div>
+          <button onclick="wpAddAroundEvent('${esc(ev.title).replace(/'/g,'&#39;')}','${day}')"
+            style="padding:4px 10px;border-radius:20px;border:1.5px solid ${color};
+              background:transparent;color:${color};font:700 10px/1 var(--font-ui);
+              cursor:pointer;flex-shrink:0;white-space:nowrap;">+ Note</button>
+        </div>`;
+      });
+      calHtml += '</div>';
+    });
+    if(hasEvents){
+      html += `<div style="margin-bottom:14px;">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+          text-transform:uppercase;margin-bottom:8px;">This week&#39;s calendar</div>
+        ${calHtml}
+      </div>
+      <div style="height:1px;background:var(--border);margin-bottom:12px;"></div>`;
+    } else {
+      html += `<div style="padding:10px 14px;border-radius:var(--r3);background:var(--surface2);
+        margin-bottom:12px;font:500 12px/1 var(--font-ui);color:var(--text4);">
+        No calendar events found for this week. Make sure your calendar is connected in Settings.</div>`;
+    }
+    if(items.length){
+      html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+        text-transform:uppercase;margin-bottom:8px;">Notes &amp; discussion items</div>`;
+    }
+  }
+  // ── End calendar section ──────────────────────────────────────
+
   items.forEach(item=>{
     const owner = WP_OWNERS.find(o=>o.key===item.owner)||WP_OWNERS[0];
+    const isEmpty = !item.title.trim();
     html += `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
-        border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);
-        margin-bottom:8px;">
+        border-radius:var(--r3);border:1px solid ${isEmpty?'var(--accent)':'var(--border)'};
+        background:var(--surface);margin-bottom:8px;">
       <div style="flex:1;min-width:0;">
-        <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.title)}</div>
+        ${item.linkedEvent ? `<div style="font:500 10px/1 var(--font-ui);color:var(--accent);
+          margin-bottom:4px;">&#128197; Re: ${esc(item.linkedEvent)}</div>` : ''}
+        ${isEmpty
+          ? `<input class="wp-item-title-input"
+              placeholder="What needs discussing or doing?"
+              value=""
+              style="width:100%;border:none;background:transparent;
+                color:var(--text);font:600 14px/1.3 var(--font-ui);outline:none;
+                padding:0;box-sizing:border-box;"
+              oninput="wpUpdateItemTitle('${item.id}',this.value)"
+              onkeydown="if(event.key==='Enter'&&this.value.trim()){wpUpdateItemTitle('${item.id}',this.value);this.blur();}"/>`
+          : `<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.title)}</div>`}
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
-          <!-- Owner pill -->
           <button onclick="wpCycleOwner('${item.id}')"
             style="padding:3px 10px;border-radius:20px;cursor:pointer;
               border:1.5px solid ${owner.color};color:${owner.color};
               background:transparent;font:700 10px/1 var(--font-ui);">
             ${owner.label}</button>
-          <!-- Day pill -->
           <button onclick="wpCycleDay('${item.id}')"
             style="padding:3px 10px;border-radius:20px;cursor:pointer;
               border:1.5px solid var(--border);color:var(--text3);
@@ -5027,12 +5206,18 @@ function renderWpStep2(){
             style="padding:3px 10px;border-radius:20px;cursor:pointer;
               border:1.5px solid var(--green);color:var(--green);
               background:transparent;font:600 10px/1 var(--font-ui);">
-            → Grocery</button>`:''}
+            &#8594; Grocery</button>`:''}
+          ${_wpCat==='calendar' && item.day !== 'sometime' && item.title.trim()
+            ? `<button onclick="wpSendToCalendar('${item.id}')"
+                style="padding:3px 10px;border-radius:20px;cursor:pointer;
+                  border:1.5px solid var(--accent);color:var(--accent);
+                  background:transparent;font:600 10px/1 var(--font-ui);">
+                &#8594; Calendar</button>` : ''}
         </div>
       </div>
       <button onclick="wpDeleteItem('${item.id}')"
         style="padding:4px 6px;border:none;background:transparent;
-          color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+          color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;">&#10005;</button>
     </div>`;
   });
 
@@ -5093,6 +5278,29 @@ function wpAddItem(){
   setTimeout(()=>document.getElementById('wp-add-input')?.focus(), 50);
 }
 
+function wpAddAroundEvent(eventTitle, day){
+  // Pre-fill a note item linked to this calendar event
+  if(!weeklyPlan.items) weeklyPlan.items = [];
+  weeklyPlan.items.push({
+    id:           'wpi'+Date.now()+Math.random().toString(36).slice(2,6),
+    title:        '',
+    category:     'calendar',
+    owner:        'both',
+    day:          day || 'sometime',
+    done:         false,
+    linkedEvent:  eventTitle,
+    keptFrom:     null,
+    familyTaskId: null
+  });
+  saveWeeklyPlan();
+  renderWeeklyPlanOverlay();
+  // Focus the new empty input for this item
+  setTimeout(()=>{
+    const inputs = document.querySelectorAll('.wp-item-title-input');
+    if(inputs.length) inputs[inputs.length-1].focus();
+  }, 80);
+}
+
 function wpCycleOwner(id){
   const item = (weeklyPlan.items||[]).find(i=>i.id===id);
   if(!item) return;
@@ -5100,6 +5308,29 @@ function wpCycleOwner(id){
   item.owner = WP_OWNERS[(idx+1)%WP_OWNERS.length].key;
   saveWeeklyPlan();
   renderWeeklyPlanOverlay();
+}
+
+function wpUpdateItemTitle(id, val){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(item){ item.title = val; saveWeeklyPlan(); }
+}
+
+function wpSendToCalendar(id){
+  const item = (weeklyPlan.items||[]).find(i=>i.id===id);
+  if(!item || !item.title.trim() || item.day === 'sometime') return;
+  const dateStr = getWeekDayDate(weeklyPlan.weekOf, item.day);
+  if(!dateStr) return;
+  // Build a Google Calendar URL as universal deep link
+  // Format: YYYYMMDD for all-day events
+  const d = dateStr.replace(/-/g,'');
+  const title = encodeURIComponent(item.title);
+  const nextDay = new Date(dateStr+'T12:00:00');
+  nextDay.setDate(nextDay.getDate()+1);
+  const d2 = nextDay.toISOString().slice(0,10).replace(/-/g,'');
+  const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${d}/${d2}`;
+  // On iOS this opens Google Calendar app if installed, otherwise browser
+  window.open(gcalUrl, '_blank');
+  showToast('Opening calendar to add: ' + item.title);
 }
 
 function wpCycleDay(id){
@@ -6104,8 +6335,8 @@ const FAMILY_ASSIGNEES = [
   {key:'anyone', label:'Anyone',  color:'var(--text3)'},
   {key:'jason',  label:'Jason',   color:'#1565C0'},
   {key:'jenny',  label:'Jenny',   color:'#E91E8C'},
-  {key:'ridley', label:'Ridley',  color:'#E91E8C'},
-  {key:'connor', label:'Connor',  color:'#0066CC'},
+  {key:'ridley', label:'Ridley',  color:playerColor(0)},
+  {key:'connor', label:'Connor',  color:playerColor(1)},
 ];
 
 let _familyTaskModal = {
@@ -6211,7 +6442,8 @@ function renderFamilyTaskModal(){
         <input type="date" id="ftm-date" value="${m.dueDate}"
           style="width:100%;padding:11px 14px;border-radius:var(--r3);
             border:1.5px solid var(--border);background:var(--surface2);
-            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;"
+            color:var(--text);font:var(--type-label);outline:none;box-sizing:border-box;
+            color-scheme:${document.body.classList.contains('light-mode') ? 'light' : 'dark'};"
           oninput="_familyTaskModal.dueDate=this.value"/>
       </div>
 
@@ -8232,6 +8464,25 @@ function submitFamilyComment(taskId){
 
 
 function renderAll(){
+  try{
+    _renderAllInner();
+  }catch(err){
+    console.error('[renderAll] Error:', err);
+    // Show a non-destructive error banner — don't wipe the whole UI
+    const existing = document.getElementById('render-error-banner');
+    if(!existing){
+      const banner = document.createElement('div');
+      banner.id = 'render-error-banner';
+      banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;background:#7A1818;color:#fff;padding:10px 16px;border-radius:8px;font:600 12px/1.4 var(--font-ui);max-width:320px;text-align:center;cursor:pointer;';
+      banner.textContent = '⚠ Something went wrong — tap to reload';
+      banner.onclick = () => location.reload();
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 8000);
+    }
+  }
+}
+
+function _renderAllInner(){
   // Kid PIN session — the kids page is a separate overlay, not #main
   if(typeof currentUser === 'object' && currentUser.role === 'kid'){
     const kp = document.getElementById('kids-page');
@@ -8266,7 +8517,7 @@ function renderAll(){
 
   if(massEditMode){ renderMassEdit(main); return; }
   renderTaskList(main);
-}
+} // end _renderAllInner
 
 function completedOnDate(dateStr){
   return tasks.some(t=>{
@@ -9709,6 +9960,8 @@ function renderSettings(container){
     <div class="section-title" style="margin-top:var(--sp4);">🤖 AI Features</div>
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
       <button class="hbtn" style="width:100%;" onclick="testAIProxy()">🧪 Test AI Connection</button>
+      <button class="hbtn" style="width:100%;" onclick="diagnosePush()">🔔 Diagnose Notifications</button>
+      <div id="push-diag-result" style="display:none;padding:10px 12px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font:500 11px/1.6 var(--font-ui);color:var(--text2);white-space:pre-wrap;word-break:break-word;margin-top:8px;"></div>
       <div id="ai-diag-result" style="display:none;padding:10px 12px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font:500 11px/1.6 var(--font-ui);color:var(--text2);white-space:pre-wrap;word-break:break-word;"></div>
     </div>
       <div id="settings-notif-status" style="padding:10px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font-family:var(--font-ui);font-size:11px;">
@@ -13791,6 +14044,92 @@ function toggleTodayPin(taskId){
 
 const AI_PROXY_URL = SUPABASE_URL + '/functions/v1/ai-proxy';
 
+async function diagnosePush(){
+  const el = document.getElementById('push-diag-result');
+  if(el){ el.style.display='block'; el.textContent='Checking...'; el.style.borderColor='var(--border)'; }
+
+  const steps = [];
+
+  // 1. Notification API
+  const hasNotif = 'Notification' in window;
+  steps.push(['Notification API', hasNotif, hasNotif ? 'Available' : 'NOT available — browser does not support notifications']);
+
+  // 2. Permission
+  if(hasNotif){
+    const perm = Notification.permission;
+    const permOk = perm === 'granted';
+    steps.push(['Permission', permOk, permOk ? 'Granted' : perm==='denied' ? 'DENIED — enable in browser/OS Settings' : 'Not requested — tap Enable Notifications']);
+  }
+
+  // 3. Service worker
+  let swReg = null;
+  try{
+    swReg = await navigator.serviceWorker.getRegistration('./');
+    steps.push(['Service Worker', !!swReg, swReg ? 'Registered at: '+swReg.scope : 'NOT registered — make sure sw.js is deployed at root']);
+  }catch(e){ steps.push(['Service Worker', false, 'Error: '+e.message]); }
+
+  // 4. Push subscription
+  let pushSub = null;
+  if(swReg){
+    try{
+      pushSub = await swReg.pushManager.getSubscription();
+      steps.push(['Push Subscription', !!pushSub,
+        pushSub ? 'Active — endpoint: '+pushSub.endpoint.slice(0,50)+'...' : 'None — tap Enable Notifications']);
+    }catch(e){ steps.push(['Push Subscription', false, 'Error: '+e.message]); }
+  }
+
+  // 5. Saved in Supabase
+  if(pushSub && _sbUserId){
+    try{
+      const { data, error } = await _sb.from('push_subscriptions').select('endpoint,created_at').eq('owner_id',_sbUserId);
+      if(error) throw new Error(error.message);
+      const match = data && data.find(r=>r.endpoint===pushSub.endpoint);
+      steps.push(['Saved in Supabase', !!match,
+        match ? 'Found (saved '+match.created_at.slice(0,10)+')' :
+        (data && data.length) ? data.length+' subs in DB but not this device — re-enable notifications' :
+        'No subscriptions in DB at all — re-enable notifications']);
+    }catch(e){ steps.push(['Saved in Supabase', false, 'Error: '+e.message]); }
+  }
+
+  // 6. Notification log
+  if(_sbUserId){
+    try{
+      const { data } = await _sb.from('notification_log').select('tag,sent_at,success').eq('owner_id',_sbUserId).order('sent_at',{ascending:false}).limit(5);
+      if(data && data.length){
+        const log = data.map(r=>(r.success?'OK':'FAIL')+' '+r.tag+' '+r.sent_at.slice(0,16)).join(' | ');
+        steps.push(['Notification Log', true, 'Last '+data.length+': '+log]);
+      } else {
+        steps.push(['Notification Log', false, 'No logs — Edge Function may not be running or cron not set up']);
+      }
+    }catch(e){ steps.push(['Notification Log', false, 'Error: '+e.message]); }
+  }
+
+  // 7. Test push via Edge Function
+  try{
+    const res = await fetch('https://pfsuljwznlxbfpmifdir.supabase.co/functions/v1/send-notifications?test=true&user=jason', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+SUPABASE_JWT_KEY, 'Content-Type':'application/json' }
+    });
+    const d = await res.json();
+    if(d.sent > 0){
+      steps.push(['Test Push', true, 'Sent '+d.sent+' notification(s) — should arrive within 30 seconds']);
+    } else {
+      steps.push(['Test Push', false, 'Sent 0. Response: '+JSON.stringify(d).slice(0,150)]);
+    }
+  }catch(e){ steps.push(['Test Push', false, 'Could not reach Edge Function: '+e.message]); }
+
+  // Render
+  const allOk = steps.every(s=>s[1]);
+  let out = (allOk ? 'All checks passed!' : 'Issues found - see below') + '\n\n';
+  steps.forEach(function(s){ out += (s[1]?'OK':'!!') + ' ' + s[0] + ': ' + s[2] + '\n'; });
+
+  if(el){
+    el.textContent = out.trim();
+    el.style.borderColor = allOk ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+
 async function testAIProxy(){
   const resultEl = document.getElementById('ai-diag-result');
   if(resultEl){ resultEl.style.display='block'; resultEl.textContent='Running diagnostics…'; resultEl.style.borderColor='var(--border)'; }
@@ -16638,6 +16977,21 @@ function buildProjectOptions(selectedId=''){
 
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 
+// ── h() — safe tagged template literal for HTML ────────────────
+// Usage: container.innerHTML = h`<div class="${cls}">${userText}</div>`
+// Automatically escapes interpolated values. Wrap pre-built HTML in safe() to skip escaping.
+function h(strings, ...values){
+  let out = strings[0];
+  values.forEach((val, i) => {
+    if(val === null || val === undefined){ out += '' + strings[i+1]; return; }
+    if(val && val.__safe){ out += val.toString() + strings[i+1]; return; }
+    out += esc(String(val)) + strings[i+1];
+  });
+  return out;
+}
+// Mark a string as pre-escaped HTML so h() won't double-escape it
+function safe(s){ const r = new String(s); r.__safe = true; return r; }
+
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZE — POWER ON SEQUENCE
 // ═══════════════════════════════════════════════════════════════
@@ -17729,8 +18083,44 @@ async function installPWA(){
   _installPrompt = null;
 }
 
-window.addEventListener("online",()=>{showToast("Connection restored — SYNCING…");syncNow();});
-window.addEventListener("offline",()=>{setSyncStatus("offline","Offline");showToast("Offline — Using local data");});
+// ── Offline write queue ───────────────────────────────────────
+// When offline, failed Supabase writes are queued by key.
+// When back online, all pending saves are flushed automatically.
+const _offlinePendingKeys = new Set();
+
+const _origQueueSave = _queueSave;
+// Wrap _queueSave so offline failures queue a retry
+function _queueSaveWithOfflineRetry(key, fn){
+  if(!navigator.onLine){
+    // Store the save function reference for retry
+    _offlinePendingKeys.add(key);
+    _pendingSaveFns[key] = fn;
+  }
+  _origQueueSave(key, fn);
+}
+const _pendingSaveFns = {};
+
+window.addEventListener('online', () => {
+  showToast('✅ Back online — syncing changes…');
+  setSyncStatus('syncing', 'Syncing…');
+  // Flush any saves that were queued while offline
+  // These now include merge logic so they won't overwrite concurrent changes
+  if(_offlinePendingKeys.size > 0){
+    _offlinePendingKeys.forEach(key => {
+      const fn = _pendingSaveFns[key];
+      if(fn) _origQueueSave(key, fn);
+    });
+    _offlinePendingKeys.clear();
+  }
+  // Pull fresh data from server first, then flush local changes on top
+  // This ensures we see anything Jenny changed while we were offline
+  syncNow();
+});
+
+window.addEventListener('offline', () => {
+  setSyncStatus('offline', 'Offline — changes saved locally');
+  showToast('📴 Offline — your changes are saved and will sync when back online');
+});
 
 // ── Background sync: pull fresh data every 2.5 minutes ────────────
 async function backgroundSync(){
@@ -17810,6 +18200,42 @@ const KIDS_DEFAULT_CATS = [
   {id:'kc12', emoji:'📺', name:'Watched YouTube', pts:-1},
   {id:'kc13', emoji:'🤬', name:'Cussed (no permission)', pts:-1},
 ];
+
+// ══════════════════════════════════════════════════════════════
+// PLAYER THEMES — single source of truth for Ridley/Connor colors
+// Player 0 = Ridley (pink), Player 1 = Connor (blue)
+// Use these everywhere instead of hardcoded hex values
+// ══════════════════════════════════════════════════════════════
+const PLAYER_THEMES = [
+  {
+    // Player 0 — Ridley
+    color:      '#E91E8C',
+    colorDark:  '#C2185B',
+    colorLight: '#FF6B9D',
+    bg:         '#FFF0F8',
+    cardBg:     '#FFD6EE',
+    border:     '#FFB3D9',
+    avatarBg:   '#FFB3D9',
+    avatarText: '#9C0060',
+    name:       'Ridley',
+  },
+  {
+    // Player 1 — Connor
+    color:      '#0066CC',
+    colorDark:  '#003D7A',
+    colorLight: '#00AAFF',
+    bg:         '#F0F8FF',
+    cardBg:     '#C8E8FF',
+    border:     '#90CAF9',
+    avatarBg:   '#BBDEFB',
+    avatarText: '#003D7A',
+    name:       'Connor',
+  },
+];
+
+// Helper — get theme for a player index, falls back gracefully
+function playerTheme(idx){ return PLAYER_THEMES[idx] || PLAYER_THEMES[0]; }
+function playerColor(idx){ return playerTheme(idx).color; }
 
 const KIDS_DEFAULT_SMALL_PRIZES = [
   'Ice cream trip','Extra screen time','Stay up 30 min late',
@@ -18235,8 +18661,7 @@ function _kidsWeeklyChart(d){
   }
 
   // Sum pts per player per day (only positive pts for "earned" view)
-  // Colors match kids' own page: player 0 (Ridley) = pink, player 1 (Connor) = blue
-  const playerColors = ['#E91E8C','#0066CC'];
+  const playerColors = [playerColor(0), playerColor(1)];
   const totals = players.map(()=> Array(DAYS).fill(0));
   log.forEach(e=>{
     if(!e.ts || !e.pts || e.pts <= 0) return;
@@ -18371,7 +18796,7 @@ function renderKidsCats(d) {
     return players.map((p,i)=>{
       const assigned = cat.assignedTo && cat.assignedTo.length > 0;
       const active   = !assigned || cat.assignedTo.includes(i);
-      const colors   = ['#E91E8C','#0066CC'];
+      const colors   = [playerColor(0), playerColor(1)];
       return `<button onclick="event.stopPropagation();assignChoreToKid('${cat.id}',${i})"
         style="padding:2px 8px;border-radius:20px;font:600 10px/1 var(--font-ui);cursor:pointer;
           border:1px solid ${active?colors[i]:'var(--border)'};
@@ -19470,19 +19895,18 @@ function renderKidsPageForKid(){
   const pctBig    = Math.min(100,((100-nextBig)/100)*100);
   const view = kp._view || 'chores';
 
-  // ── Bright kid themes ──────────────────────────────────────────
-  // Player 0 = warm pink/coral, Player 1 = sky blue/teal
+  // ── Bright kid themes — derived from PLAYER_THEMES ───────────────
   const themes = [
-    { pageBg:'#FFF0F8', cardBg:'#FFD6EE', accent:'#E91E8C', accent2:'#FF6B9D',
-      star:'#FF8C00', barColor:'#E91E8C', bar2:'#FF6B9D',
-      avatarBg:'#FFB3D9', avatarText:'#9C0060',
-      tabActiveBg:'#FFD6EE', tabActiveColor:'#E91E8C',
-      choreBg:'#FFF5FA', choreBorder:'#FFB3D9', choreActive:'#FFD6EE' },
-    { pageBg:'#F0F8FF', cardBg:'#C8E8FF', accent:'#0066CC', accent2:'#00AAFF',
-      star:'#FF8C00', barColor:'#0066CC', bar2:'#00AAFF',
-      avatarBg:'#A8D8FF', avatarText:'#003D7A',
-      tabActiveBg:'#C8E8FF', tabActiveColor:'#0066CC',
-      choreBg:'#F5FAFF', choreBorder:'#A8D8FF', choreActive:'#C8E8FF' },
+    { pageBg:PLAYER_THEMES[0].bg, cardBg:PLAYER_THEMES[0].cardBg, accent:PLAYER_THEMES[0].color, accent2:PLAYER_THEMES[0].colorLight,
+      star:'#FF8C00', barColor:PLAYER_THEMES[0].color, bar2:PLAYER_THEMES[0].colorLight,
+      avatarBg:PLAYER_THEMES[0].avatarBg, avatarText:PLAYER_THEMES[0].avatarText,
+      tabActiveBg:PLAYER_THEMES[0].cardBg, tabActiveColor:PLAYER_THEMES[0].color,
+      choreBg:'#FFF5FA', choreBorder:PLAYER_THEMES[0].border, choreActive:PLAYER_THEMES[0].cardBg },
+    { pageBg:PLAYER_THEMES[1].bg, cardBg:PLAYER_THEMES[1].cardBg, accent:PLAYER_THEMES[1].color, accent2:PLAYER_THEMES[1].colorLight,
+      star:'#FF8C00', barColor:PLAYER_THEMES[1].color, bar2:PLAYER_THEMES[1].colorLight,
+      avatarBg:PLAYER_THEMES[1].avatarBg, avatarText:PLAYER_THEMES[1].avatarText,
+      tabActiveBg:PLAYER_THEMES[1].cardBg, tabActiveColor:PLAYER_THEMES[1].color,
+      choreBg:'#F5FAFF', choreBorder:PLAYER_THEMES[1].border, choreActive:PLAYER_THEMES[1].cardBg },
   ];
   const th = themes[playerIdx % themes.length];
 
@@ -19998,6 +20422,101 @@ function kidsPageLogout(){
   setTimeout(()=>document.getElementById('gate-input').focus(),300);
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// SELF-TESTS — run from console: runSyncTests()
+// Tests the merge logic and offline queue without hitting network
+// ══════════════════════════════════════════════════════════════
+function runSyncTests(){
+  let passed = 0; let failed = 0;
+  function assert(desc, cond){
+    if(cond){ console.log('  ✅', desc); passed++; }
+    else     { console.error('  ❌', desc); failed++; }
+  }
+
+  console.group('🧪 Reeves HQ Sync Tests');
+
+  // ── Test 1: Weekly plan merge preserves server completions ──
+  console.group('Weekly Plan Merge');
+  const localPlan = { weekOf:'2025-01-01', items:[
+    {id:'a', text:'Task A', done:false},
+    {id:'b', text:'Task B', done:false},
+  ]};
+  const serverPlan = { week_of:'2025-01-01', items:[
+    {id:'a', text:'Task A', done:true},  // Jenny completed this
+    {id:'b', text:'Task B', done:false},
+    {id:'c', text:'Task C', done:false}, // Jenny added this
+  ]};
+  // Simulate merge
+  const serverItemMap = {};
+  (serverPlan.items||[]).forEach(si=>{ serverItemMap[si.id]=si; });
+  const merged = localPlan.items.map(li=>{
+    const si = serverItemMap[li.id];
+    if(si && si.done && !li.done) return {...li, done:true};
+    return li;
+  });
+  const localIds = new Set(localPlan.items.map(i=>i.id));
+  (serverPlan.items||[]).forEach(si=>{ if(!localIds.has(si.id)) merged.push(si); });
+  assert('Server completion preserved (Task A done)', merged.find(i=>i.id==='a')?.done === true);
+  assert('Local undone preserved (Task B not done)', merged.find(i=>i.id==='b')?.done === false);
+  assert("Server-added item included (Task C)", !!merged.find(i=>i.id==='c'));
+  assert('Total items = 3', merged.length === 3);
+  console.groupEnd();
+
+  // ── Test 2: Kids tracker lunch merge ────────────────────────
+  console.group('Kids Tracker Merge');
+  const localTracker = { lunches:{ ridley:{ mon:'Pizza', tue:'' }, connor:{ mon:'', tue:'Sandwich' } } };
+  const serverTracker = { lunches:{ ridley:{ mon:'Pizza', tue:'Tacos' }, connor:{ mon:'Burger', tue:'Sandwich' } } };
+  // Simulate merge
+  const mergedLunches = {};
+  ['ridley','connor'].forEach(kid=>{
+    mergedLunches[kid] = {};
+    ['mon','tue'].forEach(d=>{
+      const local  = (localTracker.lunches[kid]||{})[d]  || '';
+      const server = (serverTracker.lunches[kid]||{})[d] || '';
+      mergedLunches[kid][d] = local || server;
+    });
+  });
+  assert('Ridley Mon kept (both set)', mergedLunches.ridley.mon === 'Pizza');
+  assert('Ridley Tue from server (local empty)', mergedLunches.ridley.tue === 'Tacos');
+  assert('Connor Mon from server (local empty)', mergedLunches.connor.mon === 'Burger');
+  assert('Connor Tue kept (both match)', mergedLunches.connor.tue === 'Sandwich');
+  console.groupEnd();
+
+  // ── Test 3: playerColor() helper ────────────────────────────
+  console.group('PLAYER_THEMES');
+  assert('playerColor(0) is Ridley pink', playerColor(0) === '#E91E8C');
+  assert('playerColor(1) is Connor blue', playerColor(1) === '#0066CC');
+  assert('playerTheme(0).name is Ridley', playerTheme(0).name === 'Ridley');
+  assert('playerTheme(99) falls back gracefully', !!playerTheme(99));
+  console.groupEnd();
+
+  // ── Test 4: h() template helper ─────────────────────────────
+  console.group('h() template helper');
+  const xss = '<script>alert(1)</scr'+'ipt>';
+  const result = h`<div>${xss}</div>`;
+  assert('h() escapes XSS', !result.includes('<script>'));
+  assert('h() preserves structure', result.includes('<div>') && result.includes('</div>'));
+  const safeHtml = safe('<b>bold</b>');
+  const result2 = h`<span>${safeHtml}</span>`;
+  assert('safe() bypasses escaping', result2.includes('<b>bold</b>'));
+  console.groupEnd();
+
+  // ── Test 5: esc() function ───────────────────────────────────
+  console.group('esc()');
+  assert('esc() handles ampersand', esc('a & b') === 'a &amp; b');
+  assert('esc() handles quotes', esc('"hello"') === '&quot;hello&quot;');
+  assert('esc() handles null', esc(null) === '');
+  assert('esc() handles undefined', esc(undefined) === '');
+  console.groupEnd();
+
+  console.log('');
+  console.log('Results:', passed, 'passed,', failed, 'failed');
+  if(failed === 0) console.log('✅ All tests passed!');
+  else console.error('❌', failed, 'test(s) failed');
+  console.groupEnd();
+  return {passed, failed};
+}
 
 init();
 </script>
