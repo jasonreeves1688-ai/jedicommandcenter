@@ -16996,7 +16996,7 @@ function safe(s){ const r = new String(s); r.__safe = true; return r; }
 // INITIALIZE — POWER ON SEQUENCE
 // ═══════════════════════════════════════════════════════════════
 // ── Kid PINs — unchanged ──────────────────────────────────────
-const KID_PINS = {
+var KID_PINS = {
   "rooroo": 0,   // Ridley
   "connie": 1,   // Connor
 };
@@ -18206,7 +18206,7 @@ const KIDS_DEFAULT_CATS = [
 // Player 0 = Ridley (pink), Player 1 = Connor (blue)
 // Use these everywhere instead of hardcoded hex values
 // ══════════════════════════════════════════════════════════════
-const PLAYER_THEMES = [
+var PLAYER_THEMES = [
   {
     // Player 0 — Ridley
     color:      '#E91E8C',
