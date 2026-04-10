@@ -2736,6 +2736,45 @@ input[type="date"].row-ctrl{
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════
+// HOISTED CONSTANTS — must be defined before any inline HTML
+// onclick/onkeydown handlers or early render code references them
+// ═══════════════════════════════════════════════════════════════
+var KID_PINS = {
+  "rooroo": 0,   // Ridley
+  "connie": 1,   // Connor
+};
+
+var PLAYER_THEMES = [
+  {
+    // Player 0 — Ridley
+    color:      '#E91E8C',
+    colorDark:  '#C2185B',
+    colorLight: '#FF6B9D',
+    bg:         '#FFF0F8',
+    cardBg:     '#FFD6EE',
+    border:     '#FFB3D9',
+    avatarBg:   '#FFB3D9',
+    avatarText: '#9C0060',
+    name:       'Ridley',
+  },
+  {
+    // Player 1 — Connor
+    color:      '#0066CC',
+    colorDark:  '#003D7A',
+    colorLight: '#00AAFF',
+    bg:         '#F0F8FF',
+    cardBg:     '#C8E8FF',
+    border:     '#90CAF9',
+    avatarBg:   '#BBDEFB',
+    avatarText: '#003D7A',
+    name:       'Connor',
+  },
+];
+
+function playerTheme(idx){ return PLAYER_THEMES[idx] || PLAYER_THEMES[0]; }
+function playerColor(idx){ return playerTheme(idx).color; }
+
+// ═══════════════════════════════════════════════════════════════
 // CONFIG — Sync / Cloud
 // ═══════════════════════════════════════════════════════════════
 // ── Apps Script URL — kept for Google Calendar only ──────────
@@ -16996,10 +17035,6 @@ function safe(s){ const r = new String(s); r.__safe = true; return r; }
 // INITIALIZE — POWER ON SEQUENCE
 // ═══════════════════════════════════════════════════════════════
 // ── Kid PINs — unchanged ──────────────────────────────────────
-var KID_PINS = {
-  "rooroo": 0,   // Ridley
-  "connie": 1,   // Connor
-};
 // Legacy constants — kept so nothing breaks
 const GATE_PASSWORD  = "RooCon";
 const JENNY_PIN      = "freckles";
@@ -18206,36 +18241,7 @@ const KIDS_DEFAULT_CATS = [
 // Player 0 = Ridley (pink), Player 1 = Connor (blue)
 // Use these everywhere instead of hardcoded hex values
 // ══════════════════════════════════════════════════════════════
-var PLAYER_THEMES = [
-  {
-    // Player 0 — Ridley
-    color:      '#E91E8C',
-    colorDark:  '#C2185B',
-    colorLight: '#FF6B9D',
-    bg:         '#FFF0F8',
-    cardBg:     '#FFD6EE',
-    border:     '#FFB3D9',
-    avatarBg:   '#FFB3D9',
-    avatarText: '#9C0060',
-    name:       'Ridley',
-  },
-  {
-    // Player 1 — Connor
-    color:      '#0066CC',
-    colorDark:  '#003D7A',
-    colorLight: '#00AAFF',
-    bg:         '#F0F8FF',
-    cardBg:     '#C8E8FF',
-    border:     '#90CAF9',
-    avatarBg:   '#BBDEFB',
-    avatarText: '#003D7A',
-    name:       'Connor',
-  },
-];
-
-// Helper — get theme for a player index, falls back gracefully
-function playerTheme(idx){ return PLAYER_THEMES[idx] || PLAYER_THEMES[0]; }
-function playerColor(idx){ return playerTheme(idx).color; }
+// playerTheme / playerColor / PLAYER_THEMES defined at top of script
 
 const KIDS_DEFAULT_SMALL_PRIZES = [
   'Ice cream trip','Extra screen time','Stay up 30 min late',
