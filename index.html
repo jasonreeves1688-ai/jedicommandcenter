@@ -18374,7 +18374,7 @@ function getPersonalBest(gameId){
 let _activeGame = null; // null = lobby, or gameId string
 
 async function renderGamesPage(container){
-  await loadArcadeScores();
+  try{ await loadArcadeScores(); }catch(e){ /* scores unavailable, proceed anyway */ }
   if(_activeGame){
     renderActiveGame(container, _activeGame);
     return;
@@ -18460,9 +18460,10 @@ function renderGamesLeaderboard(){
 // ── Game launcher ─────────────────────────────────────────────
 function renderActiveGame(container, gameId){
   const g = ARCADE_GAMES.find(x=>x.id===gameId);
+  if(!g){ _activeGame=null; renderGamesPage(container); return; }
   const pb = getPersonalBest(gameId);
   container.innerHTML = `
-  <div style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
+  <div id="game-shell" style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
         style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
@@ -18473,31 +18474,52 @@ function renderActiveGame(container, gameId){
       </div>
       <div id="game-score-display" style="font:800 18px/1 var(--font-ui);color:var(--accent);">0</div>
     </div>
-    <div id="game-canvas-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;">
-      <canvas id="game-canvas" style="border-radius:12px;touch-action:none;max-width:100%;max-height:100%;display:block;"></canvas>
+    <div id="game-canvas-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;min-height:0;">
+      <canvas id="game-canvas" style="border-radius:12px;touch-action:none;display:block;"></canvas>
     </div>
-    <div id="game-controls" style="padding:8px 16px 12px;display:flex;gap:8px;justify-content:center;flex-shrink:0;"></div>
+    <div id="game-controls" style="padding:8px 16px 16px;display:flex;gap:8px;justify-content:center;flex-shrink:0;"></div>
   </div>`;
 
-  // Size canvas to available space
-  requestAnimationFrame(()=>{
+  // Use a slightly longer delay to ensure layout is complete, then measure
+  setTimeout(()=>{
     const wrap = document.getElementById('game-canvas-wrap');
     const canvas = document.getElementById('game-canvas');
-    if(!wrap||!canvas) return;
-    const w = Math.min(wrap.clientWidth - 16, 380);
-    const h = Math.min(wrap.clientHeight - 16, 520);
+    if(!wrap || !canvas) return;
+
+    // Measure available space — fall back to window size if flex hasn't resolved
+    let availW = wrap.clientWidth  || (window.innerWidth  - 32);
+    let availH = wrap.clientHeight || (window.innerHeight - 200);
+
+    // Clamp to sensible game dimensions
+    const w = Math.max(200, Math.min(availW - 16, 400));
+    const h = Math.max(200, Math.min(availH - 16, 540));
+
     canvas.width  = w;
-    canvas.height = gameId === '2048' ? w : h; // 2048 is square
-    GAME_ENGINES[gameId](canvas, (score)=>{
-      document.getElementById('game-score-display').textContent = score.toLocaleString();
-    }, async (finalScore)=>{
-      // Game over callback
-      const pb2 = getPersonalBest(gameId);
-      const isNew = finalScore > pb2;
-      await saveArcadeScore(gameId, finalScore);
-      showGameOver(gameId, finalScore, isNew);
-    });
-  });
+    canvas.height = gameId === '2048' ? w : h;
+
+    const engine = GAME_ENGINES[gameId];
+    if(!engine){
+      wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font:600 14px/1.4 var(--font-ui);">Game engine not found.<br>Try refreshing.</div>`;
+      return;
+    }
+    try{
+      engine(canvas,
+        (score) => {
+          const el = document.getElementById('game-score-display');
+          if(el) el.textContent = score.toLocaleString();
+        },
+        async (finalScore) => {
+          const pb2 = getPersonalBest(gameId);
+          const isNew = finalScore > (pb2||0);
+          await saveArcadeScore(gameId, finalScore);
+          showGameOver(gameId, finalScore, isNew);
+        }
+      );
+    } catch(e){
+      console.error('Game engine error:', e);
+      wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font:600 13px/1.4 var(--font-ui);">Error starting game.<br>${e.message}</div>`;
+    }
+  }, 80);
 }
 
 function showGameOver(gameId, score, isNewBest){
