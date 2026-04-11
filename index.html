@@ -2240,6 +2240,9 @@ button{ -webkit-tap-highlight-color:transparent; }
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
+      <button class="nav-btn" id="nav-games" onclick="setNav('games')">
+        <span class="nav-icon">🎮</span><span class="nav-label">Games</span>
+      </button>
       <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
         <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
       </button>
@@ -2424,11 +2427,11 @@ button{ -webkit-tap-highlight-color:transparent; }
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
         <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
       </button>
-      <button class="nav-btn" id="nav-grocery" onclick="setNav('grocery')">
-        <span class="nav-icon">🛒</span><span class="nav-label">Grocery</span>
-      </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-games" onclick="setNav('games')">
+        <span class="nav-icon">🎮</span><span class="nav-label">Games</span>
       </button>
       <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
         <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
@@ -4108,7 +4111,10 @@ function applyMode(){
     });
   }
 
-  // Mode toggle — hidden for Jenny, updated for Jason
+  // Jenny doesn't see Contacts in nav (her personal contact list is Jason's)
+  document.querySelectorAll('#nav-home-contacts').forEach(el=>{
+    el.style.display = isJenny ? 'none' : '';
+  });
   const modeBtn   = document.getElementById('mode-toggle-btn');
   const modeLabel = document.getElementById('mode-label');
   const headerEl  = document.getElementById('header');
@@ -4370,8 +4376,8 @@ async function renderHomeTodayView(container){
       + '</div>';
   }
 
-  // ── Contacts due for outreach ─────────────────────────────────
-  const nudges = getPeopleNudges();
+  // ── Contacts due for outreach (Jason only — his personal contacts) ──
+  const nudges = isJason ? getPeopleNudges() : [];
   if(nudges.length > 0){
     const todayStr2 = today();
     html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">💬 Reach Out</div>';
@@ -4392,37 +4398,6 @@ async function renderHomeTodayView(container){
     }
     html += '</div>';
   }
-
-  // ── Someday list (collapsible) ────────────────────────────────
-  if(somedayList.length > 0){
-    const _sdOpen = localStorage.getItem('hub-home-someday-open') === '1';
-    html += '<div style="margin:0 16px 8px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">'
-      + '<div onclick="localStorage.setItem(\'hub-home-someday-open\',localStorage.getItem(\'hub-home-someday-open\')===\'1\'?\'0\':\'1\');renderAll();" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2);">'
-      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">💭 Someday · ' + somedayList.length + '</span>'
-      + '<span style="font-size:12px;color:var(--text4);">' + (_sdOpen ? '▾' : '▸') + '</span>'
-      + '</div>';
-    if(_sdOpen){
-      somedayList.slice(0,10).forEach(s => {
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border);">'
-          + '<div style="flex:1;min-width:0;font:500 13px/1.3 var(--font-ui);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(s.title) + '</div>'
-          + `<button onclick="(()=>{const _t={id:genId(),title:'${esc(s.title).replace(/'/g,"\\'")}',done:false,dueDate:'',createdAt:today(),createdBy:currentUser==='parent'?'jason':'jenny'};jasonHomeTasks.unshift(_t);somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveJasonHomeTasks();saveSomeday();renderAll();showToast('✓ Pulled to personal tasks');})()" style="padding:4px 8px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">Pull in</button>`
-          + `<button onclick="somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveSomeday();renderAll();" style="padding:4px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>`
-          + '</div>';
-      });
-      if(somedayList.length > 10){
-        html += '<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);text-align:center;">+' + (somedayList.length-10) + ' more in Someday</div>';
-      }
-    }
-    html += '</div>';
-  }
-
-  // ── Brain dump bar ────────────────────────────────────────────
-  html += '<div class="brain-dump-bar" style="margin:0 16px 16px;">'
-    + '<input class="brain-dump-input" id="home-brain-dump" placeholder="💭 Quick capture — what\'s on your mind…"'
-    + ' onkeydown="if(event.key===\'Enter\'){brainDump(this.value);this.value=\'\';showToast(\'💭 Captured\');}" autocomplete="off" autocorrect="off" spellcheck="false"/>'
-    + '<button class="mic-btn" id="mic-btn-home-dump" onclick="toggleVoice(\'home-brain-dump\',\'mic-btn-home-dump\')" title="Voice">🎙</button>'
-    + '<button class="brain-dump-btn" onclick="if(document.getElementById(\'home-brain-dump\').value.trim()){brainDump(document.getElementById(\'home-brain-dump\').value);document.getElementById(\'home-brain-dump\').value=\'\';showToast(\'💭 Captured\');}">+</button>'
-    + '</div>';
 
   container.innerHTML = html;
 
@@ -4839,6 +4814,43 @@ function renderFamilyPage(container){
       myDone.forEach(t=>{
         html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
       });
+    }
+
+    // ── Someday (home context) ──────────────────────────────────
+    const _homeSd = somedayList.filter(s => s.context === 'home');
+    const _sdOpen = localStorage.getItem('hub-home-someday-open') === '1';
+    const _myArr  = isJason2 ? 'jasonHomeTasks' : 'wifeHomeTasks';
+    const _mySave = isJason2 ? 'saveJasonHomeTasks' : 'saveWifeHomeTasks';
+    html += '<div style="margin:8px 16px 0;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">'
+      + '<div onclick="localStorage.setItem(\'hub-home-someday-open\',localStorage.getItem(\'hub-home-someday-open\')===\'1\'?\'0\':\'1\');renderAll();" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2);">'
+      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">💭 Someday · ' + _homeSd.length + '</span>'
+      + '<span style="font-size:12px;color:var(--text4);">' + (_sdOpen ? '▾' : '▸') + '</span>'
+      + '</div>';
+    if(_sdOpen && _homeSd.length === 0){
+      html += '<div style="padding:10px 14px;font:500 12px/1.4 var(--font-ui);color:var(--text4);font-style:italic;">Nothing here yet — things you might do someday but not now.</div>';
+    }
+    if(_sdOpen){
+      _homeSd.slice(0,10).forEach(s => {
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border);">'
+          + '<div style="flex:1;min-width:0;font:500 13px/1.3 var(--font-ui);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(s.title) + '</div>'
+          + `<button onclick="(()=>{const _arr=window['${_myArr}'];const _t={id:genId(),title:'${esc(s.title).replace(/'/g,"\\'")}',done:false,dueDate:'',createdAt:today(),createdBy:isJason2?'jason':'jenny'};_arr.unshift(_t);somedayList=somedayList.filter(x=>x.id!=='${s.id}');window['${_mySave}']();saveSomeday();renderAll();showToast('✓ Pulled to My Tasks');})()" style="padding:5px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">Pull in</button>`
+          + `<button onclick="somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveSomeday();renderAll();" style="padding:4px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>`
+          + '</div>';
+      });
+      if(_homeSd.length > 10){
+        html += '<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);text-align:center;">+' + (_homeSd.length-10) + ' more</div>';
+      }
+    }
+    html += '</div>';
+
+    // ── Brain dump bar (Jason only) ─────────────────────────────
+    if(isJason2){
+      html += '<div class="brain-dump-bar" style="margin:10px 16px 8px;">'
+        + '<input class="brain-dump-input" id="home-brain-dump" placeholder="💭 Quick capture…"'
+        + ' onkeydown="if(event.key===\'Enter\'){brainDump(this.value);this.value=\'\';showToast(\'💭 Captured\');}" autocomplete="off" autocorrect="off" spellcheck="false"/>'
+        + '<button class="mic-btn" id="mic-btn-home-dump" onclick="toggleVoice(\'home-brain-dump\',\'mic-btn-home-dump\')" title="Voice">🎙</button>'
+        + '<button class="brain-dump-btn" onclick="if(document.getElementById(\'home-brain-dump\').value.trim()){brainDump(document.getElementById(\'home-brain-dump\').value);document.getElementById(\'home-brain-dump\').value=\'\';showToast(\'💭 Captured\');}">+</button>'
+        + '</div>';
     }
   } else {
     // Family Tasks
@@ -8843,6 +8855,7 @@ function _renderAllInner(){
   if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
   if(activeNav==="settings"){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
+  if(activeNav==="games"){renderGamesPage(main);return;}
 
   if(massEditMode){ renderMassEdit(main); return; }
   renderTaskList(main);
@@ -11323,7 +11336,7 @@ function setNav(nav){
   const btn = document.getElementById(`nav-${nav}`);
   if(btn) btn.classList.add("active");
   // Alias: in home mode, 'people' nav highlights nav-home-contacts, 'kids' highlights nav-home-kids
-  const homeAlias = document.getElementById(nav==='people' ? 'nav-home-contacts' : nav==='kids' ? 'nav-home-kids' : '');
+  const homeAlias = document.getElementById(nav==='people' ? 'nav-home-contacts' : nav==='kids' ? 'nav-home-kids' : nav==='games' ? 'nav-games' : '');
   if(homeAlias) homeAlias.classList.add('active');
 
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
@@ -11626,7 +11639,8 @@ function stopVoice(){
 
 function brainDump(text){
   if(!text||!text.trim()) return;
-  somedayList.unshift({ id:'sd'+Date.now(), title:text.trim(), createdAt:today() });
+  const context = currentMode === 'home' ? 'home' : 'work';
+  somedayList.unshift({ id:'sd'+Date.now(), title:text.trim(), createdAt:today(), context });
   saveSomeday();
   showToast('💭 Captured to Someday');
 }
@@ -12362,7 +12376,7 @@ function resetNext(){
   if(resetStep>=7){
     // Populate someday review step when we arrive at it
     if(resetStep===7){
-      const _sdItems = [...somedayList].sort(()=>Math.random()-0.5).slice(0,3);
+      const _sdItems = [...somedayList].filter(s=>!s.context||s.context==='work').sort(()=>Math.random()-0.5).slice(0,3);
       const _sdEl = document.getElementById('reset-someday-items');
       if(_sdEl){
         _sdEl.innerHTML = _sdItems.length===0
@@ -12428,7 +12442,7 @@ function resetTaskAction(taskId, action){
     t.status = 'done'; t.completedAt = Date.now();
     showToast('✕ Dropped: ' + t.title.slice(0,30));
   } else if(action==='someday'){
-    somedayList.unshift({id:'sd'+Date.now(), title:t.title, createdAt:today()});
+    somedayList.unshift({id:'sd'+Date.now(), title:t.title, createdAt:today(), context:'work'});
     saveSomeday();
     t.status = 'done'; t.completedAt = Date.now();
     showToast('💭 Moved to Someday: ' + t.title.slice(0,30));
@@ -13223,7 +13237,7 @@ function saveSomeday(){ localStorage.setItem('hub-someday',JSON.stringify(someda
 
 function addSomeday(title){
   if(!title.trim()) return;
-  somedayList.push({ id:'sd'+Date.now(), title:title.trim(), createdAt:today() });
+  somedayList.push({ id:'sd'+Date.now(), title:title.trim(), createdAt:today(), context:'work' });
   saveSomeday(); renderAll();
 }
 
@@ -13242,15 +13256,17 @@ function promoteSomeday(id){
 }
 
 function renderSomedaySection(){
+  // Work task list only shows work-context items (context='work' or no context = legacy work)
+  const workItems = somedayList.filter(s => !s.context || s.context === 'work');
   return `<div class="parking-lot" style="margin-top:8px;">
     <div class="parking-lot-header" onclick="somedayExpanded=!somedayExpanded;renderAll();">
-      <span class="parking-lot-title">💭 Someday / Maybe — ${somedayList.length}</span>
+      <span class="parking-lot-title">💭 Someday / Maybe — ${workItems.length}</span>
       <span style="font-size:11px;color:var(--text3);">${somedayExpanded?'▾':'▸'}</span>
     </div>
     ${somedayExpanded ? `
-      ${somedayList.length===0
+      ${workItems.length===0
         ? `<div style="padding:10px 12px;font:var(--type-label);color:var(--text3);font-style:italic;">Empty — things you might do someday live here, out of sight.</div>`
-        : somedayList.map(s=>`<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
+        : workItems.map(s=>`<div class="parking-lot-item" style="border-bottom:1px solid var(--border);">
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.title)}</div>
               <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">added ${s.createdAt.slice(5)}</div>
@@ -17452,7 +17468,7 @@ function openLaterTodayPicker(){
 
 function moveTaskToSomeday(taskId){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
-  somedayList.unshift({ id:'sd'+Date.now(), title:t.title, createdAt:today() });
+  somedayList.unshift({ id:'sd'+Date.now(), title:t.title, createdAt:today(), context:'work' });
   tasks = tasks.filter(x=>x.id!==taskId);
   saveSomeday(); saveAllDebounced(); renderAll();
   showToast('💭 Moved to Someday — not lost, just not now');
@@ -18284,6 +18300,758 @@ function initStatsStrip(){
   const shouldCollapse = saved !== null ? saved === '1' : defaultCollapsed;
   if(shouldCollapse) strip.classList.add('collapsed');
 }
+
+// ══════════════════════════════════════════════════════════════════
+// 🎮 REEVES ARCADE — 6 games + shared leaderboard
+// Players: Jason, Jenny, Ridley, Connor
+// Scores sync to Supabase table: arcade_scores
+// ══════════════════════════════════════════════════════════════════
+
+const ARCADE_GAMES = [
+  { id:'snake',    name:'Snake',         emoji:'🐍', desc:'Eat, grow, survive' },
+  { id:'tetris',   name:'Block Drop',    emoji:'🧱', desc:'Clear the lines' },
+  { id:'breakout', name:'Breakout',      emoji:'🏓', desc:'Break the bricks' },
+  { id:'shooter',  name:'Space Shooter', emoji:'🌌', desc:'Blast the invaders' },
+  { id:'runner',   name:'Endless Runner',emoji:'🦘', desc:'Jump to survive' },
+  { id:'2048',     name:'2048',          emoji:'🔢', desc:'Merge the tiles' },
+];
+
+function getCurrentPlayerName(){
+  if(currentUser === 'parent') return 'Jason';
+  if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
+  if(typeof currentUser === 'object' && currentUser.role === 'kid') return currentUser.name || 'Kid';
+  return 'Player';
+}
+
+// ── Leaderboard storage ───────────────────────────────────────
+let _arcadeScores = {}; // { gameId: [ {name, score, ts} ] }
+
+async function loadArcadeScores(){
+  try{
+    const { data } = await _sb.from('arcade_scores').select('*').order('score',{ascending:false});
+    if(data){
+      _arcadeScores = {};
+      data.forEach(r=>{
+        if(!_arcadeScores[r.game_id]) _arcadeScores[r.game_id] = [];
+        _arcadeScores[r.game_id].push({name:r.player_name, score:r.score, ts:r.created_at});
+      });
+    }
+  }catch(e){
+    // Fall back to localStorage
+    const cached = localStorage.getItem('hub-arcade-scores');
+    if(cached) _arcadeScores = JSON.parse(cached);
+  }
+}
+
+async function saveArcadeScore(gameId, score){
+  const name = getCurrentPlayerName();
+  if(!_arcadeScores[gameId]) _arcadeScores[gameId] = [];
+  // Update or insert this player's best for this game
+  const existing = _arcadeScores[gameId].find(r=>r.name===name);
+  if(existing){ if(score > existing.score) existing.score = score; }
+  else _arcadeScores[gameId].push({name, score, ts: new Date().toISOString()});
+  localStorage.setItem('hub-arcade-scores', JSON.stringify(_arcadeScores));
+  try{
+    await _sb.from('arcade_scores').upsert({
+      game_id: gameId, player_name: name, score,
+      created_at: new Date().toISOString()
+    }, {onConflict:'game_id,player_name'});
+  }catch(e){}
+}
+
+function getTopScores(gameId, limit=4){
+  const scores = _arcadeScores[gameId] || [];
+  return [...scores].sort((a,b)=>b.score-a.score).slice(0,limit);
+}
+
+function getPersonalBest(gameId){
+  const name = getCurrentPlayerName();
+  const s = (_arcadeScores[gameId]||[]).find(r=>r.name===name);
+  return s ? s.score : 0;
+}
+
+// ── Games page ────────────────────────────────────────────────
+let _activeGame = null; // null = lobby, or gameId string
+
+async function renderGamesPage(container){
+  await loadArcadeScores();
+  if(_activeGame){
+    renderActiveGame(container, _activeGame);
+    return;
+  }
+
+  const pb = {};
+  ARCADE_GAMES.forEach(g=>{ pb[g.id] = getPersonalBest(g.id); });
+
+  container.innerHTML = `
+  <div style="padding:16px 16px 100px;max-width:540px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font:800 22px/1 var(--font-ui);color:var(--text);">🎮 Arcade</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Pick a game · scores sync to everyone</div>
+      </div>
+      <button onclick="renderGamesLeaderboard()" style="padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;">🏆 Leaderboard</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      ${ARCADE_GAMES.map(g=>{
+        const top = getTopScores(g.id,1)[0];
+        const my  = pb[g.id];
+        const isLeader = top && top.name === getCurrentPlayerName();
+        return `<div onclick="_activeGame='${g.id}';renderGamesPage(document.getElementById('main-content'))"
+          style="border-radius:16px;border:1px solid var(--border);background:var(--surface);
+            padding:16px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--surface2)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          ${isLeader?`<div style="position:absolute;top:8px;right:8px;font:700 9px/1 var(--font-ui);color:#f9a825;background:rgba(249,168,37,0.12);padding:2px 6px;border-radius:20px;">👑 LEADER</div>`:''}
+          <div style="font-size:32px;margin-bottom:8px;">${g.emoji}</div>
+          <div style="font:800 14px/1 var(--font-ui);color:var(--text);">${g.name}</div>
+          <div style="font:500 11px/1.3 var(--font-ui);color:var(--text4);margin-top:3px;">${g.desc}</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:3px;">
+            ${my?`<div style="font:600 11px/1 var(--font-ui);color:var(--accent);">You: ${my.toLocaleString()}</div>`:'<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">Not played yet</div>'}
+            ${top?`<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">Best: ${top.name} · ${top.score.toLocaleString()}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function renderGamesLeaderboard(){
+  const main = document.getElementById('main-content');
+  const PLAYERS = ['Jason','Jenny','Ridley','Connor'];
+  const COLORS  = ['var(--accent)','#E91E8C',playerColor(0),playerColor(1)];
+
+  let html = `<div style="padding:16px 16px 100px;max-width:540px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <button onclick="renderGamesPage(document.getElementById('main-content'))"
+        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
+      <div style="font:800 20px/1 var(--font-ui);color:var(--text);">🏆 Family Leaderboard</div>
+    </div>`;
+
+  ARCADE_GAMES.forEach(g=>{
+    const scores = getTopScores(g.id, 4);
+    html += `<div style="margin-bottom:14px;border-radius:14px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+      <div style="padding:10px 14px;background:var(--surface2);display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">${g.emoji}</span>
+        <span style="font:700 13px/1 var(--font-ui);color:var(--text);">${g.name}</span>
+      </div>`;
+    if(!scores.length){
+      html += `<div style="padding:12px 14px;font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No scores yet — be the first!</div>`;
+    } else {
+      scores.forEach((s,i)=>{
+        const pIdx = PLAYERS.indexOf(s.name);
+        const col = pIdx>=0 ? COLORS[pIdx] : 'var(--text3)';
+        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border);">
+          <span style="font-size:16px;width:20px;text-align:center;">${medal||`<span style="font:700 11px/1 var(--font-ui);color:var(--text4);">${i+1}</span>`}</span>
+          <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>
+          <div style="flex:1;font:600 13px/1 var(--font-ui);color:var(--text);">${esc(s.name)}</div>
+          <div style="font:800 14px/1 var(--font-ui);color:${col};">${s.score.toLocaleString()}</div>
+        </div>`;
+      });
+    }
+    html += `</div>`;
+  });
+  html += `</div>`;
+  main.innerHTML = html;
+}
+
+// ── Game launcher ─────────────────────────────────────────────
+function renderActiveGame(container, gameId){
+  const g = ARCADE_GAMES.find(x=>x.id===gameId);
+  const pb = getPersonalBest(gameId);
+  container.innerHTML = `
+  <div style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
+        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
+      <span style="font-size:20px;">${g.emoji}</span>
+      <div style="flex:1;">
+        <div style="font:800 15px/1 var(--font-ui);color:var(--text);">${g.name}</div>
+        ${pb?`<div style="font:500 10px/1 var(--font-ui);color:var(--accent);">Your best: ${pb.toLocaleString()}</div>`:''}
+      </div>
+      <div id="game-score-display" style="font:800 18px/1 var(--font-ui);color:var(--accent);">0</div>
+    </div>
+    <div id="game-canvas-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;">
+      <canvas id="game-canvas" style="border-radius:12px;touch-action:none;max-width:100%;max-height:100%;display:block;"></canvas>
+    </div>
+    <div id="game-controls" style="padding:8px 16px 12px;display:flex;gap:8px;justify-content:center;flex-shrink:0;"></div>
+  </div>`;
+
+  // Size canvas to available space
+  requestAnimationFrame(()=>{
+    const wrap = document.getElementById('game-canvas-wrap');
+    const canvas = document.getElementById('game-canvas');
+    if(!wrap||!canvas) return;
+    const w = Math.min(wrap.clientWidth - 16, 380);
+    const h = Math.min(wrap.clientHeight - 16, 520);
+    canvas.width  = w;
+    canvas.height = gameId === '2048' ? w : h; // 2048 is square
+    GAME_ENGINES[gameId](canvas, (score)=>{
+      document.getElementById('game-score-display').textContent = score.toLocaleString();
+    }, async (finalScore)=>{
+      // Game over callback
+      const pb2 = getPersonalBest(gameId);
+      const isNew = finalScore > pb2;
+      await saveArcadeScore(gameId, finalScore);
+      showGameOver(gameId, finalScore, isNew);
+    });
+  });
+}
+
+function showGameOver(gameId, score, isNewBest){
+  const top = getTopScores(gameId, 4);
+  const rank = top.findIndex(s=>s.name===getCurrentPlayerName()) + 1;
+  const existing = document.getElementById('game-canvas-wrap');
+  if(!existing) return;
+  existing.innerHTML = `
+    <div style="text-align:center;padding:32px 24px;">
+      <div style="font-size:48px;margin-bottom:8px;">${isNewBest?'🏆':'🎮'}</div>
+      <div style="font:800 28px/1 var(--font-ui);color:var(--text);margin-bottom:6px;">${score.toLocaleString()}</div>
+      ${isNewBest?`<div style="font:700 13px/1 var(--font-ui);color:var(--accent);margin-bottom:16px;">🎉 New personal best!</div>`:`<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:16px;">Personal best: ${getPersonalBest(gameId).toLocaleString()}</div>`}
+      ${rank===1?`<div style="font:700 12px/1 var(--font-ui);color:#f9a825;margin-bottom:16px;">👑 Family leader!</div>`:''}
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        ${top.slice(0,3).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+          <span>${i===0?'🥇':i===1?'🥈':'🥉'}</span>
+          <span style="font:600 13px/1 var(--font-ui);color:var(--text);min-width:70px;text-align:left;">${esc(s.name)}</span>
+          <span style="font:700 14px/1 var(--font-ui);color:var(--accent);">${s.score.toLocaleString()}</span>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="_activeGame='${gameId}';renderGamesPage(document.getElementById('main-content'))"
+          style="padding:12px 24px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">Play Again</button>
+        <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
+          style="padding:12px 24px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">All Games</button>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GAME ENGINES
+// Each takes: canvas, onScore(n), onGameOver(finalScore)
+// ═══════════════════════════════════════════════════════════════
+const GAME_ENGINES = {};
+
+// ── 🐍 SNAKE ─────────────────────────────────────────────────
+GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const CELL = Math.floor(Math.min(W,H)/20);
+  const COLS = Math.floor(W/CELL), ROWS = Math.floor(H/CELL);
+  let snake = [{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
+  let dir = {x:1,y:0}, nextDir = {x:1,y:0};
+  let food = spawnFood(), score = 0, running = true, speed = 120, lastTime = 0;
+
+  function spawnFood(){
+    let pos;
+    do{ pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)}; }
+    while(snake.some(s=>s.x===pos.x&&s.y===pos.y));
+    return pos;
+  }
+
+  function draw(){
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+    // Grid dots
+    ctx.fillStyle='rgba(255,255,255,0.03)';
+    for(let x=0;x<COLS;x++) for(let y=0;y<ROWS;y++){
+      ctx.beginPath(); ctx.arc(x*CELL+CELL/2, y*CELL+CELL/2, 1, 0, Math.PI*2); ctx.fill();
+    }
+    // Snake
+    snake.forEach((s,i)=>{
+      const alpha = i===0 ? 1 : 0.7 - (i/snake.length)*0.4;
+      ctx.fillStyle = i===0 ? '#E8A838' : `rgba(100,181,246,${alpha})`;
+      const r = i===0 ? CELL*0.45 : CELL*0.38;
+      ctx.beginPath(); ctx.roundRect(s.x*CELL+CELL*0.1, s.y*CELL+CELL*0.1, CELL*0.8, CELL*0.8, r);
+      ctx.fill();
+    });
+    // Eyes on head
+    const h = snake[0];
+    ctx.fillStyle='#1a1f2e';
+    const ex = dir.x===0 ? [-3,3] : [dir.x*2, dir.x*2];
+    const ey = dir.y===0 ? [-3,3] : [dir.y*2, dir.y*2];
+    [[ex[0],ey[0]],[ex[1],ey[1]]].forEach(([ox,oy])=>{
+      ctx.beginPath(); ctx.arc(h.x*CELL+CELL/2+ox, h.y*CELL+CELL/2+oy, 2, 0, Math.PI*2); ctx.fill();
+    });
+    // Food
+    ctx.fillStyle='#EF5350';
+    ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL*0.38, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#66BB6A'; ctx.fillRect(food.x*CELL+CELL/2-1, food.y*CELL+CELL*0.1, 2, CELL*0.25);
+  }
+
+  function tick(){
+    dir = nextDir;
+    const head = {x:(snake[0].x+dir.x+COLS)%COLS, y:(snake[0].y+dir.y+ROWS)%ROWS};
+    if(snake.some(s=>s.x===head.x&&s.y===head.y)){ running=false; onGameOver(score); return; }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){ score+=10; speed=Math.max(60,speed-2); onScore(score); food=spawnFood(); }
+    else snake.pop();
+  }
+
+  function loop(ts){
+    if(!running) return;
+    if(ts-lastTime > speed){ lastTime=ts; tick(); draw(); }
+    requestAnimationFrame(loop);
+  }
+  draw();
+  requestAnimationFrame(loop);
+
+  // Touch/swipe
+  let tx=0,ty=0;
+  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  canvas.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&dir.x===0) nextDir={x:1,y:0}; else if(dx<-20&&dir.x===0) nextDir={x:-1,y:0}; }
+    else{ if(dy>20&&dir.y===0) nextDir={x:0,y:1}; else if(dy<-20&&dir.y===0) nextDir={x:0,y:-1}; }
+  },{passive:true});
+  // Keyboard
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowUp'&&dir.y===0) nextDir={x:0,y:-1};
+    else if(e.key==='ArrowDown'&&dir.y===0) nextDir={x:0,y:1};
+    else if(e.key==='ArrowLeft'&&dir.x===0) nextDir={x:-1,y:0};
+    else if(e.key==='ArrowRight'&&dir.x===0) nextDir={x:1,y:0};
+  });
+
+  // D-pad controls
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = `
+    <div style="display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;">
+      <div></div>
+      <button style="${dpadBtn()}" onclick="if(dir.y===0)nextDir={x:0,y:-1}">▲</button>
+      <div></div>
+      <button style="${dpadBtn()}" onclick="if(dir.x===0)nextDir={x:-1,y:0}">◀</button>
+      <button style="${dpadBtn()}" onclick="if(dir.x===0)nextDir={x:1,y:0}">▶</button>
+      <button style="${dpadBtn()}" onclick="if(dir.y===0)nextDir={x:0,y:1}">▼</button>
+    </div>`;
+};
+
+function dpadBtn(){ return 'width:44px;height:44px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'; }
+
+// ── 🧱 BLOCK DROP (Tetris) ────────────────────────────────────
+GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
+  const ctx = canvas.getContext('2d');
+  const COLS=10, ROWS=20;
+  const CELL = Math.floor(Math.min(canvas.width/COLS, canvas.height/ROWS));
+  const W2=COLS*CELL, H2=ROWS*CELL;
+  canvas.width=W2; canvas.height=H2;
+
+  const PIECES=[
+    [[1,1,1,1]],
+    [[1,1],[1,1]],
+    [[0,1,0],[1,1,1]],
+    [[1,0,0],[1,1,1]],
+    [[0,0,1],[1,1,1]],
+    [[1,1,0],[0,1,1]],
+    [[0,1,1],[1,1,0]],
+  ];
+  const COLORS=['#64B5F6','#FFD54F','#CE93D8','#FF8A65','#4DB6AC','#EF5350','#66BB6A'];
+
+  let board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  let score=0, running=true;
+  let cur=newPiece(), dropInterval=500, lastDrop=Date.now();
+
+  function newPiece(){
+    const i=Math.floor(Math.random()*PIECES.length);
+    return {shape:PIECES[i],color:COLORS[i],x:Math.floor(COLS/2)-Math.floor(PIECES[i][0].length/2),y:0};
+  }
+
+  function valid(shape,ox,oy){
+    return shape.every((row,dy)=>row.every((v,dx)=>{
+      if(!v) return true;
+      const nx=ox+dx, ny=oy+dy;
+      return nx>=0&&nx<COLS&&ny<ROWS&&(ny<0||!board[ny][nx]);
+    }));
+  }
+
+  function place(){
+    cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&cur.y+dy>=0) board[cur.y+dy][cur.x+dx]=cur.color; }));
+    // Clear lines
+    let cleared=0;
+    for(let r=ROWS-1;r>=0;r--){
+      if(board[r].every(c=>c)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); cleared++; r++; }
+    }
+    if(cleared){ score+=cleared*100*cleared; onScore(score); dropInterval=Math.max(100,500-score/10); }
+    cur=newPiece();
+    if(!valid(cur.shape,cur.x,cur.y)){ running=false; onGameOver(score); }
+  }
+
+  function draw(){
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W2,H2);
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
+    for(let x=0;x<=COLS;x++){ ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,H2);ctx.stroke(); }
+    for(let y=0;y<=ROWS;y++){ ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(W2,y*CELL);ctx.stroke(); }
+    // Board
+    board.forEach((row,y)=>row.forEach((c,x)=>{ if(c){ drawCell(x,y,c,0.9); } }));
+    // Ghost piece
+    let gy=cur.y;
+    while(valid(cur.shape,cur.x,gy+1)) gy++;
+    if(gy!==cur.y) cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,gy+dy,cur.color,0.2); }));
+    // Current piece
+    cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,cur.y+dy,cur.color,1); }));
+  }
+
+  function drawCell(x,y,color,alpha){
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.roundRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2,3); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  function loop(){
+    if(!running) return;
+    const now=Date.now();
+    if(now-lastDrop>dropInterval){ lastDrop=now; if(valid(cur.shape,cur.x,cur.y+1)) cur.y++; else place(); }
+    draw(); requestAnimationFrame(loop);
+  }
+  loop();
+
+  // Touch
+  let tx=0,ty=0,ttime=0;
+  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;ttime=Date.now();},{passive:true});
+  canvas.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty, dt=Date.now()-ttime;
+    if(dt<200&&Math.abs(dx)<10&&Math.abs(dy)<10){
+      // Tap = rotate
+      const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());
+      if(valid(rot,cur.x,cur.y)) cur.shape=rot;
+    } else if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&valid(cur.shape,cur.x+1,cur.y))cur.x++; else if(dx<-20&&valid(cur.shape,cur.x-1,cur.y))cur.x--; }
+    else if(dy>30){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
+  },{passive:true});
+  // Keys
+  document.addEventListener('keydown',e=>{
+    if(!running) return;
+    if(e.key==='ArrowLeft'&&valid(cur.shape,cur.x-1,cur.y))cur.x--;
+    else if(e.key==='ArrowRight'&&valid(cur.shape,cur.x+1,cur.y))cur.x++;
+    else if(e.key==='ArrowDown'&&valid(cur.shape,cur.x,cur.y+1))cur.y++;
+    else if(e.key==='ArrowUp'){const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());if(valid(rot,cur.x,cur.y))cur.shape=rot;}
+    else if(e.key===' '){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
+  });
+
+  const ctrl=document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML=`
+    <button style="${dpadBtn()}" onclick="if(valid(cur.shape,cur.x-1,cur.y))cur.x--">◀</button>
+    <button style="${dpadBtn()}" onclick="(()=>{while(valid(cur.shape,cur.x,cur.y+1))cur.y++;place();})()" >⬇</button>
+    <button style="${dpadBtn()}" onclick="if(valid(cur.shape,cur.x+1,cur.y))cur.x++">▶</button>
+    <button style="${dpadBtn()}" onclick="(()=>{const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse());if(valid(r,cur.x,cur.y))cur.shape=r;})()">↻</button>`;
+};
+
+// ── 🏓 BREAKOUT ───────────────────────────────────────────────
+GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const ROWS=6, COLS=8, PAD_W=Math.floor(W*0.22), PAD_H=12, BALL_R=8;
+  let bricks=[], score=0, lives=3, running=true;
+  let ball={x:W/2,y:H*0.65,vx:3,vy:-4};
+  let pad={x:W/2-PAD_W/2,y:H-40};
+  const BRICK_COLORS=['#EF5350','#FF7043','#FFB300','#66BB6A','#42A5F5','#AB47BC'];
+
+  function initBricks(){
+    bricks=[];
+    const bw=Math.floor((W-20)/COLS)-4, bh=18;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+      bricks.push({x:10+c*(bw+4),y:50+r*(bh+4),w:bw,h:bh,color:BRICK_COLORS[r%BRICK_COLORS.length],alive:true});
+  }
+  initBricks();
+
+  function draw(){
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+    // Bricks
+    bricks.forEach(b=>{ if(!b.alive) return;
+      ctx.fillStyle=b.color; ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,4); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.roundRect(b.x+2,b.y+2,b.w-4,4,2); ctx.fill();
+    });
+    // Paddle
+    const grad=ctx.createLinearGradient(pad.x,0,pad.x+PAD_W,0);
+    grad.addColorStop(0,'#64B5F6'); grad.addColorStop(1,'#E8A838');
+    ctx.fillStyle=grad; ctx.beginPath(); ctx.roundRect(pad.x,pad.y,PAD_W,PAD_H,PAD_H/2); ctx.fill();
+    // Ball
+    ctx.fillStyle='#fff'; ctx.shadowColor='#E8A838'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+    // Lives
+    for(let i=0;i<lives;i++){ ctx.fillStyle='#EF5350'; ctx.beginPath(); ctx.arc(16+i*20,22,6,0,Math.PI*2); ctx.fill(); }
+  }
+
+  function loop(){
+    if(!running) return;
+    ball.x+=ball.vx; ball.y+=ball.vy;
+    // Walls
+    if(ball.x<BALL_R||ball.x>W-BALL_R) ball.vx*=-1;
+    if(ball.y<BALL_R) ball.vy*=-1;
+    // Paddle
+    if(ball.y>pad.y-BALL_R&&ball.y<pad.y+PAD_H&&ball.x>pad.x&&ball.x<pad.x+PAD_W){
+      ball.vy=Math.abs(ball.vy)*-1;
+      ball.vx=((ball.x-(pad.x+PAD_W/2))/(PAD_W/2))*5;
+    }
+    // Bricks
+    bricks.forEach(b=>{ if(!b.alive) return;
+      if(ball.x>b.x&&ball.x<b.x+b.w&&ball.y>b.y&&ball.y<b.y+b.h){
+        b.alive=false; ball.vy*=-1; score+=10; onScore(score);
+      }
+    });
+    // Out
+    if(ball.y>H){ lives--; if(lives<=0){ running=false; onGameOver(score); return; }
+      ball={x:W/2,y:H*0.65,vx:3,vy:-4}; }
+    // Win
+    if(bricks.every(b=>!b.alive)){ score+=500; initBricks(); ball.vx*=1.1; ball.vy*=1.1; onScore(score); }
+    draw(); requestAnimationFrame(loop);
+  }
+  loop();
+
+  // Touch move paddle
+  canvas.addEventListener('touchmove',e=>{ e.preventDefault();
+    pad.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-PAD_W/2;
+    pad.x=Math.max(0,Math.min(W-PAD_W,pad.x));
+  },{passive:false});
+  document.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect();
+    pad.x=e.clientX-r.left-PAD_W/2;
+    pad.x=Math.max(0,Math.min(W-PAD_W,pad.x));
+  });
+  const ctrl=document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML=`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">Slide finger or mouse to move paddle</div>`;
+};
+
+// ── 🌌 SPACE SHOOTER ─────────────────────────────────────────
+GAME_ENGINES.shooter = function(canvas, onScore, onGameOver){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  let player={x:W/2,y:H-60,w:30,h:30};
+  let bullets=[], enemies=[], stars=[], score=0, running=true, enemyTimer=0, wave=1;
+
+  // Stars
+  for(let i=0;i<60;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.5,s:Math.random()*1+0.5});
+
+  function spawnEnemy(){
+    const types=[{w:28,h:20,hp:1,pts:10,spd:1.5+wave*0.3},{w:36,h:28,hp:2,pts:25,spd:1+wave*0.2}];
+    const t=types[Math.random()<0.7?0:1];
+    enemies.push({x:Math.random()*(W-t.w),y:-t.h,...t,orig_hp:t.hp});
+  }
+
+  function drawShip(x,y,w,h,color,flip){
+    ctx.save(); if(flip){ctx.translate(x+w/2,y+h/2);ctx.scale(1,-1);ctx.translate(-(x+w/2),-(y+h/2));}
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w,y+h); ctx.lineTo(x+w/2,y+h*0.7); ctx.lineTo(x,y+h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(x+w/2,y+h*0.5,w*0.15,h*0.2,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function loop(){
+    if(!running) return;
+    // Scroll stars
+    stars.forEach(s=>{ s.y=(s.y+s.s)%H; });
+    ctx.fillStyle='#050810'; ctx.fillRect(0,0,W,H);
+    // Stars
+    stars.forEach(s=>{ ctx.fillStyle=`rgba(255,255,255,${0.3+s.r*0.3})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); });
+    // Bullets
+    bullets=bullets.filter(b=>b.y>0);
+    bullets.forEach(b=>{ b.y-=10; ctx.fillStyle='#FFD54F'; ctx.shadowColor='#FFD54F'; ctx.shadowBlur=6; ctx.beginPath(); ctx.roundRect(b.x-2,b.y,4,12,2); ctx.fill(); ctx.shadowBlur=0; });
+    // Enemies
+    enemyTimer++; if(enemyTimer>Math.max(30,80-wave*5)){ enemyTimer=0; spawnEnemy(); }
+    enemies=enemies.filter(e=>e.y<H+e.h);
+    enemies.forEach(e=>{
+      e.y+=e.spd;
+      const hpFrac=e.hp/e.orig_hp;
+      drawShip(e.x,e.y,e.w,e.h,`rgba(${Math.round(239*(1-hpFrac)+100*hpFrac)},${Math.round(83*hpFrac)},${Math.round(80*(1-hpFrac)+200*hpFrac)},0.9)`,true);
+      // Bullet hits enemy
+      bullets.forEach(b=>{
+        if(b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h){ b.y=-999; e.hp--; if(e.hp<=0){e.y=H+100;score+=e.pts;onScore(score);} }
+      });
+      // Enemy reaches player
+      if(e.y+e.h>player.y&&e.x+e.w>player.x&&e.x<player.x+player.w){ running=false; onGameOver(score); return; }
+    });
+    if(!running) return;
+    wave=1+Math.floor(score/200);
+    // Player
+    drawShip(player.x,player.y,player.w,player.h,'#64B5F6',false);
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // Touch: drag to move, tap anywhere to shoot
+  let touching=false;
+  canvas.addEventListener('touchstart',e=>{ touching=true; player.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-player.w/2; bullets.push({x:player.x+player.w/2,y:player.y}); },{passive:true});
+  canvas.addEventListener('touchmove',e=>{ if(touching){ player.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-player.w/2; player.x=Math.max(0,Math.min(W-player.w,player.x)); } },{passive:true});
+  canvas.addEventListener('touchend',()=>{ touching=false; },{passive:true});
+  document.addEventListener('mousemove',e=>{ const r=canvas.getBoundingClientRect(); player.x=e.clientX-r.left-player.w/2; player.x=Math.max(0,Math.min(W-player.w,player.x)); });
+  document.addEventListener('click',e=>{ const r=canvas.getBoundingClientRect(); if(e.clientX>r.left&&e.clientX<r.right) bullets.push({x:player.x+player.w/2,y:player.y}); });
+  // Auto-fire
+  setInterval(()=>{ if(running) bullets.push({x:player.x+player.w/2,y:player.y}); },400);
+  const ctrl=document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML=`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">Drag to move · Auto-fires every 0.4s</div>`;
+};
+
+// ── 🦘 ENDLESS RUNNER ────────────────────────────────────────
+GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const GROUND=H-60;
+  let player={x:60,y:GROUND,w:30,h:40,vy:0,jumping:false,doubleJump:false};
+  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0;
+  const GRAVITY=0.5, JUMP_FORCE=-12;
+
+  function jump(){
+    if(!player.jumping){ player.vy=JUMP_FORCE; player.jumping=true; }
+    else if(!player.doubleJump){ player.vy=JUMP_FORCE*0.8; player.doubleJump=true; }
+  }
+
+  function loop(){
+    if(!running) return;
+    frame++;
+    if(frame%Math.max(50,90-Math.floor(speed)*3)===0){
+      const h=20+Math.random()*35, w=18+Math.random()*20;
+      obstacles.push({x:W,y:GROUND+player.h-h,w,h,type:Math.random()<0.15?'fly':'ground'});
+      if(obstacles.at(-1).type==='fly') obstacles.at(-1).y=GROUND-h-30-Math.random()*40;
+    }
+    // Scroll bg
+    bgX=(bgX-speed*0.3+W)%W;
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+    // Background mountains
+    ctx.fillStyle='rgba(255,255,255,0.03)';
+    for(let i=0;i<4;i++){ const mx=(bgX*0.5+i*W/3)%W; ctx.beginPath();ctx.moveTo(mx,GROUND);ctx.lineTo(mx+60,GROUND-80);ctx.lineTo(mx+120,GROUND);ctx.fill(); }
+    // Ground
+    const gg=ctx.createLinearGradient(0,GROUND,0,H);
+    gg.addColorStop(0,'#1a2a3a'); gg.addColorStop(1,'#0d1117');
+    ctx.fillStyle=gg; ctx.fillRect(0,GROUND+player.h,W,H-GROUND-player.h);
+    ctx.fillStyle='rgba(100,181,246,0.3)'; ctx.fillRect(0,GROUND+player.h,W,2);
+
+    // Player physics
+    player.vy+=GRAVITY; player.y+=player.vy;
+    if(player.y>=GROUND){ player.y=GROUND; player.vy=0; player.jumping=false; player.doubleJump=false; }
+    // Draw player (kangaroo-ish)
+    ctx.fillStyle='#E8A838';
+    ctx.beginPath(); ctx.roundRect(player.x,player.y,player.w,player.h,8); ctx.fill();
+    ctx.fillStyle='#f5c842';
+    ctx.beginPath(); ctx.ellipse(player.x+player.w/2,player.y+8,8,10,0,0,Math.PI*2); ctx.fill();
+    // Eye
+    ctx.fillStyle='#1a1f2e'; ctx.beginPath(); ctx.arc(player.x+player.w-6,player.y+6,3,0,Math.PI*2); ctx.fill();
+    // Legs
+    ctx.fillStyle='#E8A838';
+    const legOff=Math.sin(frame*0.3)*8;
+    ctx.beginPath(); ctx.roundRect(player.x+4,player.y+player.h-8+legOff,8,12,4); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(player.x+player.w-12,player.y+player.h-8-legOff,8,12,4); ctx.fill();
+
+    // Obstacles
+    obstacles=obstacles.filter(o=>o.x>-o.w);
+    obstacles.forEach(o=>{
+      o.x-=speed;
+      ctx.fillStyle=o.type==='fly'?'#EF5350':'#66BB6A';
+      ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,4); ctx.fill();
+      if(o.type==='fly'){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2,o.y-4,o.w*0.4,6,0,0,Math.PI*2); ctx.fill(); }
+      // Collision
+      if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; onGameOver(score); }
+    });
+
+    score=Math.floor(frame/5); speed=4+score/200; onScore(score);
+    // Score display on canvas
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font=`700 13px var(--font-ui)`; ctx.fillText('Score: '+score,W-90,24);
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  canvas.addEventListener('touchstart',e=>{ e.preventDefault(); jump(); },{passive:false});
+  document.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowUp') jump(); });
+
+  const ctrl=document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML=`<button onclick="jump()" style="padding:14px 48px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 14px/1 var(--font-ui);cursor:pointer;min-height:52px;">JUMP</button>`;
+};
+
+// ── 🔢 2048 ──────────────────────────────────────────────────
+GAME_ENGINES['2048'] = function(canvas, onScore, onGameOver){
+  const ctx=canvas.getContext('2d');
+  const SIZE=4, GAP=8, PADDING=12;
+  const CELL=(canvas.width-PADDING*2-GAP*(SIZE-1))/SIZE;
+  canvas.height=canvas.width;
+  let board=Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+  let score=0, running=true;
+
+  const COLORS={0:'#1a2332',2:'#2d4a6b',4:'#1e5f7a',8:'#1a7a6e',16:'#E65100',32:'#D84315',64:'#BF360C',128:'#F9A825',256:'#F57F17',512:'#E8A838',1024:'#64B5F6',2048:'#AB47BC'};
+  const TEXT_COLORS={0:'transparent',2:'#90CAF9',4:'#80DEEA',8:'#A5D6A7',16:'#fff',32:'#fff',64:'#fff',128:'#1a1f2e',256:'#1a1f2e',512:'#1a1f2e',1024:'#fff',2048:'#fff'};
+
+  function addRandom(){
+    const empty=[];
+    board.forEach((r,y)=>r.forEach((v,x)=>{ if(!v) empty.push({x,y}); }));
+    if(!empty.length) return;
+    const {x,y}=empty[Math.floor(Math.random()*empty.length)];
+    board[y][x]=Math.random()<0.9?2:4;
+  }
+  addRandom(); addRandom();
+
+  function draw(){
+    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for(let y=0;y<SIZE;y++) for(let x=0;x<SIZE;x++){
+      const v=board[y][x];
+      const px=PADDING+x*(CELL+GAP), py=PADDING+y*(CELL+GAP);
+      ctx.fillStyle=COLORS[v>2048?2048:v]||'#AB47BC';
+      ctx.beginPath(); ctx.roundRect(px,py,CELL,CELL,10); ctx.fill();
+      if(v){
+        ctx.fillStyle=TEXT_COLORS[v>2048?2048:v]||'#fff';
+        const fs=v<100?Math.floor(CELL*0.38):v<1000?Math.floor(CELL*0.3):Math.floor(CELL*0.23);
+        ctx.font=`800 ${fs}px var(--font-ui)`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(v, px+CELL/2, py+CELL/2);
+      }
+    }
+  }
+
+  function slide(row){ let r=row.filter(v=>v); let merged=false;
+    for(let i=0;i<r.length-1;i++){ if(r[i]===r[i+1]&&!merged){ r[i]*=2; score+=r[i]; r.splice(i+1,1); merged=true; } else merged=false; }
+    while(r.length<SIZE) r.push(0); return r;
+  }
+
+  function move(dir){
+    let moved=false;
+    const orig=board.map(r=>[...r]);
+    if(dir==='left') board=board.map(slide);
+    else if(dir==='right') board=board.map(r=>slide([...r].reverse()).reverse());
+    else if(dir==='up'||dir==='down'){
+      for(let x=0;x<SIZE;x++){
+        let col=board.map(r=>r[x]); if(dir==='down') col.reverse();
+        col=slide(col); if(dir==='down') col.reverse();
+        board.forEach((r,y)=>r[x]=col[y]);
+      }
+    }
+    board.forEach((r,y)=>r.forEach((v,x)=>{ if(v!==orig[y][x]) moved=true; }));
+    if(moved){ addRandom(); onScore(score); draw();
+      if(board.flat().includes(2048)&&running){ running=false; onGameOver(score); return; }
+      // Check if no moves left
+      let canMove=board.flat().some(v=>!v);
+      outer: for(let y=0;y<SIZE;y++) for(let x=0;x<SIZE;x++){
+        if(x<SIZE-1&&board[y][x]===board[y][x+1]){canMove=true;break outer;}
+        if(y<SIZE-1&&board[y][x]===board[y+1][x]){canMove=true;break outer;}
+      }
+      if(!canMove&&running){ running=false; onGameOver(score); }
+    }
+  }
+  draw();
+
+  // Touch
+  let tx=0,ty=0;
+  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  canvas.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>Math.abs(dy)){ move(dx>0?'right':'left'); }
+    else{ move(dy>0?'down':'up'); }
+  },{passive:true});
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft') move('left');
+    else if(e.key==='ArrowRight') move('right');
+    else if(e.key==='ArrowUp') move('up');
+    else if(e.key==='ArrowDown') move('down');
+  });
+
+  const ctrl=document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML=`
+    <div style="display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;">
+      <div></div>
+      <button style="${dpadBtn()}" onclick="move('up')">▲</button><div></div>
+      <button style="${dpadBtn()}" onclick="move('left')">◀</button>
+      <button style="${dpadBtn()}" onclick="move('down')">▼</button>
+      <button style="${dpadBtn()}" onclick="move('right')">▶</button>
+    </div>`;
+};
 
 function toggleSimpleMode(){
   const current = localStorage.getItem('hub-simple-mode') === '1';
