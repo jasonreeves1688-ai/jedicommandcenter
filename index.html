@@ -1035,6 +1035,24 @@ input,select,textarea{ font-size:16px !important; }
   display:flex; flex-direction:column;
   overflow:hidden;
   transition:border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  position:relative;
+}
+/* Swipe reveal layers */
+.task-row-swipe-complete{
+  position:absolute;inset:0;
+  background:var(--green);
+  display:flex;align-items:center;padding-left:20px;
+  font:700 13px/1 var(--font-ui);color:#fff;
+  opacity:0;pointer-events:none;border-radius:var(--r3);
+  transition:opacity 0.1s;
+}
+.task-row-swipe-someday{
+  position:absolute;inset:0;
+  background:#7b5ea7;
+  display:flex;align-items:center;justify-content:flex-end;padding-right:20px;
+  font:700 13px/1 var(--font-ui);color:#fff;
+  opacity:0;pointer-events:none;border-radius:var(--r3);
+  transition:opacity 0.1s;
 }
 .task-row:active{ transform:scale(0.995); border-color:var(--border2); }
 .task-row-top{ display:flex; align-items:stretch; min-height:44px; }
@@ -1891,6 +1909,113 @@ input[type="date"].row-ctrl{
     row-gap:4px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE OPTIMIZATION PASS
+   Fixes: touch targets, font sizes, active states, tap feedback
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Touch targets — raise everything below 44px ────────────── */
+.today-card-action{
+  font:700 12px/1 var(--font-ui);
+  padding:0 var(--sp3);
+  min-height:36px;
+  display:inline-flex; align-items:center;
+}
+.today-check-btn{
+  width:44px; height:44px;
+}
+.today-focus-btn{
+  width:40px; height:40px;
+}
+.today-icon-btn{
+  width:40px; height:40px;
+}
+.slot-done-btn{
+  width:40px; height:40px;
+}
+.slot-assign-btn{
+  min-height:40px; padding:var(--sp2) var(--sp3);
+}
+.mic-btn{
+  width:44px; height:44px;
+}
+.row-ctrl{
+  height:34px; padding:0 10px; font:600 12px/1 var(--font-ui);
+}
+.fdd-btn{
+  min-height:40px;
+}
+.fdd-item{
+  min-height:44px;
+  display:flex; align-items:center;
+}
+
+/* ── Font size floor — nothing below 11px visible ────────────── */
+.today-card-count,
+.today-card-title,
+.cal-day-hdr,
+.cal-count-badge,
+.cal-upcoming-badge,
+.t-micro,
+.t-upper,
+.disc-sentiment-chip,
+.sstrip-bar-name,
+.sstrip-bar-note,
+.section-title,
+.slot-label,
+.three-domain-sub,
+.fdd-count{
+  font-size:11px !important;
+}
+
+/* ── Active/press states on everything tappable ─────────────── */
+/* These replace hover states which don't fire on mobile */
+.today-card-action:active{ opacity:0.7; transform:scale(0.96); }
+.today-check-btn:active{ transform:scale(0.88); }
+.today-focus-btn:active{ transform:scale(0.88); }
+.today-icon-btn:active{ opacity:0.6; transform:scale(0.88); }
+.today-card-row:active{ background:rgba(255,255,255,0.04); }
+body.light-mode .today-card-row:active{ background:rgba(0,0,0,0.04); }
+.chip-btn:active{ transform:scale(0.96); opacity:0.85; }
+.fdd-btn:active{ opacity:0.75; }
+.fdd-item:active{ background:var(--surface3); }
+.fdd-clear:active{ color:var(--accent); }
+.hbtn:active{ transform:scale(0.97); }
+.nav-btn:active{ opacity:0.6; }
+.cal-nav-btn:active{ transform:scale(0.95); }
+.cal-cell.has-tasks:active{ background:var(--surface3); }
+.cal-upcoming-row:active{ background:var(--surface2); }
+.modal-close:active{ background:var(--surface3); }
+.person-chip:active{ transform:scale(0.95); }
+.disc-card:active{ opacity:0.85; }
+.slot-done-btn:active{ transform:scale(0.9); }
+.slot-assign-btn:active{ opacity:0.75; }
+.mic-btn:active{ transform:scale(0.9); }
+.tctl-btn:active{ transform:scale(0.93); }
+.brain-dump-btn:active{ transform:scale(0.93); opacity:0.75; }
+.row-ctrl:active{ opacity:0.75; }
+
+/* ── Overdue triage buttons — make them proper touch targets ─── */
+/* These are generated inline with padding:5px — override for mobile */
+@media(max-width:767px){
+  /* Increase tap area on all small inline action buttons */
+  button[style*="border-radius:20px"][style*="padding:5px"]{
+    padding:8px 14px !important;
+    font-size:12px !important;
+  }
+  /* Today card action buttons */
+  .today-card-action{ min-height:40px; font-size:12px; }
+  /* Wider nav labels so they don't clip */
+  #bottom-nav .nav-btn{ min-height:56px; }
+  /* Modal footers sit above home indicator */
+  .modal-footer{ padding-bottom:calc(var(--sp3) + env(safe-area-inset-bottom) + 4px); }
+  /* Brain dump bar sits above home indicator in home mode */
+  .brain-dump-bar{ margin-bottom:calc(8px + env(safe-area-inset-bottom)); }
+}
+
+/* ── Tap highlight suppression (already in * rule, belt+suspenders) */
+button, a, [onclick]{ -webkit-tap-highlight-color:transparent; }
 </style>
 
 <!-- vConsole hidden — re-enable if needed for push notification debugging -->
@@ -2093,9 +2218,6 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-people" onclick="setNav('people')">
         <span class="nav-icon">👥</span><span class="nav-label">People</span>
       </button>
-      <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
-        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
-      </button>
       <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
         <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
       </button>
@@ -2117,6 +2239,9 @@ input[type="date"].row-ctrl{
       </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      </button>
+      <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
+        <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
       </button>
       <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
         <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
@@ -2148,15 +2273,15 @@ input[type="date"].row-ctrl{
       <div id="header-stats" class="stats"></div>
     </div>
     <div id="header-actions">
-    <!-- Mode switch — Home / Work -->
+    <!-- Mode switch — Home / Work — made large and obvious -->
     <button id="mode-toggle-btn"
       onclick="toggleMode()"
       title="Switch between Home and Work"
-      style="background:transparent;border:1px solid var(--border);cursor:pointer;
-        height:28px;border-radius:20px;padding:0 10px;
-        display:flex;align-items:center;gap:5px;
-        font:700 11px/1 var(--font-ui);color:var(--text3);
-        transition:all var(--t-fast);"
+      style="background:transparent;border:2px solid var(--border);cursor:pointer;
+        height:36px;border-radius:20px;padding:0 14px;
+        display:flex;align-items:center;gap:6px;
+        font:800 12px/1 var(--font-ui);color:var(--text2);
+        transition:all 0.2s ease;">
       🏠 <span id="mode-label">Home</span>
     </button>
     <button id="theme-toggle-btn"
@@ -2284,8 +2409,8 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
         <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
       </button>
-      <button class="nav-btn" id="nav-kids" onclick="setNav('kids')">
-        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+      <button class="nav-btn" id="nav-people" onclick="setNav('people')">
+        <span class="nav-icon">👥</span><span class="nav-label">People</span>
       </button>
       <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
         <span class="nav-icon">⊞</span><span class="nav-label">More</span>
@@ -2305,8 +2430,8 @@ input[type="date"].row-ctrl{
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
-        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
+        <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
       </button>
       <button class="nav-btn" id="nav-home-grid-btn" onclick="toggleNavGrid()">
         <span class="nav-icon">⊞</span><span class="nav-label">More</span>
@@ -2651,8 +2776,14 @@ input[type="date"].row-ctrl{
         <input id="reset-win3" class="field-input" placeholder="Win 3…" autocomplete="off"/>
       </div>
     </div>
+    <div id="reset-step-someday" class="reset-step">
+      <div class="reset-step-num">STEP 7 OF 8 · 2 MIN</div>
+      <div class="reset-step-title">💭 Someday Review</div>
+      <div class="reset-step-desc">3 random items from your Someday list. Still relevant? Pull it back in. Otherwise — keep or delete.</div>
+      <div id="reset-someday-items" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
     <div id="reset-step-5" class="reset-step">
-      <div class="reset-step-num">STEP 7 OF 7 · 2 MIN</div>
+      <div class="reset-step-num">STEP 8 OF 8 · 2 MIN</div>
       <div class="reset-step-title">🕊 Release</div>
       <div class="reset-step-desc">Everything that didn't make the 3s goes to the Parking Lot. It's not lost — it's just not this week. That's the deal.</div>
       <div id="reset-streak-display" style="margin-bottom:10px;"></div>
@@ -2746,7 +2877,6 @@ var KID_PINS = {
 
 var PLAYER_THEMES = [
   {
-    // Player 0 — Ridley
     color:      '#E91E8C',
     colorDark:  '#C2185B',
     colorLight: '#FF6B9D',
@@ -2758,7 +2888,6 @@ var PLAYER_THEMES = [
     name:       'Ridley',
   },
   {
-    // Player 1 — Connor
     color:      '#0066CC',
     colorDark:  '#003D7A',
     colorLight: '#00AAFF',
@@ -2784,7 +2913,7 @@ const API_URL = APPS_SCRIPT_URL;
 
 // ── Supabase client ────────────────────────────────────────────
 const SUPABASE_URL  = 'https://pfsuljwznlxbfpmifdir.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI'; // ← replace with eyJ... anon key from Supabase Dashboard → Project Settings → API
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI'; // ← replace with eyJ... key from Supabase Dashboard → Project Settings → API
 // Edge Functions require the JWT anon key (starts with eyJ), not the publishable key.
 // Get this from: Supabase Dashboard → Project Settings → API → anon public key
 const SUPABASE_JWT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI';
@@ -3944,6 +4073,8 @@ function applyMode(){
   if(isJenny) currentMode = 'home';
 
   const isHome = currentMode === 'home';
+  const simpleModeOn = localStorage.getItem('hub-simple-mode') === '1';
+
   // Bottom nav (mobile)
   const workNav = document.getElementById('nav-work-items');
   const homeNav = document.getElementById('nav-home-items');
@@ -3955,9 +4086,35 @@ function applyMode(){
   if(railWork) railWork.style.display = isHome ? 'none' : 'block';
   if(railHome) railHome.style.display = isHome ? 'block' : 'none';
 
+  // Simple mode — hide non-essential nav buttons
+  // Use querySelectorAll to catch duplicate IDs in rail + bottom nav
+  if(simpleModeOn){
+    // Work bottom nav simple: keep Today, Tasks, Meetings — hide Waiting, People, More
+    const hideWorkBottom = ['nav-waiting','nav-people','nav-grid-btn'];
+    // Home bottom nav simple: keep Today, Family, Kids — hide Grocery, Contacts, More
+    const hideHomeBottom = ['nav-grocery','nav-home-contacts','nav-home-grid-btn'];
+    // Rail simple: hide Waiting, Discovery (work) and Grocery, Contacts, Tracker, Dinners, Calendar (home)
+    const hideRail = ['nav-waiting','nav-discovery',
+                      'nav-grocery','nav-home-contacts','nav-tracker','nav-dinners','nav-calendar'];
+    [...hideWorkBottom,...hideHomeBottom,...hideRail].forEach(id=>{
+      document.querySelectorAll('#'+id).forEach(el=>{ el.style.display='none'; });
+    });
+  } else {
+    // Restore all — let display be empty so CSS/flex takes over
+    ['nav-waiting','nav-people','nav-grid-btn',
+     'nav-grocery','nav-home-contacts','nav-home-grid-btn',
+     'nav-discovery','nav-tracker','nav-dinners','nav-calendar'].forEach(id=>{
+      document.querySelectorAll('#'+id).forEach(el=>{ el.style.display=''; });
+    });
+  }
+
   // Mode toggle — hidden for Jenny, updated for Jason
   const modeBtn   = document.getElementById('mode-toggle-btn');
   const modeLabel = document.getElementById('mode-label');
+  const headerEl  = document.getElementById('header');
+  const headerSub = document.getElementById('header-sub');
+  const simpleModeOn = localStorage.getItem('hub-simple-mode') === '1';
+
   if(modeBtn){
     if(isJenny){
       modeBtn.style.display = 'none';
@@ -3967,6 +4124,36 @@ function applyMode(){
         modeLabel.textContent = isHome ? 'Home' : 'Work';
         modeBtn.childNodes[0].textContent = isHome ? '🏠 ' : '💼 ';
       }
+      // Make mode button color match the mode
+      if(isHome){
+        modeBtn.style.borderColor = '#81C784';
+        modeBtn.style.color = '#81C784';
+        modeBtn.style.background = 'rgba(129,199,132,0.10)';
+      } else {
+        modeBtn.style.borderColor = 'var(--accent)';
+        modeBtn.style.color = 'var(--accent)';
+        modeBtn.style.background = 'rgba(21,101,192,0.10)';
+      }
+    }
+  }
+
+  // Header background tint + subtitle change per mode
+  if(headerEl){
+    if(isHome){
+      headerEl.style.borderBottom = '2px solid rgba(129,199,132,0.4)';
+      headerEl.style.background = 'linear-gradient(135deg, var(--surface) 0%, rgba(129,199,132,0.06) 100%)';
+    } else {
+      headerEl.style.borderBottom = '2px solid rgba(21,101,192,0.3)';
+      headerEl.style.background = 'linear-gradient(135deg, var(--surface) 0%, rgba(21,101,192,0.06) 100%)';
+    }
+  }
+  if(headerSub){
+    if(simpleModeOn){
+      headerSub.textContent = isHome ? '🏠 HOME · SIMPLE MODE' : '💼 WORK · SIMPLE MODE';
+      headerSub.style.color = simpleModeOn ? (isHome ? '#81C784' : 'var(--accent)') : '';
+    } else {
+      headerSub.textContent = isHome ? '🏠 HOME MODE' : '💼 WORK MODE';
+      headerSub.style.color = isHome ? '#81C784' : 'var(--accent)';
     }
   }
 
@@ -4086,6 +4273,9 @@ async function renderHomeTodayView(container){
   // ── Weather card (async, filled after render) ─────────────────
   html += '<div id="weather-card"></div>';
 
+  // ── Calendar strip placeholder (filled async after render) ───
+  html += '<div id="home-cal-strip"></div>';
+
   // ── Family snapshot card ──────────────────────────────────────
   const kidColor = [playerColor(0), playerColor(1)];
   const kidsNames = kidsGame?.players?.map(p=>p.name) || ['Ridley','Connor'];
@@ -4135,12 +4325,33 @@ async function renderHomeTodayView(container){
   const todayFamily    = familyDueToday.filter(t => t.dueDate === todayStr);
   const hasOverdue = overduePrivate.length + overdueFamily.length > 0;
   const hasDueToday = todayPrivate.length + todayFamily.length > 0;
+  const allOverdue = [...overduePrivate.map(t=>({t,type:'private'})), ...overdueFamily.map(t=>({t,type:'family'}))];
 
+  // ── Overdue triage ────────────────────────────────────────────
   if(hasOverdue){
-    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--red);text-transform:uppercase;">&#9888; Overdue</div>';
-    overduePrivate.forEach(t => { html += homeTaskRow(t, 'private'); });
-    overdueFamily.forEach(t => { html += homeTaskRow(t, 'family'); });
+    html += '<div style="margin:0 16px 8px;border-radius:var(--r3);border:1px solid rgba(176,30,30,0.3);background:var(--surface);overflow:hidden;">'
+      + '<div style="padding:8px 14px 6px;display:flex;align-items:center;justify-content:space-between;background:rgba(176,30,30,0.05);">'
+      + '<span style="font:700 11px/1 var(--font-ui);color:var(--red);letter-spacing:0.8px;text-transform:uppercase;">⚠ Overdue</span>'
+      + '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">Tap an action</span>'
+      + '</div>';
+
+    allOverdue.forEach(({t, type}) => {
+      const isPrivate = type === 'private';
+      const saveFn  = isPrivate ? (currentUser==='parent' ? 'saveJasonHomeTasks' : 'saveWifeHomeTasks') : 'saveFamilyTasks';
+      const arrName = isPrivate ? (currentUser==='parent' ? 'jasonHomeTasks' : 'wifeHomeTasks') : 'familyTasks';
+      html += '<div style="padding:10px 14px;border-top:1px solid var(--border);">'
+        + '<div style="font:600 13px/1.3 var(--font-ui);color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'
+        + '<div style="font:500 10px/1 var(--font-ui);color:var(--red);margin-bottom:8px;">⚠ ' + t.dueDate.slice(5) + (isPrivate ? ' · personal' : ' · family') + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        + `<button onclick="toggleHomeTask('${t.id}','${arrName}','${saveFn}')" style="padding:5px 10px;border-radius:20px;border:none;background:var(--green);color:#fff;font:700 10px/1 var(--font-ui);cursor:pointer;">✓ Done</button>`
+        + `<button onclick="(()=>{const _arr=${arrName};const _t=_arr.find(x=>x.id==='${t.id}');if(_t){_t.dueDate=today();${saveFn}();renderAll();showToast('📅 Moved to today');}})()" style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 10px/1 var(--font-ui);cursor:pointer;">📅 Today</button>`
+        + `<button onclick="deleteHomeTask('${t.id}','${arrName}','${saveFn}')" style="padding:5px 10px;border-radius:20px;border:1px solid rgba(176,30,30,0.3);background:transparent;color:var(--red);font:700 10px/1 var(--font-ui);cursor:pointer;">✕ Drop</button>`
+        + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
   }
+
   if(hasDueToday){
     html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Due Today</div>';
     todayPrivate.forEach(t => { html += homeTaskRow(t, 'private'); });
@@ -4160,10 +4371,80 @@ async function renderHomeTodayView(container){
       + '</div>';
   }
 
+  // ── Contacts due for outreach ─────────────────────────────────
+  const nudges = getPeopleNudges();
+  if(nudges.length > 0){
+    const todayStr2 = today();
+    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">💬 Reach Out</div>';
+    html += '<div style="margin:0 16px 12px;border-radius:var(--r3);border:1px solid rgba(232,168,56,0.25);background:var(--surface);overflow:hidden;">';
+    nudges.slice(0,4).forEach(c => {
+      const daysSince = c.lastContact ? Math.floor((new Date(todayStr2)-new Date(c.lastContact))/86400000) : null;
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);" onclick="setNav(\'people\')">'
+        + '<div style="width:34px;height:34px;border-radius:50%;background:rgba(232,168,56,0.15);display:flex;align-items:center;justify-content:center;font:700 13px/1 var(--font-ui);color:var(--accent);flex-shrink:0;">' + esc((c.name||'?')[0].toUpperCase()) + '</div>'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="font:600 13px/1 var(--font-ui);color:var(--text);">' + esc(c.name) + '</div>'
+        + '<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">' + (daysSince===null ? 'Never contacted' : daysSince===0 ? 'Contacted today' : daysSince + 'd since last contact') + ' · every ' + c.nudgeDays + 'd</div>'
+        + '</div>'
+        + '<button onclick="event.stopPropagation();logContact(\'' + c.id + '\')" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(232,168,56,0.4);background:transparent;color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">✓ Done</button>'
+        + '</div>';
+    });
+    if(nudges.length > 4){
+      html += '<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);text-align:center;cursor:pointer;" onclick="setNav(\'people\')">+ ' + (nudges.length-4) + ' more → View all</div>';
+    }
+    html += '</div>';
+  }
+
+  // ── Someday list (collapsible) ────────────────────────────────
+  if(somedayList.length > 0){
+    const _sdOpen = localStorage.getItem('hub-home-someday-open') === '1';
+    html += '<div style="margin:0 16px 8px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">'
+      + '<div onclick="localStorage.setItem(\'hub-home-someday-open\',localStorage.getItem(\'hub-home-someday-open\')===\'1\'?\'0\':\'1\');renderAll();" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2);">'
+      + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">💭 Someday · ' + somedayList.length + '</span>'
+      + '<span style="font-size:12px;color:var(--text4);">' + (_sdOpen ? '▾' : '▸') + '</span>'
+      + '</div>';
+    if(_sdOpen){
+      somedayList.slice(0,10).forEach(s => {
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--border);">'
+          + '<div style="flex:1;min-width:0;font:500 13px/1.3 var(--font-ui);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(s.title) + '</div>'
+          + `<button onclick="(()=>{const _t={id:genId(),title:'${esc(s.title).replace(/'/g,"\\'")}',done:false,dueDate:'',createdAt:today(),createdBy:currentUser==='parent'?'jason':'jenny'};jasonHomeTasks.unshift(_t);somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveJasonHomeTasks();saveSomeday();renderAll();showToast('✓ Pulled to personal tasks');})()" style="padding:4px 8px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">Pull in</button>`
+          + `<button onclick="somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveSomeday();renderAll();" style="padding:4px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>`
+          + '</div>';
+      });
+      if(somedayList.length > 10){
+        html += '<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);text-align:center;">+' + (somedayList.length-10) + ' more in Someday</div>';
+      }
+    }
+    html += '</div>';
+  }
+
+  // ── Brain dump bar ────────────────────────────────────────────
+  html += '<div class="brain-dump-bar" style="margin:0 16px 16px;">'
+    + '<input class="brain-dump-input" id="home-brain-dump" placeholder="💭 Quick capture — what\'s on your mind…"'
+    + ' onkeydown="if(event.key===\'Enter\'){brainDump(this.value);this.value=\'\';showToast(\'💭 Captured\');}" autocomplete="off" autocorrect="off" spellcheck="false"/>'
+    + '<button class="mic-btn" id="mic-btn-home-dump" onclick="toggleVoice(\'home-brain-dump\',\'mic-btn-home-dump\')" title="Voice">🎙</button>'
+    + '<button class="brain-dump-btn" onclick="if(document.getElementById(\'home-brain-dump\').value.trim()){brainDump(document.getElementById(\'home-brain-dump\').value);document.getElementById(\'home-brain-dump\').value=\'\';showToast(\'💭 Captured\');}">+</button>'
+    + '</div>';
+
   container.innerHTML = html;
 
   // Load weather async — fills #weather-card when ready
   loadAndRenderWeather();
+
+  // Load calendar async — fills #home-cal-strip when ready
+  // If already cached, renders instantly. Otherwise waits for fetch.
+  (async ()=>{
+    try{
+      const strip = document.getElementById('home-cal-strip');
+      if(!strip) return;
+      // Try immediate render from cache first
+      const immediate = renderCalTodayStrip(todayStr);
+      if(immediate) { strip.innerHTML = immediate; return; }
+      // Not cached yet — show a subtle loading state and wait
+      strip.innerHTML = '<div style="padding:8px 16px;font:500 11px/1 var(--font-ui);color:var(--text4);">📅 Loading calendar…</div>';
+      await ensureCalLoaded(todayStr, todayStr);
+      strip.innerHTML = renderCalTodayStrip(todayStr);
+    }catch(e){ document.getElementById('home-cal-strip')?.remove(); }
+  })();
 }
 
 function getHomeGreeting(){
@@ -5728,32 +6009,41 @@ function renderCalTodayStrip(todayStr){
   const events = calEventsForDate(todayStr);
   if(!events.length) return '';
 
-  const eventPills = events.map(ev=>{
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+
+  const rows = events.map(ev=>{
     const color = calEventColor(ev);
     const time  = ev.allDay ? 'All day' : formatCalTime(ev.start, false);
-    return `<button onclick="openCalEventDetail('${encodeURIComponent(ev.id)}')"
-      style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
-        border-radius:20px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;
-        background:${color}22;border:1px solid ${color}44;">
-      <span style="width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-      <span style="font:700 11px/1 var(--font-ui);color:${color};">${time}</span>
-      <span style="font:500 12px/1 var(--font-ui);color:var(--text);
-        max-width:150px;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</span>
-    </button>`;
+    // Is this event in the past?
+    const isPast = !ev.allDay && new Date(ev.end||ev.start) < now;
+    // Is it happening now?
+    const isNow  = !ev.allDay && new Date(ev.start) <= now && new Date(ev.end||ev.start) >= now;
+
+    return `<div onclick="openCalEventDetail('${encodeURIComponent(ev.id)}')"
+      style="display:flex;align-items:center;gap:10px;padding:9px 14px;
+        border-bottom:1px solid var(--border);cursor:pointer;
+        ${isPast?'opacity:0.45;':''}
+        ${isNow?'background:rgba(21,101,192,0.04);':''}">
+      <div style="width:3px;border-radius:2px;align-self:stretch;flex-shrink:0;background:${color};"></div>
+      <div style="flex-shrink:0;text-align:right;min-width:52px;">
+        <div style="font:700 11px/1.2 var(--font-ui);color:${isNow?color:'var(--text3)'};">${time}</div>
+        ${isNow?`<div style="font:700 9px/1 var(--font-ui);color:${color};margin-top:3px;letter-spacing:0.5px;">NOW</div>`:''}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ev.title)}</div>
+        ${ev.location?`<div style="font:500 10px/1.3 var(--font-ui);color:var(--text4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📍 ${esc(ev.location)}</div>`:''}
+      </div>
+    </div>`;
   }).join('');
 
-  return `<div style="padding:0 16px 12px;">
-    <div style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:var(--text4);
-      text-transform:uppercase;margin-bottom:8px;">Today's Calendar</div>
-    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
-      scrollbar-width:none;-webkit-overflow-scrolling:touch;">
-      ${eventPills}
-      <button onclick="openCalendarTab()"
-        style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:20px;
-          border:1px dashed var(--border);background:transparent;
-          color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;
-          white-space:nowrap;flex-shrink:0;">+ Add</button>
+  return `<div style="margin:0 16px 10px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">
+    <div style="padding:8px 14px 6px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);">
+      <span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">📅 Today's Calendar</span>
+      <button onclick="setNav('calendar')" style="font:600 10px/1 var(--font-ui);color:var(--accent);background:transparent;border:none;cursor:pointer;padding:0;">View all →</button>
     </div>
+    ${rows}
   </div>`;
 }
 
@@ -7091,6 +7381,7 @@ function tbLogMeeting(btn){
 
 // Opens meeting capture pre-filled from an imported calendar event
 function openMeetingCaptureFromImport(){
+  _activePickerList = peopleList;
   const pf = _calMeetingPrefill || {};
   const old = document.getElementById('modal-meeting');
   if(old) old.remove();
@@ -9034,6 +9325,72 @@ function renderTaskList(container){
   const _sdDiv = document.createElement('div');
   _sdDiv.innerHTML = renderSomedaySection();
   if(_sdDiv.firstElementChild) container.appendChild(_sdDiv.firstElementChild);
+  // Attach swipe gestures to all task rows
+  attachTaskSwipe(container);
+}
+
+function attachTaskSwipe(container){
+  container.querySelectorAll('.task-row').forEach(row=>{
+    const taskId = row.dataset.taskId;
+    if(!taskId) return;
+
+    // Inject reveal layers
+    if(!row.querySelector('.task-row-swipe-complete')){
+      const completeLayer = document.createElement('div');
+      completeLayer.className = 'task-row-swipe-complete';
+      completeLayer.innerHTML = '✓ Complete';
+      row.prepend(completeLayer);
+      const somedayLayer = document.createElement('div');
+      somedayLayer.className = 'task-row-swipe-someday';
+      somedayLayer.innerHTML = '💭 Someday';
+      row.prepend(somedayLayer);
+    }
+
+    let startX = 0, startY = 0, dragging = false;
+    const THRESHOLD = 80; // px to trigger action
+
+    row.addEventListener('touchstart', e=>{
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dragging = false;
+    }, {passive:true});
+
+    row.addEventListener('touchmove', e=>{
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if(!dragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll wins
+      dragging = true;
+      const inner = row.querySelector('.task-row-top');
+      if(inner) inner.style.transform = `translateX(${dx}px)`;
+      const cl = row.querySelector('.task-row-swipe-complete');
+      const sl = row.querySelector('.task-row-swipe-someday');
+      if(cl) cl.style.opacity = dx > 20 ? Math.min(1,(dx-20)/60) : '0';
+      if(sl) sl.style.opacity = dx < -20 ? Math.min(1,(-dx-20)/60) : '0';
+      if(dragging) e.preventDefault();
+    }, {passive:false});
+
+    row.addEventListener('touchend', e=>{
+      const dx = e.changedTouches[0].clientX - startX;
+      const inner = row.querySelector('.task-row-top');
+      const cl = row.querySelector('.task-row-swipe-complete');
+      const sl = row.querySelector('.task-row-swipe-someday');
+      if(inner){ inner.style.transition='transform 0.2s'; inner.style.transform=''; }
+      if(cl) cl.style.opacity='0';
+      if(sl) sl.style.opacity='0';
+      if(!dragging) return;
+      if(dx > THRESHOLD){
+        // Swipe right → complete
+        row.style.transition='opacity 0.2s,transform 0.2s';
+        row.style.opacity='0'; row.style.transform='translateX(60px)';
+        setTimeout(()=>completeTask(taskId,null), 220);
+      } else if(dx < -THRESHOLD){
+        // Swipe left → someday
+        row.style.transition='opacity 0.2s,transform 0.2s';
+        row.style.opacity='0'; row.style.transform='translateX(-60px)';
+        setTimeout(()=>moveTaskToSomeday(taskId), 220);
+      }
+    }, {passive:true});
+  });
 }
 
 function toggleTasklistDomain(label){
@@ -9186,6 +9543,10 @@ function renderTaskRow(task,proj){
     return ini?`<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')" title="${esc(ini.title)}"
         style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(186,104,200,0.3);background:rgba(186,104,200,0.08);color:#BA68C8;">🔭</span>`:'';
   })();
+  // Initiative dot — small coloured dot on the priority bar side for at-a-glance scanning
+  const iniDotStyle = task.discoveryId
+    ? `box-shadow:0 0 0 2px #BA68C8;`
+    : '';
   const subs=task.subtasks||[];
   const subDone=subs.filter(s=>s.done).length;
   const subPill=subs.length>0
@@ -9198,7 +9559,7 @@ function renderTaskRow(task,proj){
       <button class="check-btn ${isDone?'checked':''}"
         onclick="event.stopPropagation();completeTask('${task.id}',event)"
         title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
-      <div class="priority-bar" style="background:${isDone?'rgba(140,100,50,0.2)':pColor};"></div>
+      <div class="priority-bar" style="background:${isDone?'rgba(140,100,50,0.2)':pColor};${iniDotStyle}"></div>
       <div class="task-body-wrap">
         <div style="flex:1;min-width:0;">
           <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
@@ -9984,8 +10345,33 @@ function journalLineToTask(idx, field, line){
 }
 
 function renderSettings(container){
+  const simpleModeOn = localStorage.getItem('hub-simple-mode') === '1';
   container.innerHTML=`
   <div id="guild-hall" style="padding:var(--sp3) var(--sp3) 80px;">
+
+    <!-- Simple Mode — top of settings, most prominent -->
+    <div style="margin-bottom:var(--sp4);padding:16px;border-radius:var(--r3);
+      border:2px solid ${simpleModeOn?'var(--accent)':'var(--border)'};
+      background:${simpleModeOn?'var(--accent-soft)':'var(--surface2)'};
+      display:flex;align-items:center;gap:14px;">
+      <div style="flex:1;">
+        <div style="font:800 14px/1.2 var(--font-ui);color:${simpleModeOn?'var(--accent)':'var(--text)'};">
+          ${simpleModeOn?'✓ Simple Mode ON':'Simple Mode'}
+        </div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);margin-top:4px;">
+          ${simpleModeOn
+            ? 'Nav shows Today, Capture &amp; essentials only. Tap to turn off.'
+            : 'Hides advanced tabs — just Today, Capture &amp; essentials. Good for overwhelming days.'}
+        </div>
+      </div>
+      <button onclick="toggleSimpleMode()"
+        style="padding:10px 18px;border-radius:20px;border:none;cursor:pointer;white-space:nowrap;
+          font:800 12px/1 var(--font-ui);
+          background:${simpleModeOn?'var(--accent)':'var(--surface3)'};
+          color:${simpleModeOn?'#1a1f2e':'var(--text2)'};">
+        ${simpleModeOn?'Turn Off':'Turn On'}
+      </button>
+    </div>
 
 
 
@@ -10137,7 +10523,6 @@ function completeTask(id, evt){
   evt && evt.stopPropagation();
   const t = tasks.find(t=>t.id===id); if(!t) return;
   if(t.status === "done"){
-    // Undo — revert to todo
     const xpToRemove = xpForTask(t);
     totalXP = Math.max(0, totalXP - xpToRemove);
     t.status = "todo";
@@ -10145,11 +10530,9 @@ function completeTask(id, evt){
     saveAllDebounced(); renderAll();
     showToast("Task REOPENED · -"+xpToRemove+" XP");
   } else {
-    // Complete — grab position before DOM rebuild
     const celebRect = evt && evt.target
       ? evt.target.getBoundingClientRect()
       : {top:window.innerHeight*0.4,left:window.innerWidth*0.1,width:window.innerWidth*0.8,height:40};
-    // Snapshot for undo before mutating
     _undoTask = { ...t };
     _undoXP   = xpForTask(t);
     t.completedAt = Date.now();
@@ -10157,11 +10540,28 @@ function completeTask(id, evt){
     const xp = xpForTask(t);
     totalXP += xp;
     if(t.recur && t.recur!=="none") spawnRecurringCopy(t);
-    // ── Jason reward check ─────────────────────────────────
     checkJasonRewardMilestone();
-    saveAllDebounced(); renderAll();
-    celebrateCompletion(null, celebRect, xp);
-    showUndoBar(t.title, xp);
+
+    // Animate the row out before re-rendering (Today + task list rows)
+    const rowEl = document.querySelector(`[data-task-id="${id}"]`) ||
+                  document.querySelector(`.today-card-row[data-task-id="${id}"]`);
+    if(rowEl){
+      rowEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease, max-height 0.3s ease';
+      rowEl.style.overflow = 'hidden';
+      rowEl.style.maxHeight = rowEl.offsetHeight + 'px';
+      requestAnimationFrame(()=>{
+        rowEl.style.opacity = '0';
+        rowEl.style.transform = 'translateX(40px)';
+        rowEl.style.maxHeight = '0';
+        rowEl.style.padding = '0';
+        rowEl.style.margin = '0';
+      });
+      setTimeout(()=>{ saveAllDebounced(); renderAll(); celebrateCompletion(null, celebRect, xp); showUndoBar(t.title, xp); }, 320);
+    } else {
+      saveAllDebounced(); renderAll();
+      celebrateCompletion(null, celebRect, xp);
+      showUndoBar(t.title, xp);
+    }
   }
 }
 
@@ -10412,6 +10812,7 @@ function toggleTaskMoreOptions(){
 }
 
 function openAddTask(projectId=""){
+  _activePickerList = peopleList;
   editingTaskId=null;
   document.getElementById("modal-task-title").textContent="New Task";
   document.getElementById("task-title-input").value="";
@@ -10440,6 +10841,7 @@ function openAddTask(projectId=""){
 }
 
 function openEditTask(id){
+  _activePickerList = peopleList;
   const t=tasks.find(t=>t.id===id);if(!t) return;
   editingTaskId=id;
   document.getElementById("modal-task-title").textContent="✏ EDIT Task";
@@ -10543,25 +10945,18 @@ function deleteRowSubtask(taskId, subId){
 function renderTaskPeoplePicker(selectedIds){
   const wrap = document.getElementById('task-people-picker');
   if(!wrap) return;
-  // Use the same compact search picker as meetings/waiting-for
-  // Sort: selected first, then by recency of contact, then role priority, then alpha
-  const todayStr = today();
   const pOrd = {High:0, Medium:1, Low:2};
   const sortedPeople = [...peopleList].sort((a,b)=>{
-    // Recency — most recently contacted first
     const aLast = a.lastContact ? new Date(a.lastContact).getTime() : 0;
     const bLast = b.lastContact ? new Date(b.lastContact).getTime() : 0;
     if(aLast !== bLast) return bLast - aLast;
-    // Priority
     const pd = (pOrd[a.priority]??1) - (pOrd[b.priority]??1);
     if(pd !== 0) return pd;
     return a.name.localeCompare(b.name);
   });
-  // Temporarily override peopleList order for buildPersonPickerHTML
-  const origList = peopleList;
-  peopleList = sortedPeople;
+  // Use _activePickerList so picker always draws from work people
+  _activePickerList = sortedPeople;
   wrap.innerHTML = buildPersonPickerHTML(selectedIds, 'task-person-ids', true);
-  peopleList = origList;
   // Sync hidden input
   const hidden = document.getElementById('task-person-ids');
   if(hidden && !hidden.value) hidden.value = (selectedIds||'').split(',').filter(Boolean).join(',');
@@ -10928,9 +11323,12 @@ function setNav(nav){
   // Highlight matching button in BOTH nav bars (only one is visible at a time)
   const btn = document.getElementById(`nav-${nav}`);
   if(btn) btn.classList.add("active");
+  // Alias: in home mode, 'people' nav highlights nav-home-contacts, 'kids' highlights nav-home-kids
+  const homeAlias = document.getElementById(nav==='people' ? 'nav-home-contacts' : nav==='kids' ? 'nav-home-kids' : '');
+  if(homeAlias) homeAlias.classList.add('active');
 
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
-  const primaryTabs = ['today','tasks','meetings','kids','home-today','calendar','family','grocery','tracker'];
+  const primaryTabs = ['today','tasks','meetings','home-today','calendar','family','grocery','tracker','people','kids'];
   const gridBtn = document.getElementById('nav-grid-btn');
   if(gridBtn){
     if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
@@ -11229,11 +11627,9 @@ function stopVoice(){
 
 function brainDump(text){
   if(!text||!text.trim()) return;
-  const pid=(projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
-  tasks.push({id:genId(),title:text.trim(),projectId:pid,priority:'medium',
-    status:'todo',notes:'',dueDate:'',recur:'none',effort:'',estimate:'',createdAt:Date.now()});
-  saveAllDebounced();
-  showToast('⚡ CAPTURED TO PARKING LOT');
+  somedayList.unshift({ id:'sd'+Date.now(), title:text.trim(), createdAt:today() });
+  saveSomeday();
+  showToast('💭 Captured to Someday');
 }
 
 
@@ -11309,11 +11705,17 @@ function renderTodayView(container){
   // ── Reusable task row ────────────────────────────────────────
   function tRow(t, accentCol, badgeHtml, extraBtns){
     const proj = projects.find(p=>p.id===t.projectId);
-    return `<div class="today-card-row" onclick="openEditTask('${t.id}')">
+    const ini  = t.discoveryId ? discoveryList.find(i=>i.id===t.discoveryId) : null;
+    const iniDot = ini ? `<span title="${esc(ini.title)}" onclick="event.stopPropagation();discActiveId='${ini.id}';discView='detail';setNav('discovery');"
+      style="width:8px;height:8px;border-radius:50%;background:#BA68C8;flex-shrink:0;cursor:pointer;display:inline-block;margin-right:2px;" ></span>` : '';
+    return `<div class="today-card-row" data-task-id="${t.id}" onclick="openEditTask('${t.id}')">
       <button class="today-check-btn" style="color:${accentCol};"
         onclick="event.stopPropagation();completeTask('${t.id}',event)">✓</button>
       <div style="flex:1;min-width:0;">
-        <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          ${iniDot}
+          <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">${esc(t.title)}</div>
+        </div>
         <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
           ${badgeHtml}
           ${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}
@@ -11367,6 +11769,30 @@ function renderTodayView(container){
       </div>`;
   }
 
+  // ── 2b. PERSISTENT ONE THING ─────────────────────────────────
+  {
+    const savedOneThing = localStorage.getItem('hub-one-thing-'+todayStr)||'';
+    const tomorrowHint  = localStorage.getItem('hub-tomorrow-hint')||'';
+    const placeholder   = tomorrowHint ? `Yesterday you planned: "${tomorrowHint.slice(0,40)}"` : 'What one thing would make today a win?';
+    html += `<div style="padding:0 var(--sp3);">
+      <div style="display:flex;align-items:center;gap:var(--sp2);padding:10px 14px;
+          border-radius:var(--r3);border:1.5px solid rgba(232,168,56,0.3);
+          background:var(--surface);cursor:text;"
+        onclick="document.getElementById('today-one-thing-input').focus()">
+        <span style="font-size:16px;flex-shrink:0;">🎯</span>
+        <input id="today-one-thing-input"
+          style="flex:1;border:none;background:transparent;color:var(--text);
+            font:500 14px/1 var(--font-body);outline:none;min-width:0;"
+          placeholder="${esc(placeholder)}"
+          value="${esc(savedOneThing)}"
+          autocomplete="off"
+          onchange="localStorage.setItem('hub-one-thing-'+today(),this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur();showToast('🎯 One thing set');}"/>
+        ${savedOneThing?`<span style="font:700 10px/1 var(--font-ui);color:var(--green);flex-shrink:0;">✓ set</span>`:''}
+      </div>
+    </div>`;
+  }
+
   // ── 3. COGNITIVE LOAD (conditional) ─────────────────────────
   if(_activeTasks.length > 35 || _loadHours > 10){
     const bad = _activeTasks.length > 50 || _loadHours > 12;
@@ -11382,7 +11808,43 @@ function renderTodayView(container){
     </div>`;
   }
 
-  // ── 4. HABITS ────────────────────────────────────────────────
+  // ── 3b. ENERGY MATCH (when morning energy is set) ────────────
+  {
+    const todayEnergy = (() => {
+      const log = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
+      const entry = log.find(e=>e.date===todayStr);
+      return entry?.energy||'';
+    })();
+    const isLow = todayEnergy === '😴 Foggy' || todayEnergy === '😤 Anxious';
+    const isHigh = todayEnergy === '🔋 Charged' || todayEnergy === '⚡ Wired';
+    if(isLow){
+      const lowTasks = _activeTasks.filter(t=>t.energy==='low'&&!todayPinned.has(t.id)).slice(0,3);
+      if(lowTasks.length > 0){
+        html += `<div class="today-card" style="border-color:rgba(100,181,246,0.2);">
+          <div class="today-card-header">
+            <div class="today-card-label">
+              <div class="today-card-accent" style="background:#64B5F6;"></div>
+              <span class="today-card-title" style="color:#64B5F6;">${todayEnergy} day — low-energy tasks</span>
+            </div>
+          </div>
+          ${lowTasks.map(t=>tRow(t,'#64B5F6','<span style="font:var(--type-caption);color:#64B5F6;">⚡ low energy</span>','')).join('')}
+        </div>`;
+      }
+    } else if(isHigh){
+      const highTasks = _activeTasks.filter(t=>t.priority==='high'&&!todayPinned.has(t.id)).slice(0,3);
+      if(highTasks.length > 0){
+        html += `<div class="today-card" style="border-color:rgba(232,168,56,0.2);">
+          <div class="today-card-header">
+            <div class="today-card-label">
+              <div class="today-card-accent" style="background:var(--accent);"></div>
+              <span class="today-card-title" style="color:var(--accent);">${todayEnergy} — tackle something big</span>
+            </div>
+          </div>
+          ${highTasks.map(t=>tRow(t,'var(--accent)','<span style="font:var(--type-caption);color:var(--red);">🔴 high priority</span>','')).join('')}
+        </div>`;
+      }
+    }
+  }
   const habitsHtml = renderHabitsSection();
   if(habitsHtml && habitsHtml.trim()) html += habitsHtml;
 
@@ -11395,10 +11857,29 @@ function renderTodayView(container){
           <span class="today-card-title" style="color:var(--red);">Overdue</span>
           <span class="today-card-count">${overdueUnpinned.length}</span>
         </div>
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">Tap an action →</span>
       </div>
-      ${overdueUnpinned.map(t=>tRow(t,'var(--red)',
-        `<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>`,
-        '')).join('')}
+      ${overdueUnpinned.map(t=>{
+        const proj = projects.find(p=>p.id===t.projectId);
+        return `<div style="padding:10px var(--sp3);border-top:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:var(--sp2);margin-bottom:7px;" onclick="openEditTask('${t.id}')">
+            <div style="flex:1;min-width:0;">
+              <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              <div style="font:var(--type-caption);color:var(--red);">⚠ ${t.dueDate.slice(5)}${proj?' · ◈ '+esc(proj.name):''}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <button onclick="toggleTodayPin('${t.id}');showToast('📌 Pinned for today')"
+              style="padding:5px 10px;border-radius:20px;border:none;background:var(--accent);color:#1a1f2e;font:700 10px/1 var(--font-ui);cursor:pointer;">▶ Do Now</button>
+            <button onclick="(()=>{const t=tasks.find(x=>x.id==='${t.id}');if(t){t.dueDate=today();saveAllDebounced();renderAll();showToast('📅 Moved to today');}})()"
+              style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 10px/1 var(--font-ui);cursor:pointer;">📅 Today</button>
+            <button onclick="moveTaskToSomeday('${t.id}')"
+              style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 10px/1 var(--font-ui);cursor:pointer;">💭 Someday</button>
+            <button onclick="(()=>{tasks=tasks.filter(x=>x.id!=='${t.id}');saveAllDebounced();renderAll();showToast('🗑 Deleted');})()"
+              style="padding:5px 10px;border-radius:20px;border:1px solid rgba(224,82,82,0.3);background:transparent;color:var(--red);font:700 10px/1 var(--font-ui);cursor:pointer;">✕ Drop</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
 
@@ -11457,7 +11938,49 @@ function renderTodayView(container){
     </div>`;
   }
 
-  // ── 7. EOD — handled by top banner only
+  // ── 7. LATER TODAY bucket ────────────────────────────────────
+  {
+    const laterKey = 'hub-later-today-' + todayStr;
+    const laterIds = JSON.parse(localStorage.getItem(laterKey)||'[]');
+    const laterTasks = laterIds.map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
+    // Clean up done ones
+    if(laterTasks.length !== laterIds.length){
+      localStorage.setItem(laterKey, JSON.stringify(laterTasks.map(t=>t.id)));
+    }
+    html += `<div class="today-card" style="border-color:rgba(129,199,132,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#81C784;"></div>
+          <span class="today-card-title" style="color:#81C784;">Later Today</span>
+          <span class="today-card-count">${laterTasks.length}</span>
+        </div>
+        <button onclick="openLaterTodayPicker()" class="today-card-action">+ Add</button>
+      </div>
+      ${laterTasks.length===0
+        ? `<div style="padding:var(--sp3) var(--sp3);font:var(--type-caption);color:var(--text4);font-style:italic;">Tasks you want to get to today — without committing to your 3 things.</div>`
+        : laterTasks.map(t=>{
+          const proj=projects.find(p=>p.id===t.projectId);
+          const ini=t.discoveryId?discoveryList.find(i=>i.id===t.discoveryId):null;
+          const iniDot=ini?`<span style="width:7px;height:7px;border-radius:50%;background:#BA68C8;flex-shrink:0;display:inline-block;"></span>`:'';
+          return `<div class="today-card-row" data-task-id="${t.id}" onclick="openEditTask('${t.id}')">
+            <button class="today-check-btn" style="color:#81C784;"
+              onclick="event.stopPropagation();completeTask('${t.id}',event)">✓</button>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:4px;">
+                ${iniDot}
+                <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(t.title)}</div>
+              </div>
+              ${proj?`<div style="font:var(--type-caption);color:${proj.color};margin-top:2px;">◈ ${esc(proj.name)}</div>`:''}
+            </div>
+            <button onclick="event.stopPropagation();(()=>{const k='hub-later-today-'+today();const ids=JSON.parse(localStorage.getItem(k)||'[]').filter(x=>x!=='${t.id}');localStorage.setItem(k,JSON.stringify(ids));renderAll();})()"
+              class="today-icon-btn" title="Remove">✕</button>
+          </div>`;
+        }).join('')
+      }
+    </div>`;
+  }
+
+  // ── 8. EOD — handled by top banner only
 
   // ── 8. REACH OUT (contact nudges) ───────────────────────────
   if(nudges2.length > 0){
@@ -11490,19 +12013,22 @@ function renderTodayView(container){
     </div>`;
   }
 
-  // ── 9. WAITING FOR (due/overdue) ────────────────────────────
-  if(urgentWF.length > 0){
+  // ── 9. WAITING FOR (due/overdue + follow-up nudges) ─────────
+  const followUpNudges = waitingFor.filter(w=>!w.done&&w.followUpDate&&w.followUpDate<=todayStr&&!(w.dueDate&&w.dueDate<=todayStr));
+  if(urgentWF.length > 0 || followUpNudges.length > 0){
+    const allWFItems = [...urgentWF, ...followUpNudges];
     html += `<div class="today-card" style="border-color:rgba(100,181,246,0.25);">
       <div class="today-card-header">
         <div class="today-card-label">
           <div class="today-card-accent" style="background:#64B5F6;"></div>
           <span class="today-card-title" style="color:#64B5F6;">Waiting For</span>
-          <span class="today-card-count">${urgentWF.length} due</span>
+          <span class="today-card-count">${urgentWF.length} due${followUpNudges.length>0?' · '+followUpNudges.length+' follow up':''}</span>
         </div>
         <button onclick="setNav('waiting')" class="today-card-action">See all</button>
       </div>
-      ${urgentWF.map(w=>{
-        const _ov = w.dueDate < todayStr;
+      ${allWFItems.map(w=>{
+        const _ov  = w.dueDate && w.dueDate < todayStr;
+        const _fu  = !w.dueDate && w.followUpDate && w.followUpDate <= todayStr;
         const _done = w.done;
         return `<div class="today-card-row" style="${_done?'opacity:0.45;':''}" onclick="openWaitingModal(null,'${w.id}')">
           <button class="today-check-btn"
@@ -11514,7 +12040,10 @@ function renderTodayView(container){
             <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${_done?'text-decoration:line-through;color:var(--text3);':''}">${esc(w.what)}</div>
             <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
               ${w.person?`<span style="font:var(--type-caption);color:#64B5F6;">${esc(w.person)}</span>`:''}
-              ${!_done?`<span style="font:var(--type-caption);color:${_ov?'var(--red)':'var(--text4)'};">${_ov?'⚠ Overdue':'Due today'} · ${w.dueDate.slice(5)}</span>`:'<span style="font:var(--type-caption);color:var(--green);">✓ Received</span>'}
+              ${_done?'<span style="font:var(--type-caption);color:var(--green);">✓ Received</span>'
+                :_ov?`<span style="font:var(--type-caption);color:var(--red);">⚠ Overdue · ${w.dueDate.slice(5)}</span>`
+                :_fu?`<span style="font:var(--type-caption);color:#64B5F6;">🔔 Follow up today</span>`
+                :`<span style="font:var(--type-caption);color:var(--text4);">Due today · ${w.dueDate.slice(5)}</span>`}
             </div>
           </div>
         </div>`;
@@ -11532,6 +12061,14 @@ function renderTodayView(container){
 
   html += '</div>'; // close .today-stack
   container.innerHTML = html;
+
+  // Auto-activate voice on mobile for brain dump
+  if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){
+    setTimeout(()=>{
+      const mic = document.getElementById('mic-btn-dump');
+      if(mic && !_voiceActive) mic.click();
+    }, 400);
+  }
 }
 
 
@@ -11698,14 +12235,14 @@ function renderResetProgress(){
 
 function showResetStep(n){
   document.querySelectorAll('.reset-step').forEach(el=>el.classList.remove('active'));
-  // Step numbering: 1,2,3,3b,4,5,6,7
-  const stepMap = {1:'1',2:'2',3:'3',3.5:'3b',4:'4',5:'5',6:'6',7:'7'};
-  const stepId = Number.isInteger(n) ? String(n) : stepMap[n] || String(n);
+  // Step numbering: 1,2,3,3b,4,5,6,7(someday),8(release)
+  const stepMap = {1:'1',2:'2',3:'3',3.5:'3b',4:'4',5:'5',6:'6',7:'someday',8:'5'};
+  const stepId = Number.isInteger(n) ? stepMap[n]||String(n) : stepMap[n] || String(n);
   const el = document.getElementById(`reset-step-${stepId}`);
   if(el) el.classList.add('active');
   const next = document.getElementById('reset-next-btn');
   const back = document.getElementById('reset-back-btn');
-  if(next) next.textContent = n===7 ? '✓ DONE' : 'NEXT →';
+  if(next) next.textContent = n>=8 ? '✓ DONE' : 'NEXT →';
   if(back) back.style.display = n>1 ? 'inline-flex' : 'none';
   renderResetProgress();
 
@@ -11824,6 +12361,29 @@ function resetNext(){
     renderResetPickers();
   }
   if(resetStep>=7){
+    // Populate someday review step when we arrive at it
+    if(resetStep===7){
+      const _sdItems = [...somedayList].sort(()=>Math.random()-0.5).slice(0,3);
+      const _sdEl = document.getElementById('reset-someday-items');
+      if(_sdEl){
+        _sdEl.innerHTML = _sdItems.length===0
+          ? '<div style="font:var(--type-caption);color:var(--text4);font-style:italic;">Your Someday list is empty.</div>'
+          : _sdItems.map(s=>`<div id="sd-reset-${s.id}" style="padding:12px 14px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);">
+              <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">${esc(s.title)}</div>
+              <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-bottom:8px;">Added ${s.createdAt||'?'}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="(()=>{const t={id:genId(),title:'${esc(s.title).replace(/'/g,"\\'")}',projectId:'',priority:'medium',status:'todo',dueDate:'',notes:'',recur:'none',effort:'',estimate:'',energy:'medium',createdAt:Date.now(),completedAt:null,subtasks:[]};tasks.unshift(t);somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveSomeday();saveAllDebounced();document.getElementById('sd-reset-${s.id}')?.remove();showToast('✓ Pulled back to tasks');})()"
+                  style="padding:5px 10px;border-radius:20px;border:none;background:var(--accent);color:#1a1f2e;font:700 10px/1 var(--font-ui);cursor:pointer;">✓ Pull Back</button>
+                <button onclick="document.getElementById('sd-reset-${s.id}')?.remove();showToast('💭 Kept in Someday')"
+                  style="padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 10px/1 var(--font-ui);cursor:pointer;">Keep</button>
+                <button onclick="(()=>{somedayList=somedayList.filter(x=>x.id!=='${s.id}');saveSomeday();document.getElementById('sd-reset-${s.id}')?.remove();showToast('🗑 Deleted');})()"
+                  style="padding:5px 10px;border-radius:20px;border:1px solid rgba(224,82,82,0.3);background:transparent;color:var(--red);font:700 10px/1 var(--font-ui);cursor:pointer;">Delete</button>
+              </div>
+            </div>`).join('');
+      }
+    }
+  }
+  if(resetStep>=8){
     // Save north star
     const ns = document.getElementById('reset-north-star')?.value.trim()||'';
     if(ns){
@@ -11856,8 +12416,8 @@ function resetNext(){
     showToast('🌅 WEEK IS SET. GO CONQUER IT.' + streakMsg);
     return;
   }
-  // Step ordering: 1,2,3,3.5(3b),4,5,6,7
-  const stepOrder = [1,2,3,3.5,4,5,6,7];
+  // Step ordering: 1,2,3,3.5(3b),4,5,6,7(someday),8(release)
+  const stepOrder = [1,2,3,3.5,4,5,6,7,8];
   const curIdx = stepOrder.indexOf(resetStep);
   resetStep = curIdx >= 0 && curIdx < stepOrder.length-1 ? stepOrder[curIdx+1] : resetStep+1;
   showResetStep(resetStep);
@@ -11962,7 +12522,7 @@ function openResetSlotPicker(slotId, label){
 
 function resetBack(){
   if(resetStep<=1) return;
-  const stepOrderB = [1,2,3,3.5,4,5,6,7];
+  const stepOrderB = [1,2,3,3.5,4,5,6,7,8];
   const curIdxB = stepOrderB.indexOf(resetStep);
   resetStep = curIdxB > 0 ? stepOrderB[curIdxB-1] : Math.max(1, resetStep-1);
   showResetStep(resetStep);
@@ -12002,6 +12562,7 @@ function renderWaitingPage(container){
   const row = (w, isDone) => {
     const overdue = w.dueDate && w.dueDate < todayStr;
     const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
+    const linkedIni  = w.initiativeId ? discoveryList.find(i=>i.id===w.initiativeId) : null;
     return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
       <button onclick="toggleWaitingDone('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:11px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
@@ -12010,6 +12571,7 @@ function renderWaitingPage(container){
         <div style="display:flex;gap:var(--sp2);margin-top:4px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:11px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ overdue ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
           ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openEditTask('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
+          ${linkedIni?`<span onclick="discActiveId='${linkedIni.id}';discView='detail';setNav('discovery');" style="font-size:10px;font-weight:700;font-family:var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.25);padding:1px 7px;border-radius:4px;cursor:pointer;">◈ ${esc(linkedIni.title.slice(0,24))}</span>`:''}
           <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">added ${w.createdAt.slice(5)}</span>
         </div>
       </div>
@@ -12092,12 +12654,14 @@ function renderPeoplePage(container){
   };
 
   const overdueNudges = nudges.length;
+  const isHomeMode = currentMode === 'home';
   container.innerHTML = `
-    <!-- Relationship contacts -->
+    ${isHomeMode ? `
+    <!-- HOME: Relationship contacts only -->
     <div class="page-hero">
       <div class="page-hero-left">
         <div class="page-hero-accent" style="color:var(--color-people);">👥 Relationships</div>
-        <div class="page-hero-title">People</div>
+        <div class="page-hero-title">Contacts</div>
         <div class="page-hero-sub">${contactsList.length} contact${contactsList.length!==1?'s':''}${overdueNudges>0?' · <span style="color:var(--color-today);">'+overdueNudges+' to reach out</span>':''}</div>
       </div>
       <button class="page-hero-action" style="background:var(--color-people);" onclick="openAddContactModal()">+ Add</button>
@@ -12109,20 +12673,24 @@ function renderPeoplePage(container){
         : nudges.map(c=>contactRow(c,true)).join('') + restContacts.map(c=>contactRow(c,false)).join('')
       }
     </div>
-    <!-- Meeting contacts — attendees for meetings/waiting for -->
-    <div style="padding:0 14px 6px;display:flex;align-items:center;justify-content:space-between;">
-      <div>
-        <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Meeting Contacts</div>
-        <div style="font:var(--type-caption);color:var(--text3);margin-top:2px;">People who appear in meetings and waiting for</div>
+    ` : `
+    <!-- WORK: Meeting contacts only -->
+    <div class="page-hero">
+      <div class="page-hero-left">
+        <div class="page-hero-accent" style="color:var(--color-people);">👥 Work</div>
+        <div class="page-hero-title">People</div>
+        <div class="page-hero-sub">${peopleList.length} person${peopleList.length!==1?'s':''} · used in meetings, tasks &amp; waiting for</div>
       </div>
-      <button onclick="openAddPersonModal()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ Add</button>
+      <button class="page-hero-action" style="background:var(--color-people);" onclick="openAddPersonModal()">+ Add</button>
     </div>
     <div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">
       ${peopleList.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add people you meet with regularly.</div>`
+        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add the people you meet with and work with.</div>`
         : peopleList.map(p=>meetingPersonRow(p)).join('')
       }
-    </div>`;
+    </div>
+    `}
+  `;
 }
 
 
@@ -12481,6 +13049,7 @@ function renderWaitingFor(){
 }
 
 function openWaitingModal(prefillTaskId, editId){
+  _activePickerList = peopleList;
   const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
   const existing   = editId ? waitingFor.find(w=>w.id===editId) : null;
   const old = document.getElementById('modal-waiting');
@@ -12505,8 +13074,28 @@ function openWaitingModal(prefillTaskId, editId){
         <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">EXPECTED BY (OPTIONAL)</div>
         <input id="wf-due" type="date" class="field-input" value="${existing?.dueDate||''}" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
       </div>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">NUDGE ME TO FOLLOW UP IN (DAYS)</div>
+        <select id="wf-followup-days" class="field-input" style="color-scheme:dark;">
+          <option value="">No follow-up nudge</option>
+          <option value="1" ${existing?.followUpDays===1?'selected':''}>1 day</option>
+          <option value="2" ${existing?.followUpDays===2?'selected':''}>2 days</option>
+          <option value="3" ${existing?.followUpDays===3?'selected':''}>3 days</option>
+          <option value="5" ${existing?.followUpDays===5?'selected':''}>5 days</option>
+          <option value="7" ${existing?.followUpDays===7?'selected':''}>1 week</option>
+          <option value="14" ${existing?.followUpDays===14?'selected':''}>2 weeks</option>
+        </select>
+      </div>
+      </div>
       <input id="wf-task-id" type="hidden" value="${existing?.taskId||prefillTaskId||''}"/>
       <input id="wf-edit-id" type="hidden" value="${editId||''}"/>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">INITIATIVE (OPTIONAL)</div>
+        <select id="wf-initiative-id" class="field-input" style="color-scheme:dark;">
+          <option value="">— None —</option>
+          ${discoveryList.map(i=>`<option value="${i.id}" ${(existing?.initiativeId===i.id)?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="modal-footer">
       <button onclick="submitWaitingFor()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:#64B5F6;color:#0e1128;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add to Waiting For'}</button>
@@ -12519,24 +13108,31 @@ function openWaitingModal(prefillTaskId, editId){
 }
 
 function submitWaitingFor(){
-  const personIds = document.getElementById('wf-person-ids')?.value||'';
-  const what      = document.getElementById('wf-what')?.value.trim()||'';
-  const due       = document.getElementById('wf-due')?.value||'';
-  const taskId    = document.getElementById('wf-task-id')?.value||'';
-  const editId    = document.getElementById('wf-edit-id')?.value||'';
+  const personIds    = document.getElementById('wf-person-ids')?.value||'';
+  const what         = document.getElementById('wf-what')?.value.trim()||'';
+  const due          = document.getElementById('wf-due')?.value||'';
+  const taskId       = document.getElementById('wf-task-id')?.value||'';
+  const editId       = document.getElementById('wf-edit-id')?.value||'';
+  const initiativeId = document.getElementById('wf-initiative-id')?.value||'';
+  const followUpDaysVal = document.getElementById('wf-followup-days')?.value||'';
+  const followUpDays = followUpDaysVal ? parseInt(followUpDaysVal) : null;
+  // Compute follow-up date from today + days
+  const followUpDate = followUpDays ? (() => {
+    const d = new Date(); d.setDate(d.getDate()+followUpDays);
+    return d.toISOString().slice(0,10);
+  })() : null;
   if(!personIds){ showToast('Select at least one person'); return; }
   if(!what){ showToast('Describe what you\'re waiting on'); return; }
-  // Build display name from ids (first person name for legacy compat)
   const ids = personIds.split(',').filter(Boolean);
   const person = ids.map(id=>getPersonNameById(id)).filter(Boolean).join(', ');
-  const personId = ids[0]||''; // legacy single-id compat
+  const personId = ids[0]||'';
   if(editId){
     const w = waitingFor.find(x=>x.id===editId);
-    if(w){ w.person=person; w.personId=personId; w.personIds=personIds; w.what=what; w.dueDate=due; w.taskId=taskId; }
+    if(w){ w.person=person; w.personId=personId; w.personIds=personIds; w.what=what; w.dueDate=due; w.taskId=taskId; w.initiativeId=initiativeId||undefined; w.followUpDays=followUpDays||undefined; w.followUpDate=followUpDate||undefined; }
     showToast('✓ Updated');
   } else {
-    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, personIds, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today() });
-    showToast('⏳ Added to Waiting For');
+    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, personIds, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today(), ...(initiativeId?{initiativeId}:{}), ...(followUpDays?{followUpDays,followUpDate}:{}) });
+    showToast('⏳ Added to Waiting For'+(followUpDate?' · nudge in '+followUpDays+'d':''));
   }
   saveWaiting(); renderAll();
   closeModal('modal-waiting');
@@ -12713,8 +13309,15 @@ function updateContact(id, name, role, nudgeDays, photo){
 function deleteContact(id){ contactsList=contactsList.filter(x=>x.id!==id); saveContacts(); renderAll(); }
 
 // Build person picker HTML for use in modals
+// ── Active picker list — swapped per context ─────────────────
+// Work modals (meetings, tasks, waiting-for, initiatives) use
+// peopleList only. This variable lets all picker functions stay
+// generic without knowing which list they're drawing from.
+let _activePickerList = null;
+function _pickerList(){ return _activePickerList || peopleList; }
+
 function buildPersonPickerHTML(selectedIds, inputId, forceMulti){
-  if(peopleList.length === 0){
+  if(_pickerList().length === 0){
     return `<div style="font:var(--type-label);color:var(--text3);padding:4px 0;">
       No people added yet — <button onclick="setNav('people');closeModal('modal-waiting');closeModal('modal-meeting');" style="background:none;border:none;color:var(--accent);font-family:var(--font-ui);font-size:12px;cursor:pointer;text-decoration:underline;">add people first</button>
     </div>`;
@@ -12722,12 +13325,11 @@ function buildPersonPickerHTML(selectedIds, inputId, forceMulti){
   const isMulti = forceMulti || inputId.includes('mtg') || inputId.includes('series') || inputId.includes('person-ids');
   const selArr = Array.isArray(selectedIds) ? selectedIds : (selectedIds||'').split(',').filter(Boolean);
   const selIds = selArr.join(',');
-  // Render compact search picker — selected shown as chips, rest hidden until searched
   return `<div id="${inputId}-picker-wrap" style="position:relative;">
     <!-- Selected chips row -->
     <div id="${inputId}-selected-chips" style="display:flex;flex-wrap:wrap;gap:5px;min-height:28px;margin-bottom:6px;">
       ${selArr.map(id=>{
-        const p=peopleList.find(x=>x.id===id);
+        const p=_pickerList().find(x=>x.id===id);
         if(!p) return '';
         const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
         return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
@@ -12745,7 +13347,6 @@ function buildPersonPickerHTML(selectedIds, inputId, forceMulti){
         oninput="ppSearch(this.value,'${inputId}','${isMulti}')"
         onfocus="ppSearch(this.value,'${inputId}','${isMulti}')"
         onblur="setTimeout(()=>ppClose('${inputId}'),150)"/>
-      <!-- Dropdown -->
       <div id="${inputId}-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
         background:var(--surface);border:1px solid var(--border2);border-radius:0 0 8px 8px;
         box-shadow:0 4px 16px rgba(0,0,0,0.3);max-height:180px;overflow-y:auto;"></div>
@@ -12761,18 +13362,15 @@ function ppSearch(query, inputId, isMulti){
   const sel = new Set((hidden.value||'').split(',').filter(Boolean));
   const q = (query||'').toLowerCase().trim();
   const _pOrd = {High:0, Medium:1, Low:2};
-  const matches = peopleList.filter(p=>{
+  const matches = _pickerList().filter(p=>{
     if(!isMulti && sel.has(p.id)) return false;
     if(q && !p.name.toLowerCase().includes(q) && !(p.role||'').toLowerCase().includes(q)) return false;
     return true;
   }).sort((a,b)=>{
-    // Selected first when no query
     if(!q){ const as=sel.has(a.id), bs=sel.has(b.id); if(as!==bs) return as?-1:1; }
-    // Most recently contacted
     const aL=a.lastContact?new Date(a.lastContact).getTime():0;
     const bL=b.lastContact?new Date(b.lastContact).getTime():0;
     if(aL!==bL) return bL-aL;
-    // Priority
     const pd=(_pOrd[a.priority]??1)-(_pOrd[b.priority]??1);
     if(pd!==0) return pd;
     return a.name.localeCompare(b.name);
@@ -12817,10 +13415,9 @@ function ppSelect(personId, inputId, isMulti){
     sel.clear(); sel.add(personId);
   }
   hidden.value = [...sel].join(',');
-  // Rebuild chips
   if(chipsDiv){
     chipsDiv.innerHTML = [...sel].map(id=>{
-      const p=peopleList.find(x=>x.id===id); if(!p) return '';
+      const p=_pickerList().find(x=>x.id===id); if(!p) return '';
       const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
       return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
         ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"/>`:`<span style="width:16px;height:16px;border-radius:50%;background:${pc}22;color:${pc};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${p.name.slice(0,1)}</span>`}
@@ -12831,9 +13428,9 @@ function ppSelect(personId, inputId, isMulti){
   }
   if(isMulti==='true'||isMulti===true){
     if(search) search.value='';
-    ppSearch('', inputId, isMulti); // refresh dropdown
+    ppSearch('', inputId, isMulti);
   } else {
-    if(search) search.value = peopleList.find(x=>x.id===personId)?.name||'';
+    if(search) search.value = _pickerList().find(x=>x.id===personId)?.name||'';
     ppClose(inputId);
   }
 }
@@ -12844,14 +13441,10 @@ function ppRemove(personId, inputId, isMulti){
   const sel = new Set((hidden.value||'').split(',').filter(Boolean));
   sel.delete(personId);
   hidden.value = [...sel].join(',');
-  ppSelect('__rebuild__', inputId, isMulti); // trigger chip rebuild
-  const hidden2 = document.getElementById(inputId);
-  if(hidden2) hidden2.value = [...sel].join(','); // restore after rebuild
-  // Rebuild chips directly
   const chipsDiv = document.getElementById(inputId+'-selected-chips');
   if(chipsDiv){
     chipsDiv.innerHTML = [...sel].map(id=>{
-      const p=peopleList.find(x=>x.id===id); if(!p) return '';
+      const p=_pickerList().find(x=>x.id===id); if(!p) return '';
       const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
       return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:20px;background:rgba(232,168,56,0.12);border:1px solid rgba(232,168,56,0.3);font-family:var(--font-ui);font-size:12px;font-weight:600;color:var(--accent);">
         ${p.photo&&p.photo.length>10?`<img src="${p.photo}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"/>`:`<span style="width:16px;height:16px;border-radius:50%;background:${pc}22;color:${pc};font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${p.name.slice(0,1)}</span>`}
@@ -12859,7 +13452,7 @@ function ppRemove(personId, inputId, isMulti){
         <span onmousedown="ppRemove('${id}','${inputId}','${isMulti}')" style="cursor:pointer;opacity:0.6;margin-left:2px;font-size:13px;line-height:1;">×</span>
       </span>`;
     }).join('');
-    if(hidden2) hidden2.value = [...sel].join(',');
+    hidden.value = [...sel].join(',');
   }
 }
 
@@ -12876,7 +13469,7 @@ function togglePersonChip(personId, chipsContainerId){
 }
 
 function getPersonNameById(id){
-  const p = peopleList.find(x=>x.id===id);
+  const p = _pickerList().find(x=>x.id===id) || peopleList.find(x=>x.id===id);
   return p ? p.name : id;
 }
 
@@ -13413,6 +14006,7 @@ function deleteMeeting(id){
 }
 
 function openMeetingCapture(existingId, seriesId, prevMeeting){
+  _activePickerList = peopleList;
   const existing = existingId ? meetingLog.find(m=>m.id===existingId) : null;
   const series   = seriesId ? meetingSeries.find(s=>s.id===seriesId) : null;
   const old = document.getElementById('modal-meeting');
@@ -13461,6 +14055,13 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
         <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">WHO WAS THERE?</div>
         ${buildPersonPickerHTML(existingPersonIds, 'mtg-person-ids')}
 
+      </div>
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">INITIATIVE (OPTIONAL)</div>
+        <select id="mtg-initiative-id" class="field-input" style="color-scheme:dark;">
+          <option value="">— None —</option>
+          ${discoveryList.map(i=>`<option value="${i.id}" ${(existing?.initiativeId===i.id)?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
+        </select>
       </div>
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp2);">
@@ -13516,59 +14117,90 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
 }
 
 function saveMeetingCapture(){
-  const id        = document.getElementById('mtg-id')?.value;
-  const title     = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
-  const date      = document.getElementById('mtg-date')?.value||today();
-  const startTime = document.getElementById('mtg-start-time')?.value||'';
-  const duration  = document.getElementById('mtg-duration')?.value||'';
-  const personIds = document.getElementById('mtg-person-ids')?.value||'';
-  const attendees = getPersonNamesByIds(personIds);
-  const decisions = document.getElementById('mtg-decisions')?.value.trim()||'';
-  const notes     = document.getElementById('mtg-notes')?.value.trim()||'';
-  const myCommits = document.getElementById('mtg-mycommits')?.value.trim()||'';
-  const theirCommits=document.getElementById('mtg-theircommits')?.value.trim()||'';
+  const id           = document.getElementById('mtg-id')?.value;
+  const title        = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
+  const date         = document.getElementById('mtg-date')?.value||today();
+  const startTime    = document.getElementById('mtg-start-time')?.value||'';
+  const duration     = document.getElementById('mtg-duration')?.value||'';
+  const personIds    = document.getElementById('mtg-person-ids')?.value||'';
+  const attendees    = getPersonNamesByIds(personIds);
+  const decisions    = document.getElementById('mtg-decisions')?.value.trim()||'';
+  const notes        = document.getElementById('mtg-notes')?.value.trim()||'';
+  const myCommits    = document.getElementById('mtg-mycommits')?.value.trim()||'';
+  const theirCommits = document.getElementById('mtg-theircommits')?.value.trim()||'';
+  const initiativeId = document.getElementById('mtg-initiative-id')?.value||'';
 
   const capSeriesId = document.getElementById('mtg-series-id')?.value||'';
   // Preserve existing taskIds — they're managed separately via addTaskToMeeting
   const existingTaskIds = id ? (meetingLog.find(m=>m.id===id)?.taskIds||[]) : [];
-  const meeting = { id:id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees, decisions, notes, myCommits, theirCommits, createdAt:today(), taskIds: existingTaskIds, ...(capSeriesId?{seriesId:capSeriesId}:{}) };
+  const meeting = {
+    id: id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees,
+    decisions, notes, myCommits, theirCommits, createdAt:today(),
+    taskIds: existingTaskIds,
+    ...(initiativeId ? {initiativeId} : {}),
+    ...(capSeriesId  ? {seriesId:capSeriesId} : {})
+  };
 
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
 
+  // Auto-link meeting into initiative's linkedMeetingIds
+  if(initiativeId){
+    const ini = discoveryList.find(i=>i.id===initiativeId);
+    if(ini){
+      if(!ini.linkedMeetingIds) ini.linkedMeetingIds=[];
+      if(!ini.linkedMeetingIds.includes(meeting.id)) ini.linkedMeetingIds.push(meeting.id);
+      saveDiscovery();
+    }
+  }
+
   // Auto-create tasks from my commitments — ONLY on first save, not on edits
   let tasksCreated=0;
-  const isNewMeeting = !id; // id is populated when editing existing meeting
+  const isNewMeeting = !id;
   if(isNewMeeting && myCommits){
     myCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
       const t={ id:'t'+Date.now()+Math.random().toString(36).slice(2,6), projectId:'', title:line,
         priority:'medium', status:'todo', dueDate:'', notes:'From meeting: '+title+' ('+date+')',
         source:'meeting:'+meeting.id, recur:'none', effort:'', estimate:'', energy:'medium',
-        createdAt:today(), completedAt:null, subtasks:[] };
+        createdAt:today(), completedAt:null, subtasks:[],
+        ...(initiativeId ? {discoveryId:initiativeId} : {})
+      };
       tasks.push(t); tasksCreated++;
+      // Also add to initiative's linkedTaskIds
+      if(initiativeId){
+        const ini = discoveryList.find(i=>i.id===initiativeId);
+        if(ini){
+          if(!ini.linkedTaskIds) ini.linkedTaskIds=[];
+          if(!ini.linkedTaskIds.includes(t.id)) ini.linkedTaskIds.push(t.id);
+        }
+      }
     });
+    if(initiativeId) saveDiscovery();
   }
 
   // Auto-create Waiting For from their commitments — ONLY on first save
   let waitingCreated=0;
   if(isNewMeeting && theirCommits){
     theirCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-      // Try to parse "[Name]: what" format
       const match = line.match(/^([^:]+):\s*(.+)$/);
       const person = match ? match[1].trim() : attendees.split(',')[0].trim()||'Meeting attendee';
       const what   = match ? match[2].trim() : line;
-      waitingFor.unshift({ id:'wf'+Date.now()+Math.random().toString(36).slice(2,6), person, what, dueDate:'', taskId:'', done:false, createdAt:today() });
+      waitingFor.unshift({
+        id:'wf'+Date.now()+Math.random().toString(36).slice(2,6),
+        person, what, dueDate:'', taskId:'', done:false, createdAt:today(),
+        ...(initiativeId ? {initiativeId} : {})
+      });
       waitingCreated++;
     });
     saveWaiting();
   }
 
   saveMeetings();
-  // Save tasks if any were created from commitments
   if(tasksCreated > 0) saveAllDebounced();
   renderAll();
   closeModal('modal-meeting');
   let msg = '📝 Meeting saved';
+  if(initiativeId){ const ini=discoveryList.find(i=>i.id===initiativeId); if(ini) msg+=' · linked to '+ini.title.slice(0,20); }
   if(tasksCreated>0) msg += ' · '+tasksCreated+' task'+(tasksCreated>1?'s':'')+' created';
   if(waitingCreated>0) msg += ' · '+waitingCreated+' waiting for';
   showToast(msg);
@@ -14361,10 +14993,12 @@ async function fetchWeather(){
   return _weatherCache;
 }
 
-function renderWeatherCard(weatherData){
+function renderWeatherCard(weatherData, selectedDate){
   if(!weatherData || !weatherData.daily.length) return '';
   const days = weatherData.daily.slice(0, 5); // show 5 days
   const todayStr = today();
+  const activeDateStr = selectedDate || todayStr;
+  const activeDay = days.find(d => d.date === activeDateStr) || days[0];
 
   let html = '<div style="margin:0 16px 10px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);overflow:hidden;">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">'
@@ -14372,17 +15006,19 @@ function renderWeatherCard(weatherData){
     + '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">Shawnee, KS</span>'
     + '</div>';
 
-  // 5-day strip
+  // 5-day strip — each day is clickable
   html += '<div style="display:flex;border-top:1px solid var(--border);overflow-x:auto;">';
   days.forEach((d, i) => {
-    const isToday = d.date === todayStr;
-    const dayLabel = isToday ? 'Today' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
+    const isToday    = d.date === todayStr;
+    const isSelected = d.date === activeDateStr;
+    const dayLabel   = isToday ? 'Today' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
     const icon = (d.label.split(' ')[0]) || '🌡';
-    html += '<div style="flex:1;min-width:52px;text-align:center;padding:8px 4px;'
-      + (isToday ? 'background:var(--accent-soft);' : '')
+    html += '<div onclick="weatherSelectDay(\'' + d.date + '\')"'
+      + ' style="flex:1;min-width:52px;text-align:center;padding:8px 4px;cursor:pointer;transition:background 0.15s;'
+      + (isSelected ? 'background:var(--accent-soft);' : 'background:transparent;')
       + (i < days.length-1 ? 'border-right:1px solid var(--border);' : '')
       + '">'
-      + '<div style="font:700 10px/1 var(--font-ui);color:' + (isToday?'var(--accent)':'var(--text3)') + ';margin-bottom:4px;">' + dayLabel + '</div>'
+      + '<div style="font:700 10px/1 var(--font-ui);color:' + (isSelected?'var(--accent)':'var(--text3)') + ';margin-bottom:4px;">' + dayLabel + '</div>'
       + '<div style="font-size:18px;line-height:1;margin-bottom:4px;">' + icon + '</div>'
       + '<div style="font:700 12px/1 var(--font-ui);color:var(--text);">' + d.maxF + '°</div>'
       + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">' + d.minF + '°</div>'
@@ -14391,22 +15027,32 @@ function renderWeatherCard(weatherData){
   });
   html += '</div>';
 
-  // Today's clothing advice
-  const todayWeather = days.find(d => d.date === todayStr) || days[0];
-  html += '<div style="padding:8px 14px 10px;border-top:1px solid var(--border);">'
-    + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;margin-bottom:5px;">👕 Kids should wear today</div>'
-    + '<div style="font:500 11px/1.5 var(--font-ui);color:var(--text2);">' + todayWeather.clothing + '</div>'
+  // Selected day clothing advice
+  const dayLabelFull = activeDay.date === todayStr
+    ? 'today'
+    : new Date(activeDay.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'long'});
+  html += '<div id="weather-clothing-row" style="padding:8px 14px 10px;border-top:1px solid var(--border);">'
+    + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;margin-bottom:5px;">👕 Kids should wear ' + dayLabelFull + '</div>'
+    + '<div style="font:500 11px/1.5 var(--font-ui);color:var(--text2);">' + activeDay.label + ' · ' + activeDay.maxF + '° / ' + activeDay.minF + '° · ' + activeDay.clothing + '</div>'
     + '</div>';
 
   html += '</div>';
   return html;
 }
 
+let _weatherSelectedDate = null;
+
+function weatherSelectDay(dateStr){
+  _weatherSelectedDate = dateStr;
+  const el = document.getElementById('weather-card');
+  if(el && _weatherCache) el.innerHTML = renderWeatherCard(_weatherCache, dateStr);
+}
+
 async function loadAndRenderWeather(){
   try{
     const w = await fetchWeather();
     const el = document.getElementById('weather-card');
-    if(el) el.innerHTML = renderWeatherCard(w);
+    if(el) el.innerHTML = renderWeatherCard(w, _weatherSelectedDate);
   }catch(e){
     console.warn('[Weather] Failed:', e);
     const el = document.getElementById('weather-card');
@@ -15722,13 +16368,19 @@ function renderDiscoveryCard(ini){
         ${ini.marketTrack?.targetQuarter?`<span style="font-size:9px;color:#81C78444;font-family:var(--font-ui);">${ini.marketTrack.targetQuarter}</span>`:''}
       </div>
     </div>
-    <!-- Footer stats -->
+    <!-- Footer stats + quick add signal -->
     <div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
       <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
       ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
       ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
       ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
-      ${lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-left:auto;">${lastSig.date.slice(5)}</span>`:''}
+      ${lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:''}
+      <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
+        style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
+          background:var(--accent);color:#1a1f2e;
+          font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+        + Signal
+      </button>
     </div>
   </div>`;
 }
@@ -15755,9 +16407,10 @@ function renderDiscoveryDetail(container){
   const engPct = discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none');
   const mktPct = discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering');
   const owner  = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
-  const linkedMeetings = (ini.linkedMeetingIds||[]).map(id=>meetingLog.find(m=>m.id===id)).filter(Boolean);
-  const linkedPeople   = (ini.linkedPersonIds||[]).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
-  const linkedTasks    = (ini.linkedTaskIds||[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean).filter(t=>t.status!=='done');
+  const linkedMeetings  = (ini.linkedMeetingIds||[]).map(id=>meetingLog.find(m=>m.id===id)).filter(Boolean);
+  const linkedPeople    = (ini.linkedPersonIds||[]).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const linkedTasks     = (ini.linkedTaskIds||[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean).filter(t=>t.status!=='done');
+  const linkedWaiting   = waitingFor.filter(w=>!w.done && w.initiativeId===ini.id);
   const openQuestions  = (ini.openQuestions||[]).filter(q=>!q.resolved);
 
   const sentimentCounts = {};
@@ -15906,6 +16559,14 @@ function renderDiscoveryDetail(container){
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
             ${linkedTasks.map(t=>`<span onclick="openEditTask('${t.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);cursor:pointer;">☐ ${esc(t.title.slice(0,25))}</span>`).join('')}
             <button onclick="openAddTask();/* TODO link */" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Add task</button>
+          </div>
+        </div>
+        <!-- Waiting For -->
+        <div>
+          <div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-bottom:4px;">WAITING FOR</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${linkedWaiting.map(w=>`<span onclick="openWaitingForModal(null,'${w.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;background:rgba(100,181,246,0.08);color:#64B5F6;border:1px solid rgba(100,181,246,0.25);cursor:pointer;">⏳ ${esc(w.person)}: ${esc(w.what.slice(0,20))}</span>`).join('')}
+            <button onclick="openWaitingForModal()" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Add waiting for</button>
           </div>
         </div>
       </div>
@@ -16552,7 +17213,7 @@ function openFrictionlessCapture(){
   // Bottom sheet style
   m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.5);';
 
-  // Active initiatives for signal routing
+  // Always show active initiatives for signal routing
   const activeInits = discoveryList
     .filter(i=>i.status!=='killed'&&i.status!=='launched')
     .slice(0,6);
@@ -16572,7 +17233,9 @@ function openFrictionlessCapture(){
         placeholder="What's on your mind…"
         onfocus="this.style.borderColor='var(--accent)'"
         onblur="this.style.borderColor='var(--border)'"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();fcSubmit('task');}"></textarea>
+        oninput="fcAutoRoute(this.value)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();fcSubmitAuto();}"></textarea>
+      <div id="fc-route-hint" style="font:600 10px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;margin-top:5px;min-height:14px;"></div>
     </div>
 
     <!-- Type selector -->
@@ -16580,36 +17243,36 @@ function openFrictionlessCapture(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp2);margin-bottom:14px;">
 
       <!-- Task (default) -->
-      <button onclick="fcSubmit('task')"
+      <button id="fc-btn-task" onclick="fcSubmit('task')"
         style="padding:14px 12px;border-radius:var(--r3);border:2px solid var(--accent);
-               background:rgba(232,168,56,0.1);cursor:pointer;text-align:left;">
+               background:rgba(232,168,56,0.1);cursor:pointer;text-align:left;transition:all 0.15s;">
         <div style="font-size:18px;margin-bottom:4px;">☐</div>
         <div style="font-size:13px;font-weight:800;color:var(--accent);font-family:var(--font-ui);">Task</div>
         <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);">Goes to your task list</div>
       </button>
 
       <!-- Brain dump / Parking lot -->
-      <button onclick="fcSubmit('braindump')"
+      <button id="fc-btn-braindump" onclick="fcSubmit('braindump')"
         style="padding:14px 12px;border-radius:var(--r3);border:1px solid var(--border);
-               background:var(--surface2);cursor:pointer;text-align:left;">
+               background:var(--surface2);cursor:pointer;text-align:left;transition:all 0.15s;">
         <div style="font-size:18px;margin-bottom:4px;">💭</div>
         <div style="font-size:13px;font-weight:800;color:var(--text);font-family:var(--font-ui);">Thought</div>
         <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);">Brain dump / Someday</div>
       </button>
 
       <!-- Waiting for -->
-      <button onclick="fcSubmit('waiting')"
+      <button id="fc-btn-waiting" onclick="fcSubmit('waiting')"
         style="padding:14px 12px;border-radius:var(--r3);border:1px solid rgba(100,181,246,0.4);
-               background:rgba(100,181,246,0.06);cursor:pointer;text-align:left;">
+               background:rgba(100,181,246,0.06);cursor:pointer;text-align:left;transition:all 0.15s;">
         <div style="font-size:18px;margin-bottom:4px;">⏳</div>
         <div style="font-size:13px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);">Waiting for</div>
         <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);">Someone owes you something</div>
       </button>
 
       <!-- Meeting note -->
-      <button onclick="fcSubmit('meeting')"
+      <button id="fc-btn-meeting" onclick="fcSubmit('meeting')"
         style="padding:14px 12px;border-radius:var(--r3);border:1px solid rgba(186,104,200,0.4);
-               background:rgba(186,104,200,0.06);cursor:pointer;text-align:left;">
+               background:rgba(186,104,200,0.06);cursor:pointer;text-align:left;transition:all 0.15s;">
         <div style="font-size:18px;margin-bottom:4px;">📝</div>
         <div style="font-size:13px;font-weight:800;color:#BA68C8;font-family:var(--font-ui);">Meeting note</div>
         <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);">Opens meeting capture</div>
@@ -16636,12 +17299,74 @@ function openFrictionlessCapture(){
 
   m.onclick = e => { if(e.target===m) closeFrictionlessCapture(); };
   document.body.appendChild(m);
-  setTimeout(()=>document.getElementById('fc-input')?.focus(), 150);
+  // Auto-focus voice on mobile, text on desktop
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(isMobile){
+    setTimeout(()=>{ toggleVoice('fc-input','fc-mic-btn'); }, 150);
+  } else {
+    setTimeout(()=>document.getElementById('fc-input')?.focus(), 150);
+  }
 }
 
 function closeFrictionlessCapture(){
   const m = document.getElementById('modal-fc');
   if(m) m.remove();
+}
+
+// ── Auto-route: detect intent from typed text ─────────────────
+let _fcDetectedType = 'task';
+function fcAutoRoute(text){
+  const t = (text||'').toLowerCase().trim();
+  const hint = document.getElementById('fc-route-hint');
+  const btns = {
+    task:      document.getElementById('fc-btn-task'),
+    braindump: document.getElementById('fc-btn-braindump'),
+    waiting:   document.getElementById('fc-btn-waiting'),
+    meeting:   document.getElementById('fc-btn-meeting'),
+  };
+
+  // Reset all borders
+  if(btns.task)      btns.task.style.border      = '2px solid var(--accent)';
+  if(btns.braindump) btns.braindump.style.border  = '1px solid var(--border)';
+  if(btns.waiting)   btns.waiting.style.border    = '1px solid rgba(100,181,246,0.4)';
+  if(btns.meeting)   btns.meeting.style.border    = '1px solid rgba(186,104,200,0.4)';
+
+  if(!t){ _fcDetectedType='task'; if(hint) hint.textContent=''; return; }
+
+  // Waiting-for keywords
+  const waitingPhrases = ['waiting on','waiting for','need from','owe me','owes me','following up','follow up with','expecting from','pending from','asked for','from:'];
+  if(waitingPhrases.some(p=>t.startsWith(p)||t.includes(' '+p))){
+    _fcDetectedType='waiting';
+    if(btns.waiting) btns.waiting.style.border='2px solid #64B5F6';
+    if(hint) hint.textContent='⏳ Looks like a waiting-for — will open that form';
+    return;
+  }
+
+  // Meeting keywords
+  const meetingPhrases = ['met with','meeting with','spoke with','called with','notes from','recap:','discussed','1:1','standup','standup'];
+  if(meetingPhrases.some(p=>t.includes(p))){
+    _fcDetectedType='meeting';
+    if(btns.meeting) btns.meeting.style.border='2px solid #BA68C8';
+    if(hint) hint.textContent='📝 Looks like meeting notes — will open capture';
+    return;
+  }
+
+  // Someday/thought keywords
+  const maybePhrases = ['someday','maybe','might','one day','idea:','wondering','what if','could be','eventually','not urgent'];
+  if(maybePhrases.some(p=>t.includes(p))){
+    _fcDetectedType='braindump';
+    if(btns.braindump) btns.braindump.style.border='2px solid var(--text2)';
+    if(hint) hint.textContent='💭 Sounds like a thought — going to Someday';
+    return;
+  }
+
+  // Default: task
+  _fcDetectedType='task';
+  if(hint) hint.textContent='';
+}
+
+function fcSubmitAuto(){
+  fcSubmit(_fcDetectedType);
 }
 
 function fcSubmit(type, initiativeId){
@@ -16692,6 +17417,39 @@ function fcSubmit(type, initiativeId){
 }
 
 
+
+function openLaterTodayPicker(){
+  const laterKey = 'hub-later-today-' + today();
+  const existing = new Set(JSON.parse(localStorage.getItem(laterKey)||'[]'));
+  const available = tasks.filter(t=>t.status!=='done'&&!todayPinned.has(t.id)&&!existing.has(t.id));
+  const old = document.getElementById('modal-later-today'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-later-today';
+  m.style.cssText = 'position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.4);';
+  m.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px;max-height:70vh;display:flex;flex-direction:column;">
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 12px;"></div>
+    <div style="font:700 13px/1 var(--font-ui);color:var(--text);margin-bottom:10px;">Add to Later Today</div>
+    <input id="later-today-search" class="field-input" placeholder="Search tasks…" autocomplete="off"
+      oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('.later-today-item').forEach(el=>{el.style.display=el.dataset.title.toLowerCase().includes(q)?'flex':'none';});})()" style="margin-bottom:10px;"/>
+    <div style="overflow-y:auto;flex:1;">
+      ${available.slice(0,40).map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        return `<div class="later-today-item" data-title="${esc(t.title)}"
+          onclick="(()=>{const k='hub-later-today-'+today();const ids=JSON.parse(localStorage.getItem(k)||'[]');if(!ids.includes('${t.id}')){ids.push('${t.id}');localStorage.setItem(k,JSON.stringify(ids));}document.getElementById('modal-later-today').remove();renderAll();})()"
+          style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            ${proj?`<div style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</div>`:''}
+          </div>
+          <span style="font:700 10px/1 var(--font-ui);color:${t.priority==='high'?'var(--red)':t.priority==='low'?'var(--text4)':'var(--accent)'};">${t.priority}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('later-today-search')?.focus(), 150);
+}
 
 function moveTaskToSomeday(taskId){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
@@ -17498,12 +18256,17 @@ async function bootApp(){
   injectImportedMeetings();
   // Schedule prep notifications for today's meeting blocks
   scheduleAllTodayPrepNotifs();
-  // Background prefetch calendar for the next 90 days so tab opens instantly
+  // Prefetch calendar for today immediately so home strip is ready on first render
+  // Also fetch the next 90 days in background so the Calendar tab opens instantly
+  fetchCalendarEvents(today(), today()).catch(()=>{}).then(()=>{
+    // Once today's events are loaded, refresh the home cal strip if it's visible
+    const strip = document.getElementById('home-cal-strip');
+    if(strip) strip.innerHTML = renderCalTodayStrip(today());
+  });
   setTimeout(()=>{
-    const _calStart = today();
-    const _calEnd   = localDateStr(new Date(Date.now() + 90*24*60*60*1000));
-    fetchCalendarEvents(_calStart, _calEnd).catch(()=>{});
-  }, 2000); // wait 2s after boot so it doesn't compete with initial render
+    const _calEnd = localDateStr(new Date(Date.now() + 90*24*60*60*1000));
+    fetchCalendarEvents(today(), _calEnd).catch(()=>{});
+  }, 3000);
 }
 
 function toggleStatsStrip(){
@@ -17521,6 +18284,14 @@ function initStatsStrip(){
   const saved = localStorage.getItem('hub-stats-collapsed');
   const shouldCollapse = saved !== null ? saved === '1' : defaultCollapsed;
   if(shouldCollapse) strip.classList.add('collapsed');
+}
+
+function toggleSimpleMode(){
+  const current = localStorage.getItem('hub-simple-mode') === '1';
+  localStorage.setItem('hub-simple-mode', current ? '0' : '1');
+  applyMode();
+  renderAll();
+  showToast(current ? '📋 Full mode restored' : '✨ Simple mode on — less clutter');
 }
 
 function toggleCalmMode(){
