@@ -16325,11 +16325,11 @@ function renderDiscoveryPage(container){
       </div>
       <!-- Status filter chips -->
       <div style="display:flex;gap:6px;padding:0 14px 8px;overflow-x:auto;flex-shrink:0;">
-        <button onclick="renderDiscoveryWithFilter(document.getElementById('main-content'),'')" style="padding:4px 10px;border-radius:20px;border:1px solid ${!statusFilter?'var(--accent)':'var(--border)'};background:${!statusFilter?'rgba(232,168,56,0.1)':'transparent'};color:${!statusFilter?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">All (${discoveryList.length})</button>
+        <button onclick="renderDiscoveryWithFilter(document.getElementById('main'),'')" style="padding:4px 10px;border-radius:20px;border:1px solid ${!statusFilter?'var(--accent)':'var(--border)'};background:${!statusFilter?'rgba(232,168,56,0.1)':'transparent'};color:${!statusFilter?'var(--accent)':'var(--text3)'};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">All (${discoveryList.length})</button>
         ${Object.entries(DISC_STATUS).map(([k,v])=>{
           const count = statusCounts[k]||0;
           if(!count) return '';
-          return `<button onclick="renderDiscoveryWithFilter(document.getElementById('main-content'),'${k}')"
+          return `<button onclick="renderDiscoveryWithFilter(document.getElementById('main'),'${k}')"
             style="padding:4px 10px;border-radius:20px;border:1px solid ${statusFilter===k?v.color:v.color+'44'};background:${statusFilter===k?v.color+'22':'transparent'};color:${v.color};font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${v.label} (${count})</button>`;
         }).join('')}
       </div>
@@ -16402,7 +16402,7 @@ function renderDiscoveryCard(ini){
 
 function openDiscoveryDetail(id){
   discActiveId = id; discView = 'detail';
-  const main = document.getElementById('main-content');
+  const main = document.getElementById('main');
   if(main) renderDiscoveryDetail(main);
 }
 
@@ -18376,7 +18376,7 @@ let _activeGame = null; // null = lobby, or gameId string
 // Sync launcher — called directly from onclick so no async delay
 function launchGame(gameId){
   _activeGame = gameId;
-  const main = document.getElementById('main-content');
+  const main = document.getElementById('main');
   if(main) renderActiveGame(main, gameId);
 }
 
@@ -18426,13 +18426,13 @@ async function renderGamesPage(container){
 }
 
 function renderGamesLeaderboard(){
-  const main = document.getElementById('main-content');
+  const main = document.getElementById('main');
   const PLAYERS = ['Jason','Jenny','Ridley','Connor'];
   const COLORS  = ['var(--accent)','#E91E8C',playerColor(0),playerColor(1)];
 
   let html = `<div style="padding:16px 16px 100px;max-width:540px;margin:0 auto;">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-      <button onclick="renderGamesPage(document.getElementById('main-content'))"
+      <button onclick="renderGamesPage(document.getElementById('main'))"
         style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
       <div style="font:800 20px/1 var(--font-ui);color:var(--text);">🏆 Family Leaderboard</div>
     </div>`;
@@ -18473,7 +18473,7 @@ function renderActiveGame(container, gameId){
   container.innerHTML = `
   <div id="game-shell" style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
+      <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
         style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
       <span style="font-size:20px;">${g.emoji}</span>
       <div style="flex:1;">
@@ -18551,7 +18551,7 @@ function showGameOver(gameId, score, isNewBest){
       <div style="display:flex;gap:10px;justify-content:center;">
         <button onclick="launchGame('${gameId}')"
           style="padding:12px 24px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">Play Again</button>
-        <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
+        <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
           style="padding:12px 24px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">All Games</button>
       </div>
     </div>`;
