@@ -2014,8 +2014,8 @@ body.light-mode .today-card-row:active{ background:rgba(0,0,0,0.04); }
   .brain-dump-bar{ margin-bottom:calc(8px + env(safe-area-inset-bottom)); }
 }
 
-/* ── Tap highlight suppression (already in * rule, belt+suspenders) */
-button, a, [onclick]{ -webkit-tap-highlight-color:transparent; }
+/* ── Tap highlight suppression (belt+suspenders) */
+button{ -webkit-tap-highlight-color:transparent; }
 </style>
 
 <!-- vConsole hidden — re-enable if needed for push notification debugging -->
@@ -4113,7 +4113,6 @@ function applyMode(){
   const modeLabel = document.getElementById('mode-label');
   const headerEl  = document.getElementById('header');
   const headerSub = document.getElementById('header-sub');
-  const simpleModeOn = localStorage.getItem('hub-simple-mode') === '1';
 
   if(modeBtn){
     if(isJenny){
