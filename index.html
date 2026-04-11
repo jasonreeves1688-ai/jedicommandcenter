@@ -18373,6 +18373,13 @@ function getPersonalBest(gameId){
 // ── Games page ────────────────────────────────────────────────
 let _activeGame = null; // null = lobby, or gameId string
 
+// Sync launcher — called directly from onclick so no async delay
+function launchGame(gameId){
+  _activeGame = gameId;
+  const main = document.getElementById('main-content');
+  if(main) renderActiveGame(main, gameId);
+}
+
 async function renderGamesPage(container){
   try{ await loadArcadeScores(); }catch(e){ /* scores unavailable, proceed anyway */ }
   if(_activeGame){
@@ -18398,11 +18405,12 @@ async function renderGamesPage(container){
         const top = getTopScores(g.id,1)[0];
         const my  = pb[g.id];
         const isLeader = top && top.name === getCurrentPlayerName();
-        return `<div onclick="_activeGame='${g.id}';renderGamesPage(document.getElementById('main-content'))"
+        return `<div onclick="launchGame('${g.id}')"
           style="border-radius:16px;border:1px solid var(--border);background:var(--surface);
             padding:16px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden;"
-          onmouseover="this.style.borderColor='var(--accent)';this.style.background='var(--surface2)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'"
+          ontouchstart="this.style.background='var(--surface2)'"
+          ontouchend="this.style.background='var(--surface)'">
           ${isLeader?`<div style="position:absolute;top:8px;right:8px;font:700 9px/1 var(--font-ui);color:#f9a825;background:rgba(249,168,37,0.12);padding:2px 6px;border-radius:20px;">👑 LEADER</div>`:''}
           <div style="font-size:32px;margin-bottom:8px;">${g.emoji}</div>
           <div style="font:800 14px/1 var(--font-ui);color:var(--text);">${g.name}</div>
@@ -18541,7 +18549,7 @@ function showGameOver(gameId, score, isNewBest){
         </div>`).join('')}
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="_activeGame='${gameId}';renderGamesPage(document.getElementById('main-content'))"
+        <button onclick="launchGame('${gameId}')"
           style="padding:12px 24px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">Play Again</button>
         <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main-content'))"
           style="padding:12px 24px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">All Games</button>
