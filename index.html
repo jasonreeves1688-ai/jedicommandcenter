@@ -18308,18 +18308,27 @@ function initStatsStrip(){
 // ══════════════════════════════════════════════════════════════════
 
 const ARCADE_GAMES = [
-  { id:'snake',    name:'Snake',         emoji:'🐍', desc:'Eat, grow, survive' },
-  { id:'tetris',   name:'Block Drop',    emoji:'🧱', desc:'Clear the lines' },
-  { id:'breakout', name:'Breakout',      emoji:'🏓', desc:'Break the bricks' },
-  { id:'shooter',  name:'Space Shooter', emoji:'🌌', desc:'Blast the invaders' },
-  { id:'runner',   name:'Endless Runner',emoji:'🦘', desc:'Jump to survive' },
-  { id:'2048',     name:'2048',          emoji:'🔢', desc:'Merge the tiles' },
+  { id:'snake',      name:'Snake',          emoji:'🐍', desc:'Eat, grow, survive' },
+  { id:'tetris',     name:'Block Drop',     emoji:'🧱', desc:'Clear the lines' },
+  { id:'breakout',   name:'Breakout',       emoji:'🏓', desc:'Break the bricks' },
+  { id:'runner',     name:'Endless Runner', emoji:'🦘', desc:'Jump to survive' },
+  { id:'scramble',   name:'Word Scramble',  emoji:'🔤', desc:'Unscramble the word' },
+  { id:'hangman',    name:'Hangman',        emoji:'🪢', desc:'Guess the word' },
+  { id:'wordsearch', name:'Word Search',    emoji:'🔍', desc:'Find hidden words' },
+  { id:'mathblitz',  name:'Math Blitz',     emoji:'⚡', desc:'Rapid-fire maths' },
+  { id:'numpuzzle',  name:'Number Puzzle',  emoji:'🔢', desc:'Fill the missing number' },
 ];
 
 function getCurrentPlayerName(){
   if(currentUser === 'parent') return 'Jason';
   if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
-  if(typeof currentUser === 'object' && currentUser.role === 'kid') return currentUser.name || 'Kid';
+  if(typeof currentUser === 'object' && currentUser.role === 'kid'){
+    // Get name from kids data by playerIdx
+    const d = loadKidsData();
+    const player = d.players && d.players[currentUser.playerIdx];
+    if(player && player.name) return player.name;
+    return currentUser.name || 'Kid';
+  }
   return 'Player';
 }
 
@@ -18329,45 +18338,72 @@ let _arcadeScores = {}; // { gameId: [ {name, score, ts} ] }
 async function loadArcadeScores(){
   try{
     const { data } = await _sb.from('arcade_scores').select('*').order('score',{ascending:false});
-    if(data){
+    if(data && data.length){
       _arcadeScores = {};
       data.forEach(r=>{
         if(!_arcadeScores[r.game_id]) _arcadeScores[r.game_id] = [];
         _arcadeScores[r.game_id].push({name:r.player_name, score:r.score, ts:r.created_at});
       });
+      // Also rebuild personal best cache
+      Object.keys(_arcadeScores).forEach(gameId=>{
+        const pbKey = 'hub-arcade-pb-' + gameId;
+        const pbData = {};
+        _arcadeScores[gameId].forEach(r=>{
+          if(!pbData[r.name] || r.score > pbData[r.name]) pbData[r.name] = r.score;
+        });
+        localStorage.setItem(pbKey, JSON.stringify(pbData));
+      });
+      localStorage.setItem('hub-arcade-scores', JSON.stringify(_arcadeScores));
+      return;
     }
-  }catch(e){
-    // Fall back to localStorage
-    const cached = localStorage.getItem('hub-arcade-scores');
-    if(cached) _arcadeScores = JSON.parse(cached);
-  }
+  }catch(e){}
+  // Fall back to localStorage
+  const cached = localStorage.getItem('hub-arcade-scores');
+  if(cached) try{ _arcadeScores = JSON.parse(cached); }catch(e){}
 }
 
 async function saveArcadeScore(gameId, score){
   const name = getCurrentPlayerName();
   if(!_arcadeScores[gameId]) _arcadeScores[gameId] = [];
-  // Update or insert this player's best for this game
-  const existing = _arcadeScores[gameId].find(r=>r.name===name);
-  if(existing){ if(score > existing.score) existing.score = score; }
-  else _arcadeScores[gameId].push({name, score, ts: new Date().toISOString()});
+  // Add this score as a new entry (keep all scores for true top-10)
+  _arcadeScores[gameId].push({name, score, ts: new Date().toISOString()});
+  // Also track personal best separately for quick lookup
+  const pbKey = 'hub-arcade-pb-' + gameId;
+  const pbData = JSON.parse(localStorage.getItem(pbKey)||'{}');
+  if(!pbData[name] || score > pbData[name]) pbData[name] = score;
+  localStorage.setItem(pbKey, JSON.stringify(pbData));
+  // Persist all scores to localStorage
   localStorage.setItem('hub-arcade-scores', JSON.stringify(_arcadeScores));
+  // Sync to Supabase — insert each score as its own row
   try{
-    await _sb.from('arcade_scores').upsert({
-      game_id: gameId, player_name: name, score,
+    await _sb.from('arcade_scores').insert({
+      game_id: gameId,
+      player_name: name,
+      score,
       created_at: new Date().toISOString()
-    }, {onConflict:'game_id,player_name'});
-  }catch(e){}
+    });
+  }catch(e){
+    // Supabase unavailable — localStorage already saved
+  }
 }
 
-function getTopScores(gameId, limit=4){
+function getTopScores(gameId, limit=10){
   const scores = _arcadeScores[gameId] || [];
-  return [...scores].sort((a,b)=>b.score-a.score).slice(0,limit);
+  // Sort all entries by score descending, return top N with name + score
+  return [...scores]
+    .sort((a,b) => b.score - a.score)
+    .slice(0, limit);
 }
 
 function getPersonalBest(gameId){
   const name = getCurrentPlayerName();
-  const s = (_arcadeScores[gameId]||[]).find(r=>r.name===name);
-  return s ? s.score : 0;
+  // Check fast personal best cache first
+  const pbKey = 'hub-arcade-pb-' + gameId;
+  const pbData = JSON.parse(localStorage.getItem(pbKey)||'{}');
+  if(pbData[name]) return pbData[name];
+  // Fall back to scanning scores
+  const scores = (_arcadeScores[gameId]||[]).filter(r=>r.name===name);
+  return scores.length ? Math.max(...scores.map(s=>s.score)) : 0;
 }
 
 // ── Games page ────────────────────────────────────────────────
@@ -18438,11 +18474,13 @@ function renderGamesLeaderboard(){
     </div>`;
 
   ARCADE_GAMES.forEach(g=>{
-    const scores = getTopScores(g.id, 4);
+    const scores = getTopScores(g.id, 10);
+    const myName = getCurrentPlayerName();
     html += `<div style="margin-bottom:14px;border-radius:14px;border:1px solid var(--border);background:var(--surface);overflow:hidden;">
       <div style="padding:10px 14px;background:var(--surface2);display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">${g.emoji}</span>
         <span style="font:700 13px/1 var(--font-ui);color:var(--text);">${g.name}</span>
+        <span style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-left:auto;">Top ${Math.min(scores.length,10)}</span>
       </div>`;
     if(!scores.length){
       html += `<div style="padding:12px 14px;font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No scores yet — be the first!</div>`;
@@ -18451,10 +18489,11 @@ function renderGamesLeaderboard(){
         const pIdx = PLAYERS.indexOf(s.name);
         const col = pIdx>=0 ? COLORS[pIdx] : 'var(--text3)';
         const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border);">
-          <span style="font-size:16px;width:20px;text-align:center;">${medal||`<span style="font:700 11px/1 var(--font-ui);color:var(--text4);">${i+1}</span>`}</span>
+        const isMe = s.name === myName;
+        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border);${isMe?`background:rgba(232,168,56,0.06);`:''}">
+          <span style="font:700 12px/1 var(--font-ui);color:var(--text4);width:20px;text-align:center;">${medal||(i+1)}</span>
           <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>
-          <div style="flex:1;font:600 13px/1 var(--font-ui);color:var(--text);">${esc(s.name)}</div>
+          <div style="flex:1;font:${isMe?'800':'600'} 13px/1 var(--font-ui);color:${isMe?'var(--accent)':'var(--text)'};">${esc(s.name)}${isMe?' ◀':''}</div>
           <div style="font:800 14px/1 var(--font-ui);color:${col};">${s.score.toLocaleString()}</div>
         </div>`;
       });
@@ -18481,6 +18520,8 @@ function renderActiveGame(container, gameId){
         ${pb?`<div style="font:500 10px/1 var(--font-ui);color:var(--accent);">Your best: ${pb.toLocaleString()}</div>`:''}
       </div>
       <div id="game-score-display" style="font:800 18px/1 var(--font-ui);color:var(--accent);">0</div>
+      <button onclick="launchGame('${gameId}')"
+        style="padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;">↺</button>
     </div>
     <div id="game-canvas-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;min-height:0;">
       <canvas id="game-canvas" style="border-radius:12px;touch-action:none;display:block;"></canvas>
@@ -18572,56 +18613,93 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
   const COLS = Math.floor(W/CELL), ROWS = Math.floor(H/CELL);
   let snake = [{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
   let dir = {x:1,y:0}, nextDir = {x:1,y:0};
-  let food = spawnFood(), score = 0, running = true, speed = 120, lastTime = 0;
+  let score=0, running=true, speed=140, lastTime=0, level=1, foodEaten=0;
+  let obstacles=[], levelFlash=0;
+  let food = spawnFood();
 
   function spawnFood(){
     let pos;
     do{ pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)}; }
-    while(snake.some(s=>s.x===pos.x&&s.y===pos.y));
+    while(snake.some(s=>s.x===pos.x&&s.y===pos.y)||obstacles.some(o=>o.x===pos.x&&o.y===pos.y));
     return pos;
+  }
+
+  function addObstacles(){
+    let added=0, tries=0;
+    while(added<2&&tries<200){
+      tries++;
+      const o={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};
+      if(!snake.some(s=>s.x===o.x&&s.y===o.y)&&!(food.x===o.x&&food.y===o.y)&&!obstacles.some(x=>x.x===o.x&&x.y===o.y))
+        { obstacles.push(o); added++; }
+    }
   }
 
   function draw(){
     ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
-    // Grid dots
     ctx.fillStyle='rgba(255,255,255,0.03)';
     for(let x=0;x<COLS;x++) for(let y=0;y<ROWS;y++){
-      ctx.beginPath(); ctx.arc(x*CELL+CELL/2, y*CELL+CELL/2, 1, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x*CELL+CELL/2,y*CELL+CELL/2,1,0,Math.PI*2); ctx.fill();
     }
+    // Obstacles
+    obstacles.forEach(o=>{
+      ctx.fillStyle='#546E7A';
+      ctx.beginPath(); ctx.roundRect(o.x*CELL+1,o.y*CELL+1,CELL-2,CELL-2,3); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(o.x*CELL+2,o.y*CELL+2,CELL-4,3);
+    });
     // Snake
     snake.forEach((s,i)=>{
-      const alpha = i===0 ? 1 : 0.7 - (i/snake.length)*0.4;
-      ctx.fillStyle = i===0 ? '#E8A838' : `rgba(100,181,246,${alpha})`;
-      const r = i===0 ? CELL*0.45 : CELL*0.38;
-      ctx.beginPath(); ctx.roundRect(s.x*CELL+CELL*0.1, s.y*CELL+CELL*0.1, CELL*0.8, CELL*0.8, r);
-      ctx.fill();
+      const alpha=i===0?1:0.7-(i/snake.length)*0.4;
+      ctx.fillStyle=i===0?'#E8A838':`rgba(100,181,246,${alpha})`;
+      const r=i===0?CELL*0.45:CELL*0.38;
+      ctx.beginPath(); ctx.roundRect(s.x*CELL+CELL*0.1,s.y*CELL+CELL*0.1,CELL*0.8,CELL*0.8,r); ctx.fill();
     });
-    // Eyes on head
-    const h = snake[0];
+    const h=snake[0];
     ctx.fillStyle='#1a1f2e';
-    const ex = dir.x===0 ? [-3,3] : [dir.x*2, dir.x*2];
-    const ey = dir.y===0 ? [-3,3] : [dir.y*2, dir.y*2];
+    const ex=dir.x===0?[-3,3]:[dir.x*2,dir.x*2];
+    const ey=dir.y===0?[-3,3]:[dir.y*2,dir.y*2];
     [[ex[0],ey[0]],[ex[1],ey[1]]].forEach(([ox,oy])=>{
-      ctx.beginPath(); ctx.arc(h.x*CELL+CELL/2+ox, h.y*CELL+CELL/2+oy, 2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(h.x*CELL+CELL/2+ox,h.y*CELL+CELL/2+oy,2,0,Math.PI*2); ctx.fill();
     });
     // Food
     ctx.fillStyle='#EF5350';
-    ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL*0.38, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle='#66BB6A'; ctx.fillRect(food.x*CELL+CELL/2-1, food.y*CELL+CELL*0.1, 2, CELL*0.25);
+    ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL*0.38,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#66BB6A'; ctx.fillRect(food.x*CELL+CELL/2-1,food.y*CELL+CELL*0.1,2,CELL*0.25);
+    // HUD
+    ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font=`700 11px sans-serif`;
+    ctx.fillText(`LVL ${level}`,6,16); ctx.fillText(`${score}`,W-45,16);
+    // Level flash
+    if(levelFlash>0){
+      ctx.globalAlpha=levelFlash/25*0.5; ctx.fillStyle='#E8A838'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+      ctx.fillStyle='#fff'; ctx.font=`800 ${CELL*2}px sans-serif`; ctx.textAlign='center';
+      ctx.fillText(`LEVEL ${level}!`,W/2,H/2+8); ctx.textAlign='left';
+      levelFlash--;
+    }
   }
 
   function tick(){
-    dir = nextDir;
-    const head = {x:(snake[0].x+dir.x+COLS)%COLS, y:(snake[0].y+dir.y+ROWS)%ROWS};
-    if(snake.some(s=>s.x===head.x&&s.y===head.y)){ running=false; onGameOver(score); return; }
+    dir=nextDir;
+    const head={x:(snake[0].x+dir.x+COLS)%COLS,y:(snake[0].y+dir.y+ROWS)%ROWS};
+    if(snake.some(s=>s.x===head.x&&s.y===head.y)||obstacles.some(o=>o.x===head.x&&o.y===head.y)){
+      running=false; onGameOver(score); return;
+    }
     snake.unshift(head);
-    if(head.x===food.x&&head.y===food.y){ score+=10; speed=Math.max(60,speed-2); onScore(score); food=spawnFood(); }
-    else snake.pop();
+    if(head.x===food.x&&head.y===food.y){
+      foodEaten++;
+      score+=10*level;
+      onScore(score);
+      food=spawnFood();
+      if(foodEaten%5===0){
+        level++;
+        speed=Math.max(65,140-level*12);
+        addObstacles();
+        levelFlash=25;
+      } else { speed=Math.max(65,speed-2); }
+    } else { snake.pop(); }
   }
 
   function loop(ts){
     if(!running) return;
-    if(ts-lastTime > speed){ lastTime=ts; tick(); draw(); }
+    if(ts-lastTime>speed){ lastTime=ts; tick(); draw(); }
     requestAnimationFrame(loop);
   }
   draw();
@@ -18682,8 +18760,9 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
   const COLORS=['#64B5F6','#FFD54F','#CE93D8','#FF8A65','#4DB6AC','#EF5350','#66BB6A'];
 
   let board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
-  let score=0, running=true;
+  let score=0, lines=0, level=1, running=true;
   let cur=newPiece(), dropInterval=500, lastDrop=Date.now();
+  let levelFlash=0;
 
   function newPiece(){
     const i=Math.floor(Math.random()*PIECES.length);
@@ -18700,12 +18779,23 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
 
   function place(){
     cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&cur.y+dy>=0) board[cur.y+dy][cur.x+dx]=cur.color; }));
-    // Clear lines
     let cleared=0;
     for(let r=ROWS-1;r>=0;r--){
       if(board[r].every(c=>c)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); cleared++; r++; }
     }
-    if(cleared){ score+=cleared*100*cleared; onScore(score); dropInterval=Math.max(100,500-score/10); }
+    if(cleared){
+      lines+=cleared;
+      const lineBonus=[0,100,300,500,800][cleared]||800;
+      score+=lineBonus*level;
+      onScore(score);
+      // Level up every 10 lines
+      const newLevel=Math.floor(lines/10)+1;
+      if(newLevel>level){
+        level=newLevel;
+        levelFlash=40;
+      }
+      dropInterval=Math.max(80,500-level*40);
+    }
     cur=newPiece();
     if(!valid(cur.shape,cur.x,cur.y)){ running=false; onGameOver(score); }
   }
@@ -18717,18 +18807,27 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
     for(let x=0;x<=COLS;x++){ ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,H2);ctx.stroke(); }
     for(let y=0;y<=ROWS;y++){ ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(W2,y*CELL);ctx.stroke(); }
     // Board
-    board.forEach((row,y)=>row.forEach((c,x)=>{ if(c){ drawCell(x,y,c,0.9); } }));
+    board.forEach((row,y)=>row.forEach((c,x)=>{ if(c) drawCell(x,y,c,0.9); }));
     // Ghost piece
     let gy=cur.y;
     while(valid(cur.shape,cur.x,gy+1)) gy++;
     if(gy!==cur.y) cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,gy+dy,cur.color,0.2); }));
     // Current piece
     cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,cur.y+dy,cur.color,1); }));
+    // HUD
+    ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='700 11px sans-serif';
+    ctx.fillText(`LVL ${level}`,4,14); ctx.fillText(`${lines}L`,W2/2-10,14); ctx.fillText(`${score}`,W2-55,14);
+    // Level flash
+    if(levelFlash>0){
+      ctx.globalAlpha=Math.min(levelFlash/10,1)*0.5; ctx.fillStyle='#CE93D8'; ctx.fillRect(0,0,W2,H2); ctx.globalAlpha=1;
+      ctx.fillStyle='#fff'; ctx.font=`800 ${CELL*2}px sans-serif`; ctx.textAlign='center';
+      ctx.fillText(`LEVEL ${level}!`,W2/2,H2/2); ctx.textAlign='left';
+      levelFlash--;
+    }
   }
 
   function drawCell(x,y,color,alpha){
-    ctx.globalAlpha=alpha;
-    ctx.fillStyle=color;
+    ctx.globalAlpha=alpha; ctx.fillStyle=color;
     ctx.beginPath(); ctx.roundRect(x*CELL+1,y*CELL+1,CELL-2,CELL-2,3); ctx.fill();
     ctx.globalAlpha=1;
   }
@@ -18863,84 +18962,6 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
     </div>`;
 };
 
-// ── 🌌 SPACE SHOOTER ─────────────────────────────────────────
-GAME_ENGINES.shooter = function(canvas, onScore, onGameOver){
-  const ctx=canvas.getContext('2d');
-  const W=canvas.width, H=canvas.height;
-  let player={x:W/2,y:H-60,w:30,h:30};
-  let bullets=[], enemies=[], stars=[], score=0, running=true, enemyTimer=0, wave=1;
-
-  // Stars
-  for(let i=0;i<60;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.5,s:Math.random()*1+0.5});
-
-  function spawnEnemy(){
-    const types=[{w:28,h:20,hp:1,pts:10,spd:1.5+wave*0.3},{w:36,h:28,hp:2,pts:25,spd:1+wave*0.2}];
-    const t=types[Math.random()<0.7?0:1];
-    enemies.push({x:Math.random()*(W-t.w),y:-t.h,...t,orig_hp:t.hp});
-  }
-
-  function drawShip(x,y,w,h,color,flip){
-    ctx.save(); if(flip){ctx.translate(x+w/2,y+h/2);ctx.scale(1,-1);ctx.translate(-(x+w/2),-(y+h/2));}
-    ctx.fillStyle=color;
-    ctx.beginPath(); ctx.moveTo(x+w/2,y); ctx.lineTo(x+w,y+h); ctx.lineTo(x+w/2,y+h*0.7); ctx.lineTo(x,y+h); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.ellipse(x+w/2,y+h*0.5,w*0.15,h*0.2,0,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
-
-  function loop(){
-    if(!running) return;
-    // Scroll stars
-    stars.forEach(s=>{ s.y=(s.y+s.s)%H; });
-    ctx.fillStyle='#050810'; ctx.fillRect(0,0,W,H);
-    // Stars
-    stars.forEach(s=>{ ctx.fillStyle=`rgba(255,255,255,${0.3+s.r*0.3})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); });
-    // Bullets
-    bullets=bullets.filter(b=>b.y>0);
-    bullets.forEach(b=>{ b.y-=10; ctx.fillStyle='#FFD54F'; ctx.shadowColor='#FFD54F'; ctx.shadowBlur=6; ctx.beginPath(); ctx.roundRect(b.x-2,b.y,4,12,2); ctx.fill(); ctx.shadowBlur=0; });
-    // Enemies
-    enemyTimer++; if(enemyTimer>Math.max(30,80-wave*5)){ enemyTimer=0; spawnEnemy(); }
-    enemies=enemies.filter(e=>e.y<H+e.h);
-    enemies.forEach(e=>{
-      e.y+=e.spd;
-      const hpFrac=e.hp/e.orig_hp;
-      drawShip(e.x,e.y,e.w,e.h,`rgba(${Math.round(239*(1-hpFrac)+100*hpFrac)},${Math.round(83*hpFrac)},${Math.round(80*(1-hpFrac)+200*hpFrac)},0.9)`,true);
-      // Bullet hits enemy
-      bullets.forEach(b=>{
-        if(b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h){ b.y=-999; e.hp--; if(e.hp<=0){e.y=H+100;score+=e.pts;onScore(score);} }
-      });
-      // Enemy reaches player
-      if(e.y+e.h>player.y&&e.x+e.w>player.x&&e.x<player.x+player.w){ running=false; onGameOver(score); return; }
-    });
-    if(!running) return;
-    wave=1+Math.floor(score/200);
-    // Player
-    drawShip(player.x,player.y,player.w,player.h,'#64B5F6',false);
-    requestAnimationFrame(loop);
-  }
-  loop();
-
-  // Touch: drag to move, tap anywhere to shoot
-  let touching=false;
-  canvas.addEventListener('touchstart',e=>{ touching=true; player.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-player.w/2; bullets.push({x:player.x+player.w/2,y:player.y}); },{passive:true});
-  canvas.addEventListener('touchmove',e=>{ if(touching){ player.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-player.w/2; player.x=Math.max(0,Math.min(W-player.w,player.x)); } },{passive:true});
-  canvas.addEventListener('touchend',()=>{ touching=false; },{passive:true});
-  document.addEventListener('mousemove',e=>{ const r=canvas.getBoundingClientRect(); player.x=e.clientX-r.left-player.w/2; player.x=Math.max(0,Math.min(W-player.w,player.x)); });
-  document.addEventListener('click',e=>{ const r=canvas.getBoundingClientRect(); if(e.clientX>r.left&&e.clientX<r.right) bullets.push({x:player.x+player.w/2,y:player.y}); });
-  // Auto-fire
-  setInterval(()=>{ if(running) bullets.push({x:player.x+player.w/2,y:player.y}); },400);
-  window._shooterMove = (dx) => { player.x = Math.max(0, Math.min(W-player.w, player.x + dx)); };
-  window._shooterFire = () => { bullets.push({x:player.x+player.w/2, y:player.y}); };
-  const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`
-    <div style="display:flex;gap:8px;align-items:center;width:100%;justify-content:center;">
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._shooterMove(-30)" onclick="window._shooterMove(-30)">◀</button>
-      <button style="width:80px;height:52px;border-radius:12px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;"
-        ontouchstart="event.preventDefault();window._shooterFire()" onclick="window._shooterFire()">🔥 FIRE</button>
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._shooterMove(30)" onclick="window._shooterMove(30)">▶</button>
-    </div>
-    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);text-align:center;margin-top:4px;">Auto-fires every 0.4s · drag on screen to aim</div>`;
-};
 
 // ── 🦘 ENDLESS RUNNER ────────────────────────────────────────
 GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
@@ -18948,7 +18969,7 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
   const W=canvas.width, H=canvas.height;
   const GROUND=H-60;
   let player={x:60,y:GROUND,w:30,h:40,vy:0,jumping:false,doubleJump:false};
-  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0;
+  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0, level=1, levelFlash=0;
   const GRAVITY=0.5, JUMP_FORCE=-12;
 
   function jump(){
@@ -18956,17 +18977,33 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     else if(!player.doubleJump){ player.vy=JUMP_FORCE*0.8; player.doubleJump=true; }
   }
 
+  function spawnObstacle(){
+    const h=20+Math.random()*35, w=18+Math.random()*20;
+    const rng=Math.random();
+    let type='ground';
+    if(level>=2&&rng<0.18) type='fly';
+    if(level>=3&&rng<0.08) type='wide'; // wide low obstacle, need double jump
+    const obs={x:W,y:GROUND+player.h-h,w,h,type};
+    if(type==='fly')   obs.y=GROUND-h-30-Math.random()*40;
+    if(type==='wide')  { obs.w=w+30; obs.h=h*0.6; obs.y=GROUND+player.h-obs.h; }
+    obstacles.push(obs);
+  }
+
   function loop(){
     if(!running) return;
     frame++;
-    if(frame%Math.max(50,90-Math.floor(speed)*3)===0){
-      const h=20+Math.random()*35, w=18+Math.random()*20;
-      obstacles.push({x:W,y:GROUND+player.h-h,w,h,type:Math.random()<0.15?'fly':'ground'});
-      if(obstacles.at(-1).type==='fly') obstacles.at(-1).y=GROUND-h-30-Math.random()*40;
-    }
-    // Scroll bg
+    const spawnRate=Math.max(40,90-Math.floor(speed)*4-level*2);
+    if(frame%spawnRate===0) spawnObstacle();
+
     bgX=(bgX-speed*0.3+W)%W;
     ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+    // Stars (more per level)
+    ctx.fillStyle='rgba(255,255,255,0.4)';
+    for(let i=0;i<3+level;i++){
+      const sx=((bgX*0.2+i*W/(3+level))%W);
+      const sy=20+i*(H*0.4/(3+level));
+      ctx.beginPath(); ctx.arc(sx,sy,1,0,Math.PI*2); ctx.fill();
+    }
     // Background mountains
     ctx.fillStyle='rgba(255,255,255,0.03)';
     for(let i=0;i<4;i++){ const mx=(bgX*0.5+i*W/3)%W; ctx.beginPath();ctx.moveTo(mx,GROUND);ctx.lineTo(mx+60,GROUND-80);ctx.lineTo(mx+120,GROUND);ctx.fill(); }
@@ -18979,14 +19016,11 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     // Player physics
     player.vy+=GRAVITY; player.y+=player.vy;
     if(player.y>=GROUND){ player.y=GROUND; player.vy=0; player.jumping=false; player.doubleJump=false; }
-    // Draw player (kangaroo-ish)
     ctx.fillStyle='#E8A838';
     ctx.beginPath(); ctx.roundRect(player.x,player.y,player.w,player.h,8); ctx.fill();
     ctx.fillStyle='#f5c842';
     ctx.beginPath(); ctx.ellipse(player.x+player.w/2,player.y+8,8,10,0,0,Math.PI*2); ctx.fill();
-    // Eye
     ctx.fillStyle='#1a1f2e'; ctx.beginPath(); ctx.arc(player.x+player.w-6,player.y+6,3,0,Math.PI*2); ctx.fill();
-    // Legs
     ctx.fillStyle='#E8A838';
     const legOff=Math.sin(frame*0.3)*8;
     ctx.beginPath(); ctx.roundRect(player.x+4,player.y+player.h-8+legOff,8,12,4); ctx.fill();
@@ -18996,16 +19030,31 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     obstacles=obstacles.filter(o=>o.x>-o.w);
     obstacles.forEach(o=>{
       o.x-=speed;
-      ctx.fillStyle=o.type==='fly'?'#EF5350':'#66BB6A';
+      const col=o.type==='fly'?'#EF5350':o.type==='wide'?'#FF8A65':'#66BB6A';
+      ctx.fillStyle=col;
       ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,4); ctx.fill();
       if(o.type==='fly'){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2,o.y-4,o.w*0.4,6,0,0,Math.PI*2); ctx.fill(); }
-      // Collision
       if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; onGameOver(score); }
     });
 
-    score=Math.floor(frame/5); speed=4+score/200; onScore(score);
-    // Score display on canvas
-    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font=`700 13px var(--font-ui)`; ctx.fillText('Score: '+score,W-90,24);
+    score=Math.floor(frame/5);
+    // Level up every 500 pts
+    const newLevel=Math.floor(score/500)+1;
+    if(newLevel>level){ level=newLevel; levelFlash=30; speed=4+level*0.8; }
+    else { speed=4+score/200+level*0.5; }
+    onScore(score);
+
+    // HUD
+    ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='700 11px sans-serif';
+    ctx.fillText(`LVL ${level}`,6,20); ctx.fillText(`${score}`,W-55,20);
+
+    // Level flash
+    if(levelFlash>0){
+      ctx.globalAlpha=levelFlash/30*0.5; ctx.fillStyle='#E8A838'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+      ctx.fillStyle='#fff'; ctx.font=`800 ${Math.floor(H/10)}px sans-serif`; ctx.textAlign='center';
+      ctx.fillText(`LEVEL ${level}!`,W/2,H/2); ctx.textAlign='left';
+      levelFlash--;
+    }
     requestAnimationFrame(loop);
   }
   loop();
@@ -19024,100 +19073,632 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
   <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Tap twice for double jump</div>`;
 };
 
-// ── 🔢 2048 ──────────────────────────────────────────────────
-GAME_ENGINES['2048'] = function(canvas, onScore, onGameOver){
-  const ctx=canvas.getContext('2d');
-  const SIZE=4, GAP=8, PADDING=12;
-  const CELL=(canvas.width-PADDING*2-GAP*(SIZE-1))/SIZE;
-  canvas.height=canvas.width;
-  let board=Array.from({length:SIZE},()=>Array(SIZE).fill(0));
-  let score=0, running=true;
 
-  const COLORS={0:'#1a2332',2:'#2d4a6b',4:'#1e5f7a',8:'#1a7a6e',16:'#E65100',32:'#D84315',64:'#BF360C',128:'#F9A825',256:'#F57F17',512:'#E8A838',1024:'#64B5F6',2048:'#AB47BC'};
-  const TEXT_COLORS={0:'transparent',2:'#90CAF9',4:'#80DEEA',8:'#A5D6A7',16:'#fff',32:'#fff',64:'#fff',128:'#1a1f2e',256:'#1a1f2e',512:'#1a1f2e',1024:'#fff',2048:'#fff'};
+  window._runnerJump = jump;
+  canvas.addEventListener('touchstart',e=>{ e.preventDefault(); jump(); },{passive:false});
+  document.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowUp') jump(); });
 
-  function addRandom(){
-    const empty=[];
-    board.forEach((r,y)=>r.forEach((v,x)=>{ if(!v) empty.push({x,y}); }));
-    if(!empty.length) return;
-    const {x,y}=empty[Math.floor(Math.random()*empty.length)];
-    board[y][x]=Math.random()<0.9?2:4;
-  }
-  addRandom(); addRandom();
-
-  function draw(){
-    ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    for(let y=0;y<SIZE;y++) for(let x=0;x<SIZE;x++){
-      const v=board[y][x];
-      const px=PADDING+x*(CELL+GAP), py=PADDING+y*(CELL+GAP);
-      ctx.fillStyle=COLORS[v>2048?2048:v]||'#AB47BC';
-      ctx.beginPath(); ctx.roundRect(px,py,CELL,CELL,10); ctx.fill();
-      if(v){
-        ctx.fillStyle=TEXT_COLORS[v>2048?2048:v]||'#fff';
-        const fs=v<100?Math.floor(CELL*0.38):v<1000?Math.floor(CELL*0.3):Math.floor(CELL*0.23);
-        ctx.font=`800 ${fs}px var(--font-ui)`;
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(v, px+CELL/2, py+CELL/2);
-      }
-    }
-  }
-
-  function slide(row){ let r=row.filter(v=>v); let merged=false;
-    for(let i=0;i<r.length-1;i++){ if(r[i]===r[i+1]&&!merged){ r[i]*=2; score+=r[i]; r.splice(i+1,1); merged=true; } else merged=false; }
-    while(r.length<SIZE) r.push(0); return r;
-  }
-
-  function move(dir){
-    let moved=false;
-    const orig=board.map(r=>[...r]);
-    if(dir==='left') board=board.map(slide);
-    else if(dir==='right') board=board.map(r=>slide([...r].reverse()).reverse());
-    else if(dir==='up'||dir==='down'){
-      for(let x=0;x<SIZE;x++){
-        let col=board.map(r=>r[x]); if(dir==='down') col.reverse();
-        col=slide(col); if(dir==='down') col.reverse();
-        board.forEach((r,y)=>r[x]=col[y]);
-      }
-    }
-    board.forEach((r,y)=>r.forEach((v,x)=>{ if(v!==orig[y][x]) moved=true; }));
-    if(moved){ addRandom(); onScore(score); draw();
-      if(board.flat().includes(2048)&&running){ running=false; onGameOver(score); return; }
-      // Check if no moves left
-      let canMove=board.flat().some(v=>!v);
-      outer: for(let y=0;y<SIZE;y++) for(let x=0;x<SIZE;x++){
-        if(x<SIZE-1&&board[y][x]===board[y][x+1]){canMove=true;break outer;}
-        if(y<SIZE-1&&board[y][x]===board[y+1][x]){canMove=true;break outer;}
-      }
-      if(!canMove&&running){ running=false; onGameOver(score); }
-    }
-  }
-  draw();
-
-  // Touch
-  let tx=0,ty=0;
-  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
-  canvas.addEventListener('touchend',e=>{
-    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
-    if(Math.abs(dx)>Math.abs(dy)){ move(dx>0?'right':'left'); }
-    else{ move(dy>0?'down':'up'); }
-  },{passive:true});
-  document.addEventListener('keydown',e=>{
-    if(e.key==='ArrowLeft') move('left');
-    else if(e.key==='ArrowRight') move('right');
-    else if(e.key==='ArrowUp') move('up');
-    else if(e.key==='ArrowDown') move('down');
-  });
-
-  window._2048move = move;
   const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`
-    <div style="display:grid;grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px;gap:6px;">
-      <div></div>
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('up')"   onclick="window._2048move('up')">▲</button><div></div>
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('left')"  onclick="window._2048move('left')">◀</button>
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('down')"  onclick="window._2048move('down')">▼</button>
-      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('right')" onclick="window._2048move('right')">▶</button>
-    </div>`;
+  if(ctrl) ctrl.innerHTML=`<button
+    ontouchstart="event.preventDefault();window._runnerJump()"
+    onclick="window._runnerJump()"
+    style="padding:16px 64px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;min-height:56px;-webkit-tap-highlight-color:transparent;">
+    JUMP 🦘
+  </button>
+  <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Tap twice for double jump</div>`;
+};
+
+// ── 🔤 WORD SCRAMBLE ─────────────────────────────────────────
+GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
+  // Word lists by level tier
+  const WORDS = [
+    // Level 1-2: 3-4 letter simple
+    ['cat','dog','run','sun','hat','big','fun','red','hot','wet','map','cup','box','toy','bed'],
+    // Level 3-4: 5 letter
+    ['apple','brain','chair','drink','eagle','flame','grape','heart','igloo','joker','knife','lemon','mouse','night','ocean'],
+    // Level 5-6: 6 letter
+    ['bridge','castle','donkey','engine','finger','garden','hammer','island','jungle','kitten','ladder','magnet','napkin','orange','parrot'],
+    // Level 7+: 7-8 letter
+    ['balloon','captain','diamond','element','fantasy','giraffe','harvest','integer','journey','kingdom','lantern','million','nervous','opinion','package'],
+  ];
+
+  const shell = canvas.closest('#game-shell') || canvas.parentElement.parentElement;
+  canvas.style.display = 'none'; // We use HTML UI for this game
+  const wrap = document.getElementById('game-canvas-wrap');
+
+  let level=1, score=0, streak=0, totalPlayed=0;
+  const ROUND_TIME = 15; // seconds per word, decreases with level
+  let timer=ROUND_TIME, timerInterval=null, currentWord='', scrambled='', answered=false;
+
+  function getWords(){ return WORDS[Math.min(Math.floor((level-1)/2), WORDS.length-1)]; }
+  function scrambleWord(w){ return w.split('').sort(()=>Math.random()-0.5).join('').toLowerCase(); }
+  function getTimeLimit(){ return Math.max(8, ROUND_TIME - Math.floor(level/2)); }
+
+  function nextWord(){
+    answered = false;
+    const words = getWords();
+    currentWord = words[Math.floor(Math.random()*words.length)];
+    let s;
+    do { s = scrambleWord(currentWord); } while(s === currentWord && currentWord.length > 2);
+    scrambled = s;
+    timer = getTimeLimit();
+    render();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      timer--;
+      if(timer <= 0){ clearInterval(timerInterval); handleAnswer(''); }
+      else render();
+    }, 1000);
+  }
+
+  function handleAnswer(guess){
+    if(answered) return;
+    answered = true;
+    clearInterval(timerInterval);
+    const correct = guess.toLowerCase().trim() === currentWord.toLowerCase();
+    if(correct){
+      const timeBonus = Math.max(0, timer);
+      const pts = (10 + timeBonus) * level;
+      score += pts; streak++;
+      if(streak>0&&streak%3===0){ level++; }
+      onScore(score);
+      render(true, pts);
+    } else {
+      streak = 0;
+      render(false, 0);
+    }
+    totalPlayed++;
+    // After 20 words post to leaderboard then continue
+    if(totalPlayed % 20 === 0) saveArcadeScore('scramble', score).catch(()=>{});
+    setTimeout(()=>nextWord(), 1400);
+  }
+
+  function render(showResult, pts){
+    const timeRatio = timer / getTimeLimit();
+    const timerColor = timeRatio > 0.5 ? '#66BB6A' : timeRatio > 0.25 ? '#FFD54F' : '#EF5350';
+    wrap.innerHTML = `
+      <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">LEVEL ${level}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak} streak</span>
+          <button onclick="(()=>{clearInterval(${timerInterval?'window._scrambleTimer':0});window._scrambleReset&&window._scrambleReset();})()"
+            style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
+          <div style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerColor};transition:width 0.9s linear;border-radius:8px;"></div>
+        </div>
+        <div style="text-align:center;padding:20px;background:var(--surface2);border-radius:16px;border:2px solid var(--border);">
+          <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:8px;">Unscramble this word:</div>
+          <div style="font:800 36px/1.1 var(--font-ui);color:var(--accent);letter-spacing:8px;">${scrambled.toUpperCase()}</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:8px;">${currentWord.length} letters</div>
+        </div>
+        ${showResult !== undefined ? `
+          <div style="text-align:center;padding:10px;border-radius:12px;background:${showResult?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};border:2px solid ${showResult?'#66BB6A':'#EF5350'};">
+            ${showResult
+              ? `<div style="font:800 14px/1 var(--font-ui);color:#66BB6A;">✓ Correct! +${pts} pts</div>`
+              : `<div style="font:800 14px/1 var(--font-ui);color:#EF5350;">✗ It was: <span style="text-transform:uppercase;">${currentWord}</span></div>`}
+          </div>` : ''}
+        <input id="scramble-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
+          placeholder="Type your answer…"
+          style="width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;
+            border:2px solid var(--border);background:var(--surface);
+            color:var(--text);font:600 18px/1 var(--font-ui);outline:none;
+            -webkit-tap-highlight-color:transparent;"
+          onkeydown="if(event.key==='Enter'){window._scrambleAnswer(this.value);this.value='';}"/>
+        <button onclick="const v=document.getElementById('scramble-input')?.value||'';window._scrambleAnswer(v);if(document.getElementById('scramble-input'))document.getElementById('scramble-input').value='';"
+          style="padding:14px;border-radius:16px;border:none;background:var(--accent);
+            color:#1a1f2e;font:800 15px/1 var(--font-ui);cursor:pointer;
+            -webkit-tap-highlight-color:transparent;">Submit ✓</button>
+      </div>`;
+    // Focus input
+    setTimeout(()=>document.getElementById('scramble-input')?.focus(), 50);
+  }
+
+  window._scrambleAnswer = handleAnswer;
+  window._scrambleReset  = ()=>{
+    clearInterval(timerInterval);
+    if(score>0) saveArcadeScore('scramble', score).catch(()=>{});
+    level=1; score=0; streak=0; totalPlayed=0; onScore(0); nextWord();
+  };
+
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+  nextWord();
+};
+
+// ── 🪢 HANGMAN ───────────────────────────────────────────────
+GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
+  const WORDS_BY_LEVEL = [
+    ['cat','dog','hat','run','sun','big','cup','map','bed','toy','red','fun','hot','wet','box'],
+    ['apple','brain','drink','flame','grape','heart','mouse','night','ocean','chair','eagle','joker','lemon','knife','igloo'],
+    ['bridge','castle','donkey','finger','garden','hammer','jungle','kitten','ladder','magnet','napkin','orange','parrot','engine','island'],
+    ['balloon','captain','diamond','fantasy','giraffe','harvest','journey','kingdom','lantern','million','nervous','opinion','package','element','integer'],
+  ];
+
+  canvas.style.display = 'none';
+  const wrap = document.getElementById('game-canvas-wrap');
+
+  let level=1, score=0, gamesWon=0, gamesPlayed=0;
+  let word='', guessed=new Set(), wrong=0;
+  const MAX_WRONG = 6;
+
+  function getWords(){ return WORDS_BY_LEVEL[Math.min(Math.floor((level-1)/2), WORDS_BY_LEVEL.length-1)]; }
+
+  function nextWord(){
+    const words = getWords();
+    word = words[Math.floor(Math.random()*words.length)].toUpperCase();
+    guessed = new Set();
+    wrong = 0;
+    render();
+  }
+
+  function guess(letter){
+    letter = letter.toUpperCase();
+    if(guessed.has(letter)||!letter.match(/[A-Z]/)) return;
+    guessed.add(letter);
+    if(!word.includes(letter)){
+      wrong++;
+      if(wrong >= MAX_WRONG){
+        // Lost
+        gamesPlayed++;
+        render(false);
+        setTimeout(nextWord, 1800);
+        return;
+      }
+    }
+    const won = word.split('').every(c=>guessed.has(c));
+    if(won){
+      const pts = (MAX_WRONG - wrong + 1) * 20 * level;
+      score += pts; gamesWon++; gamesPlayed++;
+      if(gamesWon>0 && gamesWon%3===0) level++;
+      onScore(score);
+      // Save to leaderboard every 5 wins
+      if(gamesWon % 5 === 0) saveArcadeScore('hangman', score).catch(()=>{});
+      render(true, pts);
+      setTimeout(nextWord, 1800);
+    } else {
+      render();
+    }
+  }
+
+  function drawHangman(ctx, wrong, W, H){
+    ctx.strokeStyle = wrong > 0 ? '#EF5350' : 'var(--text3)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    // Gallows
+    ctx.beginPath(); ctx.moveTo(W*0.15,H*0.9); ctx.lineTo(W*0.85,H*0.9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.3,H*0.9); ctx.lineTo(W*0.3,H*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.3,H*0.05); ctx.lineTo(W*0.6,H*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.6,H*0.05); ctx.lineTo(W*0.6,H*0.17); ctx.stroke();
+    ctx.strokeStyle = '#EF5350';
+    if(wrong>=1){ ctx.beginPath(); ctx.arc(W*0.6,H*0.23,H*0.07,0,Math.PI*2); ctx.stroke(); } // head
+    if(wrong>=2){ ctx.beginPath(); ctx.moveTo(W*0.6,H*0.3); ctx.lineTo(W*0.6,H*0.58); ctx.stroke(); } // body
+    if(wrong>=3){ ctx.beginPath(); ctx.moveTo(W*0.6,H*0.37); ctx.lineTo(W*0.42,H*0.5); ctx.stroke(); } // left arm
+    if(wrong>=4){ ctx.beginPath(); ctx.moveTo(W*0.6,H*0.37); ctx.lineTo(W*0.78,H*0.5); ctx.stroke(); } // right arm
+    if(wrong>=5){ ctx.beginPath(); ctx.moveTo(W*0.6,H*0.58); ctx.lineTo(W*0.45,H*0.78); ctx.stroke(); } // left leg
+    if(wrong>=6){ ctx.beginPath(); ctx.moveTo(W*0.6,H*0.58); ctx.lineTo(W*0.75,H*0.78); ctx.stroke(); } // right leg
+  }
+
+  function render(result, pts){
+    const display = word.split('').map(c=>guessed.has(c)?c:'_').join(' ');
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const lives = MAX_WRONG - wrong;
+
+    // Offscreen canvas for hangman drawing
+    const hc = document.createElement('canvas');
+    hc.width=140; hc.height=120;
+    const hctx=hc.getContext('2d');
+    hctx.fillStyle='var(--surface2)'; hctx.fillRect(0,0,140,120);
+    drawHangman(hctx, wrong, 140, 120);
+
+    wrap.innerHTML = `
+      <div style="width:100%;max-width:380px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level}</span>
+          <span style="font:700 12px/1 var(--font-ui);color:var(--text4);">❤️ ${'♥'.repeat(lives)}${'♡'.repeat(MAX_WRONG-lives)}</span>
+          <button onclick="window._hangmanReset&&window._hangmanReset()"
+            style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <img src="${hc.toDataURL()}" style="border-radius:8px;flex-shrink:0;" width="100" height="86"/>
+          <div style="flex:1;">
+            <div style="font:800 22px/1.4 var(--font-ui);color:var(--accent);letter-spacing:6px;">${display}</div>
+            <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:4px;">${word.length} letters · ${wrong} wrong</div>
+          </div>
+        </div>
+        ${result!==undefined?`<div style="text-align:center;padding:8px 12px;border-radius:10px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
+          ${result?`✓ +${pts} pts`:`✗ Word was: ${word}`}
+        </div>`:''}
+        <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">
+          ${alphabet.map(l=>`<button onclick="window._hangmanGuess('${l}')"
+            style="width:36px;height:36px;border-radius:8px;font:700 13px/1 var(--font-ui);cursor:pointer;
+              border:2px solid ${guessed.has(l)?(word.includes(l)?'#66BB6A':'#EF5350'):'var(--border)'};
+              background:${guessed.has(l)?(word.includes(l)?'rgba(102,187,106,0.15)':'rgba(239,83,80,0.1)'):'var(--surface2)'};
+              color:${guessed.has(l)?(word.includes(l)?'#66BB6A':'#EF5350'):'var(--text)'};
+              opacity:${guessed.has(l)?'0.6':'1'};
+              -webkit-tap-highlight-color:transparent;">
+            ${l}
+          </button>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  window._hangmanGuess = guess;
+  window._hangmanReset = ()=>{
+    if(score>0) saveArcadeScore('hangman', score).catch(()=>{});
+    level=1; score=0; gamesWon=0; gamesPlayed=0; onScore(0); nextWord();
+  };
+
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+  nextWord();
+};
+
+// ── 🔢 MATH BLITZ ────────────────────────────────────────────
+GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
+  canvas.style.display = 'none';
+  const wrap = document.getElementById('game-canvas-wrap');
+
+  let level=1, score=0, streak=0, qNum=0, answered=false;
+  let currentQ={}, timerInterval=null, timer=10;
+
+  function getTimeLimit(){ return Math.max(5, 12 - Math.floor(level/2)); }
+
+  function makeQuestion(){
+    const ops = level<=2?['+','-']:level<=4?['+','-','×']:level<=6?['+','-','×','÷']:['+','-','×','÷'];
+    const op = ops[Math.floor(Math.random()*ops.length)];
+    let a, b, ans;
+    const maxN = Math.min(12, 2 + level*2);
+    if(op==='+'){  a=1+Math.floor(Math.random()*maxN); b=1+Math.floor(Math.random()*maxN); ans=a+b; }
+    else if(op==='-'){ b=1+Math.floor(Math.random()*maxN); a=b+1+Math.floor(Math.random()*maxN); ans=a-b; }
+    else if(op==='×'){ a=1+Math.floor(Math.random()*Math.min(12,maxN)); b=1+Math.floor(Math.random()*Math.min(12,maxN)); ans=a*b; }
+    else { b=1+Math.floor(Math.random()*Math.min(12,maxN)); a=b*(1+Math.floor(Math.random()*Math.min(12,maxN))); ans=a/b; }
+    return {question:`${a} ${op} ${b}`, answer:ans};
+  }
+
+  function nextQuestion(){
+    answered = false;
+    currentQ = makeQuestion();
+    timer = getTimeLimit();
+    qNum++;
+    render();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      timer--;
+      if(timer<=0){ clearInterval(timerInterval); handleAnswer(null); }
+      else render();
+    }, 1000);
+  }
+
+  function handleAnswer(val){
+    if(answered) return;
+    answered = true;
+    clearInterval(timerInterval);
+    const correct = val!==null && Number(val)===currentQ.answer;
+    if(correct){
+      const timeBonus = Math.max(0, timer);
+      const pts = (10 + timeBonus*2) * level;
+      score += pts; streak++;
+      if(streak>0&&streak%5===0){ level++; }
+      onScore(score);
+      if(streak % 10 === 0) saveArcadeScore('mathblitz', score).catch(()=>{});
+      render(true, pts);
+    } else {
+      streak = 0;
+      render(false, 0);
+    }
+    setTimeout(nextQuestion, 1300);
+  }
+
+  function render(result, pts){
+    const timeRatio = timer / getTimeLimit();
+    const timerCol = timeRatio>0.5?'#66BB6A':timeRatio>0.25?'#FFD54F':'#EF5350';
+    const ops = level<=2?'+ −':level<=4?'+ − ×':'+ − × ÷';
+    wrap.innerHTML = `
+      <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level} · ${ops}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak}</span>
+          <button onclick="window._mathReset&&window._mathReset()"
+            style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
+          <div style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerCol};transition:width 0.9s linear;border-radius:8px;"></div>
+        </div>
+        <div style="text-align:center;padding:24px 16px;background:var(--surface2);border-radius:20px;border:2px solid var(--border);">
+          <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:10px;">What is…</div>
+          <div style="font:800 40px/1 var(--font-ui);color:var(--text);">${currentQ.question} = ?</div>
+          <div style="font:500 11px/1 var(--font-ui);color:${timerCol};margin-top:8px;">${timer}s</div>
+        </div>
+        ${result!==undefined?`<div style="text-align:center;padding:8px 12px;border-radius:12px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
+          ${result?`✓ +${pts} pts`:`✗ Answer was ${currentQ.answer}`}
+        </div>`:''}
+        <input id="math-input" type="number" inputmode="numeric" autocomplete="off"
+          placeholder="Type answer…"
+          style="width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;
+            border:2px solid var(--border);background:var(--surface);
+            color:var(--text);font:700 22px/1 var(--font-ui);text-align:center;outline:none;"
+          onkeydown="if(event.key==='Enter'){window._mathAnswer(this.value);this.value='';}"/>
+        <button onclick="const v=document.getElementById('math-input')?.value;window._mathAnswer(v);if(document.getElementById('math-input'))document.getElementById('math-input').value='';"
+          style="padding:14px;border-radius:16px;border:none;background:var(--accent);
+            color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;">Submit ✓</button>
+      </div>`;
+    setTimeout(()=>document.getElementById('math-input')?.focus(), 50);
+  }
+
+  window._mathAnswer = handleAnswer;
+  window._mathReset  = ()=>{ level=1; score=0; streak=0; qNum=0; onScore(0); nextQuestion(); };
+  window._mathReset  = ()=>{
+    clearInterval(timerInterval);
+    if(score>0) saveArcadeScore('mathblitz', score).catch(()=>{});
+    level=1; score=0; streak=0; qNum=0; onScore(0); nextQuestion();
+  };
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+  nextQuestion();
+};
+
+// ── 🔍 WORD SEARCH ───────────────────────────────────────────
+GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
+  canvas.style.display = 'none';
+  const wrap = document.getElementById('game-canvas-wrap');
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+
+  const WORD_SETS = [
+    // Level 1-2: simple 3-4 letter words, 8×8 grid
+    { size:8,  words:['CAT','DOG','SUN','HAT','RUN','BIG','FUN','RED','HOT','CUP'] },
+    // Level 3-4: 5 letter words, 10×10 grid
+    { size:10, words:['APPLE','BRAIN','CHAIR','DRINK','EAGLE','FLAME','GRAPE','HEART','MOUSE','OCEAN'] },
+    // Level 5-6: 6 letter words, 12×12 grid
+    { size:12, words:['BRIDGE','CASTLE','DONKEY','FINGER','GARDEN','HAMMER','JUNGLE','KITTEN','LADDER','ORANGE'] },
+    // Level 7+: longer words, 14×14 grid
+    { size:14, words:['BALLOON','CAPTAIN','DIAMOND','FANTASY','GIRAFFE','HARVEST','JOURNEY','KINGDOM','LANTERN','MILLION'] },
+  ];
+
+  let level=1, score=0, found=[], selectedCells=[], selecting=false, startCell=null;
+  let grid=[], placedWords=[], currentWords=[];
+
+  function getTier(){ return WORD_SETS[Math.min(Math.floor((level-1)/2), WORD_SETS.length-1)]; }
+
+  function makeGrid(){
+    const tier = getTier();
+    const SIZE = tier.size;
+    const pool = [...tier.words].sort(()=>Math.random()-0.5).slice(0,5);
+    currentWords = pool;
+    found = [];
+    grid = Array.from({length:SIZE},()=>Array(SIZE).fill(''));
+    placedWords = [];
+    const dirs = [[0,1],[1,0],[1,1],[0,-1],[-1,0],[-1,-1],[1,-1],[-1,1]];
+
+    pool.forEach(word=>{
+      let placed=false, tries=0;
+      while(!placed&&tries<200){
+        tries++;
+        const dir=dirs[Math.floor(Math.random()*dirs.length)];
+        const [dr,dc]=dir;
+        const maxR=dr>=0?SIZE-word.length*Math.max(0,dr):SIZE-1;
+        const maxC=dc>=0?SIZE-word.length*Math.max(0,dc):SIZE-1;
+        const minR=dr<0?word.length*Math.abs(dr)-1:0;
+        const minC=dc<0?word.length*Math.abs(dc)-1:0;
+        if(maxR<minR||maxC<minC) continue;
+        const r=minR+Math.floor(Math.random()*(maxR-minR+1));
+        const c=minC+Math.floor(Math.random()*(maxC-minC+1));
+        const cells=[];
+        let ok=true;
+        for(let i=0;i<word.length;i++){
+          const nr=r+dr*i, nc=c+dc*i;
+          if(nr<0||nr>=SIZE||nc<0||nc>=SIZE){ ok=false; break; }
+          if(grid[nr][nc]&&grid[nr][nc]!==word[i]){ ok=false; break; }
+          cells.push([nr,nc]);
+        }
+        if(ok){
+          cells.forEach(([nr,nc],i)=>{ grid[nr][nc]=word[i]; });
+          placedWords.push({word,cells});
+          placed=true;
+        }
+      }
+    });
+    // Fill blanks
+    const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++)
+      if(!grid[r][c]) grid[r][c]=letters[Math.floor(Math.random()*letters.length)];
+  }
+
+  function cellKey(r,c){ return `${r},${c}`; }
+
+  function getSelectedWord(){
+    if(selectedCells.length<2) return '';
+    return selectedCells.map(([r,c])=>grid[r][c]).join('');
+  }
+
+  function checkSelection(){
+    const word = getSelectedWord();
+    const rev = word.split('').reverse().join('');
+    const match = placedWords.find(p=>p.word===word||p.word===rev);
+    if(match&&!found.includes(match.word)){
+      found.push(match.word);
+      const pts = match.word.length * 10 * level;
+      score += pts;
+      onScore(score);
+      if(found.length===currentWords.length){
+        // All found — level up, save score
+        saveArcadeScore('wordsearch', score).catch(()=>{});
+        setTimeout(()=>{ level++; makeGrid(); render(); }, 800);
+      }
+      render(match.word, pts);
+    } else {
+      selectedCells=[];
+      render();
+    }
+  }
+
+  function getFoundCells(){
+    const cells=new Set();
+    found.forEach(w=>{ const p=placedWords.find(x=>x.word===w); if(p) p.cells.forEach(([r,c])=>cells.add(cellKey(r,c))); });
+    return cells;
+  }
+
+  function render(justFound, pts){
+    const tier = getTier();
+    const SIZE = tier.size;
+    const CELL_PX = Math.min(32, Math.floor(320/SIZE));
+    const foundCells = getFoundCells();
+    const selSet = new Set(selectedCells.map(([r,c])=>cellKey(r,c)));
+
+    wrap.innerHTML = `
+      <div style="width:100%;max-width:420px;padding:12px;display:flex;flex-direction:column;gap:10px;user-select:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level} · ${SIZE}×${SIZE}</span>
+          <span style="font:700 12px/1 var(--font-ui);color:var(--accent);">${found.length}/${currentWords.length} found</span>
+          <button onclick="window._wsReset&&window._wsReset()"
+            style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
+        </div>
+        ${justFound?`<div style="text-align:center;padding:6px;border-radius:8px;background:rgba(102,187,106,0.1);font:700 12px/1 var(--font-ui);color:#66BB6A;">✓ ${justFound} +${pts}pts</div>`:''}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${currentWords.map(w=>`<span style="font:${found.includes(w)?'700':'500'} 11px/1.4 var(--font-ui);
+            color:${found.includes(w)?'#66BB6A':'var(--text3)'};
+            text-decoration:${found.includes(w)?'line-through':'none'};
+            padding:3px 8px;border-radius:8px;background:var(--surface2);">${w}</span>`).join('')}
+        </div>
+        <div id="ws-grid" style="display:inline-grid;grid-template-columns:repeat(${SIZE},${CELL_PX}px);gap:2px;touch-action:none;cursor:pointer;align-self:center;">
+          ${Array.from({length:SIZE},(_,r)=>Array.from({length:SIZE},(_,c)=>{
+            const key=cellKey(r,c);
+            const isSel=selSet.has(key);
+            const isFound=foundCells.has(key);
+            return `<div data-r="${r}" data-c="${c}"
+              style="width:${CELL_PX}px;height:${CELL_PX}px;display:flex;align-items:center;justify-content:center;
+                border-radius:4px;font:700 ${Math.max(10,CELL_PX-8)}px/1 sans-serif;
+                background:${isFound?'rgba(102,187,106,0.25)':isSel?'rgba(232,168,56,0.35)':'var(--surface2)'};
+                color:${isFound?'#66BB6A':isSel?'var(--accent)':'var(--text2)'};
+                border:1px solid ${isFound?'#66BB6A44':isSel?'var(--accent)':'transparent'};
+                -webkit-tap-highlight-color:transparent;">${grid[r][c]}</div>`;
+          }).join('')).join('')}
+        </div>
+      </div>`;
+
+    // Touch/mouse selection
+    const gridEl = document.getElementById('ws-grid');
+    if(!gridEl) return;
+
+    function cellFromEl(el){ const d=el.closest('[data-r]'); return d?[+d.dataset.r,+d.dataset.c]:null; }
+    function buildLine(r1,c1,r2,c2){
+      const dr=r2-r1, dc=c2-c1, len=Math.max(Math.abs(dr),Math.abs(dc));
+      if(!len) return [[r1,c1]];
+      const cells=[];
+      for(let i=0;i<=len;i++) cells.push([Math.round(r1+dr/len*i),Math.round(c1+dc/len*i)]);
+      return cells;
+    }
+
+    gridEl.addEventListener('mousedown',e=>{ const c=cellFromEl(e.target); if(c){ selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:true});
+    gridEl.addEventListener('mousemove',e=>{ if(!selecting||!startCell) return; const c=cellFromEl(e.target); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:true});
+    gridEl.addEventListener('mouseup',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
+
+    gridEl.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:false});
+    gridEl.addEventListener('touchmove',e=>{ e.preventDefault(); if(!selecting||!startCell) return; const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:false});
+    gridEl.addEventListener('touchend',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
+  }
+
+  window._wsReset = ()=>{ if(score>0) saveArcadeScore('wordsearch', score).catch(()=>{}); level=1; score=0; onScore(0); makeGrid(); render(); };
+  makeGrid();
+  render();
+};
+
+// ── 🔢 NUMBER PUZZLE ─────────────────────────────────────────
+GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
+  canvas.style.display = 'none';
+  const wrap = document.getElementById('game-canvas-wrap');
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+
+  let level=1, score=0, streak=0, answered=false;
+  let puzzle={};
+
+  // Generate a puzzle: equation with one blank (?, a, or b)
+  function makePuzzle(){
+    const ops = level<=2?['+','-']:level<=4?['+','-','×']:level<=6?['+','-','×','÷']:['+','-','×','÷'];
+    const op = ops[Math.floor(Math.random()*ops.length)];
+    const maxN = Math.min(12, 2+level*2);
+    let a,b,ans;
+
+    if(op==='+')  { a=1+Math.floor(Math.random()*maxN); b=1+Math.floor(Math.random()*maxN); ans=a+b; }
+    else if(op==='-'){ b=1+Math.floor(Math.random()*maxN); a=b+1+Math.floor(Math.random()*maxN); ans=a-b; }
+    else if(op==='×'){ a=1+Math.floor(Math.random()*Math.min(12,maxN)); b=1+Math.floor(Math.random()*Math.min(12,maxN)); ans=a*b; }
+    else { b=1+Math.floor(Math.random()*Math.min(12,maxN)); a=b*(1+Math.floor(Math.random()*Math.min(12,maxN))); ans=a/b; }
+
+    // Pick which position to blank: left, right, or answer
+    // At level 1-2 always blank the answer; higher levels blank any position
+    const blankPos = level<=2 ? 'ans' : ['a','b','ans'][Math.floor(Math.random()*3)];
+    let display, correctAnswer;
+    if(blankPos==='a')   { display=`? ${op} ${b} = ${ans}`; correctAnswer=a; }
+    else if(blankPos==='b'){ display=`${a} ${op} ? = ${ans}`; correctAnswer=b; }
+    else                  { display=`${a} ${op} ${b} = ?`;   correctAnswer=ans; }
+
+    // Generate 3 wrong choices (unique, positive, nearby)
+    const wrongs=new Set();
+    while(wrongs.size<3){
+      const offset=Math.floor(Math.random()*6)+1;
+      const w=Math.random()<0.5?correctAnswer+offset:Math.max(0,correctAnswer-offset);
+      if(w!==correctAnswer&&w>=0) wrongs.add(w);
+    }
+    const choices=[correctAnswer,...wrongs].sort(()=>Math.random()-0.5);
+
+    return { display, correctAnswer, choices, op };
+  }
+
+  function nextPuzzle(){
+    answered=false;
+    puzzle=makePuzzle();
+    render();
+  }
+
+  function handleAnswer(val){
+    if(answered) return;
+    answered=true;
+    const correct = Number(val)===puzzle.correctAnswer;
+    if(correct){
+      const pts=15*level;
+      score+=pts; streak++;
+      if(streak>0&&streak%4===0){ level++; saveArcadeScore('numpuzzle', score).catch(()=>{}); }
+      onScore(score);
+      render(true,pts);
+    } else {
+      streak=0;
+      render(false,0);
+    }
+    setTimeout(nextPuzzle, 1400);
+  }
+
+  function render(result, pts){
+    wrap.innerHTML=`
+      <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak} streak</span>
+          <button onclick="window._npReset&&window._npReset()"
+            style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
+        </div>
+        <div style="text-align:center;padding:28px 16px;background:var(--surface2);border-radius:20px;border:2px solid var(--border);">
+          <div style="font:500 13px/1 var(--font-ui);color:var(--text4);margin-bottom:12px;">Find the missing number</div>
+          <div style="font:800 36px/1.2 var(--font-ui);color:var(--text);">${puzzle.display}</div>
+        </div>
+        ${result!==undefined?`<div style="text-align:center;padding:8px;border-radius:12px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
+          ${result?`✓ +${pts} pts`:`✗ Answer was ${puzzle.correctAnswer}`}
+        </div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          ${puzzle.choices.map(c=>`<button onclick="window._npAnswer(${c})"
+            style="padding:20px 12px;border-radius:16px;font:800 24px/1 var(--font-ui);cursor:pointer;
+              border:2px solid var(--border);background:var(--surface2);color:var(--text);
+              -webkit-tap-highlight-color:transparent;touch-action:manipulation;"
+            ontouchstart="this.style.background='var(--surface3)'"
+            ontouchend="this.style.background='var(--surface2)'">${c}</button>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  window._npAnswer = handleAnswer;
+  window._npReset  = ()=>{ if(score>0) saveArcadeScore('numpuzzle', score).catch(()=>{}); level=1; score=0; streak=0; onScore(0); nextPuzzle(); };
+  nextPuzzle();
 };
 
 function toggleSimpleMode(){
@@ -21787,6 +22368,48 @@ function renderKidsPageForKid(){
           </div>`;
         }).join('')}
       </div>
+
+      <!-- Family Leaderboard -->
+      <div style="margin-top:20px;border-radius:20px;border:3px solid ${th.choreBorder};background:white;overflow:hidden;box-shadow:0 4px 16px ${th.accent}18;">
+        <div style="background:${th.accent};padding:14px 16px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:24px;">🏆</span>
+          <span style="font:800 16px/1 var(--font-ui);color:white;">Family Leaderboard</span>
+        </div>
+        ${ARCADE_GAMES.map(g=>{
+          const scores = getTopScores(g.id, 10);
+          const myName = getCurrentPlayerName();
+          if(!scores.length) return `<div style="padding:12px 16px;border-bottom:2px solid ${th.choreBorder};">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-size:16px;">${g.emoji}</span>
+              <span style="font:800 13px/1 var(--font-ui);color:#1a1a2e;">${g.name}</span>
+            </div>
+            <div style="font:500 11px/1 var(--font-ui);color:#bbb;font-style:italic;">No scores yet — be the first! 🎮</div>
+          </div>`;
+          const medals = ['🥇','🥈','🥉'];
+          const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:playerColor(0),Connor:playerColor(1)};
+          return `<div style="padding:12px 16px;border-bottom:2px solid ${th.choreBorder};">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:16px;">${g.emoji}</span>
+              <span style="font:800 13px/1 var(--font-ui);color:#1a1a2e;">${g.name}</span>
+              <span style="font:500 10px/1 var(--font-ui);color:#bbb;margin-left:auto;">Top ${Math.min(scores.length,10)}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${scores.map((s,i)=>{
+                const isMe = s.name === myName;
+                const col = PCOLORS[s.name] || '#888';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;
+                  background:${isMe?th.cardBg:'#f8f8f8'};
+                  border:2px solid ${isMe?th.accent:'transparent'};">
+                  <span style="font-size:14px;width:22px;text-align:center;">${medals[i]||(i+1)}</span>
+                  <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>
+                  <span style="font:${isMe?'800':'600'} 13px/1 var(--font-ui);color:${isMe?th.accent:'#333'};flex:1;">${esc(s.name)}</span>
+                  <span style="font:800 14px/1 var(--font-ui);color:${col};">${s.score.toLocaleString()}</span>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
     ` : `
       <div id="kp-spin-wrap"></div>
     `}
@@ -21900,30 +22523,25 @@ function kidsPageSetSpinType(type){
 
 
 function kidsLaunchGame(gameId){
-  // Create a full-screen overlay on top of the kids page
-  const existing = document.getElementById('kids-game-overlay');
-  if(existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'kids-game-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
-  document.body.appendChild(overlay);
-
-  // Render the game into the overlay
-  renderActiveGame(overlay, gameId);
-
-  // Patch the back button to return to kids page instead of adult games lobby
-  setTimeout(()=>{
-    const backBtn = overlay.querySelector('button');
-    if(backBtn && backBtn.textContent === '←'){
-      backBtn.onclick = ()=>{
-        overlay.remove();
-        // Reload scores so leaderboard updates
-        loadArcadeScores().catch(()=>{});
-        renderKidsPageForKid();
-      };
-    }
-  }, 100);
+  // Ensure scores are loaded before launching
+  loadArcadeScores().catch(()=>{}).finally(()=>{
+    const existing = document.getElementById('kids-game-overlay');
+    if(existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'kids-game-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
+    document.body.appendChild(overlay);
+    renderActiveGame(overlay, gameId);
+    setTimeout(()=>{
+      const backBtn = overlay.querySelector('button');
+      if(backBtn && backBtn.textContent === '←'){
+        backBtn.onclick = ()=>{
+          overlay.remove();
+          loadArcadeScores().catch(()=>{}).finally(()=>renderKidsPageForKid());
+        };
+      }
+    }, 100);
+  });
 }
 
 function kidsPageSetView(view){
