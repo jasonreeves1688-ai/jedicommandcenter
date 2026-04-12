@@ -2427,14 +2427,14 @@ button{ -webkit-tap-highlight-color:transparent; }
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
         <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
       </button>
+      <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
+        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+      </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
       </button>
       <button class="nav-btn" id="nav-games" onclick="setNav('games')">
         <span class="nav-icon">🎮</span><span class="nav-label">Games</span>
-      </button>
-      <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
-        <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
       </button>
       <button class="nav-btn" id="nav-home-grid-btn" onclick="toggleNavGrid()">
         <span class="nav-icon">⊞</span><span class="nav-label">More</span>
@@ -4096,9 +4096,9 @@ function applyMode(){
     const hideWorkBottom = ['nav-waiting','nav-people','nav-grid-btn'];
     // Home bottom nav simple: keep Today, Family, Kids — hide Grocery, Contacts, More
     const hideHomeBottom = ['nav-grocery','nav-home-contacts','nav-home-grid-btn'];
-    // Rail simple: hide Waiting, Discovery (work) and Grocery, Contacts, Tracker, Dinners, Calendar (home)
+    // Rail simple: hide Waiting, Discovery (work) and Grocery, Contacts, Dinners, Calendar (home)
     const hideRail = ['nav-waiting','nav-discovery',
-                      'nav-grocery','nav-home-contacts','nav-tracker','nav-dinners','nav-calendar'];
+                      'nav-grocery','nav-home-contacts','nav-dinners','nav-calendar'];
     [...hideWorkBottom,...hideHomeBottom,...hideRail].forEach(id=>{
       document.querySelectorAll('#'+id).forEach(el=>{ el.style.display='none'; });
     });
@@ -4106,7 +4106,7 @@ function applyMode(){
     // Restore all — let display be empty so CSS/flex takes over
     ['nav-waiting','nav-people','nav-grid-btn',
      'nav-grocery','nav-home-contacts','nav-home-grid-btn',
-     'nav-discovery','nav-tracker','nav-dinners','nav-calendar'].forEach(id=>{
+     'nav-discovery','nav-dinners','nav-calendar'].forEach(id=>{
       document.querySelectorAll('#'+id).forEach(el=>{ el.style.display=''; });
     });
   }
@@ -18533,13 +18533,14 @@ function renderActiveGame(container, gameId){
 function showGameOver(gameId, score, isNewBest){
   const top = getTopScores(gameId, 4);
   const rank = top.findIndex(s=>s.name===getCurrentPlayerName()) + 1;
+  const isKidsMode = !!document.getElementById('kids-game-overlay');
   const existing = document.getElementById('game-canvas-wrap');
   if(!existing) return;
   existing.innerHTML = `
     <div style="text-align:center;padding:32px 24px;">
       <div style="font-size:48px;margin-bottom:8px;">${isNewBest?'🏆':'🎮'}</div>
       <div style="font:800 28px/1 var(--font-ui);color:var(--text);margin-bottom:6px;">${score.toLocaleString()}</div>
-      ${isNewBest?`<div style="font:700 13px/1 var(--font-ui);color:var(--accent);margin-bottom:16px;">🎉 New personal best!</div>`:`<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:16px;">Personal best: ${getPersonalBest(gameId).toLocaleString()}</div>`}
+      ${isNewBest?`<div style="font:700 13px/1 var(--font-ui);color:var(--accent);margin-bottom:16px;">🎉 New personal best!</div>`:`<div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:16px;">Personal best: ${(getPersonalBest(gameId)||0).toLocaleString()}</div>`}
       ${rank===1?`<div style="font:700 12px/1 var(--font-ui);color:#f9a825;margin-bottom:16px;">👑 Family leader!</div>`:''}
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
         ${top.slice(0,3).map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;justify-content:center;">
@@ -18549,10 +18550,10 @@ function showGameOver(gameId, score, isNewBest){
         </div>`).join('')}
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="launchGame('${gameId}')"
+        <button onclick="${isKidsMode?`kidsLaunchGame('${gameId}')`:`launchGame('${gameId}')`}"
           style="padding:12px 24px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">Play Again</button>
-        <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
-          style="padding:12px 24px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">All Games</button>
+        <button onclick="${isKidsMode?`document.getElementById('kids-game-overlay')?.remove();renderKidsPageForKid()`:`_activeGame=null;renderGamesPage(document.getElementById('main'))`}"
+          style="padding:12px 24px;border-radius:24px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">${isKidsMode?'Back':'All Games'}</button>
       </div>
     </div>`;
 }
@@ -18642,20 +18643,24 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
     else if(e.key==='ArrowRight'&&dir.x===0) nextDir={x:1,y:0};
   });
 
-  // D-pad controls
+  // D-pad controls — use globally scoped refs so onclick works
+  window._snakeDir = (dx,dy) => {
+    if(dx!==0 && dir.x===0) nextDir={x:dx,y:0};
+    if(dy!==0 && dir.y===0) nextDir={x:0,y:dy};
+  };
   const ctrl = document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML = `
-    <div style="display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;">
+    <div style="display:grid;grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px;gap:6px;">
       <div></div>
-      <button style="${dpadBtn()}" onclick="if(dir.y===0)nextDir={x:0,y:-1}">▲</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._snakeDir(0,-1)" onclick="window._snakeDir(0,-1)">▲</button>
       <div></div>
-      <button style="${dpadBtn()}" onclick="if(dir.x===0)nextDir={x:-1,y:0}">◀</button>
-      <button style="${dpadBtn()}" onclick="if(dir.x===0)nextDir={x:1,y:0}">▶</button>
-      <button style="${dpadBtn()}" onclick="if(dir.y===0)nextDir={x:0,y:1}">▼</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._snakeDir(-1,0)" onclick="window._snakeDir(-1,0)">◀</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._snakeDir(0,1)"  onclick="window._snakeDir(0,1)">▼</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._snakeDir(1,0)"  onclick="window._snakeDir(1,0)">▶</button>
     </div>`;
 };
 
-function dpadBtn(){ return 'width:44px;height:44px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;'; }
+function dpadBtn(){ return 'width:52px;height:52px;border-radius:12px;border:2px solid var(--border);background:var(--surface2);color:var(--text);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;'; }
 
 // ── 🧱 BLOCK DROP (Tetris) ────────────────────────────────────
 GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
@@ -18758,12 +18763,18 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
     else if(e.key===' '){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
   });
 
+  window._tetMove  = (dx) => { if(valid(cur.shape,cur.x+dx,cur.y)) cur.x+=dx; };
+  window._tetRot   = () => { const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse()); if(valid(r,cur.x,cur.y)) cur.shape=r; };
+  window._tetDrop  = () => { while(valid(cur.shape,cur.x,cur.y+1)) cur.y++; place(); };
+
   const ctrl=document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML=`
-    <button style="${dpadBtn()}" onclick="if(valid(cur.shape,cur.x-1,cur.y))cur.x--">◀</button>
-    <button style="${dpadBtn()}" onclick="(()=>{while(valid(cur.shape,cur.x,cur.y+1))cur.y++;place();})()" >⬇</button>
-    <button style="${dpadBtn()}" onclick="if(valid(cur.shape,cur.x+1,cur.y))cur.x++">▶</button>
-    <button style="${dpadBtn()}" onclick="(()=>{const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse());if(valid(r,cur.x,cur.y))cur.shape=r;})()">↻</button>`;
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._tetMove(-1)" onclick="window._tetMove(-1)">◀</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._tetDrop()" onclick="window._tetDrop()">⬇</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._tetMove(1)" onclick="window._tetMove(1)">▶</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._tetRot()" onclick="window._tetRot()">↻</button>
+    </div>`;
 };
 
 // ── 🏓 BREAKOUT ───────────────────────────────────────────────
@@ -18839,8 +18850,17 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
     pad.x=e.clientX-r.left-PAD_W/2;
     pad.x=Math.max(0,Math.min(W-PAD_W,pad.x));
   });
+  window._breakoutMove = (dir) => {
+    pad.x += dir * 30;
+    pad.x = Math.max(0, Math.min(W - PAD_W, pad.x));
+  };
   const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">Slide finger or mouse to move paddle</div>`;
+  if(ctrl) ctrl.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._breakoutMove(-1)" onclick="window._breakoutMove(-1)">◀</button>
+      <div style="font:500 11px/1.3 var(--font-ui);color:var(--text4);text-align:center;flex:1;">Drag finger on screen<br>or use buttons</div>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._breakoutMove(1)" onclick="window._breakoutMove(1)">▶</button>
+    </div>`;
 };
 
 // ── 🌌 SPACE SHOOTER ─────────────────────────────────────────
@@ -18909,8 +18929,17 @@ GAME_ENGINES.shooter = function(canvas, onScore, onGameOver){
   document.addEventListener('click',e=>{ const r=canvas.getBoundingClientRect(); if(e.clientX>r.left&&e.clientX<r.right) bullets.push({x:player.x+player.w/2,y:player.y}); });
   // Auto-fire
   setInterval(()=>{ if(running) bullets.push({x:player.x+player.w/2,y:player.y}); },400);
+  window._shooterMove = (dx) => { player.x = Math.max(0, Math.min(W-player.w, player.x + dx)); };
+  window._shooterFire = () => { bullets.push({x:player.x+player.w/2, y:player.y}); };
   const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">Drag to move · Auto-fires every 0.4s</div>`;
+  if(ctrl) ctrl.innerHTML=`
+    <div style="display:flex;gap:8px;align-items:center;width:100%;justify-content:center;">
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._shooterMove(-30)" onclick="window._shooterMove(-30)">◀</button>
+      <button style="width:80px;height:52px;border-radius:12px;border:none;background:var(--accent);color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;"
+        ontouchstart="event.preventDefault();window._shooterFire()" onclick="window._shooterFire()">🔥 FIRE</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._shooterMove(30)" onclick="window._shooterMove(30)">▶</button>
+    </div>
+    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);text-align:center;margin-top:4px;">Auto-fires every 0.4s · drag on screen to aim</div>`;
 };
 
 // ── 🦘 ENDLESS RUNNER ────────────────────────────────────────
@@ -18981,11 +19010,18 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
   }
   loop();
 
+  window._runnerJump = jump;
   canvas.addEventListener('touchstart',e=>{ e.preventDefault(); jump(); },{passive:false});
   document.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowUp') jump(); });
 
   const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`<button onclick="jump()" style="padding:14px 48px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 14px/1 var(--font-ui);cursor:pointer;min-height:52px;">JUMP</button>`;
+  if(ctrl) ctrl.innerHTML=`<button
+    ontouchstart="event.preventDefault();window._runnerJump()"
+    onclick="window._runnerJump()"
+    style="padding:16px 64px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;min-height:56px;-webkit-tap-highlight-color:transparent;">
+    JUMP 🦘
+  </button>
+  <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Tap twice for double jump</div>`;
 };
 
 // ── 🔢 2048 ──────────────────────────────────────────────────
@@ -19072,14 +19108,15 @@ GAME_ENGINES['2048'] = function(canvas, onScore, onGameOver){
     else if(e.key==='ArrowDown') move('down');
   });
 
+  window._2048move = move;
   const ctrl=document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML=`
-    <div style="display:grid;grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;">
+    <div style="display:grid;grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px;gap:6px;">
       <div></div>
-      <button style="${dpadBtn()}" onclick="move('up')">▲</button><div></div>
-      <button style="${dpadBtn()}" onclick="move('left')">◀</button>
-      <button style="${dpadBtn()}" onclick="move('down')">▼</button>
-      <button style="${dpadBtn()}" onclick="move('right')">▶</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('up')"   onclick="window._2048move('up')">▲</button><div></div>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('left')"  onclick="window._2048move('left')">◀</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('down')"  onclick="window._2048move('down')">▼</button>
+      <button style="${dpadBtn()}" ontouchstart="event.preventDefault();window._2048move('right')" onclick="window._2048move('right')">▶</button>
     </div>`;
 };
 
@@ -21709,6 +21746,13 @@ function renderKidsPageForKid(){
         color:${view==='chores'?th.accent:'#aaa'};">
       🏠 My Chores
     </button>
+    <button onclick="kidsPageSetView('games')"
+      style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+        border:3px solid ${view==='games'?th.accent:'#ddd'};
+        background:${view==='games'?th.cardBg:'white'};
+        color:${view==='games'?th.accent:'#aaa'};">
+      🎮 Games
+    </button>
     <button onclick="kidsPageSetView('spin')"
       style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
         border:3px solid ${view==='spin'?th.accent:'#ddd'};
@@ -21724,6 +21768,25 @@ function renderKidsPageForKid(){
       ${dueCats.length > 0 ? `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:${th.accent};text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you're done! 👇</div>` : ''}
       ${choreHtml}
       ${siblingHtml ? `<div style="margin-top:20px;"><div style="font:700 10px/1 var(--font-ui);letter-spacing:1.2px;color:#bbb;text-transform:uppercase;margin-bottom:8px;padding-left:2px;">Everyone's stars</div>${siblingHtml}</div>` : ''}
+    ` : view==='games' ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+        ${ARCADE_GAMES.map(g=>{
+          const pb = getPersonalBest(g.id);
+          const top = getTopScores(g.id,1)[0];
+          const isLeader = top && top.name === getCurrentPlayerName();
+          return `<div onclick="kidsLaunchGame('${g.id}')"
+            style="border-radius:20px;border:3px solid ${th.choreBorder};background:white;
+              padding:16px;cursor:pointer;text-align:center;
+              box-shadow:0 4px 12px ${th.accent}18;
+              -webkit-tap-highlight-color:transparent;">
+            ${isLeader?`<div style="font:700 9px/1 var(--font-ui);color:#FF8C00;margin-bottom:4px;">👑 LEADER</div>`:''}
+            <div style="font-size:36px;margin-bottom:6px;">${g.emoji}</div>
+            <div style="font:800 13px/1.2 var(--font-ui);color:#1a1a2e;">${g.name}</div>
+            ${pb?`<div style="font:600 11px/1 var(--font-ui);color:${th.accent};margin-top:4px;">Best: ${pb.toLocaleString()}</div>`:`<div style="font:500 10px/1 var(--font-ui);color:#bbb;margin-top:4px;">Not played yet</div>`}
+            ${top&&!isLeader?`<div style="font:500 9px/1 var(--font-ui);color:#bbb;margin-top:2px;">👑 ${esc(top.name)}: ${top.score.toLocaleString()}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
     ` : `
       <div id="kp-spin-wrap"></div>
     `}
@@ -21835,6 +21898,33 @@ function kidsPageSetSpinType(type){
   renderKidsPageForKid();
 }
 
+
+function kidsLaunchGame(gameId){
+  // Create a full-screen overlay on top of the kids page
+  const existing = document.getElementById('kids-game-overlay');
+  if(existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'kids-game-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
+  document.body.appendChild(overlay);
+
+  // Render the game into the overlay
+  renderActiveGame(overlay, gameId);
+
+  // Patch the back button to return to kids page instead of adult games lobby
+  setTimeout(()=>{
+    const backBtn = overlay.querySelector('button');
+    if(backBtn && backBtn.textContent === '←'){
+      backBtn.onclick = ()=>{
+        overlay.remove();
+        // Reload scores so leaderboard updates
+        loadArcadeScores().catch(()=>{});
+        renderKidsPageForKid();
+      };
+    }
+  }, 100);
+}
 
 function kidsPageSetView(view){
   const kp = document.getElementById('kids-page');
