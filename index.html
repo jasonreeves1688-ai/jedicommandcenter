@@ -22335,68 +22335,7 @@ function renderKidsPageForKid(){
       ${dueCats.length > 0 ? `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:${th.accent};text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you're done! 👇</div>` : ''}
       ${choreHtml}
       ${siblingHtml ? `<div style="margin-top:20px;"><div style="font:700 10px/1 var(--font-ui);letter-spacing:1.2px;color:#bbb;text-transform:uppercase;margin-bottom:8px;padding-left:2px;">Everyone's stars</div>${siblingHtml}</div>` : ''}
-    ` : view==='games' ? `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
-        ${ARCADE_GAMES.map(g=>{
-          const pb = getPersonalBest(g.id);
-          const top = getTopScores(g.id,1)[0];
-          const isLeader = top && top.name === getCurrentPlayerName();
-          return `<div onclick="kidsLaunchGame('${g.id}')"
-            style="border-radius:20px;border:3px solid ${th.choreBorder};background:white;
-              padding:16px;cursor:pointer;text-align:center;
-              box-shadow:0 4px 12px ${th.accent}18;
-              -webkit-tap-highlight-color:transparent;">
-            ${isLeader?`<div style="font:700 9px/1 var(--font-ui);color:#FF8C00;margin-bottom:4px;">👑 LEADER</div>`:''}
-            <div style="font-size:36px;margin-bottom:6px;">${g.emoji}</div>
-            <div style="font:800 13px/1.2 var(--font-ui);color:#1a1a2e;">${g.name}</div>
-            ${pb?`<div style="font:600 11px/1 var(--font-ui);color:${th.accent};margin-top:4px;">Best: ${pb.toLocaleString()}</div>`:`<div style="font:500 10px/1 var(--font-ui);color:#bbb;margin-top:4px;">Not played yet</div>`}
-            ${top&&!isLeader?`<div style="font:500 9px/1 var(--font-ui);color:#bbb;margin-top:2px;">👑 ${esc(top.name)}: ${top.score.toLocaleString()}</div>`:''}
-          </div>`;
-        }).join('')}
-      </div>
-
-      <!-- Family Leaderboard -->
-      <div style="margin-top:20px;border-radius:20px;border:3px solid ${th.choreBorder};background:white;overflow:hidden;box-shadow:0 4px 16px ${th.accent}18;">
-        <div style="background:${th.accent};padding:14px 16px;display:flex;align-items:center;gap:10px;">
-          <span style="font-size:24px;">🏆</span>
-          <span style="font:800 16px/1 var(--font-ui);color:white;">Family Leaderboard</span>
-        </div>
-        ${ARCADE_GAMES.map(g=>{
-          const scores = getTopScores(g.id, 10);
-          const myName = getCurrentPlayerName();
-          if(!scores.length) return `<div style="padding:12px 16px;border-bottom:2px solid ${th.choreBorder};">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <span style="font-size:16px;">${g.emoji}</span>
-              <span style="font:800 13px/1 var(--font-ui);color:#1a1a2e;">${g.name}</span>
-            </div>
-            <div style="font:500 11px/1 var(--font-ui);color:#bbb;font-style:italic;">No scores yet — be the first! 🎮</div>
-          </div>`;
-          const medals = ['🥇','🥈','🥉'];
-          const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:playerColor(0),Connor:playerColor(1)};
-          return `<div style="padding:12px 16px;border-bottom:2px solid ${th.choreBorder};">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <span style="font-size:16px;">${g.emoji}</span>
-              <span style="font:800 13px/1 var(--font-ui);color:#1a1a2e;">${g.name}</span>
-              <span style="font:500 10px/1 var(--font-ui);color:#bbb;margin-left:auto;">Top ${Math.min(scores.length,10)}</span>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:4px;">
-              ${scores.map((s,i)=>{
-                const isMe = s.name === myName;
-                const col = PCOLORS[s.name] || '#888';
-                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;
-                  background:${isMe?th.cardBg:'#f8f8f8'};
-                  border:2px solid ${isMe?th.accent:'transparent'};">
-                  <span style="font-size:14px;width:22px;text-align:center;">${medals[i]||(i+1)}</span>
-                  <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>
-                  <span style="font:${isMe?'800':'600'} 13px/1 var(--font-ui);color:${isMe?th.accent:'#333'};flex:1;">${esc(s.name)}</span>
-                  <span style="font:800 14px/1 var(--font-ui);color:${col};">${s.score.toLocaleString()}</span>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    ` : `
+    ` : view==='games' ? kidsGamesTabHTML(th) : `
       <div id="kp-spin-wrap"></div>
     `}
   </div>
@@ -22507,6 +22446,71 @@ function kidsPageSetSpinType(type){
   renderKidsPageForKid();
 }
 
+
+function kidsGamesTabHTML(th){
+  const myName = getCurrentPlayerName();
+  const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:playerColor(0),Connor:playerColor(1)};
+  const medals  = ['🥇','🥈','🥉'];
+
+  // Game cards grid
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">';
+  ARCADE_GAMES.forEach(function(g){
+    const pb  = getPersonalBest(g.id);
+    const top = getTopScores(g.id,1)[0];
+    const isLeader = top && top.name === myName;
+    html += '<div onclick="kidsLaunchGame(\'' + g.id + '\')"'
+      + ' style="border-radius:20px;border:3px solid ' + th.choreBorder + ';background:white;'
+      + 'padding:16px;cursor:pointer;text-align:center;'
+      + 'box-shadow:0 4px 12px ' + th.accent + '18;'
+      + '-webkit-tap-highlight-color:transparent;">';
+    if(isLeader) html += '<div style="font:700 9px/1 var(--font-ui);color:#FF8C00;margin-bottom:4px;">👑 LEADER</div>';
+    html += '<div style="font-size:36px;margin-bottom:6px;">' + g.emoji + '</div>';
+    html += '<div style="font:800 13px/1.2 var(--font-ui);color:#1a1a2e;">' + g.name + '</div>';
+    if(pb) html += '<div style="font:600 11px/1 var(--font-ui);color:' + th.accent + ';margin-top:4px;">Best: ' + pb.toLocaleString() + '</div>';
+    else   html += '<div style="font:500 10px/1 var(--font-ui);color:#bbb;margin-top:4px;">Not played yet</div>';
+    if(top && !isLeader) html += '<div style="font:500 9px/1 var(--font-ui);color:#bbb;margin-top:2px;">👑 ' + esc(top.name) + ': ' + top.score.toLocaleString() + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Family Leaderboard
+  html += '<div style="margin-top:20px;border-radius:20px;border:3px solid ' + th.choreBorder + ';background:white;overflow:hidden;box-shadow:0 4px 16px ' + th.accent + '18;">';
+  html += '<div style="background:' + th.accent + ';padding:14px 16px;display:flex;align-items:center;gap:10px;">'
+    + '<span style="font-size:24px;">🏆</span>'
+    + '<span style="font:800 16px/1 var(--font-ui);color:white;">Family Leaderboard</span>'
+    + '</div>';
+
+  ARCADE_GAMES.forEach(function(g){
+    const scores = getTopScores(g.id, 10);
+    html += '<div style="padding:12px 16px;border-bottom:2px solid ' + th.choreBorder + ';">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      + '<span style="font-size:16px;">' + g.emoji + '</span>'
+      + '<span style="font:800 13px/1 var(--font-ui);color:#1a1a2e;">' + g.name + '</span>'
+      + '<span style="font:500 10px/1 var(--font-ui);color:#bbb;margin-left:auto;">Top ' + Math.min(scores.length,10) + '</span>'
+      + '</div>';
+    if(!scores.length){
+      html += '<div style="font:500 11px/1 var(--font-ui);color:#bbb;font-style:italic;">No scores yet — be the first! 🎮</div>';
+    } else {
+      html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+      scores.forEach(function(s,i){
+        const isMe = s.name === myName;
+        const col  = PCOLORS[s.name] || '#888';
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;'
+          + 'background:' + (isMe ? th.cardBg : '#f8f8f8') + ';'
+          + 'border:2px solid ' + (isMe ? th.accent : 'transparent') + ';">'
+          + '<span style="font-size:14px;width:22px;text-align:center;">' + (medals[i] || (i+1)) + '</span>'
+          + '<div style="width:8px;height:8px;border-radius:50%;background:' + col + ';flex-shrink:0;"></div>'
+          + '<span style="font:' + (isMe?'800':'600') + ' 13px/1 var(--font-ui);color:' + (isMe?th.accent:'#333') + ';flex:1;">' + esc(s.name) + '</span>'
+          + '<span style="font:800 14px/1 var(--font-ui);color:' + col + ';">' + s.score.toLocaleString() + '</span>'
+          + '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
 
 function kidsLaunchGame(gameId){
   // Ensure scores are loaded before launching
