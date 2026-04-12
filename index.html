@@ -19113,7 +19113,13 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
     timerInterval = setInterval(()=>{
       timer--;
       if(timer <= 0){ clearInterval(timerInterval); handleAnswer(''); }
-      else render();
+      else {
+        // Only update timer bar in-place — never rebuild the whole UI
+        const pct = (timer/getTimeLimit())*100;
+        const col = timer/getTimeLimit() > 0.5 ? '#66BB6A' : timer/getTimeLimit() > 0.25 ? '#FFD54F' : '#EF5350';
+        const bar = document.getElementById('scramble-timer-bar');
+        if(bar){ bar.style.width = pct+'%'; bar.style.background = col; }
+      }
     }, 1000);
   }
 
@@ -19151,7 +19157,7 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
         <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
-          <div style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerColor};transition:width 0.9s linear;border-radius:8px;"></div>
+          <div id="scramble-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerColor};transition:width 0.9s linear;border-radius:8px;"></div>
         </div>
         <div style="text-align:center;padding:20px;background:var(--surface2);border-radius:16px;border:2px solid var(--border);">
           <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:8px;">Unscramble this word:</div>
@@ -19352,7 +19358,15 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
     timerInterval = setInterval(()=>{
       timer--;
       if(timer<=0){ clearInterval(timerInterval); handleAnswer(null); }
-      else render();
+      else {
+        // Update timer bar and countdown in-place — never rebuild the input
+        const pct = (timer/getTimeLimit())*100;
+        const col = timer/getTimeLimit()>0.5?'#66BB6A':timer/getTimeLimit()>0.25?'#FFD54F':'#EF5350';
+        const bar = document.getElementById('math-timer-bar');
+        const sec = document.getElementById('math-timer-sec');
+        if(bar){ bar.style.width=pct+'%'; bar.style.background=col; }
+        if(sec){ sec.textContent=timer+'s'; sec.style.color=col; }
+      }
     }, 1000);
   }
 
@@ -19389,12 +19403,12 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
         <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
-          <div style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerCol};transition:width 0.9s linear;border-radius:8px;"></div>
+          <div id="math-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerCol};transition:width 0.9s linear;border-radius:8px;"></div>
         </div>
         <div style="text-align:center;padding:24px 16px;background:var(--surface2);border-radius:20px;border:2px solid var(--border);">
           <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:10px;">What is…</div>
           <div style="font:800 40px/1 var(--font-ui);color:var(--text);">${currentQ.question} = ?</div>
-          <div style="font:500 11px/1 var(--font-ui);color:${timerCol};margin-top:8px;">${timer}s</div>
+          <div id="math-timer-sec" style="font:500 11px/1 var(--font-ui);color:${timerCol};margin-top:8px;">${timer}s</div>
         </div>
         ${result!==undefined?`<div style="text-align:center;padding:8px 12px;border-radius:12px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
           ${result?`✓ +${pts} pts`:`✗ Answer was ${currentQ.answer}`}
@@ -19413,7 +19427,6 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
   }
 
   window._mathAnswer = handleAnswer;
-  window._mathReset  = ()=>{ level=1; score=0; streak=0; qNum=0; onScore(0); nextQuestion(); };
   window._mathReset  = ()=>{
     clearInterval(timerInterval);
     if(score>0) saveArcadeScore('mathblitz', score).catch(()=>{});
@@ -22099,11 +22112,6 @@ function renderKidsPageForKid(){
   kp.style.fontFamily = 'var(--font-ui)';
   kp.style.color      = '#1a1a2e';
 
-  // ── Separate by type then due/not-due ────────────────────────
-  // Chores: scheduled items (have a freq that isn't anytime/onetime)
-  // Behaviours: anytime items (always available, no schedule)
-  // One-time: already filtered out by myCats if completed
-  const isChore     = c => c.type === 'chore' || (!c.type && c.freq && c.freq !== 'anytime' && c.freq !== 'onetime');
   const isBehaviour = c => c.type === 'behaviour' || (!c.type && (!c.freq || c.freq === 'anytime'));
   const isOnetime   = c => c.type === 'onetime' || c.freq === 'onetime';
 
@@ -22246,6 +22254,20 @@ function renderKidsPageForKid(){
       }).join('')
     : '';
 
+  // Compute tab content AFTER choreHtml + siblingHtml are ready
+  let _tabContent;
+  if(view==='games'){
+    _tabContent = kidsGamesTabHTML(th);
+  } else if(view==='spin'){
+    _tabContent = '<div id="kp-spin-wrap"></div>';
+  } else {
+    _tabContent = (dueCats.length > 0
+        ? '<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:'+th.accent+';text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you\'re done! 👇</div>'
+        : '')
+      + choreHtml
+      + (siblingHtml ? '<div style="margin-top:20px;"><div style="font:700 10px/1 var(--font-ui);letter-spacing:1.2px;color:#bbb;text-transform:uppercase;margin-bottom:8px;padding-left:2px;">Everyone\'s stars</div>'+siblingHtml+'</div>' : '');
+  }
+
   kp.innerHTML = `
   <!-- Header -->
   <div style="padding:20px 20px 8px;display:flex;align-items:center;gap:14px;">
@@ -22331,13 +22353,7 @@ function renderKidsPageForKid(){
 
   <!-- Content -->
   <div style="padding:4px 16px 16px;">
-    ${view==='chores' ? `
-      ${dueCats.length > 0 ? `<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:${th.accent};text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you're done! 👇</div>` : ''}
-      ${choreHtml}
-      ${siblingHtml ? `<div style="margin-top:20px;"><div style="font:700 10px/1 var(--font-ui);letter-spacing:1.2px;color:#bbb;text-transform:uppercase;margin-bottom:8px;padding-left:2px;">Everyone's stars</div>${siblingHtml}</div>` : ''}
-    ` : view==='games' ? kidsGamesTabHTML(th) : `
-      <div id="kp-spin-wrap"></div>
-    `}
+    ${_tabContent}
   </div>
   <div style="height:40px;"></div>
   `;
