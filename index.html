@@ -19071,21 +19071,7 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     JUMP 🦘
   </button>
   <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Tap twice for double jump</div>`;
-};
 
-
-  window._runnerJump = jump;
-  canvas.addEventListener('touchstart',e=>{ e.preventDefault(); jump(); },{passive:false});
-  document.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowUp') jump(); });
-
-  const ctrl=document.getElementById('game-controls');
-  if(ctrl) ctrl.innerHTML=`<button
-    ontouchstart="event.preventDefault();window._runnerJump()"
-    onclick="window._runnerJump()"
-    style="padding:16px 64px;border-radius:24px;border:none;background:var(--accent);color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;min-height:56px;-webkit-tap-highlight-color:transparent;">
-    JUMP 🦘
-  </button>
-  <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">Tap twice for double jump</div>`;
 };
 
 // ── 🔤 WORD SCRAMBLE ─────────────────────────────────────────
