@@ -12074,14 +12074,6 @@ function renderTodayView(container){
 
   html += '</div>'; // close .today-stack
   container.innerHTML = html;
-
-  // Auto-activate voice on mobile for brain dump
-  if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){
-    setTimeout(()=>{
-      const mic = document.getElementById('mic-btn-dump');
-      if(mic && !_voiceActive) mic.click();
-    }, 400);
-  }
 }
 
 
@@ -17314,13 +17306,8 @@ function openFrictionlessCapture(){
 
   m.onclick = e => { if(e.target===m) closeFrictionlessCapture(); };
   document.body.appendChild(m);
-  // Auto-focus voice on mobile, text on desktop
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-  if(isMobile){
-    setTimeout(()=>{ toggleVoice('fc-input','fc-mic-btn'); }, 150);
-  } else {
-    setTimeout(()=>document.getElementById('fc-input')?.focus(), 150);
-  }
+  // Focus text input on all devices — user can tap mic if they want voice
+  setTimeout(()=>document.getElementById('fc-input')?.focus(), 150);
 }
 
 function closeFrictionlessCapture(){
@@ -17853,35 +17840,37 @@ async function checkPassword(){
     currentUser = {role:'kid', playerIdx, name:''};
     localStorage.setItem('hub-auth-kid', JSON.stringify({playerIdx, ts:Date.now()}));
     document.getElementById('gate').style.display='none';
-    // Kids don't have Supabase auth — skip bootApp/loadAll entirely.
-    // Fetch kids_tracker directly (needs public read RLS policy — see kids_tracker_setup.sql)
-    (async ()=>{
-      // Start from localStorage immediately so page shows something fast
-      const cached = localStorage.getItem('hub-kids');
-      if(cached) try{ kidsGame = JSON.parse(cached); }catch(e){}
 
+    // Step 1: Show page immediately from localStorage — never block on network
+    const cached = localStorage.getItem('hub-kids');
+    if(cached) try{ kidsGame = JSON.parse(cached); }catch(e){}
+    const d0 = kidsData();
+    currentUser.name = d0.players?.[playerIdx]?.name || 'Player '+(playerIdx+1);
+    showKidsPage();
+
+    // Step 2: Refresh from Supabase in background — update silently if newer data arrives
+    (async ()=>{
       try{
-        const { data: kgRow, error: kgErr } = await _sb
+        const res = await _sb
           .from('kids_tracker').select('*').eq('id','kids-game').single();
+        const kgRow = res.data;
+        const kgErr = res.error;
         if(kgErr){
-          console.warn('[Kids] kids_tracker fetch error:', kgErr.message,
-            kgErr.code === 'PGRST116' ? '(row not found)' :
-            kgErr.code === '42501'     ? '(RLS blocked — run kids_tracker_setup.sql)' : '');
+          console.warn('[Kids] kids_tracker fetch:', kgErr.code, kgErr.message);
         }
         if(kgRow && kgRow.game_data && kgRow.game_data.players){
           kidsGame = kgRow.game_data;
           localStorage.setItem('hub-kids', JSON.stringify(kidsGame));
+          // Refresh name in case it changed, then re-render silently
+          currentUser.name = kidsGame.players[playerIdx]?.name || currentUser.name;
+          renderKidsPageForKid();
         }
       }catch(e){
-        console.warn('[Kids] kids_tracker network error:', e);
-        // Already have localStorage fallback above
+        console.warn('[Kids] kids_tracker background fetch error:', e);
       }
 
-      const d = kidsData();
-      currentUser.name = d.players[playerIdx]?.name || 'Player '+(playerIdx+1);
-      // Subscribe to realtime so scores update live while kid is playing
-      _startRealtimeSubscriptions();
-      showKidsPage();
+      // Also refresh arcade scores in background
+      try{ await loadArcadeScores(); }catch(e){}
     })();
     return;
   }
@@ -18512,7 +18501,7 @@ function renderActiveGame(container, gameId){
   container.innerHTML = `
   <div id="game-shell" style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <button onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
+      <button id="game-back-btn" onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
         style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
       <span style="font-size:20px;">${g.emoji}</span>
       <div style="flex:1;">
@@ -19092,13 +19081,14 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
   canvas.style.display = 'none'; // We use HTML UI for this game
   const wrap = document.getElementById('game-canvas-wrap');
 
-  let level=1, score=0, streak=0, totalPlayed=0;
-  const ROUND_TIME = 15; // seconds per word, decreases with level
+  let level=1, score=0, streak=0, totalPlayed=0, lives=3;
+  const ROUND_TIME = 15;
   let timer=ROUND_TIME, timerInterval=null, currentWord='', scrambled='', answered=false;
 
   function getWords(){ return WORDS[Math.min(Math.floor((level-1)/2), WORDS.length-1)]; }
   function scrambleWord(w){ return w.split('').sort(()=>Math.random()-0.5).join('').toLowerCase(); }
   function getTimeLimit(){ return Math.max(8, ROUND_TIME - Math.floor(level/2)); }
+  function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   function nextWord(){
     answered = false;
@@ -19114,7 +19104,6 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
       timer--;
       if(timer <= 0){ clearInterval(timerInterval); handleAnswer(''); }
       else {
-        // Only update timer bar in-place — never rebuild the whole UI
         const pct = (timer/getTimeLimit())*100;
         const col = timer/getTimeLimit() > 0.5 ? '#66BB6A' : timer/getTimeLimit() > 0.25 ? '#FFD54F' : '#EF5350';
         const bar = document.getElementById('scramble-timer-bar');
@@ -19132,16 +19121,23 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
       const timeBonus = Math.max(0, timer);
       const pts = (10 + timeBonus) * level;
       score += pts; streak++;
-      if(streak>0&&streak%3===0){ level++; }
+      if(streak>0&&streak%3===0) level++;
       onScore(score);
       render(true, pts);
     } else {
       streak = 0;
+      lives--;
       render(false, 0);
     }
     totalPlayed++;
-    // After 20 words post to leaderboard then continue
-    if(totalPlayed % 20 === 0) saveArcadeScore('scramble', score).catch(()=>{});
+    if(lives <= 0){
+      clearInterval(timerInterval);
+      setTimeout(async ()=>{
+        await saveArcadeScore('scramble', score).catch(()=>{});
+        onGameOver(score);
+      }, 1400);
+      return;
+    }
     setTimeout(()=>nextWord(), 1400);
   }
 
@@ -19151,9 +19147,10 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
     wrap.innerHTML = `
       <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:14px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">LEVEL ${level}</span>
-          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak} streak</span>
-          <button onclick="(()=>{clearInterval(${timerInterval?'window._scrambleTimer':0});window._scrambleReset&&window._scrambleReset();})()"
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">LVL ${level}</span>
+          <span style="font:16px/1;">${livesHTML()}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak}</span>
+          <button onclick="window._scrambleReset&&window._scrambleReset()"
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
         <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
@@ -19168,8 +19165,9 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
           <div style="text-align:center;padding:10px;border-radius:12px;background:${showResult?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};border:2px solid ${showResult?'#66BB6A':'#EF5350'};">
             ${showResult
               ? `<div style="font:800 14px/1 var(--font-ui);color:#66BB6A;">✓ Correct! +${pts} pts</div>`
-              : `<div style="font:800 14px/1 var(--font-ui);color:#EF5350;">✗ It was: <span style="text-transform:uppercase;">${currentWord}</span></div>`}
+              : `<div style="font:800 14px/1 var(--font-ui);color:#EF5350;">✗ It was: <span style="text-transform:uppercase;">${currentWord}</span>${lives>0?' · '+livesHTML():' · Game over!'}</div>`}
           </div>` : ''}
+        ${lives > 0 ? `
         <input id="scramble-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
           placeholder="Type your answer…"
           style="width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;
@@ -19180,17 +19178,16 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
         <button onclick="const v=document.getElementById('scramble-input')?.value||'';window._scrambleAnswer(v);if(document.getElementById('scramble-input'))document.getElementById('scramble-input').value='';"
           style="padding:14px;border-radius:16px;border:none;background:var(--accent);
             color:#1a1f2e;font:800 15px/1 var(--font-ui);cursor:pointer;
-            -webkit-tap-highlight-color:transparent;">Submit ✓</button>
+            -webkit-tap-highlight-color:transparent;">Submit ✓</button>` : ''}
       </div>`;
-    // Focus input
-    setTimeout(()=>document.getElementById('scramble-input')?.focus(), 50);
+    if(lives > 0) setTimeout(()=>document.getElementById('scramble-input')?.focus(), 50);
   }
 
   window._scrambleAnswer = handleAnswer;
   window._scrambleReset  = ()=>{
     clearInterval(timerInterval);
     if(score>0) saveArcadeScore('scramble', score).catch(()=>{});
-    level=1; score=0; streak=0; totalPlayed=0; onScore(0); nextWord();
+    level=1; score=0; streak=0; totalPlayed=0; lives=3; onScore(0); nextWord();
   };
 
   const ctrl = document.getElementById('game-controls');
@@ -19210,11 +19207,12 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
   canvas.style.display = 'none';
   const wrap = document.getElementById('game-canvas-wrap');
 
-  let level=1, score=0, gamesWon=0, gamesPlayed=0;
+  let level=1, score=0, gamesWon=0, gamesPlayed=0, lives=3;
   let word='', guessed=new Set(), wrong=0;
   const MAX_WRONG = 6;
 
   function getWords(){ return WORDS_BY_LEVEL[Math.min(Math.floor((level-1)/2), WORDS_BY_LEVEL.length-1)]; }
+  function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   function nextWord(){
     const words = getWords();
@@ -19231,9 +19229,17 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
     if(!word.includes(letter)){
       wrong++;
       if(wrong >= MAX_WRONG){
-        // Lost
+        // Lost this word — lose a life
         gamesPlayed++;
+        lives--;
         render(false);
+        if(lives <= 0){
+          setTimeout(async ()=>{
+            await saveArcadeScore('hangman', score).catch(()=>{});
+            onGameOver(score);
+          }, 1800);
+          return;
+        }
         setTimeout(nextWord, 1800);
         return;
       }
@@ -19287,7 +19293,8 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
       <div style="width:100%;max-width:380px;padding:12px;display:flex;flex-direction:column;gap:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level}</span>
-          <span style="font:700 12px/1 var(--font-ui);color:var(--text4);">❤️ ${'♥'.repeat(lives)}${'♡'.repeat(MAX_WRONG-lives)}</span>
+          <span style="font:16px/1;">${livesHTML()}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">${wrong}/${MAX_WRONG} wrong</span>
           <button onclick="window._hangmanReset&&window._hangmanReset()"
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
@@ -19299,7 +19306,7 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
           </div>
         </div>
         ${result!==undefined?`<div style="text-align:center;padding:8px 12px;border-radius:10px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
-          ${result?`✓ +${pts} pts`:`✗ Word was: ${word}`}
+          ${result?`✓ +${pts} pts`:`✗ Word was: ${word}${lives>0?' · '+livesHTML():' · Game over!'}`}
         </div>`:''}
         <div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;">
           ${alphabet.map(l=>`<button onclick="window._hangmanGuess('${l}')"
@@ -19318,7 +19325,7 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
   window._hangmanGuess = guess;
   window._hangmanReset = ()=>{
     if(score>0) saveArcadeScore('hangman', score).catch(()=>{});
-    level=1; score=0; gamesWon=0; gamesPlayed=0; onScore(0); nextWord();
+    level=1; score=0; gamesWon=0; gamesPlayed=0; lives=3; onScore(0); nextWord();
   };
 
   const ctrl = document.getElementById('game-controls');
@@ -19331,10 +19338,11 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
   canvas.style.display = 'none';
   const wrap = document.getElementById('game-canvas-wrap');
 
-  let level=1, score=0, streak=0, qNum=0, answered=false;
+  let level=1, score=0, streak=0, qNum=0, answered=false, lives=3;
   let currentQ={}, timerInterval=null, timer=10;
 
   function getTimeLimit(){ return Math.max(5, 12 - Math.floor(level/2)); }
+  function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   function makeQuestion(){
     const ops = level<=2?['+','-']:level<=4?['+','-','×']:level<=6?['+','-','×','÷']:['+','-','×','÷'];
@@ -19379,13 +19387,22 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
       const timeBonus = Math.max(0, timer);
       const pts = (10 + timeBonus*2) * level;
       score += pts; streak++;
-      if(streak>0&&streak%5===0){ level++; }
+      if(streak>0&&streak%5===0) level++;
       onScore(score);
       if(streak % 10 === 0) saveArcadeScore('mathblitz', score).catch(()=>{});
       render(true, pts);
     } else {
       streak = 0;
+      lives--;
       render(false, 0);
+    }
+    if(lives <= 0){
+      clearInterval(timerInterval);
+      setTimeout(async ()=>{
+        await saveArcadeScore('mathblitz', score).catch(()=>{});
+        onGameOver(score);
+      }, 1400);
+      return;
     }
     setTimeout(nextQuestion, 1300);
   }
@@ -19397,7 +19414,8 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
     wrap.innerHTML = `
       <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level} · ${ops}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LVL ${level} · ${ops}</span>
+          <span style="font:16px/1;">${livesHTML()}</span>
           <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak}</span>
           <button onclick="window._mathReset&&window._mathReset()"
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
@@ -19411,8 +19429,9 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
           <div id="math-timer-sec" style="font:500 11px/1 var(--font-ui);color:${timerCol};margin-top:8px;">${timer}s</div>
         </div>
         ${result!==undefined?`<div style="text-align:center;padding:8px 12px;border-radius:12px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
-          ${result?`✓ +${pts} pts`:`✗ Answer was ${currentQ.answer}`}
+          ${result?`✓ +${pts} pts`:`✗ Answer was ${currentQ.answer}${lives>0?' · '+livesHTML():' · Game over!'}`}
         </div>`:''}
+        ${lives > 0 ? `
         <input id="math-input" type="number" inputmode="numeric" autocomplete="off"
           placeholder="Type answer…"
           style="width:100%;box-sizing:border-box;padding:14px 16px;border-radius:12px;
@@ -19421,16 +19440,16 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
           onkeydown="if(event.key==='Enter'){window._mathAnswer(this.value);this.value='';}"/>
         <button onclick="const v=document.getElementById('math-input')?.value;window._mathAnswer(v);if(document.getElementById('math-input'))document.getElementById('math-input').value='';"
           style="padding:14px;border-radius:16px;border:none;background:var(--accent);
-            color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;">Submit ✓</button>
+            color:#1a1f2e;font:800 16px/1 var(--font-ui);cursor:pointer;">Submit ✓</button>` : ''}
       </div>`;
-    setTimeout(()=>document.getElementById('math-input')?.focus(), 50);
+    if(lives > 0) setTimeout(()=>document.getElementById('math-input')?.focus(), 50);
   }
 
   window._mathAnswer = handleAnswer;
   window._mathReset  = ()=>{
     clearInterval(timerInterval);
     if(score>0) saveArcadeScore('mathblitz', score).catch(()=>{});
-    level=1; score=0; streak=0; qNum=0; onScore(0); nextQuestion();
+    level=1; score=0; streak=0; qNum=0; lives=3; onScore(0); nextQuestion();
   };
   const ctrl = document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML = '';
@@ -19456,9 +19475,12 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
   ];
 
   let level=1, score=0, found=[], selectedCells=[], selecting=false, startCell=null;
-  let grid=[], placedWords=[], currentWords=[];
+  let grid=[], placedWords=[], currentWords=[], lives=3;
+  let gridTimer=null, gridTimeLeft=0;
 
   function getTier(){ return WORD_SETS[Math.min(Math.floor((level-1)/2), WORD_SETS.length-1)]; }
+  function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
+  function getGridTime(){ return Math.max(60, 180 - level*15); } // seconds per grid
 
   function makeGrid(){
     const tier = getTier();
@@ -19502,6 +19524,26 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
     const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++)
       if(!grid[r][c]) grid[r][c]=letters[Math.floor(Math.random()*letters.length)];
+
+    // Start grid countdown timer
+    clearInterval(gridTimer);
+    gridTimeLeft = getGridTime();
+    gridTimer = setInterval(()=>{
+      gridTimeLeft--;
+      const tEl = document.getElementById('ws-timer');
+      if(tEl) tEl.textContent = gridTimeLeft + 's';
+      if(gridTimeLeft <= 0){
+        clearInterval(gridTimer);
+        lives--;
+        if(lives <= 0){
+          saveArcadeScore('wordsearch', score).catch(()=>{});
+          setTimeout(()=>onGameOver(score), 800);
+        } else {
+          render(null, 0); // show timeout message briefly
+          setTimeout(()=>{ makeGrid(); render(); }, 1500);
+        }
+      }
+    }, 1000);
   }
 
   function cellKey(r,c){ return `${r},${c}`; }
@@ -19521,7 +19563,7 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
       score += pts;
       onScore(score);
       if(found.length===currentWords.length){
-        // All found — level up, save score
+        clearInterval(gridTimer);
         saveArcadeScore('wordsearch', score).catch(()=>{});
         setTimeout(()=>{ level++; makeGrid(); render(); }, 800);
       }
@@ -19544,16 +19586,21 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
     const CELL_PX = Math.min(32, Math.floor(320/SIZE));
     const foundCells = getFoundCells();
     const selSet = new Set(selectedCells.map(([r,c])=>cellKey(r,c)));
+    const timerCol = gridTimeLeft > 30 ? 'var(--text4)' : gridTimeLeft > 10 ? '#FFD54F' : '#EF5350';
+    const timedOut = justFound === null; // null = timeout message
 
     wrap.innerHTML = `
       <div style="width:100%;max-width:420px;padding:12px;display:flex;flex-direction:column;gap:10px;user-select:none;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level} · ${SIZE}×${SIZE}</span>
-          <span style="font:700 12px/1 var(--font-ui);color:var(--accent);">${found.length}/${currentWords.length} found</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LVL ${level} · ${SIZE}×${SIZE}</span>
+          <span style="font:16px/1;">${livesHTML()}</span>
+          <span id="ws-timer" style="font:700 12px/1 var(--font-ui);color:${timerCol};">${gridTimeLeft}s</span>
           <button onclick="window._wsReset&&window._wsReset()"
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
-        ${justFound?`<div style="text-align:center;padding:6px;border-radius:8px;background:rgba(102,187,106,0.1);font:700 12px/1 var(--font-ui);color:#66BB6A;">✓ ${justFound} +${pts}pts</div>`:''}
+        ${timedOut ? `<div style="text-align:center;padding:6px;border-radius:8px;background:rgba(239,83,80,0.1);font:700 12px/1 var(--font-ui);color:#EF5350;">⏱ Time's up! ${lives>0?' · '+livesHTML():' · Game over!'}</div>` :
+          justFound?`<div style="text-align:center;padding:6px;border-radius:8px;background:rgba(102,187,106,0.1);font:700 12px/1 var(--font-ui);color:#66BB6A;">✓ ${justFound} +${pts}pts</div>`:''}
+        <div style="font:700 11px/1 var(--font-ui);color:var(--accent);">${found.length}/${currentWords.length} found</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${currentWords.map(w=>`<span style="font:${found.includes(w)?'700':'500'} 11px/1.4 var(--font-ui);
             color:${found.includes(w)?'#66BB6A':'var(--text3)'};
@@ -19598,7 +19645,11 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
     gridEl.addEventListener('touchend',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
   }
 
-  window._wsReset = ()=>{ if(score>0) saveArcadeScore('wordsearch', score).catch(()=>{}); level=1; score=0; onScore(0); makeGrid(); render(); };
+  window._wsReset = ()=>{
+    clearInterval(gridTimer);
+    if(score>0) saveArcadeScore('wordsearch', score).catch(()=>{});
+    level=1; score=0; lives=3; onScore(0); makeGrid(); render();
+  };
   makeGrid();
   render();
 };
@@ -19610,8 +19661,10 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
   const ctrl = document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML = '';
 
-  let level=1, score=0, streak=0, answered=false;
+  let level=1, score=0, streak=0, answered=false, lives=3;
   let puzzle={};
+
+  function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   // Generate a puzzle: equation with one blank (?, a, or b)
   function makePuzzle(){
@@ -19663,7 +19716,15 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
       render(true,pts);
     } else {
       streak=0;
+      lives--;
       render(false,0);
+    }
+    if(lives <= 0){
+      setTimeout(async ()=>{
+        await saveArcadeScore('numpuzzle', score).catch(()=>{});
+        onGameOver(score);
+      }, 1400);
+      return;
     }
     setTimeout(nextPuzzle, 1400);
   }
@@ -19673,7 +19734,8 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
       <div style="width:100%;max-width:380px;padding:16px;display:flex;flex-direction:column;gap:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">LEVEL ${level}</span>
-          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak} streak</span>
+          <span style="font:16px/1;">${livesHTML()}</span>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text4);">🔥 ${streak}</span>
           <button onclick="window._npReset&&window._npReset()"
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
@@ -19682,8 +19744,9 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
           <div style="font:800 36px/1.2 var(--font-ui);color:var(--text);">${puzzle.display}</div>
         </div>
         ${result!==undefined?`<div style="text-align:center;padding:8px;border-radius:12px;background:${result?'rgba(102,187,106,0.1)':'rgba(239,83,80,0.1)'};font:800 13px/1 var(--font-ui);color:${result?'#66BB6A':'#EF5350'};">
-          ${result?`✓ +${pts} pts`:`✗ Answer was ${puzzle.correctAnswer}`}
+          ${result?`✓ +${pts} pts`:`✗ Answer was ${puzzle.correctAnswer}${lives>0?' · '+livesHTML():' · Game over!'}`}
         </div>`:''}
+        ${lives > 0 ? `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           ${puzzle.choices.map(c=>`<button onclick="window._npAnswer(${c})"
             style="padding:20px 12px;border-radius:16px;font:800 24px/1 var(--font-ui);cursor:pointer;
@@ -19691,12 +19754,12 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
               -webkit-tap-highlight-color:transparent;touch-action:manipulation;"
             ontouchstart="this.style.background='var(--surface3)'"
             ontouchend="this.style.background='var(--surface2)'">${c}</button>`).join('')}
-        </div>
+        </div>` : ''}
       </div>`;
   }
 
   window._npAnswer = handleAnswer;
-  window._npReset  = ()=>{ if(score>0) saveArcadeScore('numpuzzle', score).catch(()=>{}); level=1; score=0; streak=0; onScore(0); nextPuzzle(); };
+  window._npReset  = ()=>{ if(score>0) saveArcadeScore('numpuzzle', score).catch(()=>{}); level=1; score=0; streak=0; lives=3; onScore(0); nextPuzzle(); };
   nextPuzzle();
 };
 
@@ -22112,6 +22175,7 @@ function renderKidsPageForKid(){
   kp.style.fontFamily = 'var(--font-ui)';
   kp.style.color      = '#1a1a2e';
 
+  const isChore      = c => c.type === 'chore'     || (!c.type && c.freq && c.freq !== 'anytime' && c.freq !== 'onetime');
   const isBehaviour = c => c.type === 'behaviour' || (!c.type && (!c.freq || c.freq === 'anytime'));
   const isOnetime   = c => c.type === 'onetime' || c.freq === 'onetime';
 
@@ -22529,7 +22593,6 @@ function kidsGamesTabHTML(th){
 }
 
 function kidsLaunchGame(gameId){
-  // Ensure scores are loaded before launching
   loadArcadeScores().catch(()=>{}).finally(()=>{
     const existing = document.getElementById('kids-game-overlay');
     if(existing) existing.remove();
@@ -22538,15 +22601,16 @@ function kidsLaunchGame(gameId){
     overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
     document.body.appendChild(overlay);
     renderActiveGame(overlay, gameId);
+    // Patch the ← back button by ID - wait 200ms so all engines have rendered
     setTimeout(()=>{
-      const backBtn = overlay.querySelector('button');
-      if(backBtn && backBtn.textContent === '←'){
+      const backBtn = overlay.querySelector('#game-back-btn');
+      if(backBtn){
         backBtn.onclick = ()=>{
           overlay.remove();
           loadArcadeScores().catch(()=>{}).finally(()=>renderKidsPageForKid());
         };
       }
-    }, 100);
+    }, 200);
   });
 }
 
