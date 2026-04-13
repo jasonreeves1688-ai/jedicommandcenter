@@ -22532,16 +22532,19 @@ function kidsGamesTabHTML(th){
   const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:playerColor(0),Connor:playerColor(1)};
   const medals  = ['🥇','🥈','🥉'];
 
-  // Game cards grid
+  // Game cards grid — use <button> not <div> so iOS tap events fire reliably
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">';
   ARCADE_GAMES.forEach(function(g){
     const pb  = getPersonalBest(g.id);
     const top = getTopScores(g.id,1)[0];
     const isLeader = top && top.name === myName;
-    html += '<div onclick="kidsLaunchGame(\'' + g.id + '\')"'
+    html += '<button onclick="kidsLaunchGame(\'' + g.id + '\')"'
+      + ' ontouchstart="this.style.transform=\'scale(0.96)\'"'
+      + ' ontouchend="this.style.transform=\'scale(1)\'"'
       + ' style="border-radius:20px;border:3px solid ' + th.choreBorder + ';background:white;'
       + 'padding:16px;cursor:pointer;text-align:center;'
       + 'box-shadow:0 4px 12px ' + th.accent + '18;'
+      + 'width:100%;transition:transform 0.1s;'
       + '-webkit-tap-highlight-color:transparent;">';
     if(isLeader) html += '<div style="font:700 9px/1 var(--font-ui);color:#FF8C00;margin-bottom:4px;">👑 LEADER</div>';
     html += '<div style="font-size:36px;margin-bottom:6px;">' + g.emoji + '</div>';
@@ -22549,7 +22552,7 @@ function kidsGamesTabHTML(th){
     if(pb) html += '<div style="font:600 11px/1 var(--font-ui);color:' + th.accent + ';margin-top:4px;">Best: ' + pb.toLocaleString() + '</div>';
     else   html += '<div style="font:500 10px/1 var(--font-ui);color:#bbb;margin-top:4px;">Not played yet</div>';
     if(top && !isLeader) html += '<div style="font:500 9px/1 var(--font-ui);color:#bbb;margin-top:2px;">👑 ' + esc(top.name) + ': ' + top.score.toLocaleString() + '</div>';
-    html += '</div>';
+    html += '</button>';
   });
   html += '</div>';
 
@@ -22593,25 +22596,26 @@ function kidsGamesTabHTML(th){
 }
 
 function kidsLaunchGame(gameId){
-  loadArcadeScores().catch(()=>{}).finally(()=>{
-    const existing = document.getElementById('kids-game-overlay');
-    if(existing) existing.remove();
-    const overlay = document.createElement('div');
-    overlay.id = 'kids-game-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
-    document.body.appendChild(overlay);
-    renderActiveGame(overlay, gameId);
-    // Patch the ← back button by ID - wait 200ms so all engines have rendered
-    setTimeout(()=>{
-      const backBtn = overlay.querySelector('#game-back-btn');
-      if(backBtn){
-        backBtn.onclick = ()=>{
-          overlay.remove();
-          loadArcadeScores().catch(()=>{}).finally(()=>renderKidsPageForKid());
-        };
-      }
-    }, 200);
-  });
+  // Launch immediately — don't wait on network
+  const existing = document.getElementById('kids-game-overlay');
+  if(existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'kids-game-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:900;background:var(--bg);display:flex;flex-direction:column;';
+  document.body.appendChild(overlay);
+  renderActiveGame(overlay, gameId);
+  // Patch back button by ID after engine has rendered
+  setTimeout(()=>{
+    const backBtn = overlay.querySelector('#game-back-btn');
+    if(backBtn){
+      backBtn.onclick = ()=>{
+        overlay.remove();
+        loadArcadeScores().catch(()=>{}).finally(()=>renderKidsPageForKid());
+      };
+    }
+  }, 200);
+  // Load scores in background so leaderboard is fresh
+  loadArcadeScores().catch(()=>{});
 }
 
 function kidsPageSetView(view){
