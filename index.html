@@ -18312,8 +18312,7 @@ function getCurrentPlayerName(){
   if(currentUser === 'parent') return 'Jason';
   if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
   if(typeof currentUser === 'object' && currentUser.role === 'kid'){
-    // Get name from kids data by playerIdx
-    const d = loadKidsData();
+    const d = kidsData();
     const player = d.players && d.players[currentUser.playerIdx];
     if(player && player.name) return player.name;
     return currentUser.name || 'Kid';
