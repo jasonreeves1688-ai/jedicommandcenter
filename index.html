@@ -2593,7 +2593,6 @@ button{ -webkit-tap-highlight-color:transparent; }
           </div>
         </div>
       </div>
-    </div>
       <!-- Attachments -->
       <div id="task-attachments-section" style="margin-top:8px;display:none;">
         <!-- rendered dynamically when editing an existing task -->
@@ -2603,9 +2602,9 @@ button{ -webkit-tap-highlight-color:transparent; }
         <!-- rendered dynamically when editing an existing task -->
       </div>
     </div>
-    <div class="modal-actions">
-      <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()">Save</button>
-      <button class="modal-btn cancel" onclick="closeModal('modal-task')">Cancel</button>
+    <div class="modal-actions" style="flex-shrink:0;padding:var(--sp3) var(--sp4) calc(var(--sp3) + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--surface);margin-top:0;flex-wrap:wrap;gap:var(--sp2);">
+      <button class="modal-btn confirm" id="task-save-btn" onclick="saveTask()" style="flex:1;min-width:120px;">Save</button>
+      <button class="modal-btn cancel" onclick="closeModal('modal-task')" style="flex:1;min-width:80px;">Cancel</button>
       <div id="task-delete-wrap" style="display:none;width:100%;margin-top:var(--sp2);">
         <div style="display:flex;gap:var(--sp2);">
           <button onclick="if(editingTaskId){moveTaskToSomeday(editingTaskId);closeModal('modal-task');}"
@@ -12564,14 +12563,24 @@ function renderWaitingPage(container){
   const wfLegacy = legacyNames.map(name=>({id:'__name__'+name, name}));
   const wfPeople = [...wfPeopleFromList, ...wfLegacy];
 
+  // ── Resolve display name for a waiting-for item ──
+  const getWfName = (w) => {
+    if(w.personIds){
+      const names = w.personIds.split(',').filter(Boolean)
+        .map(id=>{ const p=peopleList.find(x=>x.id===id); return p?p.name:null; })
+        .filter(Boolean);
+      return names.length ? names.join(', ') : (w.person||'Unknown');
+    }
+    return w.person||'Unknown';
+  };
+
   const row = (w, isDone) => {
     const overdue = w.dueDate && w.dueDate < todayStr;
     const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
     const linkedIni  = w.initiativeId ? discoveryList.find(i=>i.id===w.initiativeId) : null;
-    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
+    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:var(--sp3) var(--sp4) var(--sp3) 20px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
       <button onclick="toggleWaitingDone('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:11px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);">${esc(w.person)}</div>
         <div style="font-size:14px;color:var(--text);line-height:1.4;margin-top:2px;">${esc(w.what)}</div>
         <div style="display:flex;gap:var(--sp2);margin-top:4px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:11px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ overdue ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
@@ -12589,6 +12598,40 @@ function renderWaitingPage(container){
       <button onclick="deleteWaiting('${w.id}')" style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
     </div>`;
   };
+
+  // ── Group active items by person, sort overdue groups first ──
+  const grouped = new Map();
+  for(const w of active){
+    const name = getWfName(w);
+    if(!grouped.has(name)) grouped.set(name, []);
+    grouped.get(name).push(w);
+  }
+  const sortedGroups = [...grouped.entries()].sort((a,b)=>{
+    const aOv = a[1].some(w=>w.dueDate&&w.dueDate<todayStr)?0:1;
+    const bOv = b[1].some(w=>w.dueDate&&w.dueDate<todayStr)?0:1;
+    if(aOv!==bOv) return aOv-bOv;
+    return a[0].localeCompare(b[0]);
+  });
+
+  const groupedHtml = sortedGroups.map(([name, items]) => {
+    const personRecord = peopleList.find(p=>p.name===name);
+    const overdueCount = items.filter(w=>w.dueDate&&w.dueDate<todayStr).length;
+    const initial = name.charAt(0).toUpperCase();
+    const avatarColor = personRecord?.priority==='High'?'#ff6060':personRecord?.priority==='Low'?'#888':'#64B5F6';
+    const avatar = personRecord?.photo && personRecord.photo.length>10
+      ? `<img src="${personRecord.photo}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;"/>`
+      : `<span style="width:28px;height:28px;border-radius:50%;background:${avatarColor}22;color:${avatarColor};font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-ui);">${initial}</span>`;
+    return `
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 14px 8px;background:rgba(100,181,246,0.06);border-bottom:1px solid var(--border);border-top:1px solid rgba(100,181,246,0.15);">
+          ${avatar}
+          <span style="font-size:13px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);flex:1;">${esc(name)}</span>
+          ${overdueCount>0?`<span style="font-size:11px;font-weight:700;color:#ff6060;font-family:var(--font-ui);">⚠ ${overdueCount} overdue</span>`:''}
+          <span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${items.length} item${items.length!==1?'s':''}</span>
+        </div>
+        ${items.map(w=>row(w,false)).join('')}
+      </div>`;
+  }).join('');
 
   const filterBar = wfPeople.length > 0 ? `
     <div class="person-filter-bar">
@@ -12610,9 +12653,9 @@ function renderWaitingPage(container){
     <div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid rgba(100,181,246,0.25);background:var(--surface);overflow:hidden;">
       ${active.length===0
         ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing waiting — you're unblocked! 🎉</div>`
-        : active.map(w=>row(w,false)).join('')
+        : groupedHtml
       }
-      ${done.length>0?`<div style="padding:6px 14px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">RESOLVED</div>${done.map(w=>row(w,true)).join('')}`:''}
+      ${done.length>0?`<div style="padding:6px 14px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:2px solid var(--border);">RESOLVED</div>${done.map(w=>row(w,true)).join('')}`:''}
     </div>`;
 }
 
@@ -13017,19 +13060,24 @@ function renderWaitingFor(){
   const done   = waitingFor.filter(x=>x.done);
   const todayStr = today();
 
-  const rows = (arr, isDone) => arr.map(w => {
-    const overdue = w.dueDate && w.dueDate < todayStr;
+  // ── Resolve display name for a waiting-for item ──
+  const getWfName = (w) => {
+    if(w.personIds){
+      const names = w.personIds.split(',').filter(Boolean)
+        .map(id=>{ const p=peopleList.find(x=>x.id===id); return p?p.name:null; })
+        .filter(Boolean);
+      return names.length ? names.join(', ') : (w.person||'Unknown');
+    }
+    return w.person||'Unknown';
+  };
+
+  // ── Single item row (no person header inside — shown by group) ──
+  const row = (w, isDone) => {
+    const overdue    = w.dueDate && w.dueDate < todayStr;
     const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
-    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:9px 12px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
+    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:9px 12px 9px 16px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
       <button onclick="toggleWaitingDone('${w.id}')" style="width:22px;height:22px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:10px;cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
-        <div style="font-size:12px;font-weight:700;color:#64B5F6;font-family:var(--font-ui);">${(()=>{
-            if(w.personIds){
-              const names=w.personIds.split(',').filter(Boolean).map(id=>{const p=peopleList.find(x=>x.id===id);return p?p.name:null;}).filter(Boolean);
-              return esc(names.length?names.join(', '):w.person||'');
-            }
-            return esc(w.person||'');
-          })()}</div>
         <div style="font-size:13px;color:var(--text);line-height:1.4;">${esc(w.what)}</div>
         <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
           ${w.dueDate?`<span style="font-size:10px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
@@ -13039,6 +13087,42 @@ function renderWaitingFor(){
       </div>
       <button onclick="deleteWaiting('${w.id}')" style="padding:2px 6px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
     </div>`;
+  };
+
+  // ── Group active items by person name ──
+  const grouped = new Map(); // personName → [items]
+  for(const w of active){
+    const name = getWfName(w);
+    if(!grouped.has(name)) grouped.set(name, []);
+    grouped.get(name).push(w);
+  }
+
+  // Sort groups: groups with overdue items first, then by name
+  const sortedGroups = [...grouped.entries()].sort((a, b) => {
+    const aOverdue = a[1].some(w=>w.dueDate&&w.dueDate<todayStr) ? 0 : 1;
+    const bOverdue = b[1].some(w=>w.dueDate&&w.dueDate<todayStr) ? 0 : 1;
+    if(aOverdue !== bOverdue) return aOverdue - bOverdue;
+    return a[0].localeCompare(b[0]);
+  });
+
+  const groupedHtml = sortedGroups.map(([name, items]) => {
+    const personRecord = peopleList.find(p=>p.name===name);
+    const overdueCount = items.filter(w=>w.dueDate&&w.dueDate<todayStr).length;
+    const initial = name.charAt(0).toUpperCase();
+    const avatarColor = personRecord?.priority==='High'?'#ff6060':personRecord?.priority==='Low'?'#888':'#64B5F6';
+    const avatar = personRecord?.photo && personRecord.photo.length>10
+      ? `<img src="${personRecord.photo}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;"/>`
+      : `<span style="width:24px;height:24px;border-radius:50%;background:${avatarColor}22;color:${avatarColor};font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-ui);">${initial}</span>`;
+    return `
+      <div style="border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 6px;background:rgba(100,181,246,0.06);border-bottom:1px solid var(--border);">
+          ${avatar}
+          <span style="font-size:12px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);flex:1;">${esc(name)}</span>
+          ${overdueCount>0?`<span style="font-size:10px;font-weight:700;color:#ff6060;font-family:var(--font-ui);">⚠ ${overdueCount} overdue</span>`:''}
+          <span style="font-size:10px;color:var(--text4);font-family:var(--font-ui);">${items.length} item${items.length!==1?'s':''}</span>
+        </div>
+        ${items.map(w=>row(w,false)).join('')}
+      </div>`;
   }).join('');
 
   return `<div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid rgba(100,181,246,0.3);background:var(--surface);overflow:hidden;">
@@ -13048,7 +13132,7 @@ function renderWaitingFor(){
     </div>
     ${active.length===0 && done.length===0
       ? `<div style="padding:var(--sp3) var(--sp4);font:var(--type-label);color:var(--text3);font-style:italic;">Nothing waiting — you're unblocked!</div>`
-      : rows(active, false) + (done.length>0 ? `<div style="padding:4px 12px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">RESOLVED</div>${rows(done, true)}` : '')
+      : groupedHtml + (done.length>0 ? `<div style="padding:4px 12px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);">RESOLVED</div>${done.map(w=>row(w,true)).join('')}` : '')
     }
   </div>`;
 }
