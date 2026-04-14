@@ -20165,7 +20165,7 @@ GAME_ENGINES.wordle = function(canvas, onScore, onGameOver){
         const bg = st==='correct'?'#66BB6A':st==='present'?'#e3a008':st==='absent'?'#3a4468':'var(--surface3)';
         const col = (st==='correct'||st==='present'||st==='absent')?'#fff':'var(--text)';
         const wide = k==='ENTER'||k==='⌫';
-        return '<button ontouchstart="event.preventDefault();window._wordleKey(''+k+'')" onclick="window._wordleKey(''+k+'')" style="' +
+        return '<button data-wk="'+k+'"  style="' +
           'min-width:'+(wide?'56':'36')+'px;height:46px;border-radius:6px;border:none;' +
           'background:'+bg+';color:'+col+';font:700 '+(wide?'11':'15')+'px/1 var(--font-ui);' +
           'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding:0 4px;">' +
@@ -20189,6 +20189,12 @@ GAME_ENGINES.wordle = function(canvas, onScore, onGameOver){
         '<div style="display:flex;flex-direction:column;gap:6px;">' + ROWS_ARR.join('') + '</div>' +
         '<div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">' + kbHtml + '</div>' +
       '</div>';
+    // Wire keyboard button clicks via delegation (avoids inline-onclick quote escaping)
+    wrap.querySelectorAll('[data-wk]').forEach(btn=>{
+      const k = btn.getAttribute('data-wk');
+      btn.addEventListener('touchstart', e=>{ e.preventDefault(); window._wordleKey(k); }, {passive:false});
+      btn.addEventListener('click', ()=>window._wordleKey(k));
+    });
   }
 
   // Key handler
