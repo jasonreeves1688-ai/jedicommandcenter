@@ -18840,65 +18840,106 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
 
   let board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
   let score=0, lines=0, level=1, running=true;
-  let cur=newPiece(), dropInterval=500, lastDrop=0;
+  let dropInterval=500, lastDropTime=performance.now();
   let levelFlash=0, rafId=null, gameOverFired=false;
+  // 7-bag randomiser — each piece appears exactly once per bag of 7
+  let bag=[];
+  function refillBag(){ bag=[0,1,2,3,4,5,6].sort(()=>Math.random()-0.5); }
+  refillBag();
+  function drawFromBag(){ if(bag.length===0) refillBag(); return bag.shift(); }
 
-  function newPiece(){
-    const i=Math.floor(Math.random()*PIECES.length);
-    return {shape:PIECES[i],color:COLORS[i],x:Math.floor(COLS/2)-Math.floor(PIECES[i][0].length/2),y:0};
+  // Spawn queue: always keep two pieces ready
+  let curIdx  = drawFromBag();
+  let nextIdx = drawFromBag();
+
+  function spawnPiece(idx){
+    return {
+      shape: PIECES[idx].map(r=>[...r]), // deep-copy so rotations don't mutate PIECES
+      color: COLORS[idx],
+      x: Math.floor(COLS/2) - Math.floor(PIECES[idx][0].length/2),
+      y: 0
+    };
   }
+
+  let cur = spawnPiece(curIdx);
 
   function valid(shape,ox,oy){
     return shape.every((row,dy)=>row.every((v,dx)=>{
       if(!v) return true;
       const nx=ox+dx, ny=oy+dy;
-      return nx>=0&&nx<COLS&&ny<ROWS&&(ny<0||!board[ny][nx]);
+      return nx>=0 && nx<COLS && ny<ROWS && (ny<0 || !board[ny][nx]);
     }));
   }
 
+  // Lock current piece, clear lines, advance to next piece
   function place(){
-    cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v&&cur.y+dy>=0) board[cur.y+dy][cur.x+dx]=cur.color; }));
+    if(!running) return;
+    // Write piece onto board
+    cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
+      if(v && cur.y+dy >= 0) board[cur.y+dy][cur.x+dx] = cur.color;
+    }));
+    // Clear complete lines — iterate bottom-to-top so splicing doesn't skip rows
     let cleared=0;
-    for(let r=ROWS-1;r>=0;r--){
-      if(board[r].every(c=>c)){ board.splice(r,1); board.unshift(Array(COLS).fill(0)); cleared++; r++; }
+    for(let r=ROWS-1; r>=0; r--){
+      if(board[r].every(c=>c)){
+        board.splice(r,1);
+        board.unshift(Array(COLS).fill(0));
+        cleared++;
+        r++; // re-check same index after splice
+      }
     }
     if(cleared){
-      lines+=cleared;
-      const lineBonus=[0,100,300,500,800][cleared]||800;
-      score+=lineBonus*level;
+      lines += cleared;
+      score += ([0,100,300,500,800][cleared]||800) * level;
       onScore(score);
-      // Level up every 10 lines
-      const newLevel=Math.floor(lines/10)+1;
-      if(newLevel>level){
-        level=newLevel;
-        levelFlash=40;
-      }
-      dropInterval=Math.max(80,500-level*40);
+      const newLevel = Math.floor(lines/10)+1;
+      if(newLevel > level){ level=newLevel; levelFlash=40; }
+      dropInterval = Math.max(80, 500-level*40);
     }
-    cur=newPiece();
-    if(!valid(cur.shape,cur.x,cur.y)){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } }
+    // Advance piece queue
+    curIdx  = nextIdx;
+    nextIdx = drawFromBag();
+    cur     = spawnPiece(curIdx);
+    // Reset drop clock — new piece gets a full interval
+    lastDropTime = performance.now();
+    // Game over if new piece overlaps immediately
+    if(!valid(cur.shape, cur.x, cur.y)){
+      running = false;
+      draw();
+      if(!gameOverFired){ gameOverFired=true; onGameOver(score); }
+    }
   }
 
   function draw(){
     ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W2,H2);
-    // Grid
+    // Grid lines
     ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=1;
     for(let x=0;x<=COLS;x++){ ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,H2);ctx.stroke(); }
     for(let y=0;y<=ROWS;y++){ ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(W2,y*CELL);ctx.stroke(); }
-    // Board
+    // Locked board cells
     board.forEach((row,y)=>row.forEach((c,x)=>{ if(c) drawCell(x,y,c,0.9); }));
-    // Ghost piece
-    let gy=cur.y;
-    while(valid(cur.shape,cur.x,gy+1)) gy++;
-    if(gy!==cur.y) cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,gy+dy,cur.color,0.2); }));
-    // Current piece
-    cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{ if(v) drawCell(cur.x+dx,cur.y+dy,cur.color,1); }));
+    if(running){
+      // Ghost piece
+      let gy=cur.y;
+      while(valid(cur.shape,cur.x,gy+1)) gy++;
+      if(gy!==cur.y) cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
+        if(v) drawCell(cur.x+dx, gy+dy, cur.color, 0.18);
+      }));
+      // Active piece
+      cur.shape.forEach((row,dy)=>row.forEach((v,dx)=>{
+        if(v) drawCell(cur.x+dx, cur.y+dy, cur.color, 1);
+      }));
+    }
     // HUD
     ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='700 11px sans-serif';
-    ctx.fillText(`LVL ${level}`,4,14); ctx.fillText(`${lines}L`,W2/2-10,14); ctx.fillText(`${score}`,W2-55,14);
-    // Level flash
+    ctx.fillText(`LVL ${level}`,4,14);
+    ctx.fillText(`${lines}L`,W2/2-10,14);
+    ctx.fillText(`${score}`,W2-55,14);
+    // Level-up flash
     if(levelFlash>0){
-      ctx.globalAlpha=Math.min(levelFlash/10,1)*0.5; ctx.fillStyle='#CE93D8'; ctx.fillRect(0,0,W2,H2); ctx.globalAlpha=1;
+      ctx.globalAlpha=Math.min(levelFlash/10,1)*0.45;
+      ctx.fillStyle='#CE93D8'; ctx.fillRect(0,0,W2,H2);
+      ctx.globalAlpha=1;
       ctx.fillStyle='#fff'; ctx.font=`800 ${CELL*2}px sans-serif`; ctx.textAlign='center';
       ctx.fillText(`LEVEL ${level}!`,W2/2,H2/2); ctx.textAlign='left';
       levelFlash--;
@@ -18911,42 +18952,64 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
     ctx.globalAlpha=1;
   }
 
-  function loop(ts){
+  function loop(){
     if(!running) return;
-    if(!lastDrop) lastDrop=ts;
-    if(ts-lastDrop>dropInterval){ lastDrop=ts; if(valid(cur.shape,cur.x,cur.y+1)) cur.y++; else place(); }
+    const now = performance.now();
+    if(now - lastDropTime > dropInterval){
+      lastDropTime = now;
+      if(valid(cur.shape,cur.x,cur.y+1)) cur.y++;
+      else place();
+      if(!running) return; // place() may have ended the game
+    }
     draw();
-    if(running) rafId = requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
   }
   rafId = requestAnimationFrame(loop);
 
-  // Touch
-  let tx=0,ty=0,ttime=0;
-  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;ttime=Date.now();},{passive:true});
-  canvas.addEventListener('touchend',e=>{
+  // ── Input handling — all guarded by running ──────────────────
+  let tx=0, ty=0, ttime=0;
+  canvas.addEventListener('touchstart', e=>{
+    if(!running) return;
+    tx=e.touches[0].clientX; ty=e.touches[0].clientY; ttime=Date.now();
+  }, {passive:true});
+  canvas.addEventListener('touchend', e=>{
+    if(!running) return;
     const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty, dt=Date.now()-ttime;
-    if(dt<200&&Math.abs(dx)<10&&Math.abs(dy)<10){
-      // Tap = rotate
+    if(dt<200 && Math.abs(dx)<10 && Math.abs(dy)<10){
+      // Tap → rotate
       const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());
       if(valid(rot,cur.x,cur.y)) cur.shape=rot;
-    } else if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&valid(cur.shape,cur.x+1,cur.y))cur.x++; else if(dx<-20&&valid(cur.shape,cur.x-1,cur.y))cur.x--; }
-    else if(dy>30){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
-  },{passive:true});
-  // Keys - named handler for cleanup
+    } else if(Math.abs(dx)>Math.abs(dy)){
+      if(dx>20  && valid(cur.shape,cur.x+1,cur.y)) cur.x++;
+      else if(dx<-20 && valid(cur.shape,cur.x-1,cur.y)) cur.x--;
+    } else if(dy>30){
+      while(valid(cur.shape,cur.x,cur.y+1)) cur.y++;
+      place();
+    }
+  }, {passive:true});
+
   const _tetKey = e=>{
     if(!running) return;
-    if(e.key==='ArrowLeft'){ e.preventDefault(); if(valid(cur.shape,cur.x-1,cur.y))cur.x--; }
-    else if(e.key==='ArrowRight'){ e.preventDefault(); if(valid(cur.shape,cur.x+1,cur.y))cur.x++; }
-    else if(e.key==='ArrowDown'){ e.preventDefault(); if(valid(cur.shape,cur.x,cur.y+1))cur.y++; }
-    else if(e.key==='ArrowUp'){ e.preventDefault(); const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());if(valid(rot,cur.x,cur.y))cur.shape=rot;}
-    else if(e.key===' '){ e.preventDefault(); while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
+    if     (e.key==='ArrowLeft'){  e.preventDefault(); if(valid(cur.shape,cur.x-1,cur.y)) cur.x--; }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); if(valid(cur.shape,cur.x+1,cur.y)) cur.x++; }
+    else if(e.key==='ArrowDown'){  e.preventDefault(); if(valid(cur.shape,cur.x,cur.y+1)) cur.y++; }
+    else if(e.key==='ArrowUp'){
+      e.preventDefault();
+      const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());
+      if(valid(rot,cur.x,cur.y)) cur.shape=rot;
+    }
+    else if(e.key===' '){ e.preventDefault(); while(valid(cur.shape,cur.x,cur.y+1)) cur.y++; place(); }
   };
   document.addEventListener('keydown', _tetKey);
-  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _tetKey); if(rafId) cancelAnimationFrame(rafId); running=false; }, {once:true});
+  canvas.addEventListener('remove', ()=>{
+    document.removeEventListener('keydown', _tetKey);
+    if(rafId) cancelAnimationFrame(rafId);
+    running=false;
+  }, {once:true});
 
-  window._tetMove  = (dx) => { if(valid(cur.shape,cur.x+dx,cur.y)) cur.x+=dx; };
-  window._tetRot   = () => { const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse()); if(valid(r,cur.x,cur.y)) cur.shape=r; };
-  window._tetDrop  = () => { while(valid(cur.shape,cur.x,cur.y+1)) cur.y++; place(); };
+  window._tetMove = (dx)=>{ if(!running) return; if(valid(cur.shape,cur.x+dx,cur.y)) cur.x+=dx; };
+  window._tetRot  = ()=>{ if(!running) return; const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse()); if(valid(r,cur.x,cur.y)) cur.shape=r; };
+  window._tetDrop = ()=>{ if(!running) return; while(valid(cur.shape,cur.x,cur.y+1)) cur.y++; place(); };
 
   const ctrl=document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML=`
@@ -19247,6 +19310,10 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
     scrambled = s;
     timer = getTimeLimit();
     render();
+    requestAnimationFrame(()=>{
+      const bar = document.getElementById('scramble-timer-bar');
+      if(bar) bar.style.transition = 'width 0.9s linear';
+    });
     timerInterval = setInterval(()=>{
       timer--;
       if(timer <= 0){ clearInterval(timerInterval); handleAnswer(''); }
@@ -19301,7 +19368,7 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
         <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
-          <div id="scramble-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerColor};transition:width 0.9s linear;border-radius:8px;"></div>
+          <div id="scramble-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerColor};border-radius:8px;"></div>
         </div>
         <div style="text-align:center;padding:20px;background:var(--surface2);border-radius:16px;border:2px solid var(--border);">
           <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:8px;">Unscramble this word:</div>
@@ -19563,6 +19630,11 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
     timer = getTimeLimit();
     qNum++;
     render();
+    // Give the bar one paint cycle to settle at full width before enabling transition
+    requestAnimationFrame(()=>{
+      const bar = document.getElementById('math-timer-bar');
+      if(bar) bar.style.transition = 'width 0.9s linear';
+    });
     timerInterval = setInterval(()=>{
       timer--;
       if(timer<=0){ clearInterval(timerInterval); handleAnswer(null); }
@@ -19621,7 +19693,7 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
             style="font:600 11px/1 var(--font-ui);color:var(--text4);background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;">Restart</button>
         </div>
         <div style="background:var(--surface2);border-radius:8px;height:6px;overflow:hidden;">
-          <div id="math-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerCol};transition:width 0.9s linear;border-radius:8px;"></div>
+          <div id="math-timer-bar" style="height:100%;width:${(timer/getTimeLimit())*100}%;background:${timerCol};border-radius:8px;"></div>
         </div>
         <div style="text-align:center;padding:24px 16px;background:var(--surface2);border-radius:20px;border:2px solid var(--border);">
           <div style="font:500 12px/1 var(--font-ui);color:var(--text4);margin-bottom:10px;">What is…</div>
