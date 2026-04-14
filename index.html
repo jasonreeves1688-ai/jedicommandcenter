@@ -18385,6 +18385,7 @@ const ARCADE_GAMES = [
   { id:'tetris',     name:'Block Drop',     emoji:'🧱', desc:'Clear the lines' },
   { id:'breakout',   name:'Breakout',       emoji:'🏓', desc:'Break the bricks' },
   { id:'runner',     name:'Endless Runner', emoji:'🦘', desc:'Jump to survive' },
+  { id:'wordle',     name:'Wordle',         emoji:'🟩', desc:'New word every day' },
   { id:'scramble',   name:'Word Scramble',  emoji:'🔤', desc:'Unscramble the word' },
   { id:'hangman',    name:'Hangman',        emoji:'🪢', desc:'Guess the word' },
   { id:'wordsearch', name:'Word Search',    emoji:'🔍', desc:'Find hidden words' },
@@ -18606,6 +18607,8 @@ function renderActiveGame(container, gameId){
     const wrap = document.getElementById('game-canvas-wrap');
     const canvas = document.getElementById('game-canvas');
     if(!wrap || !canvas) return;
+    // Clean up any previous game's event listeners and animation frames
+    canvas.dispatchEvent(new Event('remove'));
 
     // Measure available space — fall back to window size if flex hasn't resolved
     let availW = wrap.clientWidth  || (window.innerWidth  - 32);
@@ -18686,7 +18689,7 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
   let snake = [{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
   let dir = {x:1,y:0}, nextDir = {x:1,y:0};
   let score=0, running=true, speed=140, lastTime=0, level=1, foodEaten=0;
-  let obstacles=[], levelFlash=0;
+  let obstacles=[], levelFlash=0, rafId=null, gameOverFired=false;
   let food = spawnFood();
 
   function spawnFood(){
@@ -18752,7 +18755,9 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
     dir=nextDir;
     const head={x:(snake[0].x+dir.x+COLS)%COLS,y:(snake[0].y+dir.y+ROWS)%ROWS};
     if(snake.some(s=>s.x===head.x&&s.y===head.y)||obstacles.some(o=>o.x===head.x&&o.y===head.y)){
-      running=false; onGameOver(score); return;
+      running=false;
+      if(!gameOverFired){ gameOverFired=true; onGameOver(score); }
+      return;
     }
     snake.unshift(head);
     if(head.x===food.x&&head.y===food.y){
@@ -18772,10 +18777,10 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
   function loop(ts){
     if(!running) return;
     if(ts-lastTime>speed){ lastTime=ts; tick(); draw(); }
-    requestAnimationFrame(loop);
+    if(running) rafId = requestAnimationFrame(loop);
   }
   draw();
-  requestAnimationFrame(loop);
+  rafId = requestAnimationFrame(loop);
 
   // Touch/swipe
   let tx=0,ty=0;
@@ -18785,13 +18790,15 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
     if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&dir.x===0) nextDir={x:1,y:0}; else if(dx<-20&&dir.x===0) nextDir={x:-1,y:0}; }
     else{ if(dy>20&&dir.y===0) nextDir={x:0,y:1}; else if(dy<-20&&dir.y===0) nextDir={x:0,y:-1}; }
   },{passive:true});
-  // Keyboard
-  document.addEventListener('keydown',e=>{
-    if(e.key==='ArrowUp'&&dir.y===0) nextDir={x:0,y:-1};
-    else if(e.key==='ArrowDown'&&dir.y===0) nextDir={x:0,y:1};
-    else if(e.key==='ArrowLeft'&&dir.x===0) nextDir={x:-1,y:0};
-    else if(e.key==='ArrowRight'&&dir.x===0) nextDir={x:1,y:0};
-  });
+  // Keyboard - named handler removed on game exit
+  const _snakeKey = e=>{
+    if(e.key==='ArrowUp'&&dir.y===0){ e.preventDefault(); nextDir={x:0,y:-1}; }
+    else if(e.key==='ArrowDown'&&dir.y===0){ e.preventDefault(); nextDir={x:0,y:1}; }
+    else if(e.key==='ArrowLeft'&&dir.x===0){ e.preventDefault(); nextDir={x:-1,y:0}; }
+    else if(e.key==='ArrowRight'&&dir.x===0){ e.preventDefault(); nextDir={x:1,y:0}; }
+  };
+  document.addEventListener('keydown', _snakeKey);
+  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _snakeKey); if(rafId) cancelAnimationFrame(rafId); running=false; }, {once:true});
 
   // D-pad controls — use globally scoped refs so onclick works
   window._snakeDir = (dx,dy) => {
@@ -18833,8 +18840,8 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
 
   let board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
   let score=0, lines=0, level=1, running=true;
-  let cur=newPiece(), dropInterval=500, lastDrop=Date.now();
-  let levelFlash=0;
+  let cur=newPiece(), dropInterval=500, lastDrop=0;
+  let levelFlash=0, rafId=null, gameOverFired=false;
 
   function newPiece(){
     const i=Math.floor(Math.random()*PIECES.length);
@@ -18869,7 +18876,7 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
       dropInterval=Math.max(80,500-level*40);
     }
     cur=newPiece();
-    if(!valid(cur.shape,cur.x,cur.y)){ running=false; onGameOver(score); }
+    if(!valid(cur.shape,cur.x,cur.y)){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } }
   }
 
   function draw(){
@@ -18904,13 +18911,14 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
     ctx.globalAlpha=1;
   }
 
-  function loop(){
+  function loop(ts){
     if(!running) return;
-    const now=Date.now();
-    if(now-lastDrop>dropInterval){ lastDrop=now; if(valid(cur.shape,cur.x,cur.y+1)) cur.y++; else place(); }
-    draw(); requestAnimationFrame(loop);
+    if(!lastDrop) lastDrop=ts;
+    if(ts-lastDrop>dropInterval){ lastDrop=ts; if(valid(cur.shape,cur.x,cur.y+1)) cur.y++; else place(); }
+    draw();
+    if(running) rafId = requestAnimationFrame(loop);
   }
-  loop();
+  rafId = requestAnimationFrame(loop);
 
   // Touch
   let tx=0,ty=0,ttime=0;
@@ -18924,15 +18932,17 @@ GAME_ENGINES.tetris = function(canvas, onScore, onGameOver){
     } else if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&valid(cur.shape,cur.x+1,cur.y))cur.x++; else if(dx<-20&&valid(cur.shape,cur.x-1,cur.y))cur.x--; }
     else if(dy>30){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
   },{passive:true});
-  // Keys
-  document.addEventListener('keydown',e=>{
+  // Keys - named handler for cleanup
+  const _tetKey = e=>{
     if(!running) return;
-    if(e.key==='ArrowLeft'&&valid(cur.shape,cur.x-1,cur.y))cur.x--;
-    else if(e.key==='ArrowRight'&&valid(cur.shape,cur.x+1,cur.y))cur.x++;
-    else if(e.key==='ArrowDown'&&valid(cur.shape,cur.x,cur.y+1))cur.y++;
-    else if(e.key==='ArrowUp'){const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());if(valid(rot,cur.x,cur.y))cur.shape=rot;}
-    else if(e.key===' '){ while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
-  });
+    if(e.key==='ArrowLeft'){ e.preventDefault(); if(valid(cur.shape,cur.x-1,cur.y))cur.x--; }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); if(valid(cur.shape,cur.x+1,cur.y))cur.x++; }
+    else if(e.key==='ArrowDown'){ e.preventDefault(); if(valid(cur.shape,cur.x,cur.y+1))cur.y++; }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); const rot=cur.shape[0].map((_,i)=>cur.shape.map(r=>r[i]).reverse());if(valid(rot,cur.x,cur.y))cur.shape=rot;}
+    else if(e.key===' '){ e.preventDefault(); while(valid(cur.shape,cur.x,cur.y+1))cur.y++; place(); }
+  };
+  document.addEventListener('keydown', _tetKey);
+  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _tetKey); if(rafId) cancelAnimationFrame(rafId); running=false; }, {once:true});
 
   window._tetMove  = (dx) => { if(valid(cur.shape,cur.x+dx,cur.y)) cur.x+=dx; };
   window._tetRot   = () => { const r=cur.shape[0].map((_,i)=>cur.shape.map(row=>row[i]).reverse()); if(valid(r,cur.x,cur.y)) cur.shape=r; };
@@ -18953,7 +18963,7 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
   const ctx=canvas.getContext('2d');
   const W=canvas.width, H=canvas.height;
   const ROWS=6, COLS=8, PAD_W=Math.floor(W*0.22), PAD_H=12, BALL_R=8;
-  let bricks=[], score=0, lives=3, running=true;
+  let bricks=[], score=0, lives=3, running=true, rafId=null, gameOverFired=false;
   let ball={x:W/2,y:H*0.65,vx:3,vy:-4};
   let pad={x:W/2-PAD_W/2,y:H-40};
   const BRICK_COLORS=['#EF5350','#FF7043','#FFB300','#66BB6A','#42A5F5','#AB47BC'];
@@ -19003,13 +19013,14 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
       }
     });
     // Out
-    if(ball.y>H){ lives--; if(lives<=0){ running=false; onGameOver(score); return; }
+    if(ball.y>H){ lives--; if(lives<=0){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } return; }
       ball={x:W/2,y:H*0.65,vx:3,vy:-4}; }
     // Win
     if(bricks.every(b=>!b.alive)){ score+=500; initBricks(); ball.vx*=1.1; ball.vy*=1.1; onScore(score); }
-    draw(); requestAnimationFrame(loop);
+    draw();
+    if(running) rafId = requestAnimationFrame(loop);
   }
-  loop();
+  rafId = requestAnimationFrame(loop);
 
   // Touch move paddle
   canvas.addEventListener('touchmove',e=>{ e.preventDefault();
@@ -19041,7 +19052,7 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
   const W=canvas.width, H=canvas.height;
   const GROUND=H-60;
   let player={x:60,y:GROUND,w:30,h:40,vy:0,jumping:false,doubleJump:false};
-  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0, level=1, levelFlash=0;
+  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0, level=1, levelFlash=0, rafId=null, gameOverFired=false;
   const GRAVITY=0.5, JUMP_FORCE=-12;
 
   function jump(){
@@ -19106,7 +19117,7 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
       ctx.fillStyle=col;
       ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,4); ctx.fill();
       if(o.type==='fly'){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2,o.y-4,o.w*0.4,6,0,0,Math.PI*2); ctx.fill(); }
-      if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; onGameOver(score); }
+      if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } }
     });
 
     score=Math.floor(frame/5);
@@ -19127,13 +19138,15 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
       ctx.fillText(`LEVEL ${level}!`,W/2,H/2); ctx.textAlign='left';
       levelFlash--;
     }
-    requestAnimationFrame(loop);
+    if(running) rafId = requestAnimationFrame(loop);
   }
-  loop();
+  rafId = requestAnimationFrame(loop);
 
   window._runnerJump = jump;
   canvas.addEventListener('touchstart',e=>{ e.preventDefault(); jump(); },{passive:false});
-  document.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowUp') jump(); });
+  const _runnerKey = e=>{ if(e.code==='Space'||e.key==='ArrowUp'){ e.preventDefault(); jump(); } };
+  document.addEventListener('keydown', _runnerKey);
+  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _runnerKey); if(rafId) cancelAnimationFrame(rafId); running=false; }, {once:true});
 
   const ctrl=document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML=`<button
@@ -19148,41 +19161,92 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
 
 // ── 🔤 WORD SCRAMBLE ─────────────────────────────────────────
 GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
-  // Word lists by level tier
+  // ── Adult word lists (5 tiers, increasingly hard) ──────────
   const WORDS = [
-    // Level 1-2: 3-4 letter simple
-    ['cat','dog','run','sun','hat','big','fun','red','hot','wet','map','cup','box','toy','bed'],
-    // Level 3-4: 5 letter
-    ['apple','brain','chair','drink','eagle','flame','grape','heart','igloo','joker','knife','lemon','mouse','night','ocean'],
-    // Level 5-6: 6 letter
-    ['bridge','castle','donkey','engine','finger','garden','hammer','island','jungle','kitten','ladder','magnet','napkin','orange','parrot'],
-    // Level 7+: 7-8 letter
-    ['balloon','captain','diamond','element','fantasy','giraffe','harvest','integer','journey','kingdom','lantern','million','nervous','opinion','package'],
+    // Tier 1: 4-5 letter, common but not trivially easy
+    ['found','blend','crimp','plumb','dwelt','stomp','cleft','brisk','trove','fjord',
+     'glyph','knave','quota','vying','whelp','blunt','crypt','frost','gripe','hoist',
+     'joust','lusty','relic','stout','twirl','ulcer','vouch','wrath','yearn','zippy'],
+    // Tier 2: 5-6 letter, trickier patterns
+    ['quartz','flinch','groggy','clumps','whimsy','sprawl','splotch','jockey','tycoon','fathom',
+     'scrimp','gambit','fervid','gravel','mythic','plinth','squall','throng','unveil','vortex',
+     'walrus','zombie','frolic','gibbet','hazmat','irking','jaunty','kettle','mangle','nifty',
+     'oomph','pundit','quirky','ripple','sneaky','tangle','upbeat','velvet','wicker','zealot'],
+    // Tier 3: 6-7 letter, uncommon vocabulary
+    ['absurd','alcove','banter','blotch','cohort','craven','dangle','elicit','fiasco','gibbet',
+     'haunch','impede','jargon','klutz','lackey','mangle','nonchalant','oblique','pounce','rancid',
+     'savant','shimmy','tangle','usurp','vivify','wraith','zenith','abrupt','blight','clamor',
+     'flagon','grovel','howler','ironic','jackal','kennel','lounge','mosaic','nugget','opaque',
+     'plaque','quarry','renown','swerve','tundra','upshot','vertex','warped','xyster','yonder'],
+    // Tier 4: 7-9 letter, harder vocabulary
+    ['abolish','baroque','candour','debauch','edifice','furtive','gamboge','hapless','insipid','jocular',
+     'kinetic','languor','macabre','nascent','obscure','perjure','quibble','raucous','squalid','taciturn',
+     'unravel','vitiate','warlock','zephyr','absolve','bravado','clamour','defunct','elusive','foppish',
+     'glacial','haggard','ignoble','jeering','knavery','lambent','miasmal','noxious','ominous','parlous',
+     'quagmire','rampant','scourge','tarnish','uncanny','vagrant','wrangle','zealous','abysmal','brittle'],
+    // Tier 5: 8-10 letter, genuinely challenging
+    ['amalgamate','beleaguer','chicanery','duplicity','eviscerate','fervidly','grandiose','harbinger',
+     'impetuous','juxtapose','kinematic','loquacious','mendacity','nefarious','obfuscate','pernicious',
+     'querulous','recalcitrant','sycophant','tenacious','umbrageous','vicissitude','whimsical','xenophobe',
+     'yearnings','zealotry','acrimony','byzantine','clandestine','desolate'],
+  ];
+
+  // ── Kids word lists (3 tiers, age-appropriate) ─────────────
+  const KIDS_WORDS = [
+    // Kids Tier 1: 3-4 letter, simple everyday words
+    ['cat','dog','hat','run','sun','big','cup','map','bed','toy',
+     'red','fun','hot','wet','box','bus','pig','hen','web','zip',
+     'jam','mud','net','pop','rod','top','van','wax','yes','zoo'],
+    // Kids Tier 2: 4-5 letter, easy common words
+    ['cake','bird','frog','jump','kite','lamp','milk','nail','open','pond',
+     'rain','sand','tree','ugly','vest','wave','yard','zero','bell','crab',
+     'dust','farm','glad','hill','iron','junk','keen','lion','melt','nose',
+     'oval','park','quiz','road','soap','talk','unit','vase','warm','exit'],
+    // Kids Tier 3: 5-6 letter, slightly more challenge
+    ['apple','beach','candy','dance','earth','fancy','giant','happy','igloo','jelly',
+     'koala','lemon','magic','ninja','ocean','pizza','queen','robot','sugar','tiger',
+     'uncle','virus','witch','xenon','yummy','zebra','angel','brave','cloud','dizzy',
+     'eagle','flute','globe','honey','inbox','joker','knife','laser','money','night'],
   ];
 
   const shell = canvas.closest('#game-shell') || canvas.parentElement.parentElement;
   canvas.style.display = 'none'; // We use HTML UI for this game
   const wrap = document.getElementById('game-canvas-wrap');
 
-  let level=1, score=0, streak=0, totalPlayed=0, lives=3;
-  const ROUND_TIME = 15;
-  let timer=ROUND_TIME, timerInterval=null, currentWord='', scrambled='', answered=false;
+  // Detect if this is a kid player — use easier words + more time
+  const _isKid = typeof currentUser === 'object' && currentUser.role === 'kid';
+  const WORD_POOL = _isKid ? KIDS_WORDS : WORDS;
 
-  function getWords(){ return WORDS[Math.min(Math.floor((level-1)/2), WORDS.length-1)]; }
+  let level=1, score=0, streak=0, totalPlayed=0, lives=3;
+  const ROUND_TIME = _isKid ? 20 : 15; // kids get more time
+  let timer=ROUND_TIME, timerInterval=null, currentWord='', scrambled='', answered=false;
+  let _usedWords = new Set(); // no-repeat within session
+
+  function getWords(){
+    // Kids are capped at tier 2 (index 1) max, adults use all tiers
+    const maxTier = _isKid ? Math.min(Math.floor((level-1)/3), WORD_POOL.length-1)
+                           : Math.min(Math.floor((level-1)/2), WORD_POOL.length-1);
+    return WORD_POOL[maxTier];
+  }
   function scrambleWord(w){ return w.split('').sort(()=>Math.random()-0.5).join('').toLowerCase(); }
-  function getTimeLimit(){ return Math.max(8, ROUND_TIME - Math.floor(level/2)); }
+  function getTimeLimit(){ return _isKid ? Math.max(10, ROUND_TIME - Math.floor(level/3))
+                                         : Math.max(6, ROUND_TIME - Math.floor(level/2)); }
   function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   function nextWord(){
     answered = false;
+    clearInterval(timerInterval);
     const words = getWords();
-    currentWord = words[Math.floor(Math.random()*words.length)];
+    // Pick a word not seen this session; reset if all seen
+    let available = words.filter(w=>!_usedWords.has(w));
+    if(!available.length){ _usedWords.clear(); available = words; }
+    currentWord = available[Math.floor(Math.random()*available.length)];
+    _usedWords.add(currentWord);
     let s;
     do { s = scrambleWord(currentWord); } while(s === currentWord && currentWord.length > 2);
     scrambled = s;
     timer = getTimeLimit();
     render();
-    clearInterval(timerInterval);
     timerInterval = setInterval(()=>{
       timer--;
       if(timer <= 0){ clearInterval(timerInterval); handleAnswer(''); }
@@ -19280,26 +19344,79 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
 
 // ── 🪢 HANGMAN ───────────────────────────────────────────────
 GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
+  // ── Adult word lists (5 tiers) ──────────────────────────────
   const WORDS_BY_LEVEL = [
-    ['cat','dog','hat','run','sun','big','cup','map','bed','toy','red','fun','hot','wet','box'],
-    ['apple','brain','drink','flame','grape','heart','mouse','night','ocean','chair','eagle','joker','lemon','knife','igloo'],
-    ['bridge','castle','donkey','finger','garden','hammer','jungle','kitten','ladder','magnet','napkin','orange','parrot','engine','island'],
-    ['balloon','captain','diamond','fantasy','giraffe','harvest','journey','kingdom','lantern','million','nervous','opinion','package','element','integer'],
+    // Tier 1: 5-6 letters, familiar but not trivial
+    ['frost','blunt','crisp','dwelt','gripe','hoist','joust','knave','lusty','plumb',
+     'quota','stomp','trove','ulcer','vouch','wrath','yearn','zippy','fjord','blaze',
+     'cleft','crypt','flinch','glyph','swept','thrum','brisk','chasm','flint','grove'],
+    // Tier 2: 6-7 letters, trickier
+    ['fathom','gambit','jockey','quartz','scrimp','tycoon','whimsy','zombie','fervid','gravel',
+     'mythic','plinth','squall','throng','unveil','vortex','walrus','banter','cobalt','dangle',
+     'elicit','fiasco','haunch','impede','jargon','lackey','mangle','opaque','pounce','rancid',
+     'savant','shimmy','usurp','vivify','wraith','zenith','abrupt','blight','clamor','flagon'],
+    // Tier 3: 7-8 letters, uncommon vocabulary
+    ['abolish','baroque','candour','debauch','edifice','furtive','hapless','insipid','jocular','kinetic',
+     'languor','macabre','nascent','obscure','perjure','quibble','raucous','squalid','unravel','vitiate',
+     'warlock','absolve','bravado','clamour','defunct','elusive','foppish','glacial','haggard','ignoble',
+     'knavery','lambent','miasmal','noxious','ominous','parlous','rampant','scourge','tarnish','uncanny'],
+    // Tier 4: 8-9 letters, challenging vocabulary
+    ['quagmire','beleaguer','chicanery','duplicity','grandiose','harbinger','impetuous','juxtapose',
+     'loquacious','mendacity','nefarious','obfuscate','pernicious','querulous','sycophant','tenacious',
+     'vicissitude','acrimony','byzantine','clandestine','desolation','eviscerate','fervidly','glaciate',
+     'hecatomb','insolvent','jettison','ketamine','labyrinth','malignant','notorious','opulence'],
+    // Tier 5: 9-11 letters, genuinely hard
+    ['amalgamate','annihilate','blasphemous','cacophonous','deleterious','embellishment','flabbergast',
+     'garrulous','hallucinate','inarticulate','juggernaut','kaleidoscope','labyrinthine','malfeasance',
+     'nonplussed','obfuscation','pandemonium','quintessence','recalcitrant','scintillate',
+     'trepidation','ubiquitous','vainglorious','whittled','xenophobic','yesteryear','zealousness'],
+  ];
+
+  // ── Kids word lists (3 tiers, age-appropriate) ─────────────
+  const KIDS_WORDS_BY_LEVEL = [
+    // Kids Tier 1: 3-5 letter simple words
+    ['cat','dog','hat','run','sun','big','cup','map','bed','toy',
+     'red','fun','hot','wet','box','bus','pig','hen','web','zip',
+     'cake','bird','frog','jump','kite','lamp','milk','nail','open','pond'],
+    // Kids Tier 2: 4-6 letter familiar words
+    ['beach','candy','dance','fancy','happy','jelly','koala','lemon','magic','ninja',
+     'pizza','queen','robot','sugar','tiger','witch','angel','brave','cloud','dizzy',
+     'eagle','flute','globe','honey','joker','laser','money','night','olive','peach',
+     'river','sleep','thumb','ultra','vivid','water','extra','young','zappy','acorn'],
+    // Kids Tier 3: 5-7 letter, still kid-friendly but more of a challenge
+    ['banana','castle','donkey','flower','garden','hamster','island','jungle','kitten','ladder',
+     'monkey','napkin','orange','pirate','rabbit','sunset','turtle','unpack','valley','window',
+     'yellow','zipper','butter','carpet','dinner','frozen','giggle','hotdog','insect','juggle',
+     'knight','locket','mirror','noodle','oyster','pencil','quirky','rascal','school','tickle'],
   ];
 
   canvas.style.display = 'none';
   const wrap = document.getElementById('game-canvas-wrap');
 
+  // Detect if this is a kid player
+  const _isKid = typeof currentUser === 'object' && currentUser.role === 'kid';
+  const WORD_POOL = _isKid ? KIDS_WORDS_BY_LEVEL : WORDS_BY_LEVEL;
+
   let level=1, score=0, gamesWon=0, gamesPlayed=0, lives=3;
   let word='', guessed=new Set(), wrong=0;
-  const MAX_WRONG = 6;
+  const MAX_WRONG = _isKid ? 7 : 6; // kids get one extra wrong guess
+  let _usedWords = new Set(); // no-repeat within session
 
-  function getWords(){ return WORDS_BY_LEVEL[Math.min(Math.floor((level-1)/2), WORDS_BY_LEVEL.length-1)]; }
+  function getWords(){
+    // Kids progress more slowly through tiers (every 3 wins vs every 2)
+    const maxTier = _isKid ? Math.min(Math.floor((level-1)/3), WORD_POOL.length-1)
+                           : Math.min(Math.floor((level-1)/2), WORD_POOL.length-1);
+    return WORD_POOL[maxTier];
+  }
   function livesHTML(){ return '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0,3-lives)); }
 
   function nextWord(){
     const words = getWords();
-    word = words[Math.floor(Math.random()*words.length)].toUpperCase();
+    // Pick a word not seen this session; reset if all seen
+    let available = words.filter(w=>!_usedWords.has(w));
+    if(!available.length){ _usedWords.clear(); available = words; }
+    word = available[Math.floor(Math.random()*available.length)].toUpperCase();
+    _usedWords.add(word.toLowerCase());
     guessed = new Set();
     wrong = 0;
     render();
@@ -19408,7 +19525,7 @@ GAME_ENGINES.hangman = function(canvas, onScore, onGameOver){
   window._hangmanGuess = guess;
   window._hangmanReset = ()=>{
     if(score>0) saveArcadeScore('hangman', score).catch(()=>{});
-    level=1; score=0; gamesWon=0; gamesPlayed=0; lives=3; onScore(0); nextWord();
+    level=1; score=0; gamesWon=0; gamesPlayed=0; lives=3; _usedWords.clear(); onScore(0); nextWord();
   };
 
   const ctrl = document.getElementById('game-controls');
@@ -19441,11 +19558,11 @@ GAME_ENGINES.mathblitz = function(canvas, onScore, onGameOver){
 
   function nextQuestion(){
     answered = false;
+    clearInterval(timerInterval);
     currentQ = makeQuestion();
     timer = getTimeLimit();
     qNum++;
     render();
-    clearInterval(timerInterval);
     timerInterval = setInterval(()=>{
       timer--;
       if(timer<=0){ clearInterval(timerInterval); handleAnswer(null); }
@@ -19845,6 +19962,272 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
   window._npReset  = ()=>{ if(score>0) saveArcadeScore('numpuzzle', score).catch(()=>{}); level=1; score=0; streak=0; lives=3; onScore(0); nextPuzzle(); };
   nextPuzzle();
 };
+
+// ── 🟩 WORDLE ────────────────────────────────────────────────
+// New word every day (seeded by date). Score = speed-based.
+// Leaderboard: fastest solve wins. onGameOver fires with score.
+GAME_ENGINES.wordle = function(canvas, onScore, onGameOver){
+  canvas.style.display = 'none';
+  const wrap = document.getElementById('game-canvas-wrap');
+  const ctrl = document.getElementById('game-controls');
+  if(ctrl) ctrl.innerHTML = '';
+
+  // ── 180-word daily pool (seeded by date, always same word per day) ──
+  const WORDS = [
+    'crane','audio','blunt','crimp','duchy','elbow','fancy','giant','hoist','ivory',
+    'joust','knave','lusty','mimic','novel','optic','plumb','quaff','rivet','stomp',
+    'tiger','ultra','vivid','waltz','xylem','yacht','zonal','abbey','blaze','camel',
+    'dance','eager','flair','groan','harsh','ideal','jewel','kneel','light','magic',
+    'north','olive','piano','queen','realm','shore','thorn','uncle','vapor','witch',
+    'xenon','yearn','zesty','acorn','bride','chasm','drape','ember','frost','globe',
+    'hinge','inlet','jokey','kayak','leaky','mango','nerve','oxide','prism','quirk',
+    'raven','skunk','trove','upset','viola','watch','xerox','yodel','zilch','angel',
+    'brisk','clamp','drown','elite','floss','grasp','haven','irony','jumbo','knack',
+    'leafy','moody','niece','owing','plank','quake','relax','spade','tower','usher',
+    'voila','wring','xysti','young','zippy','amber','brawl','civic','diner','eject',
+    'flung','graze','husky','imply','joker','kneel','liver','mouth','nudge','orbit',
+    'panic','quota','repel','shelf','taxon','umbra','venom','wheat','expel','yacht',
+    'agile','bench','chips','disco','expat','fjord','gruel','hatch','inept','joust',
+    'karma','lemon','mercy','notch','ozone','pixel','rabbi','squad','truly','ulcer',
+    'vista','widow','extol','zippo','axiom','bylaw','cyber','depot','ethic','flute',
+    'grind','hydra','intro','jelly','knobs','lunar','maple','nymph','offal','plush',
+    'quest','rugby','sneak','tidal','untie','verge','waltz','exile','knoll','lusty',
+  ];
+
+  // Deterministic daily word — same for everyone on same calendar day
+  function getTodayWord(){
+    const d = new Date();
+    const dayKey = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    return WORDS[dayKey % WORDS.length].toUpperCase();
+  }
+
+  const TARGET  = getTodayWord();
+  const ROWS    = 6;
+  const COLS    = 5;
+  const dateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  let guesses   = [];      // array of completed guess strings
+  let currentGuess = '';
+  let gameOver  = false;
+  let startTime = Date.now();
+  let won       = false;
+
+  // Check if player already solved today
+  const todayKey = 'hub-wordle-' + new Date().toISOString().slice(0,10);
+  const savedState = (() => { try{ return JSON.parse(localStorage.getItem(todayKey)||'null'); }catch(e){ return null; } })();
+  if(savedState){
+    guesses      = savedState.guesses || [];
+    gameOver     = savedState.gameOver || false;
+    won          = savedState.won || false;
+    // If game was already finished, start time is irrelevant for scoring
+    if(gameOver) startTime = savedState.startTime || Date.now();
+    else startTime = savedState.startTime || Date.now();
+  }
+
+  function saveTodayState(){
+    localStorage.setItem(todayKey, JSON.stringify({ guesses, gameOver, won, startTime }));
+  }
+
+  // Evaluate a guess: returns array of {letter, state} where state = 'correct'|'present'|'absent'
+  function evaluate(guess){
+    const result = Array(COLS).fill(null).map((_,i)=>({ letter: guess[i], state: 'absent' }));
+    const targetArr = TARGET.split('');
+    const guessArr  = guess.split('');
+    // First pass: mark correct
+    guessArr.forEach((l,i)=>{ if(l===targetArr[i]){ result[i].state='correct'; targetArr[i]=null; guessArr[i]=null; } });
+    // Second pass: mark present
+    guessArr.forEach((l,i)=>{ if(!l) return; const ti=targetArr.indexOf(l); if(ti>-1){ result[i].state='present'; targetArr[ti]=null; } });
+    return result;
+  }
+
+  // Build keyboard letter states from all guesses
+  function getKeyStates(){
+    const states = {};
+    guesses.forEach(g=>{
+      const ev = evaluate(g);
+      ev.forEach(({letter,state})=>{
+        const cur = states[letter];
+        if(!cur || (state==='correct') || (state==='present'&&cur==='absent')) states[letter]=state;
+      });
+    });
+    return states;
+  }
+
+  function getScore(){
+    if(!won) return 0;
+    const elapsed = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+    const guessBonus = Math.max(0, (ROWS - guesses.length + 1)) * 500; // fewer guesses = more pts
+    const speedBonus = Math.max(0, 3600 - elapsed) * 2;  // faster = more pts, up to 7200 for instant
+    return guessBonus + speedBonus + 1000; // base 1000 for winning
+  }
+
+  function submitGuess(){
+    if(gameOver || currentGuess.length < COLS) return;
+    const upper = currentGuess.toUpperCase();
+    guesses.push(upper);
+    currentGuess = '';
+
+    if(upper === TARGET){
+      won = true; gameOver = true;
+      const finalScore = getScore();
+      saveTodayState();
+      render();
+      onScore(finalScore);
+      setTimeout(async ()=>{
+        await saveArcadeScore('wordle', finalScore).catch(()=>{});
+        // Show win overlay
+        const elapsed = Math.floor((Date.now()-startTime)/1000);
+        const mins = Math.floor(elapsed/60), secs = elapsed%60;
+        const timeStr = mins>0 ? mins+'m '+secs+'s' : secs+'s';
+        const existing = document.getElementById('game-canvas-wrap');
+        if(existing){
+          existing.innerHTML = '<div style="text-align:center;padding:24px 16px;">' +
+            '<div style="font-size:48px;margin-bottom:8px;">🟩</div>' +
+            '<div style="font:800 22px/1 var(--font-ui);color:#66BB6A;margin-bottom:6px;">Solved!</div>' +
+            '<div style="font:500 13px/1.4 var(--font-ui);color:var(--text3);margin-bottom:4px;">Word: <strong style="color:var(--text);">' + TARGET + '</strong></div>' +
+            '<div style="font:500 13px/1.4 var(--font-ui);color:var(--text3);margin-bottom:4px;">' + guesses.length + '/6 guesses · ' + timeStr + '</div>' +
+            '<div style="font:700 20px/1 var(--font-ui);color:var(--accent);margin-bottom:16px;">' + finalScore.toLocaleString() + ' pts</div>' +
+            renderMiniGrid() +
+            '</div>';
+        }
+      }, 800);
+      return;
+    }
+
+    if(guesses.length >= ROWS){
+      gameOver = true;
+      saveTodayState();
+      render();
+      setTimeout(async ()=>{
+        await saveArcadeScore('wordle', 0).catch(()=>{});
+        onGameOver(0);
+      }, 1200);
+      return;
+    }
+    saveTodayState();
+    render();
+  }
+
+  function renderMiniGrid(){
+    const rows = guesses.map(g=>{
+      const ev = evaluate(g);
+      return '<div style="display:flex;gap:3px;justify-content:center;margin-bottom:3px;">' +
+        ev.map(({state})=>'<div style="width:14px;height:14px;border-radius:2px;background:' +
+          (state==='correct'?'#66BB6A':state==='present'?'#FFD54F':'#546E7A') + ';"></div>').join('') +
+        '</div>';
+    }).join('');
+    return '<div style="margin:12px auto;">' + rows + '</div>';
+  }
+
+  function render(){
+    const keyStates = getKeyStates();
+    const ROWS_ARR  = Array.from({length:ROWS},(_,r)=>{
+      const guess = guesses[r];
+      if(guess){
+        const ev = evaluate(guess);
+        return '<div style="display:flex;gap:6px;justify-content:center;">' +
+          ev.map(({letter,state})=>{
+            const bg = state==='correct'?'#66BB6A':state==='present'?'#e3a008':'#3a4468';
+            const border = state==='correct'?'#66BB6A':state==='present'?'#e3a008':'#3a4468';
+            return '<div style="width:52px;height:52px;border-radius:6px;background:'+bg+';border:2px solid '+border+';' +
+              'display:flex;align-items:center;justify-content:center;' +
+              'font:800 22px/1 var(--font-ui);color:#fff;">' + letter + '</div>';
+          }).join('') +
+        '</div>';
+      } else if(r === guesses.length && !gameOver){
+        // Active row
+        return '<div style="display:flex;gap:6px;justify-content:center;">' +
+          Array.from({length:COLS},(_,c)=>{
+            const l = currentGuess[c] || '';
+            const filled = !!l;
+            return '<div style="width:52px;height:52px;border-radius:6px;' +
+              'background:var(--surface2);border:2px solid '+(filled?'var(--accent)':'var(--border)')+';' +
+              'display:flex;align-items:center;justify-content:center;' +
+              'font:800 22px/1 var(--font-ui);color:var(--text);">' + l + '</div>';
+          }).join('') +
+        '</div>';
+      } else {
+        // Empty row
+        return '<div style="display:flex;gap:6px;justify-content:center;">' +
+          Array.from({length:COLS},()=>
+            '<div style="width:52px;height:52px;border-radius:6px;' +
+            'background:var(--surface2);border:2px solid var(--border);"></div>').join('') +
+        '</div>';
+      }
+    });
+
+    // Keyboard
+    const KEYS = [['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L'],['ENTER','Z','X','C','V','B','N','M','⌫']];
+    const kbHtml = KEYS.map(row=>
+      '<div style="display:flex;gap:5px;justify-content:center;">' +
+      row.map(k=>{
+        const st = keyStates[k];
+        const bg = st==='correct'?'#66BB6A':st==='present'?'#e3a008':st==='absent'?'#3a4468':'var(--surface3)';
+        const col = (st==='correct'||st==='present'||st==='absent')?'#fff':'var(--text)';
+        const wide = k==='ENTER'||k==='⌫';
+        return '<button ontouchstart="event.preventDefault();window._wordleKey(''+k+'')" onclick="window._wordleKey(''+k+'')" style="' +
+          'min-width:'+(wide?'56':'36')+'px;height:46px;border-radius:6px;border:none;' +
+          'background:'+bg+';color:'+col+';font:700 '+(wide?'11':'15')+'px/1 var(--font-ui);' +
+          'cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;padding:0 4px;">' +
+          k + '</button>';
+      }).join('') +
+      '</div>'
+    ).join('');
+
+    const elapsed = gameOver && won ? '' : '';
+    const statusMsg = gameOver && !won
+      ? '<div style="text-align:center;padding:8px;border-radius:8px;background:rgba(239,83,80,0.1);font:700 13px/1 var(--font-ui);color:#EF5350;margin-bottom:8px;">The word was: ' + TARGET + '</div>'
+      : (gameOver && won ? '' : '');
+
+    wrap.innerHTML =
+      '<div style="width:100%;max-width:380px;padding:12px;display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+          '<div style="font:700 12px/1 var(--font-ui);color:var(--accent);">🟩 WORDLE · ' + dateStr + '</div>' +
+          '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + guesses.length + '/6</div>' +
+        '</div>' +
+        statusMsg +
+        '<div style="display:flex;flex-direction:column;gap:6px;">' + ROWS_ARR.join('') + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:5px;margin-top:4px;">' + kbHtml + '</div>' +
+      '</div>';
+  }
+
+  // Key handler
+  window._wordleKey = function(key){
+    if(gameOver) return;
+    if(key === '⌫' || key === 'Backspace'){
+      currentGuess = currentGuess.slice(0,-1);
+    } else if(key === 'ENTER' || key === 'Enter'){
+      if(currentGuess.length === COLS) submitGuess();
+      else{
+        // Shake the active row briefly
+        const rows = wrap.querySelectorAll('div > div');
+      }
+    } else if(key.length === 1 && /[A-Za-z]/.test(key) && currentGuess.length < COLS){
+      currentGuess += key.toUpperCase();
+    }
+    if(!gameOver) render();
+  };
+
+  // Physical keyboard
+  const _wordleKeydown = e=>{
+    if(e.ctrlKey||e.metaKey) return;
+    window._wordleKey(e.key);
+    if(/^[A-Za-z]$/.test(e.key)||e.key==='Backspace'||e.key==='Enter') e.preventDefault();
+  };
+  document.addEventListener('keydown', _wordleKeydown);
+  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _wordleKeydown); }, {once:true});
+
+  render();
+
+  // If today already solved/lost, show final state
+  if(gameOver && savedState){
+    if(won){
+      const finalScore = getScore();
+      onScore(finalScore);
+    }
+  }
+};
+
 
 function toggleSimpleMode(){
   const current = localStorage.getItem('hub-simple-mode') === '1';
