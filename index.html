@@ -3111,7 +3111,7 @@ let dragSrcId=null;
 let calendarDate=new Date(), syncTimeout=null, kidsSyncTimeout=null;
 let selectedProjColor=PROJECT_COLORS[0], importPreviewData=null;
 
-const genId=()=>Math.random().toString(36).substr(2,9);
+const genId=()=>Date.now().toString(36)+Math.random().toString(36).substr(2,6); // timestamp prefix prevents ID collisions
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
 
 // ═══════════════════════════════════════════════════════════════
@@ -3512,7 +3512,16 @@ async function _sbSaveTasks(){
     attachments:t.attachments||[],
     created_at:String(t.createdAt||''), completed_at:t.completedAt||''
   }));
-  await sbUpsert('tasks', rows);
+  if(rows.length) await sbUpsert('tasks', rows);
+  // Delete rows removed locally so they don't come back on sync
+  try{
+    const { data: remoteRows } = await _sb.from('tasks').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(tasks.map(t=>t.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('tasks').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[Tasks] Cleanup failed:', e); }
 }
 
 async function _sbSaveProjects(){
@@ -3522,7 +3531,15 @@ async function _sbSaveProjects(){
     name:p.name||'', domain:p.domain||'',
     color:p.color||'#E8A838', collapsed:!!p.collapsed
   }));
-  await sbUpsert('projects', rows);
+  if(rows.length) await sbUpsert('projects', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('projects').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(projects.map(p=>p.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('projects').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[Projects] Cleanup failed:', e); }
 }
 
 async function _sbSaveFamilyTasks(){
@@ -3592,6 +3609,14 @@ async function _sbSaveMeetings(){
     attachments:m.attachments||[], created_at:String(m.createdAt||'')
   }));
   if(rows.length) await sbUpsert('meetings', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('meetings').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(meetingLog.map(m=>m.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('meetings').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[Meetings] Cleanup failed:', e); }
 }
 
 async function _sbSaveWaiting(){
@@ -3602,6 +3627,14 @@ async function _sbSaveWaiting(){
     attachments:w.attachments||[], created_at:String(w.createdAt||'')
   }));
   if(rows.length) await sbUpsert('waiting_for', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('waiting_for').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(waitingFor.map(w=>w.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('waiting_for').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[WaitingFor] Cleanup failed:', e); }
 }
 
 async function _sbSavePeople(){
@@ -3611,6 +3644,14 @@ async function _sbSavePeople(){
     role:p.role||'', priority:p.priority||'Medium', photo:p.photo||''
   }));
   if(rows.length) await sbUpsert('people', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('people').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(peopleList.map(p=>p.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('people').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[People] Cleanup failed:', e); }
 }
 
 async function _sbSaveContacts(){
@@ -3621,6 +3662,14 @@ async function _sbSaveContacts(){
     photo:c.photo||'', contact_history:c.contactHistory||[]
   }));
   if(rows.length) await sbUpsert('contacts', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('contacts').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(contactsList.map(c=>c.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('contacts').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[Contacts] Cleanup failed:', e); }
 }
 
 async function _sbSaveHabits(){
@@ -3662,6 +3711,14 @@ async function _sbSaveSomeday(){
     created_at:String(s.createdAt||'')
   }));
   if(rows.length) await sbUpsert('someday', rows);
+  try{
+    const { data: remoteRows } = await _sb.from('someday').select('id').eq('owner_id',_sbUserId);
+    if(remoteRows && remoteRows.length){
+      const localIds = new Set(somedayList.map(s=>s.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      if(toDelete.length) await _sb.from('someday').delete().in('id', toDelete);
+    }
+  }catch(e){ console.warn('[Someday] Cleanup failed:', e); }
 }
 
 async function _sbSaveWeeklyPlan(){
@@ -9095,7 +9152,7 @@ function renderTaskList(container){
   };
 
   // Shared: render a group section
-  function renderGroup(label, color, taskArr, icon, collapsible, collapseKey){
+  function renderGroup(label, color, taskArr, icon, collapsible, collapseKey, suffix){
     if(!taskArr.length) return '';
     const isCollapsed = collapsible && localStorage.getItem('hub-grp-'+collapseKey)==='true';
     const count = taskArr.filter(t=>t.status!=='done').length;
@@ -9115,6 +9172,7 @@ function renderTaskList(container){
       g += `<div class="task-list">`;
       for(const t of taskArr) g += renderTaskRow(t, projects.find(p=>p.id===t.projectId)||null);
       g += `</div>`;
+      if(suffix) g += suffix;
     }
     return g + `</div>`;
   }
@@ -9318,13 +9376,38 @@ function renderTaskList(container){
         });
       }
     });
-    // Sort people by priority then name
+    // Build waiting-for index per person
+    const personWF={};
+    waitingFor.filter(w=>!w.done).forEach(w=>{
+      const wids=(w.personIds||w.personId||'').split(',').filter(Boolean);
+      wids.forEach(pid=>{ if(!personWF[pid]) personWF[pid]=[]; personWF[pid].push(w); });
+    });
+    // Sort people by priority then name — include those with WF items even if no tasks
     const activePeople = peopleList
-      .filter(p=>personTasks[p.id]?.length>0)
+      .filter(p=>personTasks[p.id]?.length>0||personWF[p.id]?.length>0)
       .sort((a,b)=>{const o={High:0,Medium:1,Low:2};return (o[a.priority]??1)-(o[b.priority]??1)||a.name.localeCompare(b.name);});
     activePeople.forEach(p=>{
       const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
-      html += renderGroup(p.name, pc, personTasks[p.id].sort(smartSort), '👤', true, 'person-'+p.id);
+      const _pwf = personWF[p.id]||[];
+      const _wfSuffix = _pwf.length===0 ? '' : (() => {
+        const todStr = today();
+        const rows = _pwf.map(w=>{
+          const _ov = w.dueDate&&w.dueDate<todStr;
+          return `<div onclick="openWaitingModal(null,'${w.id}')"
+            style="display:flex;align-items:center;gap:var(--sp2);padding:6px var(--sp3);
+              border-top:1px solid var(--border);cursor:pointer;background:rgba(100,181,246,0.03);">
+            <div style="width:22px;height:22px;border-radius:50%;border:2px solid #64B5F6;
+              display:flex;align-items:center;justify-content:center;font-size:10px;color:#64B5F6;flex-shrink:0;">⏳</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:500 13px/1.3 var(--font-ui);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+              ${w.dueDate?`<div style="font:var(--type-caption);color:${_ov?'var(--red)':'var(--text4)'};">${_ov?'⚠ overdue · ':'📅 '}${w.dueDate.slice(5)}</div>`:''}
+            </div>
+            <span style="font:600 9px/1 var(--font-ui);color:#64B5F6;padding:1px 5px;border-radius:8px;background:rgba(100,181,246,0.1);border:1px solid rgba(100,181,246,0.2);white-space:nowrap;flex-shrink:0;">waiting</span>
+          </div>`;
+        }).join('');
+        return `<div style="padding:3px var(--sp3) 2px;border-top:1px solid var(--border2);font:700 9px/1 var(--font-ui);color:#64B5F6;letter-spacing:0.5px;background:rgba(100,181,246,0.03);">⏳ WAITING ON ${esc(p.name.toUpperCase())}</div>${rows}`;
+      })();
+      html += renderGroup(p.name, pc, (personTasks[p.id]||[]).sort(smartSort), '👤', true, 'person-'+p.id, _wfSuffix);
     });
     if(personTasks['__none__']?.length){
       html += renderGroup('No person assigned','var(--text4)',personTasks['__none__'].sort(smartSort),'',true,'person-none');
@@ -9545,8 +9628,10 @@ function renderTaskRow(task,proj){
   const mtgChip=(()=>{
     if(!task.source||!task.source.startsWith('meeting:')) return '';
     const mtg=meetingLog.find(m=>m.id===task.source.split(':')[1]);
-    return mtg?`<span onclick="event.stopPropagation();openMeetingCapture('${task.source.split(':')[1]}')" title="From: ${esc(mtg.title)}"
-        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(100,181,246,0.3);background:rgba(100,181,246,0.08);color:#64B5F6;">📝</span>`:'';
+    if(!mtg) return '';
+    const shortTitle = mtg.title.length>22 ? mtg.title.slice(0,21)+'…' : mtg.title;
+    return `<span onclick="event.stopPropagation();openMeetingCapture('${task.source.split(':')[1]}')" title="From meeting: ${esc(mtg.title)} (${mtg.date})"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(100,181,246,0.3);background:rgba(100,181,246,0.08);color:#64B5F6;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📝 ${esc(shortTitle)}</span>`;
   })();
   const discChip=(()=>{
     if(!task.discoveryId) return '';
@@ -10550,7 +10635,7 @@ function completeTask(id, evt){
     t.status = "done";
     const xp = xpForTask(t);
     totalXP += xp;
-    if(t.recur && t.recur!=="none") spawnRecurringCopy(t);
+    _undoSpawnedId = (t.recur && t.recur!=="none") ? spawnRecurringCopy(t) : null;
     checkJasonRewardMilestone();
 
     // Animate the row out before re-rendering (Today + task list rows)
@@ -10631,20 +10716,19 @@ function advanceDailyTasks(){
 }
 
 function spawnRecurringCopy(t){
-  // Daily habits: always schedule from today so they never fall behind
-  // Weekly/monthly: schedule from the original due date to preserve cadence
   const baseDate = t.recur==='daily' ? today() : (t.dueDate||today());
   const nextDue = calcNextDue(baseDate, t.recur);
-  // Don't spawn if a copy already exists for that date (prevents duplicates)
   const alreadyExists = tasks.some(x =>
     x.title===t.title && x.dueDate===nextDue && x.status!=='done' && x.id!==t.id
   );
-  if(alreadyExists) return;
-  tasks.push({id:genId(),projectId:t.projectId,title:t.title,priority:t.priority,
+  if(alreadyExists) return null;
+  const newId = genId();
+  tasks.push({id:newId,projectId:t.projectId,title:t.title,priority:t.priority,
     status:"todo",notes:t.notes||"",dueDate:nextDue,
     recur:t.recur,effort:t.effort||"",estimate:t.estimate||"",
     energy:t.energy||"",personIds:t.personIds||"",createdAt:Date.now()});
   showToast("🔁 "+nextDue.slice(5));
+  return newId; // returned so undo can remove the copy if needed
 }
 
 function calcNextDue(fromDate,recur){
@@ -11058,6 +11142,8 @@ function renderRecurChips(selected){
 function confirmDeleteTask(id){
   if(confirm("Delete THIS Task?")){ 
     tasks=tasks.filter(t=>t.id!==id);
+    todayPinned.delete(id); // Bug 5 fix: prevent ghost pin accumulation
+    savePinned();
     saveAllDebounced();closeModal("modal-task");renderAll();
     showToast("Task REMOVED");
   }
@@ -11389,12 +11475,14 @@ let resetStep = 1;
 let somedayExpanded = false;
 let tbDate = today();              // date being planned
 let todayViewMode = 'list';        // 'list' | 'timeblock' — toggle on Today screen
+let todayUnifiedMode = localStorage.getItem('hub-today-unified')==='1'; // 'list' | 'unified'
 let massEditMode  = false;         // spreadsheet edit mode on Tasks
 let taskViewMode  = 'priority';    // 'priority'|'initiative'|'project'|'person'
 let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
 let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilter = ''; // person id or '' for all
 let meetingPersonFilter = ''; // person id or '' for all
+let meetingSearchQuery  = ''; // keyword search on meetings tab
 
 // ── New hub data (persisted to cloud via getCloudStats) ──────────
 function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
@@ -11424,7 +11512,7 @@ let habitList      = loadHubData('hub-habits', []);          // [{id,name,icon,r
 let habitLog       = loadHubData('hub-habit-log', {});       // {YYYY-MM-DD: [habitId,...]}
 let discoveryList  = loadHubData('hub-discovery', []);    // [{id,title,status,...}]
 let signalList     = loadHubData('hub-signals', []);      // [{id,initiativeId,type,sentiment,...}]
-let habitsExpanded = false;
+let habitsExpanded = true; // default open
 
 // Track which collections were confirmed loaded from cloud this session
 // Prevents a device with empty localStorage from overwriting real cloud data
@@ -11686,6 +11774,7 @@ function renderTodayTaskRow(t, accentColor, badgeHtml, extraActions){
 function renderTodayView(container){
   if(todayFocusMode || activeNav==='focus'){ renderTodayFocusMode(container); return; }
   if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
+  if(todayUnifiedMode){ renderTodayUnified(container); return; }
 
   const todayStr = today();
   const hour     = new Date().getHours();
@@ -11753,6 +11842,12 @@ function renderTodayView(container){
       <div class="page-hero-sub">${totalAssigned>0?`${doneCount} of ${totalAssigned} pinned done`:'What are you working on today?'}</div>
     </div>
     <div style="display:flex;gap:var(--sp1);align-items:center;">
+      <button onclick="todayUnifiedMode=true;localStorage.setItem('hub-today-unified','1');renderAll();"
+        style="padding:0 10px;height:28px;border-radius:var(--r5);
+          border:1.5px solid ${todayUnifiedMode?'var(--accent)':'var(--border)'};
+          background:${todayUnifiedMode?'var(--accent-soft)':'transparent'};
+          color:${todayUnifiedMode?'var(--accent)':'var(--text3)'};
+          font:700 10px/1 var(--font-ui);cursor:pointer;">All</button>
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
         class="today-icon-btn" title="Time blocks" style="${todayViewMode==='timeblock'?'border-color:var(--accent);color:var(--accent);background:var(--accent-soft);':''}">🗓</button>
       <button onclick="openReset()" class="today-icon-btn" title="Weekly reset">🌅</button>
@@ -11805,22 +11900,9 @@ function renderTodayView(container){
     </div>`;
   }
 
-  // ── 3. COGNITIVE LOAD (conditional) ─────────────────────────
-  if(_activeTasks.length > 35 || _loadHours > 10){
-    const bad = _activeTasks.length > 50 || _loadHours > 12;
-    html += `<div class="today-card" style="border-color:${bad?'rgba(224,82,82,0.35)':'rgba(255,160,40,0.3)'};">
-      <div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);">
-        <span style="font-size:18px;">${bad?'🔴':'🟡'}</span>
-        <div style="flex:1;">
-          <div style="font:700 11px/1 var(--font-ui);color:${bad?'var(--red)':'var(--accent)'};">${bad?'OVERLOADED':'HIGH LOAD'} — ${_activeTasks.length} active</div>
-          <div style="font:var(--type-caption);color:var(--text3);margin-top:2px;">${_loadHours>0?`~${Math.round(_loadHours)}h pinned · `:''}Consider deferring some items</div>
-        </div>
-        <button onclick="taskViewMode='priority';setNav('tasks')" class="today-card-action">Triage →</button>
-      </div>
-    </div>`;
-  }
+  // ── 3. COGNITIVE LOAD — removed per user request ───────────
 
-  // ── 3b. ENERGY MATCH (when morning energy is set) ────────────
+  // ── 3b. ENERGY MATCH ─────────────────────────────────────────
   {
     const todayEnergy = (() => {
       const log = JSON.parse(localStorage.getItem('hub-daily-log')||'[]');
@@ -11860,7 +11942,7 @@ function renderTodayView(container){
   const habitsHtml = renderHabitsSection();
   if(habitsHtml && habitsHtml.trim()) html += habitsHtml;
 
-  // ── 5. OVERDUE ───────────────────────────────────────────────
+  // ── 5. OVERDUE — full triage with action buttons ───────────
   if(overdueUnpinned.length > 0){
     html += `<div class="today-card" style="border-color:rgba(224,82,82,0.3);">
       <div class="today-card-header">
@@ -11955,7 +12037,6 @@ function renderTodayView(container){
     const laterKey = 'hub-later-today-' + todayStr;
     const laterIds = JSON.parse(localStorage.getItem(laterKey)||'[]');
     const laterTasks = laterIds.map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
-    // Clean up done ones
     if(laterTasks.length !== laterIds.length){
       localStorage.setItem(laterKey, JSON.stringify(laterTasks.map(t=>t.id)));
     }
@@ -11991,8 +12072,6 @@ function renderTodayView(container){
       }
     </div>`;
   }
-
-  // ── 8. EOD — handled by top banner only
 
   // ── 8. REACH OUT (contact nudges) ───────────────────────────
   if(nudges2.length > 0){
@@ -12072,6 +12151,230 @@ function renderTodayView(container){
   </div>`;
 
   html += '</div>'; // close .today-stack
+  container.innerHTML = html;
+}
+
+// ── UNIFIED TODAY VIEW ────────────────────────────────────────
+// Shows everything for today in one prioritised scroll:
+// overdue → pinned/focus → due today → calendar events → waiting-for → habits
+function renderTodayUnified(container){
+  const todayStr = today();
+  const hour     = new Date().getHours();
+  const dateLabel= new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+
+  // All task data
+  const overdue   = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate<todayStr)
+                         .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const pinned    = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
+  const dueToday  = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate===todayStr&&!todayPinned.has(t.id))
+                         .sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1));
+  const pinnedDone= [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
+  const urgentWF  = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
+  const followUps = waitingFor.filter(w=>!w.done&&w.followUpDate&&w.followUpDate<=todayStr&&!(w.dueDate&&w.dueDate<=todayStr));
+  const nudges    = getPeopleNudges();
+
+  // Calendar events today
+  const todayEvents = (calEvents||[]).filter(e=>{
+    const eDate = (e.start||'').slice(0,10);
+    return eDate === todayStr;
+  }).sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+
+  const totalItems = overdue.length + pinned.length + dueToday.length + urgentWF.length + followUps.length + todayEvents.length;
+
+  // Shared task row helper
+  function uRow(t, accentCol, badgeHtml){
+    const proj = projects.find(p=>p.id===t.projectId);
+    const isPinned = todayPinned.has(t.id);
+    return `<div class="today-card-row" onclick="openEditTask('${t.id}')">
+      <button class="today-check-btn" style="color:${accentCol};"
+        onclick="event.stopPropagation();completeTask('${t.id}',event)">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+          ${badgeHtml}
+          ${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+        <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="${isPinned?'Unpin':'Pin for today'}">${isPinned?'✕':'📌'}</button>
+        <button class="today-focus-btn" onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" title="Focus">▶</button>
+      </div>
+    </div>`;
+  }
+
+  let html = '<div class="today-stack">';
+
+  // ── Header with toggle back to list view ─────────────────────
+  html += `<div class="page-hero" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:none;">
+    <div class="page-hero-left">
+      <div class="page-hero-accent" style="color:var(--accent);">☀ ${hour<12?'Morning':'Today'} · All</div>
+      <div class="page-hero-title">${dateLabel}</div>
+      <div class="page-hero-sub">${totalItems} item${totalItems!==1?'s':''} need attention</div>
+    </div>
+    <div style="display:flex;gap:var(--sp1);align-items:center;">
+      <button onclick="todayUnifiedMode=false;localStorage.setItem('hub-today-unified','0');renderAll();"
+        style="padding:0 10px;height:28px;border-radius:var(--r5);
+          border:1.5px solid var(--border);background:transparent;
+          color:var(--text3);font:700 10px/1 var(--font-ui);cursor:pointer;">List</button>
+      <button onclick="openReset()" class="today-icon-btn" title="Weekly reset">🌅</button>
+    </div>
+  </div>`;
+
+  // ── One thing ────────────────────────────────────────────────
+  const savedOneThing = localStorage.getItem('hub-one-thing-'+todayStr)||'';
+  if(savedOneThing){
+    html += `<div style="padding:0 var(--sp3);">
+      <div style="display:flex;align-items:center;gap:var(--sp2);padding:10px 14px;
+          border-radius:var(--r3);border:1.5px solid rgba(232,168,56,0.3);background:var(--surface);">
+        <span style="font-size:16px;flex-shrink:0;">🎯</span>
+        <span style="font:500 14px/1 var(--font-body);color:var(--text);">${esc(savedOneThing)}</span>
+      </div>
+    </div>`;
+  }
+
+  // ── Overdue (always first, prominent) ────────────────────────
+  if(overdue.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(224,82,82,0.35);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--red);"></div>
+          <span class="today-card-title" style="color:var(--red);">Overdue</span>
+          <span class="today-card-count">${overdue.length}</span>
+        </div>
+      </div>
+      ${overdue.map(t=>uRow(t,'var(--red)',`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>`)).join('')}
+    </div>`;
+  }
+
+  // ── Pinned focus ─────────────────────────────────────────────
+  if(pinned.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--accent);"></div>
+          <span class="today-card-title" style="color:var(--accent);">Focus</span>
+          <span class="today-card-count">${pinned.length} pinned</span>
+        </div>
+        <button onclick="openTodayPicker()" class="today-card-action">+ Add</button>
+      </div>
+      ${pinned.map(t=>uRow(t,'var(--accent)',`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📌 pinned</span>`)).join('')}
+      ${pinnedDone.length>0?`
+        <div style="padding:var(--sp1) var(--sp3);border-top:1px solid var(--border);font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">DONE TODAY</div>
+        ${pinnedDone.map(t=>`<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);border-top:1px solid var(--border);opacity:0.4;">
+          <span style="font-size:18px;">✓</span>
+          <span style="font:600 13px/1 var(--font-ui);color:var(--text3);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</span>
+        </div>`).join('')}`:''}
+    </div>`;
+  }
+
+  // ── Due today (not pinned) ────────────────────────────────────
+  if(dueToday.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(100,181,246,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#64B5F6;"></div>
+          <span class="today-card-title" style="color:#64B5F6;">Due Today</span>
+          <span class="today-card-count">${dueToday.length}</span>
+        </div>
+      </div>
+      ${dueToday.map(t=>uRow(t,'#64B5F6',`<span style="font:700 10px/1 var(--font-ui);color:#64B5F6;">📅 today</span>`)).join('')}
+    </div>`;
+  }
+
+  // ── Calendar events today ─────────────────────────────────────
+  if(todayEvents.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(186,104,200,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#BA68C8;"></div>
+          <span class="today-card-title" style="color:#BA68C8;">Calendar</span>
+          <span class="today-card-count">${todayEvents.length}</span>
+        </div>
+        <button onclick="setNav('cal')" class="today-card-action">Open</button>
+      </div>
+      ${todayEvents.map(e=>{
+        const startTime = e.start && e.start.length > 10 ? new Date(e.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+        return `<div class="today-card-row" onclick="setNav('cal')">
+          <div style="width:36px;text-align:center;font:700 11px/1 var(--font-ui);color:#BA68C8;flex-shrink:0;">${startTime||'📅'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.title||e.summary||'Event')}</div>
+            ${e.location?`<div style="font:var(--type-caption);color:var(--text4);">📍 ${esc(e.location)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Waiting for: due + follow-ups ────────────────────────────
+  if(urgentWF.length > 0 || followUps.length > 0){
+    const allWF = [...urgentWF,...followUps];
+    html += `<div class="today-card" style="border-color:rgba(100,181,246,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#64B5F6;"></div>
+          <span class="today-card-title" style="color:#64B5F6;">Waiting For</span>
+          <span class="today-card-count">${allWF.length}</span>
+        </div>
+        <button onclick="setNav('waiting')" class="today-card-action">See all</button>
+      </div>
+      ${allWF.map(w=>`<div class="today-card-row" onclick="openWaitingModal(null,'${w.id}')">
+        <button class="today-check-btn" style="color:#64B5F6;" onclick="event.stopPropagation();toggleWaitingDone('${w.id}')"></button>
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+          <div style="font:var(--type-caption);color:${w.dueDate&&w.dueDate<todayStr?'var(--red)':'#64B5F6'};">
+            ${w.person?esc(w.person)+' · ':''} ${w.dueDate&&w.dueDate<todayStr?'⚠ Overdue':w.followUpDate?'🔔 Follow up today':'Due today'}
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // ── People nudges ─────────────────────────────────────────────
+  if(nudges.length > 0){
+    const _cc={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
+    html += `<div class="today-card" style="border-color:rgba(129,199,132,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#81C784;"></div>
+          <span class="today-card-title" style="color:#81C784;">Reach Out</span>
+          <span class="today-card-count">${nudges.length}</span>
+        </div>
+        <button onclick="setNav('people')" class="today-card-action">See all</button>
+      </div>
+      ${nudges.slice(0,3).map(c=>{
+        const _c=_cc[c.role]||'#888';
+        return `<div class="today-card-row" onclick="openPersonDetail('${c.id}','contact')">
+          ${renderAvatar(c.name,c.photo,32,_c+'22',_c,false)}
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1 var(--font-ui);color:var(--text);">${esc(c.name)}</div>
+          </div>
+          <button onclick="event.stopPropagation();openLogContactModal('${c.id}');"
+            style="padding:var(--sp1) var(--sp2);border-radius:var(--r2);min-height:32px;
+              border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;
+              font:700 11px/1 var(--font-ui);cursor:pointer;">✓ Log</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Empty state ───────────────────────────────────────────────
+  if(totalItems === 0 && nudges.length === 0){
+    html += `<div style="text-align:center;padding:60px 24px;">
+      <div style="font-size:48px;margin-bottom:12px;">✅</div>
+      <div style="font:700 18px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">All clear!</div>
+      <div style="font:500 13px/1.5 var(--font-body);color:var(--text3);">Nothing overdue, nothing due today.<br>You're ahead of it.</div>
+    </div>`;
+  }
+
+  // ── Quick capture ─────────────────────────────────────────────
+  html += `<div class="brain-dump-bar">
+    <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Quick capture…"
+      onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice">🎙</button>
+    <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">+</button>
+  </div>`;
+
+  html += '</div>';
   container.innerHTML = html;
 }
 
@@ -12759,9 +13062,19 @@ function renderMeetingsPage(container){
   const _ph_sub = meetingLog.length+' total';
   pageHeader(container, 'meetings', '📝 Meetings', 'Meeting Log', _ph_sub);
 
-  const filteredMeetings = meetingPersonFilter
-    ? meetingLog.filter(m=>(m.personIds||'').split(',').includes(meetingPersonFilter))
-    : meetingLog;
+  const filteredMeetings = meetingLog.filter(m=>{
+    if(meetingPersonFilter && !(m.personIds||'').split(',').includes(meetingPersonFilter)) return false;
+    if(meetingSearchQuery){
+      const q = meetingSearchQuery.toLowerCase();
+      return (m.title||'').toLowerCase().includes(q)
+          || (m.notes||'').toLowerCase().includes(q)
+          || (m.decisions||'').toLowerCase().includes(q)
+          || (m.myCommits||'').toLowerCase().includes(q)
+          || (m.theirCommits||'').toLowerCase().includes(q)
+          || (m.attendees||'').toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   // Filter bar
   const mtgPersonIds = new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)));
@@ -12824,7 +13137,15 @@ function renderMeetingsPage(container){
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">
-        ${hasCommits?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⚡ my commits</span>`:''}
+        ${(()=>{
+          const openTasks = tasks.filter(t=>t.source==='meeting:'+m.id&&t.status!=='done').length;
+          const totalCommits = m.myCommits ? m.myCommits.split('\n').filter(s=>s.trim()).length : 0;
+          if(!totalCommits) return '';
+          const label = openTasks>0 ? `⚡ ${openTasks} open` : `⚡ done ✓`;
+          const col   = openTasks>0 ? 'var(--accent)' : 'var(--green)';
+          const bg    = openTasks>0 ? 'rgba(232,168,56,0.1)' : 'rgba(102,187,106,0.1)';
+          return `<span style="font-size:10px;background:${bg};color:${col};padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">${label}</span>`;
+        })()}
         ${hasWaiting?`<span style="font-size:10px;background:rgba(100,181,246,0.1);color:#64B5F6;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">⏳ waiting for</span>`:''}
         ${m.decisions?`<span style="font-size:10px;background:rgba(102,187,106,0.1);color:#66BB6A;padding:2px 7px;border-radius:4px;font-family:var(--font-ui);">✅ decisions</span>`:''}
       </div>
@@ -12892,6 +13213,25 @@ function renderMeetingsPage(container){
         <button onclick="openMeetingSeriesModal()" style="padding:6px 12px;border-radius:7px;border:1px solid rgba(232,168,56,0.4);background:rgba(232,168,56,0.08);color:var(--accent);font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">🔁 New Series</button>
         <button onclick="openMeetingCapture()" style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);color:#0e1128;font-family:var(--font-ui);font-size:12px;font-weight:800;cursor:pointer;">+ One-off</button>
       </div>
+    </div>
+    <div style="padding:0 10px 8px;">
+      <div style="display:flex;align-items:center;gap:var(--sp2);padding:8px 12px;
+          border-radius:var(--r2);border:1.5px solid ${meetingSearchQuery?'var(--accent)':'var(--border)'};
+          background:var(--surface2);">
+        <span style="color:var(--text4);font-size:14px;flex-shrink:0;">🔍</span>
+        <input
+          value="${meetingSearchQuery}"
+          placeholder="Search titles, notes, decisions, people…"
+          oninput="meetingSearchQuery=this.value;renderAll();"
+          style="flex:1;border:none;background:transparent;color:var(--text);
+            font:500 13px/1 var(--font-body);outline:none;min-width:0;"
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+        ${meetingSearchQuery?`<button onclick="meetingSearchQuery='';renderAll();"
+          style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;padding:0;line-height:1;">✕</button>`:''}
+      </div>
+      ${meetingSearchQuery && filteredMeetings.length === 0
+        ? `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);padding:8px 4px;">No meetings match "${meetingSearchQuery}"</div>`
+        : meetingSearchQuery ? `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 4px;">${filteredMeetings.length} result${filteredMeetings.length!==1?'s':''}</div>` : ''}
     </div>
     ${filterBar}
     <div style="flex:1;overflow-y:auto;">
@@ -13321,14 +13661,26 @@ function deleteSomeday(id){ somedayList=somedayList.filter(x=>x.id!==id); saveSo
 
 function promoteSomeday(id){
   const item = somedayList.find(x=>x.id===id); if(!item) return;
-  // Move to parking lot as a new task
-  const newTask = { id:'t'+Date.now(), projectId:'', title:item.title, priority:'medium', status:'todo',
-    dueDate:'', notes:'', source:'', recur:'none', effort:'', estimate:'', energy:'',
-    createdAt:today(), completedAt:null, subtasks:[] };
-  tasks.push(newTask);
+  const snap = item._snap || {};
+  // Bug 6 fix: restore full task data from snapshot if available
+  const newTask = {
+    id:genId(), title:item.title, status:'todo', dueDate:'', subtasks:[],
+    completedAt:null, createdAt:Date.now(), source:'',
+    projectId:  snap.projectId  ||'',
+    notes:      snap.notes      ||'',
+    recur:      snap.recur      ||'none',
+    priority:   snap.priority   ||'medium',
+    effort:     snap.effort     ||'',
+    estimate:   snap.estimate   ||'',
+    energy:     snap.energy     ||'medium',
+    personIds:  snap.personIds  ||'',
+    discoveryId:snap.discoveryId||''
+  };
+  tasks.unshift(newTask);
   somedayList = somedayList.filter(x=>x.id!==id);
   saveSomeday(); saveAllDebounced(); renderAll();
-  showToast('↗ Moved to task list');
+  const restored = snap.projectId ? ' · project + notes restored' : '';
+  showToast('↗ Moved to task list' + restored);
 }
 
 function renderSomedaySection(){
@@ -13691,8 +14043,12 @@ function openPersonDetail(id, type){
 
       <!-- Waiting for -->
       <div style="margin-bottom:var(--sp2);">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">
-          WAITING FOR (${personWaiting.filter(w=>!w.done).length} open)
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font:700 10px/1 var(--font-ui);color:${personWaiting.filter(w=>!w.done).length>0?'#64B5F6':'var(--text3)'};letter-spacing:1px;text-transform:uppercase;">
+            ⏳ WAITING FOR (${personWaiting.filter(w=>!w.done).length} open)
+          </div>
+          <button onclick="closeModal('modal-person-detail');setTimeout(()=>openWaitingModal(),200);"
+            style="padding:2px 8px;border-radius:5px;border:1px solid rgba(100,181,246,0.4);background:transparent;color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">+ Add</button>
         </div>
         ${waitHtml}
       </div>
@@ -15797,6 +16153,8 @@ function meRemovePersonFromTask(taskId, personId){
 function meBulkDelete(){
   if(meSelected.size===0) return;
   if(!confirm(`Delete ${meSelected.size} task${meSelected.size>1?'s':''}? This cannot be undone.`)) return;
+  meSelected.forEach(id=>todayPinned.delete(id)); // Bug 5 fix: remove ghost pins
+  savePinned();
   tasks = tasks.filter(t=>!meSelected.has(t.id));
   meSelected.clear();
   saveAllDebounced(); showToast(`🗑 Deleted`); renderAll();
@@ -16043,52 +16401,65 @@ function renderHabitsSection(){
   const doneCount = habitList.filter(h => done.includes(h.id)).length;
   const allDone = habitList.length > 0 && doneCount === habitList.length;
 
-  return `<div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid ${allDone?'rgba(100,200,100,0.3)':'var(--border)'};background:${allDone?'rgba(100,200,100,0.04)':'var(--surface)'};overflow:hidden;transition:border-color 0.3s;">
-    <!-- Header — tappable to collapse/expand -->
-    <div onclick="habitsExpanded=!habitsExpanded;renderAll();"
-      style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;">
-      <div style="display:flex;align-items:center;gap:var(--sp2);">
-        <span style="font-size:14px;">🫀</span>
-        <span style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:${allDone?'var(--green)':'var(--text3)'};letter-spacing:0.8px;">
-          HABITS${habitList.length>0?' — '+doneCount+'/'+habitList.length:''}
-        </span>
-        ${allDone ? '<span style="font-size:11px;color:var(--green);">✓ all done</span>' : ''}
+  // Compute current habit streak and longest streak
+  const _habitStreak = (()=>{
+    let streak = 0;
+    const d = new Date(); d.setHours(0,0,0,0);
+    // Start from yesterday if today not yet complete, else from today
+    if(!allDone) d.setDate(d.getDate()-1);
+    while(true){
+      const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      const logged = habitLog[key]||[];
+      if(habitList.every(h=>logged.includes(h.id))){ streak++; d.setDate(d.getDate()-1); }
+      else break;
+    }
+    if(allDone) streak++; // count today
+    return streak;
+  })();
+  const _longestStreak = (()=>{
+    let longest=0, cur=0;
+    const keys = Object.keys(habitLog).sort();
+    for(const key of keys){
+      const logged = habitLog[key]||[];
+      if(habitList.length>0 && habitList.every(h=>logged.includes(h.id))){ cur++; longest=Math.max(longest,cur); }
+      else cur=0;
+    }
+    return Math.max(longest, _habitStreak);
+  })();
+
+  return `<div class="today-card" style="border-color:${allDone?'rgba(100,200,100,0.3)':'var(--border)'};${allDone?'background:rgba(100,200,100,0.04);':''}">
+    <div class="today-card-header" onclick="habitsExpanded=!habitsExpanded;renderAll();" style="cursor:pointer;">
+      <div class="today-card-label">
+        <div class="today-card-accent" style="background:${allDone?'var(--green)':'var(--text3)'};"></div>
+        <span class="today-card-title" style="color:${allDone?'var(--green)':'var(--text3)'};">Habits</span>
+        <span class="today-card-count">${doneCount}/${habitList.length}${allDone?' ✓':''}</span>
+        ${_habitStreak>=2?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);margin-left:2px;">🔥 ${_habitStreak}d</span>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:var(--sp2);">
-        ${habitsExpanded ? `<button onclick="event.stopPropagation();openHabitModal()"
-          style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;">+ Add</button>` : ''}
+        ${_longestStreak>=3?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">best ${_longestStreak}d</span>`:''}
+        <button onclick="event.stopPropagation();openHabitModal()"
+          class="today-card-action">+ Add</button>
         <span style="font-size:11px;color:var(--text4);">${habitsExpanded?'▾':'▸'}</span>
       </div>
     </div>
 
-    ${habitsExpanded ? '<div style="padding:0 0 8px;">' +
-      habitList.map((h,i) => {
+    ${habitsExpanded ? habitList.map(h => {
         const isDone = done.includes(h.id);
-        const rowBg = isDone ? 'rgba(61,184,122,0.04)' : 'transparent';
-        const iconBorder = isDone ? 'var(--green)' : 'var(--border2)';
-        const iconBg = isDone ? 'rgba(61,184,122,0.12)' : 'var(--surface2)';
-        const titleFont = isDone ? 'font:500 14px/1 var(--font-ui);color:var(--text4);text-decoration:line-through' : 'font:600 14px/1 var(--font-ui);color:var(--text)';
-        const icon = isDone ? '<span style="color:var(--green);font-size:13px;">✓</span>' : (h.icon || '○');
-        const dot = isDone ? 'var(--green)' : 'var(--border2)';
-        const noteHtml = h.note ? '<div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-top:2px;">' + esc(h.note) + '</div>' : '';
-        return '<div onclick="toggleHabit(\'' + h.id + '\')"'
-          + ' style="display:flex;align-items:center;gap:12px;'
-          + 'padding:10px 14px;border-top:1px solid var(--border);'
-          + 'cursor:pointer;background:' + rowBg + ';'
-          + 'transition:background 0.12s;">'
-          + '<div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;'
-          + 'border:2px solid ' + iconBorder + ';'
-          + 'background:' + iconBg + ';'
-          + 'display:flex;align-items:center;justify-content:center;font-size:16px;'
-          + 'transition:all 0.12s;">' + icon + '</div>'
+        const noteHtml = h.note ? '<div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">' + esc(h.note) + '</div>' : '';
+        return '<div class="today-card-row" onclick="toggleHabit(\'' + h.id + '\')">'
+          + '<button class="today-check-btn" style="color:' + (isDone ? 'var(--green)' : 'var(--text3)') + ';'
+          + (isDone ? 'border-color:var(--green);background:rgba(61,184,122,0.1);' : '')
+          + '" onclick="event.stopPropagation();toggleHabit(\'' + h.id + '\')">'
+          + (isDone ? '✓' : (h.icon || '🫀'))
+          + '</button>'
           + '<div style="flex:1;min-width:0;">'
-          + '<div style="' + titleFont + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(h.name) + '</div>'
+          + '<div style="font:600 14px/1.35 var(--font-ui);color:' + (isDone ? 'var(--text3)' : 'var(--text)') + ';'
+          + (isDone ? 'text-decoration:line-through;' : '')
+          + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(h.name) + '</div>'
           + noteHtml
           + '</div>'
-          + '<div style="width:8px;height:8px;border-radius:50%;background:' + dot + ';"></div>'
           + '</div>';
       }).join('')
-      + '</div>'
     : ''}
   </div>`;
 }
@@ -16460,19 +16831,26 @@ function renderDiscoveryCard(ini){
       </div>
     </div>
     <!-- Footer stats + quick add signal -->
-    <div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
-      <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
-      ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
-      ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
-      ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
-      ${lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:''}
-      <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
-        style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
-          background:var(--accent);color:#1a1f2e;
-          font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
-        + Signal
-      </button>
-    </div>
+    ${(()=>{
+      const lastUpdate = ini.updatedAt||ini.createdAt||today();
+      const daysSince = Math.floor((Date.now()-new Date(lastUpdate+'T00:00:00').getTime())/86400000);
+      const isStale = ['building','validating','scoped','discovery'].includes(ini.status) && daysSince>=30;
+      const openTaskCt = (ini.linkedTaskIds||[]).filter(id=>{ const t=tasks.find(x=>x.id===id); return t&&t.status!=='done'; }).length;
+      return `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
+        <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
+        ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
+        ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
+        ${openTaskCt>0?`<span style="font:600 10px/1.4 var(--font-ui);color:var(--accent);">☐ ${openTaskCt}</span>`:''}
+        ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
+        ${isStale?`<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;padding:1px 6px;border-radius:8px;background:rgba(255,138,101,0.1);border:1px solid rgba(255,138,101,0.3);">💤 ${daysSince}d quiet</span>`:lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:''}
+        <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
+          style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
+            background:var(--accent);color:#1a1f2e;
+            font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+          + Signal
+        </button>
+      </div>`;
+    })()}
   </div>`;
 }
 
@@ -17539,9 +17917,16 @@ function openLaterTodayPicker(){
 
 function moveTaskToSomeday(taskId){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
-  somedayList.unshift({ id:'sd'+Date.now(), title:t.title, createdAt:today(), context:'work' });
+  // Bug 6 fix: preserve full task data so pull-back restores everything
+  somedayList.unshift({
+    id:'sd'+Date.now(), title:t.title, createdAt:today(), context:'work',
+    _snap:{projectId:t.projectId||'',notes:t.notes||'',recur:t.recur||'none',
+           priority:t.priority||'medium',effort:t.effort||'',estimate:t.estimate||'',
+           energy:t.energy||'medium',personIds:t.personIds||'',discoveryId:t.discoveryId||''}
+  });
+  todayPinned.delete(taskId); // also clean up any pin
   tasks = tasks.filter(x=>x.id!==taskId);
-  saveSomeday(); saveAllDebounced(); renderAll();
+  saveSomeday(); savePinned(); saveAllDebounced(); renderAll();
   showToast('💭 Moved to Someday — not lost, just not now');
 }
 
@@ -17816,6 +18201,17 @@ function undoLastComplete(){
     totalXP = Math.max(0, totalXP - _undoXP);
     t.status = _undoTask.status || 'todo';
     t.completedAt = _undoTask.completedAt || null;
+    // Bug 1 fix: remove the recurring copy that was spawned on completion
+    if(typeof _undoSpawnedId !== 'undefined' && _undoSpawnedId){
+      tasks = tasks.filter(x => x.id !== _undoSpawnedId);
+      _undoSpawnedId = null;
+    }
+    // Bug 7 fix: reverse the reward completion counter
+    const _rr = getJasonRewards();
+    if(_rr.completions > 0){
+      _rr.completions = Math.max(0, _rr.completions - 1);
+      saveJasonRewards(_rr);
+    }
     saveAllDebounced(); renderAll();
     showToast('↩ Undone · -' + _undoXP + ' XP');
   }
@@ -18393,6 +18789,9 @@ const ARCADE_GAMES = [
   { id:'numpuzzle',  name:'Number Puzzle',  emoji:'🔢', desc:'Fill the missing number' },
 ];
 
+// Games shown in the kids experience — no Wordle (adult vocab) or Math Blitz (too hard for younger kids)
+const KIDS_ARCADE_GAMES = ARCADE_GAMES.filter(g=>!['wordle','mathblitz'].includes(g.id));
+
 function getCurrentPlayerName(){
   if(currentUser === 'parent') return 'Jason';
   if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
@@ -18687,26 +19086,52 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
   const CELL = Math.floor(Math.min(W,H)/20);
   const COLS = Math.floor(W/CELL), ROWS = Math.floor(H/CELL);
   let snake = [{x:Math.floor(COLS/2), y:Math.floor(ROWS/2)}];
+  // dir = the direction the snake is currently moving (committed each tick)
+  // nextDir = the direction queued by the player (applied at next tick)
+  // dirQueue = buffer for rapid inputs so fast taps aren't dropped
   let dir = {x:1,y:0}, nextDir = {x:1,y:0};
-  let score=0, running=true, speed=140, lastTime=0, level=1, foodEaten=0;
+  let dirQueue = []; // queue of pending direction changes
+  let score=0, running=true, speed=140, lastTime=null, level=1, foodEaten=0;
   let obstacles=[], levelFlash=0, rafId=null, gameOverFired=false;
   let food = spawnFood();
 
   function spawnFood(){
-    let pos;
-    do{ pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)}; }
-    while(snake.some(s=>s.x===pos.x&&s.y===pos.y)||obstacles.some(o=>o.x===pos.x&&o.y===pos.y));
-    return pos;
+    // Collect all occupied cells
+    const occupied = new Set(
+      snake.map(s=>s.x+'_'+s.y).concat(obstacles.map(o=>o.x+'_'+o.y))
+    );
+    const free = [];
+    for(let x=0;x<COLS;x++) for(let y=0;y<ROWS;y++)
+      if(!occupied.has(x+'_'+y)) free.push({x,y});
+    if(!free.length) return {x:Math.floor(COLS/2),y:Math.floor(ROWS/2)}; // board full
+    return free[Math.floor(Math.random()*free.length)];
   }
 
   function addObstacles(){
     let added=0, tries=0;
-    while(added<2&&tries<200){
+    const snakeSet = new Set(snake.map(s=>s.x+'_'+s.y));
+    const obsSet   = new Set(obstacles.map(o=>o.x+'_'+o.y));
+    const foodKey  = food.x+'_'+food.y;
+    while(added<2 && tries<200){
       tries++;
-      const o={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};
-      if(!snake.some(s=>s.x===o.x&&s.y===o.y)&&!(food.x===o.x&&food.y===o.y)&&!obstacles.some(x=>x.x===o.x&&x.y===o.y))
-        { obstacles.push(o); added++; }
+      const ox=Math.floor(Math.random()*COLS), oy=Math.floor(Math.random()*ROWS);
+      const key=ox+'_'+oy;
+      if(!snakeSet.has(key) && key!==foodKey && !obsSet.has(key)){
+        obstacles.push({x:ox,y:oy}); obsSet.add(key); added++;
+      }
     }
+  }
+
+  // Queue a direction change — validate against the LAST queued direction
+  // so rapid inputs don't allow a 180° reversal
+  function queueDir(dx, dy){
+    const last = dirQueue.length ? dirQueue[dirQueue.length-1] : dir;
+    // Reject if it would reverse the last known direction
+    if(dx!==0 && dx===-last.x) return;
+    if(dy!==0 && dy===-last.y) return;
+    // Reject if same direction already queued
+    if(last.x===dx && last.y===dy) return;
+    dirQueue.push({x:dx, y:dy});
   }
 
   function draw(){
@@ -18715,13 +19140,11 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
     for(let x=0;x<COLS;x++) for(let y=0;y<ROWS;y++){
       ctx.beginPath(); ctx.arc(x*CELL+CELL/2,y*CELL+CELL/2,1,0,Math.PI*2); ctx.fill();
     }
-    // Obstacles
     obstacles.forEach(o=>{
       ctx.fillStyle='#546E7A';
       ctx.beginPath(); ctx.roundRect(o.x*CELL+1,o.y*CELL+1,CELL-2,CELL-2,3); ctx.fill();
       ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(o.x*CELL+2,o.y*CELL+2,CELL-4,3);
     });
-    // Snake
     snake.forEach((s,i)=>{
       const alpha=i===0?1:0.7-(i/snake.length)*0.4;
       ctx.fillStyle=i===0?'#E8A838':`rgba(100,181,246,${alpha})`;
@@ -18735,14 +19158,11 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
     [[ex[0],ey[0]],[ex[1],ey[1]]].forEach(([ox,oy])=>{
       ctx.beginPath(); ctx.arc(h.x*CELL+CELL/2+ox,h.y*CELL+CELL/2+oy,2,0,Math.PI*2); ctx.fill();
     });
-    // Food
     ctx.fillStyle='#EF5350';
     ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL*0.38,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#66BB6A'; ctx.fillRect(food.x*CELL+CELL/2-1,food.y*CELL+CELL*0.1,2,CELL*0.25);
-    // HUD
     ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font=`700 11px sans-serif`;
     ctx.fillText(`LVL ${level}`,6,16); ctx.fillText(`${score}`,W-45,16);
-    // Level flash
     if(levelFlash>0){
       ctx.globalAlpha=levelFlash/25*0.5; ctx.fillStyle='#E8A838'; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
       ctx.fillStyle='#fff'; ctx.font=`800 ${CELL*2}px sans-serif`; ctx.textAlign='center';
@@ -18752,15 +19172,18 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
   }
 
   function tick(){
-    dir=nextDir;
-    const head={x:(snake[0].x+dir.x+COLS)%COLS,y:(snake[0].y+dir.y+ROWS)%ROWS};
-    if(snake.some(s=>s.x===head.x&&s.y===head.y)||obstacles.some(o=>o.x===head.x&&o.y===head.y)){
+    // Consume one queued direction (if any) — validated already, safe to apply
+    if(dirQueue.length) dir = dirQueue.shift();
+    const head={x:(snake[0].x+dir.x+COLS)%COLS, y:(snake[0].y+dir.y+ROWS)%ROWS};
+    // Collision with self or obstacles
+    if(snake.some(s=>s.x===head.x&&s.y===head.y) || obstacles.some(o=>o.x===head.x&&o.y===head.y)){
       running=false;
+      draw(); // show final state
       if(!gameOverFired){ gameOverFired=true; onGameOver(score); }
       return;
     }
     snake.unshift(head);
-    if(head.x===food.x&&head.y===food.y){
+    if(head.x===food.x && head.y===food.y){
       foodEaten++;
       score+=10*level;
       onScore(score);
@@ -18776,35 +19199,53 @@ GAME_ENGINES.snake = function(canvas, onScore, onGameOver){
 
   function loop(ts){
     if(!running) return;
-    if(ts-lastTime>speed){ lastTime=ts; tick(); draw(); }
-    if(running) rafId = requestAnimationFrame(loop);
+    // Initialise lastTime on first frame so we don't get a huge stale delta
+    if(lastTime===null) lastTime=ts;
+    // Cap delta to 3 frames so backgrounding the app doesn't cause catch-up ticks
+    const elapsed = Math.min(ts-lastTime, speed*3);
+    if(elapsed >= speed){
+      lastTime = ts;
+      tick();
+      if(!running) return; // tick() may have ended the game
+      draw();
+    }
+    rafId = requestAnimationFrame(loop);
   }
-  draw();
+  draw(); // initial paint before first tick
   rafId = requestAnimationFrame(loop);
 
-  // Touch/swipe
-  let tx=0,ty=0;
-  canvas.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
-  canvas.addEventListener('touchend',e=>{
-    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
-    if(Math.abs(dx)>Math.abs(dy)){ if(dx>20&&dir.x===0) nextDir={x:1,y:0}; else if(dx<-20&&dir.x===0) nextDir={x:-1,y:0}; }
-    else{ if(dy>20&&dir.y===0) nextDir={x:0,y:1}; else if(dy<-20&&dir.y===0) nextDir={x:0,y:-1}; }
+  // ── Input — all use queueDir so rapid taps can't cause 180° reversals ──
+  let tx=0, ty=0;
+  canvas.addEventListener('touchstart',e=>{
+    tx=e.touches[0].clientX; ty=e.touches[0].clientY;
   },{passive:true});
-  // Keyboard - named handler removed on game exit
+  canvas.addEventListener('touchend',e=>{
+    if(!running) return;
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>Math.abs(dy)){
+      if(dx> 20) queueDir(1,0);
+      else if(dx<-20) queueDir(-1,0);
+    } else {
+      if(dy> 20) queueDir(0,1);
+      else if(dy<-20) queueDir(0,-1);
+    }
+  },{passive:true});
+
   const _snakeKey = e=>{
-    if(e.key==='ArrowUp'&&dir.y===0){ e.preventDefault(); nextDir={x:0,y:-1}; }
-    else if(e.key==='ArrowDown'&&dir.y===0){ e.preventDefault(); nextDir={x:0,y:1}; }
-    else if(e.key==='ArrowLeft'&&dir.x===0){ e.preventDefault(); nextDir={x:-1,y:0}; }
-    else if(e.key==='ArrowRight'&&dir.x===0){ e.preventDefault(); nextDir={x:1,y:0}; }
+    if(!running) return;
+    if     (e.key==='ArrowUp')   { e.preventDefault(); queueDir(0,-1); }
+    else if(e.key==='ArrowDown') { e.preventDefault(); queueDir(0, 1); }
+    else if(e.key==='ArrowLeft') { e.preventDefault(); queueDir(-1,0); }
+    else if(e.key==='ArrowRight'){ e.preventDefault(); queueDir( 1,0); }
   };
   document.addEventListener('keydown', _snakeKey);
-  canvas.addEventListener('remove', ()=>{ document.removeEventListener('keydown', _snakeKey); if(rafId) cancelAnimationFrame(rafId); running=false; }, {once:true});
+  canvas.addEventListener('remove', ()=>{
+    document.removeEventListener('keydown', _snakeKey);
+    if(rafId) cancelAnimationFrame(rafId);
+    running=false;
+  }, {once:true});
 
-  // D-pad controls — use globally scoped refs so onclick works
-  window._snakeDir = (dx,dy) => {
-    if(dx!==0 && dir.x===0) nextDir={x:dx,y:0};
-    if(dy!==0 && dir.y===0) nextDir={x:0,y:dy};
-  };
+  window._snakeDir = (dx,dy) => { if(running) queueDir(dx,dy); };
   const ctrl = document.getElementById('game-controls');
   if(ctrl) ctrl.innerHTML = `
     <div style="display:grid;grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px;gap:6px;">
@@ -19027,8 +19468,11 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
   const W=canvas.width, H=canvas.height;
   const ROWS=6, COLS=8, PAD_W=Math.floor(W*0.22), PAD_H=12, BALL_R=8;
   let bricks=[], score=0, lives=3, running=true, rafId=null, gameOverFired=false;
-  let ball={x:W/2,y:H*0.65,vx:3,vy:-4};
-  let pad={x:W/2-PAD_W/2,y:H-40};
+  // Normalised velocity — pixels per 16ms (60fps equivalent). Delta-time scales actual movement.
+  const BASE_SPD = 4;
+  let ball={x:W/2, y:H*0.65, vx:BASE_SPD, vy:-(BASE_SPD+0.5)};
+  let pad={x:W/2-PAD_W/2, y:H-40};
+  let lastTime=0, clearCount=0;
   const BRICK_COLORS=['#EF5350','#FF7043','#FFB300','#66BB6A','#42A5F5','#AB47BC'];
 
   function initBricks(){
@@ -19039,62 +19483,119 @@ GAME_ENGINES.breakout = function(canvas, onScore, onGameOver){
   }
   initBricks();
 
+  function resetBall(){
+    // Slight random angle so it doesn't repeat the same path
+    const ang = (Math.random()*0.4-0.2);
+    const spd = Math.min(BASE_SPD + clearCount*0.3, BASE_SPD*2); // gentle speed increase, capped
+    ball = {x:W/2, y:H*0.65, vx:spd*Math.sin(ang), vy:-spd*Math.cos(ang)};
+  }
+
   function draw(){
     ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
-    // Bricks
     bricks.forEach(b=>{ if(!b.alive) return;
       ctx.fillStyle=b.color; ctx.beginPath(); ctx.roundRect(b.x,b.y,b.w,b.h,4); ctx.fill();
       ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.roundRect(b.x+2,b.y+2,b.w-4,4,2); ctx.fill();
     });
-    // Paddle
     const grad=ctx.createLinearGradient(pad.x,0,pad.x+PAD_W,0);
     grad.addColorStop(0,'#64B5F6'); grad.addColorStop(1,'#E8A838');
     ctx.fillStyle=grad; ctx.beginPath(); ctx.roundRect(pad.x,pad.y,PAD_W,PAD_H,PAD_H/2); ctx.fill();
-    // Ball
     ctx.fillStyle='#fff'; ctx.shadowColor='#E8A838'; ctx.shadowBlur=8;
     ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
-    // Lives
     for(let i=0;i<lives;i++){ ctx.fillStyle='#EF5350'; ctx.beginPath(); ctx.arc(16+i*20,22,6,0,Math.PI*2); ctx.fill(); }
+    ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='700 11px sans-serif';
+    ctx.fillText('Score: '+score, W/2-28, 20);
   }
 
-  function loop(){
+  function loop(ts){
     if(!running) return;
-    ball.x+=ball.vx; ball.y+=ball.vy;
-    // Walls
-    if(ball.x<BALL_R||ball.x>W-BALL_R) ball.vx*=-1;
-    if(ball.y<BALL_R) ball.vy*=-1;
-    // Paddle
-    if(ball.y>pad.y-BALL_R&&ball.y<pad.y+PAD_H&&ball.x>pad.x&&ball.x<pad.x+PAD_W){
-      ball.vy=Math.abs(ball.vy)*-1;
-      ball.vx=((ball.x-(pad.x+PAD_W/2))/(PAD_W/2))*5;
+    // Delta-time capped at 50ms (so pausing/backgrounding can't cause huge jumps)
+    if(!lastTime) lastTime=ts;
+    const dt = Math.min((ts-lastTime)/16.667, 3); // 1.0 = one 60fps frame
+    lastTime=ts;
+
+    // Move ball by dt-scaled amount
+    const dx = ball.vx*dt;
+    const dy = ball.vy*dt;
+    ball.x += dx;
+    ball.y += dy;
+
+    // Wall bounces — push ball back inside to prevent sticking
+    if(ball.x < BALL_R){ ball.x=BALL_R; ball.vx=Math.abs(ball.vx); }
+    else if(ball.x > W-BALL_R){ ball.x=W-BALL_R; ball.vx=-Math.abs(ball.vx); }
+    if(ball.y < BALL_R){ ball.y=BALL_R; ball.vy=Math.abs(ball.vy); }
+
+    // Paddle — use previous y position to detect tunnelling
+    const prevY = ball.y - dy;
+    if(ball.vy>0 && prevY < pad.y && ball.y >= pad.y-BALL_R
+      && ball.x > pad.x && ball.x < pad.x+PAD_W){
+      ball.y = pad.y-BALL_R;
+      ball.vy = -Math.abs(ball.vy);
+      // Angle based on where ball hits paddle (centre = straight, edges = steep)
+      const rel = (ball.x-(pad.x+PAD_W/2)) / (PAD_W/2);
+      const spd = Math.hypot(ball.vx, ball.vy);
+      ball.vx = rel * spd * 0.9;
+      ball.vy = -Math.sqrt(Math.max(0, spd*spd - ball.vx*ball.vx));
     }
-    // Bricks
+
+    // Bricks — simple overlap, reverse vy once per frame max
+    let hitThisFrame=false;
     bricks.forEach(b=>{ if(!b.alive) return;
-      if(ball.x>b.x&&ball.x<b.x+b.w&&ball.y>b.y&&ball.y<b.y+b.h){
-        b.alive=false; ball.vy*=-1; score+=10; onScore(score);
+      if(ball.x+BALL_R>b.x && ball.x-BALL_R<b.x+b.w &&
+         ball.y+BALL_R>b.y && ball.y-BALL_R<b.y+b.h){
+        b.alive=false;
+        if(!hitThisFrame){ ball.vy*=-1; hitThisFrame=true; }
+        score+=10; onScore(score);
       }
     });
-    // Out
-    if(ball.y>H){ lives--; if(lives<=0){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } return; }
-      ball={x:W/2,y:H*0.65,vx:3,vy:-4}; }
-    // Win
-    if(bricks.every(b=>!b.alive)){ score+=500; initBricks(); ball.vx*=1.1; ball.vy*=1.1; onScore(score); }
+
+    // Ball out the bottom
+    if(ball.y > H+BALL_R){
+      lives--;
+      if(lives<=0){
+        running=false;
+        draw();
+        if(!gameOverFired){ gameOverFired=true; onGameOver(score); }
+        return;
+      }
+      resetBall();
+    }
+
+    // Win — all bricks cleared
+    if(bricks.every(b=>!b.alive)){
+      clearCount++;
+      score+=500;
+      onScore(score);
+      initBricks();
+      resetBall(); // relaunch at safe speed instead of compounding velocity
+    }
+
     draw();
     if(running) rafId = requestAnimationFrame(loop);
   }
   rafId = requestAnimationFrame(loop);
 
-  // Touch move paddle
+  // Touch — drag finger to move paddle
   canvas.addEventListener('touchmove',e=>{ e.preventDefault();
     pad.x=e.touches[0].clientX-canvas.getBoundingClientRect().left-PAD_W/2;
     pad.x=Math.max(0,Math.min(W-PAD_W,pad.x));
   },{passive:false});
-  document.addEventListener('mousemove',e=>{
+
+  // Mouse
+  const _boMouseMove = e=>{
     const r=canvas.getBoundingClientRect();
     pad.x=e.clientX-r.left-PAD_W/2;
     pad.x=Math.max(0,Math.min(W-PAD_W,pad.x));
-  });
+  };
+  document.addEventListener('mousemove', _boMouseMove);
+
+  // Cleanup — remove listeners and cancel rAF when game is replaced
+  canvas.addEventListener('remove', ()=>{
+    document.removeEventListener('mousemove', _boMouseMove);
+    if(rafId) cancelAnimationFrame(rafId);
+    running=false;
+  }, {once:true});
+
   window._breakoutMove = (dir) => {
     pad.x += dir * 30;
     pad.x = Math.max(0, Math.min(W - PAD_W, pad.x));
@@ -19115,7 +19616,8 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
   const W=canvas.width, H=canvas.height;
   const GROUND=H-60;
   let player={x:60,y:GROUND,w:30,h:40,vy:0,jumping:false,doubleJump:false};
-  let obstacles=[], score=0, speed=4, running=true, frame=0, bgX=0, level=1, levelFlash=0, rafId=null, gameOverFired=false;
+  let obstacles=[], score=0, lastScore=-1, speed=4, running=true, frame=0, bgX=0, level=1, levelFlash=0, rafId=null, gameOverFired=false;
+  let lastTime=null; // for delta-time
   const GRAVITY=0.5, JUMP_FORCE=-12;
 
   function jump(){
@@ -19135,13 +19637,18 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     obstacles.push(obs);
   }
 
-  function loop(){
+  function loop(ts){
     if(!running) return;
+    // Delta-time: cap at 3 frames to prevent catch-up after backgrounding
+    if(lastTime===null) lastTime=ts;
+    const dt = Math.min((ts-lastTime)/16.667, 3);
+    lastTime=ts;
+
     frame++;
     const spawnRate=Math.max(40,90-Math.floor(speed)*4-level*2);
     if(frame%spawnRate===0) spawnObstacle();
 
-    bgX=(bgX-speed*0.3+W)%W;
+    bgX=(bgX-speed*dt*0.3+W)%W;
     ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
     // Stars (more per level)
     ctx.fillStyle='rgba(255,255,255,0.4)';
@@ -19159,8 +19666,8 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     ctx.fillStyle=gg; ctx.fillRect(0,GROUND+player.h,W,H-GROUND-player.h);
     ctx.fillStyle='rgba(100,181,246,0.3)'; ctx.fillRect(0,GROUND+player.h,W,2);
 
-    // Player physics
-    player.vy+=GRAVITY; player.y+=player.vy;
+    // Player physics — scaled by delta-time
+    player.vy+=GRAVITY*dt; player.y+=player.vy*dt;
     if(player.y>=GROUND){ player.y=GROUND; player.vy=0; player.jumping=false; player.doubleJump=false; }
     ctx.fillStyle='#E8A838';
     ctx.beginPath(); ctx.roundRect(player.x,player.y,player.w,player.h,8); ctx.fill();
@@ -19175,12 +19682,12 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     // Obstacles
     obstacles=obstacles.filter(o=>o.x>-o.w);
     obstacles.forEach(o=>{
-      o.x-=speed;
+      o.x-=speed*dt;
       const col=o.type==='fly'?'#EF5350':o.type==='wide'?'#FF8A65':'#66BB6A';
       ctx.fillStyle=col;
       ctx.beginPath(); ctx.roundRect(o.x,o.y,o.w,o.h,4); ctx.fill();
       if(o.type==='fly'){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(o.x+o.w/2,o.y-4,o.w*0.4,6,0,0,Math.PI*2); ctx.fill(); }
-      if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; if(!gameOverFired){ gameOverFired=true; onGameOver(score); } }
+      if(player.x+player.w-6>o.x&&player.x+6<o.x+o.w&&player.y+player.h-4>o.y&&player.y+4<o.y+o.h){ running=false; }
     });
 
     score=Math.floor(frame/5);
@@ -19188,7 +19695,8 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
     const newLevel=Math.floor(score/500)+1;
     if(newLevel>level){ level=newLevel; levelFlash=30; speed=4+level*0.8; }
     else { speed=4+score/200+level*0.5; }
-    onScore(score);
+    // Only call onScore when value changes (not every frame)
+    if(score!==lastScore){ lastScore=score; onScore(score); }
 
     // HUD
     ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='700 11px sans-serif';
@@ -19201,7 +19709,12 @@ GAME_ENGINES.runner = function(canvas, onScore, onGameOver){
       ctx.fillText(`LEVEL ${level}!`,W/2,H/2); ctx.textAlign='left';
       levelFlash--;
     }
-    if(running) rafId = requestAnimationFrame(loop);
+    if(!running){
+      // Game over — draw final frame then fire callback
+      if(!gameOverFired){ gameOverFired=true; onGameOver(score); }
+      return;
+    }
+    rafId = requestAnimationFrame(loop);
   }
   rafId = requestAnimationFrame(loop);
 
@@ -19401,7 +19914,7 @@ GAME_ENGINES.scramble = function(canvas, onScore, onGameOver){
   window._scrambleReset  = ()=>{
     clearInterval(timerInterval);
     if(score>0) saveArcadeScore('scramble', score).catch(()=>{});
-    level=1; score=0; streak=0; totalPlayed=0; lives=3; onScore(0); nextWord();
+    level=1; score=0; streak=0; totalPlayed=0; lives=3; _usedWords.clear(); onScore(0); nextWord();
   };
 
   const ctrl = document.getElementById('game-controls');
@@ -19806,9 +20319,11 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
       if(tEl) tEl.textContent = gridTimeLeft + 's';
       if(gridTimeLeft <= 0){
         clearInterval(gridTimer);
+        gridTimer=null;
         lives--;
         if(lives <= 0){
           saveArcadeScore('wordsearch', score).catch(()=>{});
+          render(null, 0);
           setTimeout(()=>onGameOver(score), 800);
         } else {
           render(null, 0); // show timeout message briefly
@@ -19895,30 +20410,28 @@ GAME_ENGINES.wordsearch = function(canvas, onScore, onGameOver){
         </div>
       </div>`;
 
-    // Touch/mouse selection
-    const gridEl = document.getElementById('ws-grid');
-    if(!gridEl) return;
-
-    function cellFromEl(el){ const d=el.closest('[data-r]'); return d?[+d.dataset.r,+d.dataset.c]:null; }
-    function buildLine(r1,c1,r2,c2){
-      const dr=r2-r1, dc=c2-c1, len=Math.max(Math.abs(dr),Math.abs(dc));
-      if(!len) return [[r1,c1]];
-      const cells=[];
-      for(let i=0;i<=len;i++) cells.push([Math.round(r1+dr/len*i),Math.round(c1+dc/len*i)]);
-      return cells;
-    }
-
-    gridEl.addEventListener('mousedown',e=>{ const c=cellFromEl(e.target); if(c){ selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:true});
-    gridEl.addEventListener('mousemove',e=>{ if(!selecting||!startCell) return; const c=cellFromEl(e.target); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:true});
-    gridEl.addEventListener('mouseup',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
-
-    gridEl.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:false});
-    gridEl.addEventListener('touchmove',e=>{ e.preventDefault(); if(!selecting||!startCell) return; const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:false});
-    gridEl.addEventListener('touchend',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
   }
 
+  // ── Grid interaction — use event delegation on the wrap element (one-time) ──
+  // Using wrap (stable parent) rather than ws-grid (rebuilt each render) so
+  // listeners never stack up.
+  function cellFromEl(el){ const d=el.closest('[data-r]'); return d?[+d.dataset.r,+d.dataset.c]:null; }
+  function buildLine(r1,c1,r2,c2){
+    const dr=r2-r1, dc=c2-c1, len=Math.max(Math.abs(dr),Math.abs(dc));
+    if(!len) return [[r1,c1]];
+    const cells=[];
+    for(let i=0;i<=len;i++) cells.push([Math.round(r1+dr/len*i),Math.round(c1+dc/len*i)]);
+    return cells;
+  }
+  wrap.addEventListener('mousedown',e=>{ const c=cellFromEl(e.target); if(c){ selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:true});
+  wrap.addEventListener('mousemove',e=>{ if(!selecting||!startCell) return; const c=cellFromEl(e.target); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:true});
+  wrap.addEventListener('mouseup',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
+  wrap.addEventListener('touchstart',e=>{ const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ e.preventDefault(); selecting=true; startCell=c; selectedCells=[c]; render(); }},{passive:false});
+  wrap.addEventListener('touchmove',e=>{ if(!selecting||!startCell) return; e.preventDefault(); const t=e.touches[0]; const el=document.elementFromPoint(t.clientX,t.clientY); const c=cellFromEl(el); if(c){ selectedCells=buildLine(...startCell,...c); render(); }},{passive:false});
+  wrap.addEventListener('touchend',()=>{ if(selecting){ selecting=false; checkSelection(); }},{passive:true});
+
   window._wsReset = ()=>{
-    clearInterval(gridTimer);
+    clearInterval(gridTimer); gridTimer=null;
     if(score>0) saveArcadeScore('wordsearch', score).catch(()=>{});
     level=1; score=0; lives=3; onScore(0); makeGrid(); render();
   };
@@ -19958,13 +20471,17 @@ GAME_ENGINES.numpuzzle = function(canvas, onScore, onGameOver){
     else if(blankPos==='b'){ display=`${a} ${op} ? = ${ans}`; correctAnswer=b; }
     else                  { display=`${a} ${op} ${b} = ?`;   correctAnswer=ans; }
 
-    // Generate 3 wrong choices (unique, positive, nearby)
+    // Generate 3 wrong choices (unique, nearby) — capped attempts to prevent hang
     const wrongs=new Set();
-    while(wrongs.size<3){
-      const offset=Math.floor(Math.random()*6)+1;
+    let _wAttempts=0;
+    while(wrongs.size<3 && _wAttempts<50){
+      _wAttempts++;
+      const offset=Math.floor(Math.random()*8)+1;
       const w=Math.random()<0.5?correctAnswer+offset:Math.max(0,correctAnswer-offset);
-      if(w!==correctAnswer&&w>=0) wrongs.add(w);
+      if(w!==correctAnswer) wrongs.add(w);
     }
+    // Fallback: pad with sequential values if random didn't fill
+    for(let _f=1; wrongs.size<3; _f++) if(_f!==correctAnswer) wrongs.add(_f);
     const choices=[correctAnswer,...wrongs].sort(()=>Math.random()-0.5);
 
     return { display, correctAnswer, choices, op };
@@ -20046,6 +20563,7 @@ GAME_ENGINES.wordle = function(canvas, onScore, onGameOver){
 
   // ── 180-word daily pool (seeded by date, always same word per day) ──
   const WORDS = [
+    // Bank 1 (original pool, expanded)
     'crane','audio','blunt','crimp','duchy','elbow','fancy','giant','hoist','ivory',
     'joust','knave','lusty','mimic','novel','optic','plumb','quaff','rivet','stomp',
     'tiger','ultra','vivid','waltz','xylem','yacht','zonal','abbey','blaze','camel',
@@ -20056,14 +20574,103 @@ GAME_ENGINES.wordle = function(canvas, onScore, onGameOver){
     'raven','skunk','trove','upset','viola','watch','xerox','yodel','zilch','angel',
     'brisk','clamp','drown','elite','floss','grasp','haven','irony','jumbo','knack',
     'leafy','moody','niece','owing','plank','quake','relax','spade','tower','usher',
-    'voila','wring','xysti','young','zippy','amber','brawl','civic','diner','eject',
-    'flung','graze','husky','imply','joker','kneel','liver','mouth','nudge','orbit',
-    'panic','quota','repel','shelf','taxon','umbra','venom','wheat','expel','yacht',
-    'agile','bench','chips','disco','expat','fjord','gruel','hatch','inept','joust',
-    'karma','lemon','mercy','notch','ozone','pixel','rabbi','squad','truly','ulcer',
-    'vista','widow','extol','zippo','axiom','bylaw','cyber','depot','ethic','flute',
-    'grind','hydra','intro','jelly','knobs','lunar','maple','nymph','offal','plush',
-    'quest','rugby','sneak','tidal','untie','verge','waltz','exile','knoll','lusty',
+    'voila','wring','young','zippy','amber','brawl','civic','diner','eject','flung',
+    'graze','husky','imply','joker','liver','mouth','nudge','orbit','panic','quota',
+    'repel','shelf','umbra','venom','wheat','expel','agile','bench','chips','disco',
+    'expat','fjord','gruel','hatch','inept','karma','lemon','mercy','notch','ozone',
+    'pixel','rabbi','squad','truly','ulcer','vista','widow','extol','axiom','bylaw',
+    'cyber','depot','ethic','flute','grind','hydra','intro','jelly','lunar','maple',
+    'nymph','plush','quest','rugby','sneak','tidal','untie','verge','exile','knoll',
+    // Bank 2 (new words)
+    'abide','acute','adept','adobe','adorn','adult','affix','afoot','after','again',
+    'agate','aglow','agree','aisle','algae','align','allay','aloof','amble','amend',
+    'ample','amuse','annex','anvil','aorta','aphid','apple','aptly','ardor','argue',
+    'arise','armor','aroma','arose','array','arson','aside','askew','assay','atone',
+    'attic','audit','augur','avail','avert','avian','avid','avoid','await','awoke',
+    'baste','batch','bathe','bayou','beady','beard','beast','beige','belch','below',
+    'berth','biome','birch','bison','bland','blank','blast','bleak','bleed','blend',
+    'blink','bliss','block','bloom','blown','bluff','blunt','blurb','blurt','boast',
+    'booze','borax','bored','borne','botch','bough','bound','braid','brand','brave',
+    'brawn','bread','breed','brine','broil','broke','brood','broom','broth','brown',
+    'bruise','brunt','bully','bunny','burnt','burly','burro','burst','byway','cabal',
+    'cache','cagey','calve','candy','cargo','carol','carte','carve','catch','cause',
+    'cedar','cease','chair','chalk','champ','chant','chaos','chard','charm','chart',
+    'chase','cheap','check','cheek','cheer','chess','chief','child','chill','china',
+    'choir','choke','chord','chose','cinch','civic','civil','clack','claim','clang',
+    'clank','clash','clean','clear','cleat','cleft','clerk','click','cliff','climb',
+    'cling','cloak','clone','close','cloth','cloud','clout','clown','comet','comic',
+    'comma','conch','coral','cough','coupe','court','coven','covet','crank','crash',
+    'crave','crawl','creak','cream','creep','crest','crisp','croak','crock','cross',
+    'croup','crowd','crown','crumb','crush','crust','crypt','curly','curve','cutie',
+    'daunt','dawns','dealt','decal','decay','decoy','decry','delta','depot','derby',
+    'diode','disco','ditch','divan','divvy','dodge','dogma','doing','dolce','dowdy',
+    'dowel','downy','dowse','drank','drawl','dread','dream','drift','drill','drink',
+    'drool','droop','drove','drum','dunce','duvet','dwarf','dwell','dying','eclat',
+    'eclat','edict','eerie','egged','egret','eight','elegy','elfin','emery','enact',
+    'endow','enjoy','envoy','equal','equip','erode','erode','essay','etude','evict',
+    'exact','exalt','exert','exile','expel','exude','exult','fable','facet','faint',
+    'faith','false','farce','fatwa','fault','fauna','feast','feign','femur','fetid',
+    'fetch','fever','feral','fiend','fiery','fifth','fifty','filch','filet','finch',
+    'flame','flank','flare','flash','flaunt','flaw','fleck','flick','flinch','fling',
+    'flint','flirt','float','flock','flood','floor','flour','flout','fluid','flute',
+    'foamy','folly','forge','forgo','forum','frail','franc','frank','fraud','freak',
+    'fresh','frisk','froth','froze','frugal','fudge','fungi','funky','furor','gawky',
+    'gauze','gavel','gawky','gauzy','genre','ghost','girth','gland','glare','glass',
+    'gleam','glean','glide','gloom','glory','gloss','glove','glyph','golem','gorge',
+    'gourd','gouge','grace','grade','grain','grand','grant','grape','grasp','graze',
+    'greed','greet','grime','grimy','gripe','groan','grope','gross','grout','gruel',
+    'grump','guava','guile','guise','gulch','gusto','gypsy','habit','hairy','haste',
+    'havoc','haute','hazel','heist','hence','heron','hoary','holly','homer','horde',
+    'horny','hovel','hover','humid','hurry','husky','imply','index','indie','inept',
+    'inert','infer','ingot','ionic','irate','irked','jaunt','jazzy','jiffy','joust',
+    'jowly','judge','juice','juicy','jumpy','kayak','kinky','knave','kneel','knife',
+    'krill','ladle','lance','lanky','lapse','larva','latch','latte','laxly','laze',
+    'ledge','leech','lemon','levee','libel','liege','lilac','lithe','llama','lodge',
+    'lofty','loopy','lorry','lousy','louse','lowly','lucid','lumpy','lunar','lunge',
+    'lurch','lusty','lyric','maxim','media','melee','melon','mercy','merge','meaty',
+    'mezzo','milky','mince','mirth','moist','moose','moron','mossy','motif','motley',
+    'mourn','mousy','muddy','mulch','murky','musty','naive','nasty','nervy','newsy',
+    'ninny','noble','noise','nomad','norma','notch','nymph','occult','ochre','occur',
+    'octet','offal','offhand','often','ogled','okapi','olive','omega','onion','onset',
+    'opine','orate','ounce','outdo','outgo','overt','ovoid','pagan','pansy','papal',
+    'parka','parry','parse','pasta','patio','patsy','peach','peeve','penne','petty',
+    'phase','phony','photo','piano','piney','pinky','pithy','piton','place','plaid',
+    'plain','plane','plasm','plaza','plead','pleat','plonk','pluck','plumb','plume',
+    'plunk','poach','pouty','prank','prawn','preen','press','prick','pride','prime',
+    'primp','prior','prize','probe','prong','prose','prowl','prude','puffy','pulpy',
+    'purge','pushy','pygmy','quaff','quail','quart','quasar','quell','query','quiff',
+    'rabid','radar','radix','radon','rainy','rally','ramen','rapid','rashy','raspy',
+    'ratty','reach','rebel','rebus','reedy','regal','reign','remit','repay','repel',
+    'repro','rerun','resin','retro','revel','rider','rigid','risky','roomy','roost',
+    'rouge','rowdy','royal','rummy','rupee','rusty','saber','sadhu','saggy','salve',
+    'salvo','sandy','sappy','sassy','sauna','saute','scald','scalp','scam','scant',
+    'scarf','scary','scone','scoop','scorn','scout','scram','scrub','seamy','seedy',
+    'seize','serum','shack','shade','shady','shaft','shale','shame','shank','shave',
+    'sheen','sheep','sheer','shell','shield','shift','shine','shire','shirt','shone',
+    'shook','shoot','shout','shove','shrew','shrine','shrub','shrug','shuck','shunt',
+    'siege','sieve','sight','sigma','silky','simmer','simper','siren','sixth','sixty',
+    'slain','slang','slant','slash','sleek','sleet','slept','slick','slide','slime',
+    'slink','slope','slosh','sloth','slough','slump','slunk','slurp','smack','small',
+    'smash','smear','smite','smock','smoke','smolt','smudge','smug','snack','snail',
+    'snare','snarl','sneak','sniff','snoby','snoop','snore','snort','snout','soapy',
+    'solar','sonar','sonic','soppy','south','spark','spasm','spawn','speak','speck',
+    'spell','spend','spill','spine','spite','splat','spoof','spook','spool','spoon',
+    'spore','sport','spout','sprig','spray','sprig','spunk','spurn','squalor','squat',
+    'squid','staff','stain','stale','stalk','stamp','stank','stare','stash','stern',
+    'stiff','stilt','stoic','stomp','stony','store','stout','stove','strap','stray',
+    'strewn','strip','strobe','stroll','strut','stuck','stung','stunk','stunt','suave',
+    'sulky','sully','sumac','sunny','surge','surly','swamp','swear','sweat','sweep',
+    'swell','swept','swift','swine','swirl','swoop','synod','taboo','talon','tango',
+    'tapir','taunt','taupe','tawny','tense','tepid','thane','thicket','thing','think',
+    'thorn','those','three','threw','throe','throb','throe','throw','tithe','toast',
+    'token','tonic','topaz','total','totem','touch','tough','toxic','trace','track',
+    'trade','trail','train','trait','tramp','trawl','tread','treat','trend','trial',
+    'tribe','trick','tried','trout','truce','trump','trunk','tryst','tuner','tweak',
+    'twerp','twice','twine','typed','ulcer','unify','union','unite','unruly','usurp',
+    'utter','vaunt','verge','verso','vigor','viral','visor','vitae','vouch','vowel',
+    'vying','wagon','waver','weary','weave','wedge','whelp','whiff','whirl','whisk',
+    'widen','windy','witty','wreak','wreck','wrest','wring','wrist','wrote','yacht',
+    'yeild','yokel','zappy','zonal',
   ];
 
   // Deterministic daily word — same for everyone on same calendar day
@@ -20967,6 +21574,10 @@ async function backgroundSync(){
     }
 
     if(taskRows.length){
+      // Bug 4 fix: skip task overwrite if task modal is open (user has unsaved edits)
+      const _taskModalOpen = document.getElementById('modal-task') &&
+                             document.getElementById('modal-task').style.display !== 'none';
+      if(!_taskModalOpen){
       // Merge with local — preserve local completions that haven't synced yet
       const localMap = {};
       tasks.forEach(t=>{ localMap[t.id]=t; });
@@ -20978,7 +21589,13 @@ async function backgroundSync(){
         personIds:t.person_ids, discoveryId:t.discovery_id,
         taskIds:t.task_ids||[], subtasks:t.subtasks||[],
         attachments:t.attachments||[],
-        createdAt:t.created_at, completedAt:t.completed_at
+        createdAt:t.created_at,
+        // Bug 2 fix: normalise completedAt to a number regardless of how Supabase returns it
+        completedAt: t.completed_at
+          ? (typeof t.completed_at === 'number'
+             ? t.completed_at
+             : (isNaN(Number(t.completed_at)) ? new Date(t.completed_at).getTime() : Number(t.completed_at)))
+          : null
       })).map(t=>{
         const local = localMap[t.id];
         if(!local) return t;
@@ -20988,6 +21605,7 @@ async function backgroundSync(){
         return t;
       });
       localStorage.setItem('hub-tasks', JSON.stringify(tasks));
+      } // end !_taskModalOpen
     }
 
     updateStats(); renderAll();
@@ -23076,9 +23694,37 @@ function kidsGamesTabHTML(th){
   const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:playerColor(0),Connor:playerColor(1)};
   const medals  = ['🥇','🥈','🥉'];
 
+  // Personal bests summary for this kid
+  let html = '';
+  const myBests = KIDS_ARCADE_GAMES.map(g=>({g, pb:getPersonalBest(g.id)})).filter(x=>x.pb>0);
+  if(myBests.length > 0){
+    const topGames = myBests.sort((a,b)=>{
+      // Sort by whether they're the leader
+      const aTop = getTopScores(a.g.id,1)[0];
+      const bTop = getTopScores(b.g.id,1)[0];
+      const aLeading = aTop && aTop.name===myName ? 1 : 0;
+      const bLeading = bTop && bTop.name===myName ? 1 : 0;
+      return bLeading - aLeading;
+    }).slice(0, 4);
+    html += '<div style="margin-bottom:14px;padding:12px 14px;border-radius:16px;background:' + th.cardBg + ';border:2px solid ' + th.choreBorder + ';">'
+      + '<div style="font:800 11px/1 var(--font-ui);color:' + th.accent + ';letter-spacing:1px;margin-bottom:10px;">🏆 YOUR BEST SCORES</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+      + topGames.map(function(x){
+          const isLeader = (getTopScores(x.g.id,1)[0]||{}).name === myName;
+          return '<div style="padding:8px 10px;border-radius:10px;background:white;border:2px solid ' + (isLeader?th.accent:th.choreBorder) + ';">'
+            + '<div style="font-size:20px;">' + x.g.emoji + '</div>'
+            + '<div style="font:700 11px/1.3 var(--font-ui);color:#1a1a2e;margin-top:4px;">' + x.g.name + '</div>'
+            + '<div style="font:800 13px/1 var(--font-ui);color:' + (isLeader?th.accent:'#333') + ';margin-top:3px;">' + x.pb.toLocaleString() + '</div>'
+            + (isLeader ? '<div style="font:700 9px/1 var(--font-ui);color:' + th.accent + ';margin-top:3px;">👑 LEADER</div>' : '')
+            + '</div>';
+        }).join('')
+      + '</div>'
+      + '</div>';
+  }
+
   // Game cards grid — use <button> not <div> so iOS tap events fire reliably
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">';
-  ARCADE_GAMES.forEach(function(g){
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">';
+  KIDS_ARCADE_GAMES.forEach(function(g){
     const pb  = getPersonalBest(g.id);
     const top = getTopScores(g.id,1)[0];
     const isLeader = top && top.name === myName;
@@ -23107,7 +23753,7 @@ function kidsGamesTabHTML(th){
     + '<span style="font:800 16px/1 var(--font-ui);color:white;">Family Leaderboard</span>'
     + '</div>';
 
-  ARCADE_GAMES.forEach(function(g){
+  KIDS_ARCADE_GAMES.forEach(function(g){
     const scores = getTopScores(g.id, 10);
     html += '<div style="padding:12px 16px;border-bottom:2px solid ' + th.choreBorder + ';">';
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
