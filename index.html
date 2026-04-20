@@ -2063,7 +2063,9 @@ function selectGateUser(who){
   const jasonBtn = document.getElementById('gate-jason-tab');
   const jennyBtn = document.getElementById('gate-jenny-tab');
   const input    = document.getElementById('gate-input');
+  const userField = document.getElementById('gate-username');
   if(!jasonBtn || !jennyBtn || !input) return;
+  if(userField) userField.value = who === 'jenny' ? 'jenny@reeveshq.local' : 'jason@reeveshq.local';
   if(who === 'jenny'){
     jennyBtn.style.background = 'rgba(233,30,140,0.2)';
     jennyBtn.style.color      = '#f472b6';
@@ -2210,8 +2212,10 @@ function selectGateUser(who){
         <span style="font-size:16px;line-height:1;">👤</span> Jenny</button>
     </div>
     <form onsubmit="event.preventDefault();checkPassword();" style="display:contents;">
+    <input type="text" name="username" id="gate-username"
+      autocomplete="username" style="display:none;" aria-hidden="true"/>
     <input id="gate-input" type="password" placeholder="Jason's password…"
-      autocomplete="current-password"/>
+      autocomplete="current-password" name="password"/>
     <button id="gate-submit-btn" class="gate-btn" type="submit">→ Sign in</button>
     </form>
     <div style="text-align:center;margin-top:8px;font-family:var(--font-ui);font-size:11px;color:var(--text4);">
@@ -13287,6 +13291,8 @@ function resetBack(){
 // ═══════════════════════════════════════════════════════════════
 function renderWaitingPage(container){
   const todayStr = today();
+  // Count overdue open waiting-for items for the hero subtitle
+  const urgentCount = waitingFor.filter(w=>!w.done && w.dueDate && w.dueDate < todayStr).length;
 
   // ── Build the people list for filter ─────────────────────────
   const wfPersonIds   = new Set(waitingFor.map(w=>w.personId).filter(Boolean));
@@ -15257,10 +15263,13 @@ function renderMtgPendingItems(personIds){
   const names  = people.map(p=>p.name.toLowerCase());
 
   const involvesPerson = (itemPersonIds, itemPersonName) => {
-    const ipStr  = (itemPersonIds||'').toLowerCase();
-    const ipName = (itemPersonName||'').toLowerCase();
-    if(personIds.some(id => ipStr.split(',').includes(id))) return true;
-    if(names.some(n => ipName.includes(n) || n.includes(ipName))) return true;
+    // ID match — check if any of the meeting's selected person IDs
+    // appear in the item's personIds string
+    const ids = (itemPersonIds||'').split(',').map(s=>s.trim()).filter(Boolean);
+    if(ids.some(id => personIds.includes(id))) return true;
+    // Name fallback — for items that store person as a name string
+    const ipName = (itemPersonName||'').toLowerCase().trim();
+    if(ipName && names.some(n => n && (ipName.includes(n) || n.includes(ipName)))) return true;
     return false;
   };
 
@@ -15292,8 +15301,19 @@ function renderMtgPendingItems(personIds){
     );
   }
 
-  // 2. Open tasks with this person
-  const pendingTasks = tasks.filter(t => t.status!=='done' && involvesPerson(t.personIds,'')).slice(0,8);
+  // 2. Open tasks assigned to this person
+  // Pass name fallback by looking up each person's name from their ID on the task
+  const pendingTasks = tasks.filter(t => {
+    if(t.status === 'done') return false;
+    // Primary: ID match via personIds string
+    if(involvesPerson(t.personIds, '')) return true;
+    // Fallback: check if any of the meeting's people appear in the task's personIds
+    // by resolving IDs to names (handles tasks assigned before IDs were used)
+    const taskPersonNames = (t.personIds||'').split(',').filter(Boolean)
+      .map(id => { const p = peopleList.find(x=>x.id===id); return p ? p.name.toLowerCase() : ''; })
+      .filter(Boolean);
+    return names.some(n => taskPersonNames.some(tn => tn === n));
+  }).slice(0, 8);
   if(pendingTasks.length){
     sections.push(
       `<div style="padding:7px 12px 4px;font:700 9px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;background:rgba(232,168,56,0.05);border-bottom:1px solid var(--border);">OPEN TASKS (${pendingTasks.length})</div>` +
