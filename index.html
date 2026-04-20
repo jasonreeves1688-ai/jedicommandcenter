@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Reeves HQ"/>
 <meta name="theme-color" content="#F5F8FF" media="(prefers-color-scheme: light)"/>
@@ -2054,6 +2055,31 @@ function checkPassword(){
     }, 200);
   }
 }
+
+// selectGateUser is also called from gate HTML — must be early too
+var _gateSelectedUser = 'jason';
+function selectGateUser(who){
+  _gateSelectedUser = who;
+  const jasonBtn = document.getElementById('gate-jason-tab');
+  const jennyBtn = document.getElementById('gate-jenny-tab');
+  const input    = document.getElementById('gate-input');
+  if(!jasonBtn || !jennyBtn || !input) return;
+  if(who === 'jenny'){
+    jennyBtn.style.background = 'rgba(233,30,140,0.2)';
+    jennyBtn.style.color      = '#f472b6';
+    jasonBtn.style.background = 'transparent';
+    jasonBtn.style.color      = 'var(--text4)';
+    input.placeholder = "Jenny's password…";
+  } else {
+    jasonBtn.style.background = 'rgba(21,101,192,0.25)';
+    jasonBtn.style.color      = '#7aabf0';
+    jennyBtn.style.background = 'transparent';
+    jennyBtn.style.color      = 'var(--text4)';
+    input.placeholder = "Jason's password…";
+  }
+  input.value = '';
+  input.focus();
+}
 </script>
 <body class="light-mode">
 
@@ -2183,9 +2209,11 @@ function checkPassword(){
           background:transparent;color:var(--text4);">
         <span style="font-size:16px;line-height:1;">👤</span> Jenny</button>
     </div>
+    <form onsubmit="event.preventDefault();checkPassword();" style="display:contents;">
     <input id="gate-input" type="password" placeholder="Jason's password…"
-      onkeydown="if(event.key==='Enter')checkPassword()"/>
-    <button id="gate-submit-btn" class="gate-btn" onclick="checkPassword()">→ Sign in</button>
+      autocomplete="current-password"/>
+    <button id="gate-submit-btn" class="gate-btn" type="submit">→ Sign in</button>
+    </form>
     <div style="text-align:center;margin-top:8px;font-family:var(--font-ui);font-size:11px;color:var(--text4);">
       Kids: enter your PIN above</div>
     <div id="gate-error">✕ Wrong password — try again</div>
@@ -15356,12 +15384,8 @@ function mtgInjectCheckedItems(){
   const notesEl = document.getElementById('mtg-notes');
   if(notesEl){
     const existing = notesEl.value.trim();
-    const block = 'Agenda items discussed:
-'+lines.join('
-');
-    notesEl.value = existing ? existing+'
-
-'+block : block;
+    const block = `Agenda items discussed:\n${lines.join('\n')}`;
+    notesEl.value = existing ? `${existing}\n\n${block}` : block;
   }
 }
 
@@ -19406,31 +19430,9 @@ const GATE_DURATION  = 60*60*1000;
 // Session user — 'parent' | {role:'wife',name:'Jenny'} | {role:'kid',...}
 let currentUser = 'parent';
 let currentMode = localStorage.getItem('reeves-mode') || 'work';
-let _gateSelectedUser = 'jason'; // tracks which tab is active on the gate screen
-
 // ── Gate input handler ────────────────────────────────────────
 // Kids use PIN → instant. Adults use email/password → Supabase.
-function selectGateUser(who){
-  _gateSelectedUser = who; // persist selection reliably
-  const jasonBtn = document.getElementById('gate-jason-tab');
-  const jennyBtn = document.getElementById('gate-jenny-tab');
-  const input    = document.getElementById('gate-input');
-  if(who === 'jenny'){
-    jennyBtn.style.background = 'rgba(233,30,140,0.2)';
-    jennyBtn.style.color      = '#f472b6';
-    jasonBtn.style.background = 'transparent';
-    jasonBtn.style.color      = 'var(--text4)';
-    input.placeholder = "Jenny's password…";
-  } else {
-    jasonBtn.style.background = 'rgba(21,101,192,0.25)';
-    jasonBtn.style.color      = '#7aabf0';
-    jennyBtn.style.background = 'transparent';
-    jennyBtn.style.color      = 'var(--text4)';
-    input.placeholder = "Jason's password…";
-  }
-  input.value = '';
-  input.focus();
-}
+// (selectGateUser and _gateSelectedUser are defined early, before <body>)
 
 // ── Real checkPassword implementation (stub above forwards here) ─
 async function _checkPasswordImpl(){
