@@ -2030,6 +2030,31 @@ button{ -webkit-tap-highlight-color:transparent; }
 </script> -->
 </head>
 </head>
+<script>
+// checkPassword stub — defined before body so gate button never gets ReferenceError
+// even on slow connections where the 25k-line script hasn't fully parsed yet.
+// The real _checkPasswordImpl() is defined later; this polls until it's ready.
+function checkPassword(){
+  const btn = document.getElementById('gate-submit-btn');
+  if(typeof _checkPasswordImpl === 'function'){
+    _checkPasswordImpl();
+  } else {
+    if(btn){ btn.textContent='Loading…'; btn.disabled=true; }
+    let attempts = 0;
+    const poll = setInterval(()=>{
+      attempts++;
+      if(typeof _checkPasswordImpl === 'function'){
+        clearInterval(poll);
+        if(btn){ btn.textContent='→ Sign in'; btn.disabled=false; }
+        _checkPasswordImpl();
+      } else if(attempts > 25){
+        clearInterval(poll);
+        if(btn){ btn.textContent='→ Sign in'; btn.disabled=false; }
+      }
+    }, 200);
+  }
+}
+</script>
 <body class="light-mode">
 
 <!-- GATE & LOADING SCREENS -->
@@ -2876,6 +2901,7 @@ button{ -webkit-tap-highlight-color:transparent; }
 // HOISTED CONSTANTS — must be defined before any inline HTML
 // onclick/onkeydown handlers or early render code references them
 // ═══════════════════════════════════════════════════════════════
+
 var KID_PINS = {
   "rooroo": 0,   // Ridley
   "connie": 1,   // Connor
@@ -19406,7 +19432,8 @@ function selectGateUser(who){
   input.focus();
 }
 
-async function checkPassword(){
+// ── Real checkPassword implementation (stub above forwards here) ─
+async function _checkPasswordImpl(){
   const input = document.getElementById('gate-input');
   const err   = document.getElementById('gate-error');
   const val   = input.value.trim();
