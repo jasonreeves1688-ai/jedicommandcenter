@@ -415,12 +415,21 @@ body.light-mode select{
   border-color:var(--border2);
   color:var(--text);
 }
+/* Override any inline color-scheme:dark on date/time inputs in light mode.
+   This fixes the invisible calendar icon — the icon colour is controlled
+   by color-scheme, so dark in light mode = white icon on white background. */
+body.light-mode input[type="date"],
+body.light-mode input[type="time"]{
+  color-scheme: light !important;
+}
 body.light-mode #bottom-nav,
 body.light-mode #side-rail{ border-color:var(--border); }
 body.light-mode .me-date,
 body.light-mode .me-select{ color-scheme:light; }
 body.light-mode .field-select{ color-scheme:light; }
 body.light-mode .tctl-date{ color-scheme:light; }
+body.light-mode .row-ctrl[type="date"],
+body.light-mode .row-ctrl[type="time"]{ color-scheme:light !important; }
 
 /* ── Light mode: all remaining components ─────────────────── */
 
@@ -2583,8 +2592,21 @@ function selectGateUser(who){
       </select>
       <input class="field-input" id="task-due-input" type="date" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
 
+      <!-- People — always visible -->
+      <div id="task-people-wrap">
+        <div class="chip-label">People</div>
+        <div id="task-people-picker"></div>
+        <input type="hidden" id="task-person-ids" value=""/>
+      </div>
+
       <!-- More options toggle -->
-      <button id="task-more-toggle" onclick="toggleTaskMoreOptions()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-family:var(--font-ui);font-size:11px;font-weight:700;padding:7px 12px;cursor:pointer;width:100%;text-align:left;letter-spacing:0.3px;">＋ More options</button>
+      <button id="task-more-toggle" onclick="toggleTaskMoreOptions()"
+        style="background:none;border:none;color:var(--text4);font-family:var(--font-ui);
+          font-size:12px;font-weight:600;padding:6px 2px;cursor:pointer;
+          width:100%;text-align:center;letter-spacing:0.3px;
+          display:flex;align-items:center;justify-content:center;gap:5px;">
+        <span style="font-size:10px;">▸</span> More options
+      </button>
 
       <!-- Secondary fields, hidden by default -->
       <div id="task-more-options" style="display:none;">
@@ -2611,12 +2633,6 @@ function selectGateUser(who){
             <option value="4h">⏳ half day</option>
             <option value="8h+">⏳ full day+</option>
           </select>
-
-        </div>
-        <div id="task-people-wrap">
-          <div class="chip-label">People</div>
-          <div id="task-people-picker"></div>
-          <input type="hidden" id="task-person-ids" value=""/>
         </div>
         <div>
           <div class="notes-toolbar" id="notes-toolbar">
@@ -9703,27 +9719,29 @@ function renderTaskList(container){
     return a.dueDate?-1:b.dueDate?1:0;
   };
 
-  // Shared: render a group section
+  // Shared: render a group section — today-card style matches Today view
   function renderGroup(label, color, taskArr, icon, collapsible, collapseKey, suffix){
     if(!taskArr.length) return '';
     const isCollapsed = collapsible && localStorage.getItem('hub-grp-'+collapseKey)==='true';
-    const count = taskArr.filter(t=>t.status!=='done').length;
-    const doneN = taskArr.filter(t=>t.status==='done').length;
-    const chevron = collapsible
-      ? `<span style="font-size:10px;color:var(--text4);display:inline-block;transform:rotate(${isCollapsed?'0':'90'}deg);transition:transform 0.15s;margin-right:4px;">▶</span>`
+    const count  = taskArr.filter(t=>t.status!=='done').length;
+    const doneN  = taskArr.filter(t=>t.status==='done').length;
+    const countTxt = count + ' active' + (doneN ? ' · ' + doneN + ' done' : '');
+    const borderCol = color.startsWith('#') ? color + '33' : 'var(--border)';
+    const collapseHandler = collapsible
+      ? `onclick="var _k='hub-grp-${collapseKey}';localStorage.setItem(_k,localStorage.getItem(_k)==='true'?'false':'true');renderAll();" style="cursor:pointer;"`
       : '';
-    let g = `<div style="margin-bottom:6px;">
-      <div ${collapsible?`onclick="localStorage.setItem('hub-grp-${collapseKey}',localStorage.getItem('hub-grp-${collapseKey}')==='true'?'false':'true');renderAll();"`:''} 
-        style="display:flex;align-items:center;gap:6px;padding:5px 8px 4px;${collapsible?'cursor:pointer;':''}border-bottom:1px solid var(--border);margin-bottom:3px;">
-        ${chevron}
-        ${icon?`<span style="font-size:12px;">${icon}</span>`:''}
-        <span style="font-size:10px;font-family:var(--font-ui);font-weight:800;color:${color};letter-spacing:0.5px;">${esc(label)}</span>
-        <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${count} active${doneN?` · ${doneN} done`:''}</span>
+    let g = `<div class="today-card" style="margin-bottom:8px;border-color:${borderCol};">
+      <div class="today-card-header" ${collapseHandler}>
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:${color};"></div>
+          ${icon ? `<span style="font-size:13px;">${icon}</span>` : ''}
+          <span class="today-card-title" style="color:${color};">${esc(label)}</span>
+          <span class="today-card-count">${countTxt}</span>
+        </div>
+        ${collapsible ? `<span style="font-size:11px;color:var(--text4);">${isCollapsed ? '▸' : '▾'}</span>` : ''}
       </div>`;
     if(!isCollapsed){
-      g += `<div class="task-list">`;
       for(const t of taskArr) g += renderTaskRow(t, projects.find(p=>p.id===t.projectId)||null);
-      g += `</div>`;
       if(suffix) g += suffix;
     }
     return g + `</div>`;
@@ -10201,27 +10219,57 @@ function renderTaskRow(task,proj){
     ?`<span onclick="event.stopPropagation();openEditTask('${task.id}')" title="Subtasks: ${subDone}/${subs.length} done"
         style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid ${subDone===subs.length?'rgba(61,184,122,0.4)':'var(--border)'};background:${subDone===subs.length?'rgba(61,184,122,0.08)':'var(--surface2)'};color:${subDone===subs.length?'var(--green)':'var(--text4)'};">☑ ${subDone}/${subs.length}</span>`:'';
 
+  // Read-only due date chip (replaces inline date picker)
+  const dueBadge = (() => {
+    if(!task.dueDate) return '';
+    const col = overdue ? 'var(--red)' : task.dueDate===todayStr ? 'var(--accent)' : 'var(--text4)';
+    const prefix = overdue ? '⚠ ' : '📅 ';
+    return `<span style="font:var(--type-caption);color:${col};">${prefix}${task.dueDate.slice(5)}</span>`;
+  })();
+
+  // Read-only priority chip
+  const priChip = (() => {
+    if(isDone) return '';
+    const map = {high:['#EF5350','Urgent'], medium:['var(--accent)','High'], low:['#7CB342','Normal']};
+    const [col, lbl] = map[task.priority] || ['var(--text4)','—'];
+    return `<span style="font:600 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;
+      background:${col}18;border:1px solid ${col}44;color:${col};">${lbl}</span>`;
+  })();
+
+  // Read-only status chip — only show non-default states
+  const statusChip = (() => {
+    if(isDone || task.status==='todo') return '';
+    const map = {inprogress:['var(--accent)','▶ Active'], blocked:['#EF5350','⊘ Blocked']};
+    const [col, lbl] = map[task.status] || [];
+    if(!col) return '';
+    return `<span style="font:600 10px/1 var(--font-ui);padding:2px 7px;border-radius:10px;
+      background:${col}18;border:1px solid ${col}44;color:${col};">${lbl}</span>`;
+  })();
+
   return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}"
-      style="${pBg?'background:'+pBg+';':''}${isStale&&!isDone?'opacity:0.82;':''}">
+      style="${isStale&&!isDone?'opacity:0.82;':''}">
     <div class="task-row-top" onclick="openEditTask('${task.id}')">
-      <button class="check-btn ${isDone?'checked':''}"
+      <button class="today-check-btn"
+        style="color:${isDone?'var(--green)':pColor2};${isDone?'background:var(--green-soft);border-color:var(--green);':''}margin:0 var(--sp2) 0 var(--sp3);"
         onclick="event.stopPropagation();completeTask('${task.id}',event)"
         title="${isDone?'Mark incomplete':'Mark complete'}">✓</button>
-      <div class="priority-bar" style="background:${isDone?'rgba(140,100,50,0.2)':pColor};${iniDotStyle}"></div>
-      <div class="task-body-wrap">
-        <div style="flex:1;min-width:0;">
-          <div class="task-title ${isDone?'done':''}">${esc(task.title)}</div>
-          ${!isDone ? `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap;">
-            ${projSelect}${statusDropdown}${priorityDropdown}${dueDatePicker}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}
-            <span style="flex:1;min-width:0;"></span>
-            <button onclick="event.stopPropagation();openEditTask('${task.id}')" class="row-ctrl"
-              style="color:var(--text3);background:transparent;">✏ Edit</button>
-          <button onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')" class="row-ctrl"
-            title="Move to Someday" style="color:var(--text4);background:transparent;">💭</button>
-          <button onclick="event.stopPropagation();toggleSnoozePanel('${task.id}',this)" class="row-ctrl"
-            title="Snooze" style="color:var(--text4);background:transparent;position:relative;">💤</button>
-          </div>` : `<div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap;">${ageBadge}${subPill}</div>`}
+      <div style="flex:1;min-width:0;padding:var(--sp3) var(--sp2) var(--sp3) 0;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          ${iniDotStyle ? `<div style="width:6px;height:6px;border-radius:50%;background:#BA68C8;flex-shrink:0;"></div>` : ''}
+          <div class="task-title ${isDone?'done':''}" style="flex:1;min-width:0;">${esc(task.title)}</div>
         </div>
+        <div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">
+          ${proj ? `<span style="font:var(--type-caption);color:${projColor};">◈ ${esc(proj.name)}</span>` : ''}
+          ${dueBadge}${statusChip}${priChip}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;padding-right:var(--sp2);">
+        <button onclick="event.stopPropagation();moveTaskToSomeday('${task.id}')"
+          title="Move to Someday"
+          style="width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;">💭</button>
+        <button onclick="event.stopPropagation();toggleSnoozePanel('${task.id}',this)"
+          title="Snooze"
+          style="width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;">💤</button>
       </div>
     </div>
   </div>`;
@@ -11343,12 +11391,14 @@ function toggleProject(id){
 }
 
 function toggleTaskMoreOptions(){
-  const el = document.getElementById('task-more-options');
+  const el  = document.getElementById('task-more-options');
   const btn = document.getElementById('task-more-toggle');
   if(!el || !btn) return;
   const expanded = el.style.display !== 'none';
   el.style.display = expanded ? 'none' : 'block';
-  btn.textContent = expanded ? '＋ More options' : '－ Fewer options';
+  const caret = btn.querySelector('span');
+  if(caret) caret.style.transform = expanded ? '' : 'rotate(90deg)';
+  btn.childNodes[2] && (btn.childNodes[2].textContent = expanded ? ' More options' : ' Fewer options');
 }
 
 function openAddTask(projectId=""){
@@ -11375,7 +11425,12 @@ function openAddTask(projectId=""){
   const moreEl=document.getElementById("task-more-options");
   const moreBtn=document.getElementById("task-more-toggle");
   if(moreEl) moreEl.style.display="none";
-  if(moreBtn) moreBtn.textContent="＋ More options";
+  if(moreBtn){
+    const caret = moreBtn.querySelector('span');
+    if(caret) caret.style.transform='';
+    const txt = moreBtn.childNodes[2];
+    if(txt) txt.textContent=' More options';
+  }
   openModal("modal-task");
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
@@ -11402,11 +11457,23 @@ function openEditTask(id){
   sel.innerHTML=buildProjectOptions(t.projectId);
   _modalSubtasks = (t.subtasks||[]).map(s=>({...s}));
   renderModalSubtaskList();
-  // Always expand more options when editing existing task
+  // Collapse by default — auto-expand only if secondary fields have real content
+  // so user doesn't miss data that was previously set
+  const _hasSecondary = (t.notes && t.notes.replace(/<[^>]+>/g,'').trim())
+    || (t.subtasks && t.subtasks.length > 0)
+    || (t.recur && t.recur !== 'none')
+    || (t.effort && t.effort.trim())
+    || (t.estimate && t.estimate.trim())
+    || (t.discoveryId && t.discoveryId.trim());
   const moreEl=document.getElementById("task-more-options");
   const moreBtn=document.getElementById("task-more-toggle");
-  if(moreEl) moreEl.style.display="block";
-  if(moreBtn) moreBtn.textContent="－ Fewer options";
+  if(moreEl) moreEl.style.display = _hasSecondary ? "block" : "none";
+  if(moreBtn){
+    const caret = moreBtn.querySelector('span');
+    if(caret) caret.style.transform = _hasSecondary ? 'rotate(90deg)' : '';
+    const txt = moreBtn.childNodes[2];
+    if(txt) txt.textContent = _hasSecondary ? ' Fewer options' : ' More options';
+  }
   // Render attachment section for existing tasks
   const _attSection = document.getElementById('task-attachments-section');
   if(_attSection){
@@ -13382,12 +13449,17 @@ function renderWaitingPage(container){
       ? `<img src="${personRecord.photo}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;"/>`
       : `<span style="width:28px;height:28px;border-radius:50%;background:${avatarColor}22;color:${avatarColor};font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-ui);">${initial}</span>`;
     return `
-      <div>
-        <div style="display:flex;align-items:center;gap:10px;padding:9px 14px 8px;background:rgba(100,181,246,0.06);border-bottom:1px solid var(--border);border-top:1px solid rgba(100,181,246,0.15);">
-          ${avatar}
-          <span style="font-size:13px;font-weight:800;color:#64B5F6;font-family:var(--font-ui);flex:1;">${esc(name)}</span>
-          ${overdueCount>0?`<span style="font-size:11px;font-weight:700;color:#ff6060;font-family:var(--font-ui);">⚠ ${overdueCount} overdue</span>`:''}
-          <span style="font-size:11px;color:var(--text4);font-family:var(--font-ui);">${items.length} item${items.length!==1?'s':''}</span>
+      <div class="today-card" style="margin-bottom:8px;border-color:rgba(100,181,246,0.25);">
+        <div class="today-card-header">
+          <div class="today-card-label">
+            <div class="today-card-accent" style="background:#64B5F6;"></div>
+            ${avatar}
+            <span class="today-card-title" style="color:#64B5F6;">${esc(name)}</span>
+            <span class="today-card-count">${items.length} item${items.length!==1?'s':''}</span>
+            ${overdueCount>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${overdueCount} overdue</span>`:''}
+          </div>
+          <button onclick="event.stopPropagation();openWaitingModal()"
+            class="today-card-action">+ Add</button>
         </div>
         ${items.map(w=>row(w,false)).join('')}
       </div>`;
@@ -13460,13 +13532,24 @@ function renderWaitingPage(container){
       <button class="page-hero-action" style="background:var(--color-waiting);color:#fff;" onclick="openWaitingModal()">+ Add</button>
     </div>
     ${filterDropdown}
-    <div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid rgba(100,181,246,0.25);background:var(--surface);overflow:hidden;">
-      ${active.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing waiting — you're unblocked! 🎉</div>`
-        : groupedHtml
-      }
-      ${done.length>0?`<div style="padding:6px 14px 4px;font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text4);letter-spacing:1px;border-top:2px solid var(--border);">RESOLVED</div>${done.map(w=>row(w,true)).join('')}`:''}
-    </div>`;
+    ${active.length===0
+      ? `<div style="margin:0 10px 10px;padding:24px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Nothing waiting — you're unblocked! 🎉</div>`
+      : `<div style="margin:0 10px 10px;">${groupedHtml}</div>`
+    }
+    ${done.length>0?`
+    <div style="margin:0 10px 10px;">
+      <div class="today-card" style="border-color:rgba(128,128,128,0.2);">
+        <div class="today-card-header">
+          <div class="today-card-label">
+            <div class="today-card-accent" style="background:var(--text4);"></div>
+            <span class="today-card-title" style="color:var(--text4);">Resolved</span>
+            <span class="today-card-count">${done.length}</span>
+          </div>
+        </div>
+        ${done.map(w=>row(w,true)).join('')}
+      </div>
+    </div>`:''}
+  `;
 }
 
 function renderPeoplePage(container){
@@ -13669,32 +13752,31 @@ function renderMeetingsPage(container){
       .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean)
       .map(p=>`<span style="font-size:11px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 7px;border-radius:var(--r3);font-family:var(--font-ui);">${p.name}</span>`).join('');
     const cadenceColor = {Weekly:'#64B5F6','Bi-weekly':'#81C784',Monthly:'#E8A838','Ad-hoc':'#888'}[s.cadence]||'#888';
-    return `<div style="margin-bottom:0;border-bottom:2px solid var(--border2);">
-      <!-- Series header -->
-      <div style="display:flex;align-items:center;gap:var(--sp2);padding:10px 14px 8px;background:var(--surface2);">
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
-            <div style="font-size:14px;font-weight:800;color:var(--text);">🔁 ${esc(s.name)}</div>
-            <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${cadenceColor};padding:2px 7px;border-radius:var(--r3);border:1px solid ${cadenceColor}44;">${s.cadence}</span>
-          </div>
-          ${sPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${sPersonChips}</div>`:''}
+    return `<div class="today-card" style="margin-bottom:8px;border-color:${cadenceColor}33;">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:${cadenceColor};"></div>
+          <span class="today-card-title" style="color:${cadenceColor};">🔁 ${esc(s.name)}</span>
+          <span class="today-card-count" style="background:${cadenceColor}18;border:1px solid ${cadenceColor}44;padding:1px 6px;border-radius:10px;color:${cadenceColor};">${s.cadence}</span>
+          ${occurrences.length>0?`<span class="today-card-count">${occurrences.length} meeting${occurrences.length!==1?'s':''}</span>`:''}
         </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <div style="display:flex;gap:5px;align-items:center;">
           <button onclick="captureSeriesMeeting('${s.id}')"
-            style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">+ Capture</button>
+            class="today-card-action" style="border-color:var(--accent);color:var(--accent);">+ Capture</button>
           <button onclick="editMeetingSeries('${s.id}')"
-            style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;">⚙</button>
+            class="today-card-action">⚙</button>
           <button onclick="deleteMeetingSeries('${s.id}')"
             style="padding:4px 7px;border-radius:4px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
         </div>
       </div>
+      ${sPersonChips?`<div style="display:flex;flex-wrap:wrap;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border);">${sPersonChips}</div>`:''}
       <!-- Latest occurrence -->
       ${latest ? renderOccurrence(latest, false) : `<div style="padding:var(--sp3) var(--sp4);color:var(--text4);font-family:var(--font-ui);font-size:12px;font-style:italic;">No meetings captured yet — tap + Capture to start.</div>`}
       <!-- History (collapsible) -->
       ${history.length>0?`
-        <div onclick="toggleSeriesHistory('${s.id}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;background:rgba(0,0,0,0.08);">
-          <span style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:0.5px;">HISTORY (${history.length})</span>
-          <span id="series-caret-${s.id}" style="font-size:10px;color:var(--text4);">${s.collapsed?'▸':'▾'}</span>
+        <div onclick="toggleSeriesHistory('${s.id}')" style="display:flex;align-items:center;gap:6px;padding:7px 14px;cursor:pointer;border-top:1px solid var(--border);background:var(--surface2);">
+          <span style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;flex:1;">HISTORY (${history.length})</span>
+          <span id="series-caret-${s.id}" style="font-size:11px;color:var(--text4);">${s.collapsed?'▸':'▾'}</span>
         </div>
         <div id="series-history-${s.id}" style="display:${s.collapsed?'none':'block'};">
           ${history.map(m=>renderOccurrence(m,true)).join('')}
@@ -13705,12 +13787,18 @@ function renderMeetingsPage(container){
   // Standalone meetings — collapsible
   const standaloneCollapsed = localStorage.getItem('hub-standalone-meetings-collapsed') === '1';
   const standaloneHtml = standaloneMeetings.length===0 ? '' : `
-    <div onclick="toggleStandaloneMeetings()" style="display:flex;align-items:center;gap:6px;padding:8px 14px 4px;cursor:pointer;user-select:none;">
-      <span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;flex:1;">ONE-OFF MEETINGS (${standaloneMeetings.length})</span>
-      <span style="font-size:10px;color:var(--text4);">${standaloneCollapsed?'▸':'▾'}</span>
-    </div>
-    <div id="standalone-meetings-list" style="margin:0 0 10px;border-radius:0;border-top:1px solid var(--border);background:var(--surface);overflow:hidden;display:${standaloneCollapsed?'none':'block'};">
-      ${standaloneMeetings.map(m=>renderOccurrence(m,false)).join('')}
+    <div class="today-card" style="margin-bottom:8px;border-color:rgba(186,104,200,0.25);">
+      <div class="today-card-header" onclick="toggleStandaloneMeetings()" style="cursor:pointer;">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#BA68C8;"></div>
+          <span class="today-card-title" style="color:#BA68C8;">One-off Meetings</span>
+          <span class="today-card-count">${standaloneMeetings.length}</span>
+        </div>
+        <span style="font-size:11px;color:var(--text4);">${standaloneCollapsed?'▸':'▾'}</span>
+      </div>
+      <div id="standalone-meetings-list" style="display:${standaloneCollapsed?'none':'block'};">
+        ${standaloneMeetings.map(m=>renderOccurrence(m,false)).join('')}
+      </div>
     </div>`;
 
   container.innerHTML = `
@@ -13741,7 +13829,7 @@ function renderMeetingsPage(container){
         : meetingSearchQuery ? `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 4px;">${filteredMeetings.length} result${filteredMeetings.length!==1?'s':''}</div>` : ''}
     </div>
     ${filterBar}
-    <div style="flex:1;overflow-y:auto;">
+    <div style="flex:1;overflow-y:auto;padding:0 10px 10px;">
       ${meetingSeries.length===0&&meetingLog.length===0
         ? `<div style="padding:30px;text-align:center;color:var(--text3);font-family:var(--font-ui);">No meetings yet. Create a recurring series or capture a one-off.</div>`
         : seriesHtml + standaloneHtml
