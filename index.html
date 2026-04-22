@@ -1066,7 +1066,7 @@ input,select,textarea{ font-size:16px !important; }
   transition:opacity 0.1s;
 }
 .task-row:active{ transform:scale(0.995); border-color:var(--border2); }
-.task-row-top{ display:flex; align-items:stretch; min-height:44px; }
+.task-row-top{ display:flex; align-items:center; min-height:44px; }
 .priority-bar{ width:3px; border-radius:0; flex-shrink:0; align-self:stretch; }
 .task-body-wrap{ flex:1; min-width:0; display:flex; align-items:center; gap:var(--sp2); padding:var(--sp2) var(--sp2) var(--sp2) var(--sp2); }
 
@@ -3378,7 +3378,8 @@ async function loadAll(){
 
     // ── People ────────────────────────────────────────────────
     peopleList = peopleRows.map(p=>({
-      id:p.id, name:p.name, role:p.role, priority:p.priority, photo:p.photo
+      id:p.id, name:p.name, role:p.role, priority:p.priority, photo:p.photo,
+      department:p.department||''
     }));
     localStorage.setItem('hub-people', JSON.stringify(peopleList));
 
@@ -3775,7 +3776,8 @@ async function _sbSavePeople(){
   if(!_sbUserId) return;
   const rows = peopleList.map(p=>({
     id:p.id, owner_id:_sbUserId, name:p.name||'',
-    role:p.role||'', priority:p.priority||'Medium', photo:p.photo||''
+    role:p.role||'', priority:p.priority||'Medium', photo:p.photo||'',
+    department:p.department||''
   }));
   if(rows.length) await sbUpsert('people', rows);
   try{
@@ -11993,7 +11995,8 @@ let taskViewMode  = 'priority';    // 'priority'|'initiative'|'project'|'person'
 let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
 let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilters = new Set(); // Set of person IDs, empty = show all
-let meetingPersonFilter = ''; // person id or '' for all
+let meetingPersonFilter = ''; // kept for legacy compat
+let meetingPersonFilters = new Set(); // multi-select set of person IDs
 let meetingSearchQuery  = ''; // keyword search on meetings tab
 
 // ── New hub data (persisted to cloud via getCloudStats) ──────────
@@ -13615,7 +13618,7 @@ function renderPeoplePage(container){
       }
     </div>
     ` : `
-    <!-- WORK: Meeting contacts only -->
+    <!-- WORK: People grouped by department -->
     <div class="page-hero">
       <div class="page-hero-left">
         <div class="page-hero-accent" style="color:var(--color-people);">👥 Work</div>
@@ -13624,12 +13627,46 @@ function renderPeoplePage(container){
       </div>
       <button class="page-hero-action" style="background:var(--color-people);" onclick="openAddPersonModal()">+ Add</button>
     </div>
-    <div style="margin:0 10px 10px;border-radius:var(--r3);border:1px solid var(--border);background:var(--surface);overflow:hidden;">
-      ${peopleList.length===0
-        ? `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add the people you meet with and work with.</div>`
-        : peopleList.map(p=>meetingPersonRow(p)).join('')
-      }
-    </div>
+    ${(()=>{
+      if(peopleList.length===0) return `<div style="margin:0 10px 10px;padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:13px;">Add the people you meet with and work with.</div>`;
+
+      // Group by department — blank department goes to 'No Department'
+      const deptMap = new Map();
+      const sorted = [...peopleList].sort((a,b)=>{
+        const o={High:0,Medium:1,Low:2};
+        return (o[a.priority]??1)-(o[b.priority]??1) || a.name.localeCompare(b.name);
+      });
+      sorted.forEach(p=>{
+        const dept = (p.department||'').trim() || '__none__';
+        if(!deptMap.has(dept)) deptMap.set(dept,[]);
+        deptMap.get(dept).push(p);
+      });
+
+      // Render each department as a today-card
+      // Named departments first (alphabetical), then ungrouped at bottom
+      const named = [...deptMap.entries()].filter(([k])=>k!=='__none__').sort((a,b)=>a[0].localeCompare(b[0]));
+      const ungrouped = deptMap.get('__none__') || [];
+      const allGroups = [...named, ...(ungrouped.length?[['__none__',ungrouped]]:[])];
+
+      // Dept accent colours — cycle through a palette
+      const palette = ['#64B5F6','#81C784','#E8A838','#BA68C8','#FF8A65','#4DB6AC','#F06292','#AED581'];
+
+      return allGroups.map(([dept, people], idx)=>{
+        const label = dept==='__none__' ? 'No Department' : dept;
+        const color = dept==='__none__' ? 'var(--text4)' : palette[idx % palette.length];
+        const border = dept==='__none__' ? 'rgba(128,128,128,0.2)' : color+'33';
+        return \`<div class="today-card" style="margin:0 10px 8px;border-color:\${border};">
+          <div class="today-card-header">
+            <div class="today-card-label">
+              <div class="today-card-accent" style="background:\${color};"></div>
+              <span class="today-card-title" style="color:\${color};">\${esc(label)}</span>
+              <span class="today-card-count">\${people.length} person\${people.length!==1?'s':''}</span>
+            </div>
+          </div>
+          \${people.map(p=>meetingPersonRow(p)).join('')}
+        </div>\`;
+      }).join('');
+    })()}
     `}
   `;
 }
@@ -13653,7 +13690,10 @@ function renderMeetingsPage(container){
   pageHeader(container, 'meetings', '📝 Meetings', 'Meeting Log', _ph_sub);
 
   const filteredMeetings = meetingLog.filter(m=>{
-    if(meetingPersonFilter && !(m.personIds||'').split(',').includes(meetingPersonFilter)) return false;
+    if(meetingPersonFilters.size > 0){
+      const mids = (m.personIds||'').split(',').filter(Boolean);
+      if(!mids.some(id => meetingPersonFilters.has(id))) return false;
+    }
     if(meetingSearchQuery){
       const q = meetingSearchQuery.toLowerCase();
       return (m.title||'').toLowerCase().includes(q)
@@ -13669,18 +13709,57 @@ function renderMeetingsPage(container){
   // Filter bar
   const mtgPersonIds = new Set(meetingLog.flatMap(m=>(m.personIds||'').split(',').filter(Boolean)));
   const mtgPeople = peopleList.filter(p=>mtgPersonIds.has(p.id));
+  const mtgActiveFilters = meetingPersonFilters.size;
+  const mtgFilterBtnLabel = mtgActiveFilters === 0
+    ? '👤 People'
+    : mtgActiveFilters === 1
+      ? '👤 ' + (mtgPeople.find(p=>meetingPersonFilters.has(p.id))?.name || 'Person')
+      : `👤 People · ${mtgActiveFilters}`;
+
   const filterBar = mtgPeople.length > 0 ? `
-    <div class="person-filter-bar">
-      <button class="person-chip ${!meetingPersonFilter?'selected':''}" onclick="meetingPersonFilter='';renderAll();">All</button>
-      ${mtgPeople
-        .sort((a,b)=>{ const o={High:0,Medium:1,Low:2}; return (o[a.priority]||1)-(o[b.priority]||1); })
-        .map(p=>{
-          const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
-          return `<button class="person-chip ${meetingPersonFilter===p.id?'selected':''}"
-            onclick="meetingPersonFilter='${p.id}';renderAll();">
-            <span style="width:6px;height:6px;border-radius:50%;background:${pc};display:inline-block;margin-right:4px;flex-shrink:0;"></span>${p.name}
-          </button>`;
-        }).join('')}
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border);position:relative;">
+      <button onclick="toggleMtgFilterPanel()" id="mtg-filter-btn"
+        style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;
+          border:1px solid ${mtgActiveFilters?'var(--accent)':'var(--border)'};
+          background:${mtgActiveFilters?'rgba(232,168,56,0.1)':'var(--surface2)'};
+          color:${mtgActiveFilters?'var(--accent)':'var(--text3)'};
+          font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+        ${mtgFilterBtnLabel}
+        ${mtgActiveFilters
+          ? `<span onclick="event.stopPropagation();meetingPersonFilters.clear();renderAll();"
+              style="margin-left:2px;opacity:0.7;font-size:11px;">✕</span>`
+          : '<span style="font-size:10px;opacity:0.6;">▼</span>'}
+      </button>
+      <div id="mtg-filter-panel" style="display:none;position:absolute;top:calc(100% - 4px);left:12px;
+        z-index:200;background:var(--surface);border:1px solid var(--border2);
+        border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.35);
+        min-width:200px;max-width:280px;overflow:hidden;">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;">FILTER BY PERSON</span>
+          <button onclick="meetingPersonFilters.clear();renderAll();"
+            style="font:700 10px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;padding:2px 6px;">Clear all</button>
+        </div>
+        <div style="max-height:260px;overflow-y:auto;">
+          ${mtgPeople.sort((a,b)=>{ const o={High:0,Medium:1,Low:2}; return (o[a.priority]||1)-(o[b.priority]||1); }).map(p => {
+            const checked = meetingPersonFilters.has(p.id);
+            const cnt = meetingLog.filter(m=>(m.personIds||'').split(',').includes(p.id)).length;
+            return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                cursor:pointer;border-bottom:1px solid var(--border);
+                background:${checked?'rgba(232,168,56,0.07)':'transparent'};"
+                onclick="event.preventDefault();toggleMtgFilter('${p.id}')">
+              <div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;
+                border:2px solid ${checked?'var(--accent)':'var(--border2)'};
+                background:${checked?'var(--accent)':'transparent'};
+                display:flex;align-items:center;justify-content:center;
+                font-size:11px;color:#fff;font-weight:900;transition:all 0.1s;">
+                ${checked?'✓':''}
+              </div>
+              <span style="flex:1;font:600 13px/1 var(--font-ui);color:var(--text);">${esc(p.name)}</span>
+              <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${cnt}</span>
+            </label>`;
+          }).join('')}
+        </div>
+      </div>
     </div>` : '';
 
   // Separate meetings into series and standalone
@@ -13745,7 +13824,7 @@ function renderMeetingsPage(container){
   // Render series blocks
   const seriesHtml = meetingSeries.map(s=>{
     const occurrences = (meetingsBySeriesId[s.id]||[]).sort((a,b)=>b.date.localeCompare(a.date));
-    if(occurrences.length===0 && meetingPersonFilter) return ''; // hide empty series when filtering
+    if(occurrences.length===0 && meetingPersonFilters.size>0) return ''; // hide empty series when filtering
     const latest = occurrences[0];
     const history = occurrences.slice(1);
     const sPersonChips = (s.personIds||'').split(',').filter(Boolean)
@@ -13862,6 +13941,29 @@ function toggleStandaloneMeetings(){
 // ═══════════════════════════════════════════════════════════════
 // WAITING FOR
 // ═══════════════════════════════════════════════════════════════
+function toggleMtgFilterPanel(){
+  const panel = document.getElementById('mtg-filter-panel');
+  if(!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    setTimeout(()=>{
+      document.addEventListener('click', function _mtgClose(e){
+        if(!panel.contains(e.target) && e.target.id !== 'mtg-filter-btn' && !document.getElementById('mtg-filter-btn')?.contains(e.target)){
+          panel.style.display = 'none';
+          document.removeEventListener('click', _mtgClose);
+        }
+      }, {capture:true});
+    }, 0);
+  }
+}
+
+function toggleMtgFilter(personId){
+  if(meetingPersonFilters.has(personId)) meetingPersonFilters.delete(personId);
+  else meetingPersonFilters.add(personId);
+  renderAll();
+}
+
 function toggleWfFilterPanel(){
   const panel = document.getElementById('wf-filter-panel');
   if(!panel) return;
@@ -14366,15 +14468,16 @@ function renderSomedaySection(){
 // ── Meeting/WaitingFor people (no nudges) ───────────────────────
 function savePeople(){ localStorage.setItem('hub-people',JSON.stringify(peopleList)); _queueSave('people',_sbSavePeople); }
 
-function addPerson(name, role, priority, photo){
+function addPerson(name, role, priority, photo, department){
   if(!name.trim()) return;
-  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), priority:priority||'Medium', photo:photo||'' });
+  peopleList.push({ id:'p'+Date.now(), name:name.trim(), role:(role||'').trim(), priority:priority||'Medium', photo:photo||'', department:(department||'').trim() });
   savePeople(); renderAll();
 }
 
-function updatePerson(id, name, role, priority, photo){
+function updatePerson(id, name, role, priority, photo, department){
   const p = peopleList.find(x=>x.id===id); if(!p) return;
   p.name = name.trim(); p.role = (role||'').trim(); p.priority = priority||'Medium';
+  p.department = (department||'').trim();
   if(photo !== undefined) p.photo = photo;
   savePeople(); renderAll();
   showToast('✓ Updated ' + p.name);
@@ -15056,7 +15159,8 @@ function openAddPersonModal(editId){
         </div>
       </div>
       <input type="hidden" id="person-photo" value="${existing?.photo||''}"/>
-      <input id="person-role" class="field-input" placeholder="Role or company (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
+      <input id="person-role" class="field-input" placeholder="Role or title (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
+      <input id="person-department" class="field-input" placeholder="Department (optional)…" autocomplete="off" value="${existing?esc(existing.department||''):''}"/>
       <div style="margin-bottom:var(--sp2);">
         <div class="chip-label">Priority</div>
         <div style="display:flex;gap:6px;">
@@ -15110,10 +15214,11 @@ function submitAddPerson(){
   const role=document.getElementById('person-role')?.value||'';
   const priority=document.getElementById('person-priority')?.value||'Medium';
   const photo=document.getElementById('person-photo')?.value||'';
+  const department=document.getElementById('person-department')?.value||'';
   const editId=document.getElementById('person-edit-id')?.value||'';
   if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updatePerson(editId, name, role, priority, photo); }
-  else { addPerson(name, role, priority, photo); showToast('👤 Added ' + name.trim()); }
+  if(editId){ updatePerson(editId, name, role, priority, photo, department); }
+  else { addPerson(name, role, priority, photo, department); showToast('👤 Added ' + name.trim()); }
   openAddPersonModal();
 }
 
