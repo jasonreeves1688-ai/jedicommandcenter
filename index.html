@@ -14327,49 +14327,56 @@ function openWaitingModal(prefillTaskId, editId){
   const old = document.getElementById('modal-waiting');
   if(old) old.remove();
   const el = document.createElement('div');
-  el.id='modal-waiting'; el.className='modal-overlay fullscreen';
-  el.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-family:var(--font-ui);font-size:16px;font-weight:900;color:#64B5F6;">${existing?'✏ Edit Waiting For':'⏳ Waiting For'}</div>
+  el.id='modal-waiting'; el.className='modal-overlay';
+  el.innerHTML=`<div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:#64B5F6;">${existing?'✏ Edit Waiting For':'⏳ New Waiting For'}</span>
       <button class="modal-close" onclick="closeModal('modal-waiting')">✕</button>
     </div>
-    <div class="modal-body">
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">WHO?</div>
-        ${buildPersonPickerHTML(existing?.personIds||existing?.personId||'', 'wf-person-ids', true)}
+    <div class="field-group">
+      <div class="chip-label">Who?</div>
+      ${buildPersonPickerHTML(existing?.personIds||existing?.personId||'', 'wf-person-ids', true)}
+
+      <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off"
+        value="${existing?esc(existing.what):linkedTask?esc(linkedTask.title):''}"/>
+
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div class="chip-label">Expected by</div>
+          <input id="wf-due" type="date" class="field-input"
+            value="${existing?.dueDate||''}"
+            style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label">Follow-up nudge</div>
+          <select id="wf-followup-days" class="field-select" style="color-scheme:dark;">
+            <option value="">No nudge</option>
+            <option value="1"  ${existing?.followUpDays===1 ?'selected':''}>1 day</option>
+            <option value="2"  ${existing?.followUpDays===2 ?'selected':''}>2 days</option>
+            <option value="3"  ${existing?.followUpDays===3 ?'selected':''}>3 days</option>
+            <option value="5"  ${existing?.followUpDays===5 ?'selected':''}>5 days</option>
+            <option value="7"  ${existing?.followUpDays===7 ?'selected':''}>1 week</option>
+            <option value="14" ${existing?.followUpDays===14?'selected':''}>2 weeks</option>
+          </select>
+        </div>
       </div>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">WHAT ARE YOU WAITING ON?</div>
-        <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off" value="${existing?esc(existing.what):linkedTask?esc(linkedTask.title):''}"/>
-      </div>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">EXPECTED BY (OPTIONAL)</div>
-        <input id="wf-due" type="date" class="field-input" value="${existing?.dueDate||''}" style="color-scheme:dark;color:var(--text);font-family:var(--font-ui);"/>
-      </div>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">NUDGE ME TO FOLLOW UP IN (DAYS)</div>
-        <select id="wf-followup-days" class="field-input" style="color-scheme:dark;">
-          <option value="">No follow-up nudge</option>
-          <option value="1" ${existing?.followUpDays===1?'selected':''}>1 day</option>
-          <option value="2" ${existing?.followUpDays===2?'selected':''}>2 days</option>
-          <option value="3" ${existing?.followUpDays===3?'selected':''}>3 days</option>
-          <option value="5" ${existing?.followUpDays===5?'selected':''}>5 days</option>
-          <option value="7" ${existing?.followUpDays===7?'selected':''}>1 week</option>
-          <option value="14" ${existing?.followUpDays===14?'selected':''}>2 weeks</option>
-        </select>
-      </div>
-      <input id="wf-task-id" type="hidden" value="${existing?.taskId||prefillTaskId||''}"/>
-      <input id="wf-edit-id" type="hidden" value="${editId||''}"/>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">INITIATIVE (OPTIONAL)</div>
-        <select id="wf-initiative-id" class="field-input" style="color-scheme:dark;">
-          <option value="">— None —</option>
-          ${discoveryList.map(i=>`<option value="${i.id}" ${(existing?.initiativeId===i.id)?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
-        </select>
-      </div>
+
+      ${discoveryList.length>0?`
+      <div class="chip-label">Initiative (optional)</div>
+      <select id="wf-initiative-id" class="field-select" style="color-scheme:dark;">
+        <option value="">— None —</option>
+        ${discoveryList.map(i=>`<option value="${i.id}" ${existing?.initiativeId===i.id?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
+      </select>`:`<input id="wf-initiative-id" type="hidden" value="${existing?.initiativeId||''}"/>`}
+
+      <input id="wf-task-id"  type="hidden" value="${existing?.taskId||prefillTaskId||''}"/>
+      <input id="wf-edit-id"  type="hidden" value="${editId||''}"/>
     </div>
-    <div class="modal-footer">
-      <button onclick="submitWaitingFor()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:#64B5F6;color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add to Waiting For'}</button>
+    <div class="modal-actions">
+      <button onclick="submitWaitingFor()"
+        style="width:100%;padding:13px;border-radius:var(--r3);border:none;
+          background:#64B5F6;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
+        ${existing?'✓ Save Changes':'+ Add to Waiting For'}
+      </button>
     </div>
   </div>`;
   el.onclick = e => { if(e.target===el) closeModal('modal-waiting'); };
