@@ -13655,16 +13655,17 @@ function renderPeoplePage(container){
         const label = dept==='__none__' ? 'No Department' : dept;
         const color = dept==='__none__' ? 'var(--text4)' : palette[idx % palette.length];
         const border = dept==='__none__' ? 'rgba(128,128,128,0.2)' : color+'33';
-        return \`<div class="today-card" style="margin:0 10px 8px;border-color:\${border};">
-          <div class="today-card-header">
-            <div class="today-card-label">
-              <div class="today-card-accent" style="background:\${color};"></div>
-              <span class="today-card-title" style="color:\${color};">\${esc(label)}</span>
-              <span class="today-card-count">\${people.length} person\${people.length!==1?'s':''}</span>
-            </div>
-          </div>
-          \${people.map(p=>meetingPersonRow(p)).join('')}
-        </div>\`;
+        const rows = people.map(p=>meetingPersonRow(p)).join('');
+        return '<div class="today-card" style="margin:0 10px 8px;border-color:'+border+';">'
+          + '<div class="today-card-header">'
+          + '<div class="today-card-label">'
+          + '<div class="today-card-accent" style="background:'+color+';"></div>'
+          + '<span class="today-card-title" style="color:'+color+';">'+esc(label)+'</span>'
+          + '<span class="today-card-count">'+people.length+' person'+(people.length!==1?'s':'')+'</span>'
+          + '</div>'
+          + '</div>'
+          + rows
+          + '</div>';
       }).join('');
     })()}
     `}
