@@ -1329,17 +1329,32 @@ input,select,textarea{ font-size:16px !important; }
 }
 .nav-btn.active{ color:var(--accent); }
 .nav-btn:active{ opacity:0.7; }
-/* Active state for bottom nav — pill background behind icon + accent color */
+/* Active state for bottom nav — solid pill background, obvious at a glance */
 #bottom-nav .nav-btn.active{
   color:var(--accent);
   position:relative;
 }
-#bottom-nav .nav-btn.active .nav-icon{
-  background:var(--accent-soft);
+/* Solid pill background behind the button content */
+#bottom-nav .nav-btn.active::after{
+  content:'';
+  position:absolute;
+  top:4px; left:50%;
+  transform:translateX(-50%);
+  width:44px; height:calc(100% - 10px);
+  background:var(--accent);
+  opacity:0.15;
   border-radius:10px;
-  padding:4px;
-  width:34px; height:28px;
-  transition:background var(--t-fast);
+  pointer-events:none;
+}
+/* Top accent bar */
+#bottom-nav .nav-btn.active::before{
+  content:'';
+  position:absolute;
+  top:0; left:50%;
+  transform:translateX(-50%);
+  width:28px; height:3px;
+  background:var(--accent);
+  border-radius:0 0 3px 3px;
 }
 #bottom-nav .nav-btn.active .nav-label{
   color:var(--accent);
@@ -1431,20 +1446,19 @@ input,select,textarea{ font-size:16px !important; }
 .modal-sheet{
   background:var(--surface); border:1px solid var(--border2);
   border-radius:var(--r4) var(--r4) 0 0;
-  padding-top:20px; /* space for drag handle */
+  padding-top:20px;
   position:relative;
-}
-/* Drag handle on all bottom sheets */
-.modal-sheet::before{
-  content:''; position:absolute; top:8px; left:50%; transform:translateX(-50%);
-  width:36px; height:4px; border-radius:2px;
-  background:var(--border2); opacity:0.6;
-}
   width:100%; max-width:540px; max-height:90vh;
   box-shadow:var(--shadow-modal);
   animation:slideUp var(--t-med);
   display:flex; flex-direction:column; overflow:hidden;
   padding-bottom:env(safe-area-inset-bottom);
+}
+/* Drag handle */
+.modal-sheet::before{
+  content:''; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+  width:36px; height:4px; border-radius:2px;
+  background:var(--border2); opacity:0.6;
 }
 .modal-sheet .modal-title{
   padding:var(--sp4) var(--sp4) var(--sp3);
@@ -2372,6 +2386,9 @@ function selectGateUser(who){
       <button class="nav-btn" id="nav-team" onclick="setNav('team')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="7" r="2.5"/><circle cx="15" cy="7" r="2.5"/><circle cx="10" cy="5" r="2.5"/><path d="M1 17c0-2.5 1.8-4 4-4s4 1.5 4 4"/><path d="M11 17c0-2.5 1.8-4 4-4s4 1.5 4 4"/><line x1="10" y1="8" x2="10" y2="13"/></svg></span><span class="nav-label">Team</span>
       </button>
+      <button class="nav-btn" id="nav-clients" onclick="setNav('clients')">
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="11" rx="2"/><path d="M6 7V5a4 4 0 018 0v2"/><line x1="10" y1="11" x2="10" y2="14"/><circle cx="10" cy="11" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Clients</span>
+      </button>
       <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg></span><span class="nav-label">Settings</span>
       </button>
@@ -2566,8 +2583,8 @@ function selectGateUser(who){
       <button class="nav-btn" id="nav-team" onclick="setNav('team')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="7" r="2.5"/><circle cx="15" cy="7" r="2.5"/><circle cx="10" cy="5" r="2.5"/><path d="M1 17c0-2.5 1.8-4 4-4s4 1.5 4 4"/><path d="M11 17c0-2.5 1.8-4 4-4s4 1.5 4 4"/><line x1="10" y1="8" x2="10" y2="13"/></svg></span><span class="nav-label">Team</span>
       </button>
-      <button class="nav-btn" id="nav-people" onclick="setNav('people')">
-        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></span><span class="nav-label">People</span>
+      <button class="nav-btn" id="nav-clients" onclick="setNav('clients')">
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="11" rx="2"/><path d="M6 7V5a4 4 0 018 0v2"/><line x1="10" y1="11" x2="10" y2="14"/><circle cx="10" cy="11" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Clients</span>
       </button>
       <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">More</span>
@@ -3904,6 +3921,65 @@ async function _sbSavePeople(){
   }catch(e){ console.warn('[People] Cleanup failed:', e); }
 }
 
+
+// ── Client save functions ───────────────────────────────────────
+function saveClientOrgs(){ localStorage.setItem('hub-client-orgs',JSON.stringify(clientOrgs)); _queueSave('clientOrgs',_sbSaveClientOrgs); }
+function saveClientConvos(){ localStorage.setItem('hub-client-convos',JSON.stringify(clientConvos)); _queueSave('clientConvos',_sbSaveClientConvos); }
+
+async function _sbSaveClientOrgs(){
+  if(!_sbUserId) return;
+  const rows = clientOrgs.map(o=>({
+    id:o.id, owner_id:_sbUserId, name:o.name||'', segment:o.segment||'',
+    industry:o.industry||'', health:o.health||'active',
+    contact_ids:o.contactIds||'', notes:o.notes||'',
+    created_at:o.createdAt||today(), updated_at:o.updatedAt||today()
+  }));
+  if(!rows.length) return;
+  const saved = await sbUpsert('client_orgs', rows);
+  if(!saved){ console.warn('[ClientOrgs] Upsert failed'); return; }
+  try{
+    const { data: remote } = await _sb.from('client_orgs').select('id').eq('owner_id',_sbUserId);
+    if(remote?.length){ const local=new Set(clientOrgs.map(o=>o.id)); const del=remote.map(r=>r.id).filter(id=>!local.has(id)); if(del.length) await _sb.from('client_orgs').delete().in('id',del); }
+  }catch(e){ console.warn('[ClientOrgs] Cleanup:',e); }
+}
+
+async function _sbSaveClientConvos(){
+  if(!_sbUserId) return;
+  const rows = clientConvos.map(c=>({
+    id:c.id, owner_id:_sbUserId, org_id:c.orgId||'',
+    contact_ids:c.contactIds||'', date:c.date||'',
+    summary:c.summary||'', insights:JSON.stringify(c.insights||[]),
+    follow_ups:JSON.stringify(c.followUps||[]), created_at:c.createdAt||today()
+  }));
+  if(!rows.length) return;
+  const saved = await sbUpsert('client_convos', rows);
+  if(!saved){ console.warn('[ClientConvos] Upsert failed'); return; }
+  try{
+    const { data: remote } = await _sb.from('client_convos').select('id').eq('owner_id',_sbUserId);
+    if(remote?.length){ const local=new Set(clientConvos.map(c=>c.id)); const del=remote.map(r=>r.id).filter(id=>!local.has(id)); if(del.length) await _sb.from('client_convos').delete().in('id',del); }
+  }catch(e){ console.warn('[ClientConvos] Cleanup:',e); }
+}
+
+async function _loadClientData(){
+  if(!_sbUserId) return;
+  try{
+    const [orgRows, convoRows] = await Promise.all([sbGet('client_orgs'), sbGet('client_convos')]);
+    if(orgRows.length){
+      clientOrgs = orgRows.map(o=>({ id:o.id, name:o.name, segment:o.segment||'', industry:o.industry||'',
+        health:o.health||'active', contactIds:o.contact_ids||'', notes:o.notes||'',
+        createdAt:o.created_at, updatedAt:o.updated_at }));
+      localStorage.setItem('hub-client-orgs', JSON.stringify(clientOrgs));
+    }
+    if(convoRows.length){
+      clientConvos = convoRows.map(c=>({ id:c.id, orgId:c.org_id, contactIds:c.contact_ids||'',
+        date:c.date, summary:c.summary||'',
+        insights: (() => { try{ return JSON.parse(c.insights||'[]'); }catch(e){ return []; } })(),
+        followUps: (() => { try{ return JSON.parse(c.follow_ups||'[]'); }catch(e){ return []; } })(),
+        createdAt:c.created_at }));
+      localStorage.setItem('hub-client-convos', JSON.stringify(clientConvos));
+    }
+  }catch(e){ console.warn('[Client] Load failed:',e); }
+}
 
 // ── Team leadership save functions ───────────────────────────────
 function saveDelegations(){ localStorage.setItem('hub-delegations',JSON.stringify(delegations)); _queueSave('delegations',_sbSaveDelegations); }
@@ -9711,6 +9787,7 @@ function _renderAllInner(){
   if(activeNav==="people"){  renderPeoplePage(main);  return; }
   if(activeNav==="meetings"){ renderMeetingsPage(main); return; }
   if(activeNav==="team"){     renderTeamPage(main);    return; }
+  if(activeNav==="clients"){ renderClientsPage(main); return; }
   if(activeNav==="settings"){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
   if(activeNav==="games"){renderGamesPage(main);return;}
@@ -12375,7 +12452,7 @@ function setNav(nav){
   if(homeAlias) homeAlias.classList.add('active');
 
   // Also update the ⊞ grid button — highlight if nav is not a primary tab
-  const primaryTabs = ['today','tasks','meetings','team','home-today','calendar','family','grocery','tracker','people','kids'];
+  const primaryTabs = ['today','tasks','meetings','team','clients','home-today','calendar','family','grocery','tracker','people','kids'];
   const gridBtn = document.getElementById('nav-grid-btn');
   if(gridBtn){
     if(!primaryTabs.includes(nav)) gridBtn.classList.add('active');
@@ -12439,6 +12516,15 @@ let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilters = new Set(); // Set of person IDs, empty = show all
 let meetingPersonFilter = ''; // kept for legacy compat
 let meetingPersonFilters = new Set(); // multi-select set of person IDs
+
+// ── Client Intelligence data ─────────────────────────────────
+let clientOrgs    = loadHubData('hub-client-orgs', []);
+// {id, name, segment, industry, health('active'|'atrisk'|'churned'|'prospect'),
+//  contactIds[], notes, createdAt, updatedAt}
+let clientConvos  = loadHubData('hub-client-convos', []);
+// {id, orgId, contactIds[], date, summary,
+//  insights[{text, quote, type, initiativeId}],
+//  followUps[{what, owner, dueDate, done}], createdAt}
 
 // ── Leadership / Team data ────────────────────────────────────
 let delegations    = loadHubData('hub-delegations', []);
@@ -14109,6 +14195,11 @@ function renderWaitingPage(container){
         </div>
       </div>
       <button onclick="openWaitingModal(null,'${w.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">edit</button>
+      <button onclick="event.stopPropagation();openMoveSheet('wf','${w.id}')"
+        style="padding:5px 8px;border-radius:5px;border:1px solid rgba(129,199,132,0.45);
+          background:rgba(129,199,132,0.07);color:#81C784;
+          font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;"
+        title="Move to Team or Client">Move →</button>
       <button onclick="openWfAttachments('${w.id}')"
         style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);
           background:transparent;color:var(--text3);
@@ -14242,6 +14333,742 @@ function renderWaitingPage(container){
       </div>
     </div>`:''}
   `;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENT INTELLIGENCE
+// Org-level tracking of client conversations, insights, follow-ups
+// ═══════════════════════════════════════════════════════════════
+
+let _clientView   = 'list';   // 'list' | 'detail'
+let _clientOrgId  = null;     // active org ID in detail view
+let _clientSearch = '';       // search query on list view
+const _CLIENT_HEALTH = {
+  active:   { label:'Active',   color:'#81C784', dot:'🟢' },
+  atrisk:   { label:'At Risk',  color:'#FF8A65', dot:'🟠' },
+  churned:  { label:'Churned',  color:'#EF5350', dot:'🔴' },
+  prospect: { label:'Prospect', color:'#64B5F6', dot:'🔵' },
+};
+const _CLIENT_INSIGHT_TYPES = {
+  problem:  { label:'Problem',  color:'#EF5350', emoji:'⚠' },
+  request:  { label:'Request',  color:'#64B5F6', emoji:'📋' },
+  feedback: { label:'Feedback', color:'#E8A838', emoji:'💬' },
+  positive: { label:'Positive', color:'#81C784', emoji:'✅' },
+  concern:  { label:'Concern',  color:'#FF8A65', emoji:'🔔' },
+};
+
+// ── Last touched date for an org ──────────────────────────────────
+function _orgLastTouched(orgId){
+  const convos = clientConvos.filter(c=>c.orgId===orgId);
+  if(!convos.length) return null;
+  return convos.sort((a,b)=>b.date.localeCompare(a.date))[0].date;
+}
+
+// ── Open follow-up count for org ──────────────────────────────────
+function _orgOpenFollowUps(orgId){
+  return clientConvos.filter(c=>c.orgId===orgId)
+    .flatMap(c=>c.followUps||[])
+    .filter(f=>!f.done).length;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIST VIEW
+// ═══════════════════════════════════════════════════════════════
+function renderClientsPage(container){
+  if(_clientView==='detail' && _clientOrgId){
+    renderClientDetail(container); return;
+  }
+
+  const todayStr = today();
+  const q = _clientSearch.toLowerCase();
+
+  // Sort: orgs with open follow-ups first, then by last touched (oldest = most stale first)
+  const sorted = [...clientOrgs]
+    .filter(o => !q || o.name.toLowerCase().includes(q) || (o.segment||'').toLowerCase().includes(q) || (o.industry||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      const aFU = _orgOpenFollowUps(a.id);
+      const bFU = _orgOpenFollowUps(b.id);
+      if(aFU !== bFU) return bFU - aFU; // more follow-ups first
+      const aLT = _orgLastTouched(a.id)||'0000';
+      const bLT = _orgLastTouched(b.id)||'0000';
+      return aLT.localeCompare(bLT); // oldest touched first
+    });
+
+  const byHealth = {};
+  for(const o of sorted){
+    const h = o.health||'active';
+    if(!byHealth[h]) byHealth[h]=[];
+    byHealth[h].push(o);
+  }
+
+  const orgCard = (o) => {
+    const h = _CLIENT_HEALTH[o.health||'active'];
+    const lastTouched = _orgLastTouched(o.id);
+    const daysSince = lastTouched ? Math.floor((Date.now()-new Date(lastTouched).getTime())/86400000) : null;
+    const openFU = _orgOpenFollowUps(o.id);
+    const convoCount = clientConvos.filter(c=>c.orgId===o.id).length;
+    const contactCount = (o.contactIds||'').split(',').filter(Boolean).length;
+    const isStale = daysSince !== null && daysSince > 30;
+
+    return `<div onclick="_clientOrgId='${o.id}';_clientView='detail';renderAll();"
+        style="display:flex;align-items:center;gap:12px;padding:12px 14px;
+          border-bottom:1px solid var(--border);cursor:pointer;
+          background:${isStale&&o.health==='active'?'rgba(255,138,101,0.03)':'transparent'};">
+      <!-- Health indicator -->
+      <div style="width:8px;height:8px;border-radius:50%;background:${h.color};flex-shrink:0;margin-top:2px;"></div>
+      <!-- Content -->
+      <div style="flex:1;min-width:0;">
+        <div style="font:700 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.name)}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+          ${o.segment?`<span style="font:600 10px/1 var(--font-ui);color:var(--text4);">${esc(o.segment)}</span>`:''}
+          ${contactCount>0?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">· ${contactCount} contact${contactCount!==1?'s':''}</span>`:''}
+          ${convoCount>0?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">· ${convoCount} convo${convoCount!==1?'s':''}</span>`:''}
+          ${lastTouched
+            ? `<span style="font:600 10px/1 var(--font-ui);color:${isStale?'#FF8A65':'var(--text4)'};">${isStale?'⏰ ':''}${daysSince===0?'today':daysSince+'d ago'}</span>`
+            : `<span style="font:600 10px/1 var(--font-ui);color:var(--text4);font-style:italic;">no conversations</span>`}
+        </div>
+      </div>
+      <!-- Badges -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
+        ${openFU>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:8px;white-space:nowrap;">⚡ ${openFU} open</span>`:''}
+        <span style="font-size:16px;line-height:1;">›</span>
+      </div>
+    </div>`;
+  };
+
+  const healthOrder = ['atrisk','active','prospect','churned'];
+  const listHtml = clientOrgs.length === 0
+    ? `<div style="padding:48px 24px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🏢</div>
+        <div style="font:700 16px/1.4 var(--font-ui);color:var(--text2);margin-bottom:8px;">No client orgs yet</div>
+        <div style="font:500 13px/1.5 var(--font-ui);color:var(--text4);margin-bottom:20px;">Add your first client organization to start tracking conversations.</div>
+        <button onclick="openClientOrgModal()" style="padding:11px 24px;border-radius:8px;border:1px solid var(--accent);background:rgba(21,101,192,0.08);color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;">+ Add Client Org</button>
+      </div>`
+    : sorted.length === 0
+    ? `<div style="padding:32px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No orgs match "${_clientSearch}"</div>`
+    : healthOrder.flatMap(h => {
+        const orgs = sorted.filter(o=>(o.health||'active')===h);
+        if(!orgs.length) return [];
+        const hh = _CLIENT_HEALTH[h];
+        return [`<div style="font:700 10px/1 var(--font-ui);color:${hh.color};letter-spacing:1px;padding:8px 14px 4px;">${hh.dot} ${hh.label.toUpperCase()} (${orgs.length})</div>`,
+                `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 10px 10px;">${orgs.map(orgCard).join('')}</div>`];
+      }).join('');
+
+  // Stale count for subheader
+  const staleCount = clientOrgs.filter(o=>{
+    const lt = _orgLastTouched(o.id);
+    return lt && Math.floor((Date.now()-new Date(lt).getTime())/86400000) > 30;
+  }).length;
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+      <!-- Header -->
+      <div class="page-hero" style="flex-shrink:0;">
+        <div class="page-hero-left">
+          <div class="page-hero-accent" style="color:#81C784;">🏢 Intelligence</div>
+          <div class="page-hero-title">Clients</div>
+          <div class="page-hero-sub">${clientOrgs.length} orgs${staleCount>0?` · <span style="color:#FF8A65;">${staleCount} stale</span>`:''}</div>
+        </div>
+        <button onclick="openClientOrgModal()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--accent);background:rgba(21,101,192,0.08);color:var(--accent);font:700 12px/1 var(--font-ui);cursor:pointer;">+ Add Org</button>
+      </div>
+
+      <!-- Search -->
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--r2);border:1.5px solid ${_clientSearch?'var(--accent)':'var(--border)'};background:var(--surface2);">
+          <span style="color:var(--text4);font-size:13px;">🔍</span>
+          <input value="${esc(_clientSearch)}" placeholder="Search orgs, segments, industries…"
+            oninput="_clientSearch=this.value;renderAll();"
+            style="flex:1;border:none;background:transparent;color:var(--text);font:500 14px/1 var(--font-body);outline:none;"
+            autocomplete="off" autocorrect="off"/>
+          ${_clientSearch?`<button onclick="_clientSearch='';renderAll();" style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;">✕</button>`:''}
+        </div>
+      </div>
+
+      <!-- List -->
+      <div style="flex:1;overflow-y:auto;padding:8px 0 20px;">
+        ${listHtml}
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DETAIL VIEW
+// ═══════════════════════════════════════════════════════════════
+function renderClientDetail(container){
+  const org = clientOrgs.find(o=>o.id===_clientOrgId);
+  if(!org){ _clientView='list'; renderClientsPage(container); return; }
+
+  const todayStr = today();
+  const convos = clientConvos.filter(c=>c.orgId===org.id)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const allInsights = convos.flatMap(c=>(c.insights||[]).map(i=>({...i, date:c.date, convoId:c.id})));
+  const allFollowUps = convos.flatMap(c=>(c.followUps||[]).map(f=>({...f, date:c.date, convoId:c.id})));
+  const openFU = allFollowUps.filter(f=>!f.done);
+  const overdueFU = openFU.filter(f=>f.dueDate&&f.dueDate<todayStr);
+  const h = _CLIENT_HEALTH[org.health||'active'];
+  const contacts = (org.contactIds||'').split(',').filter(Boolean)
+    .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const linkedInits = discoveryList.filter(i=>
+    allInsights.some(ins=>ins.initiativeId===i.id)
+  );
+
+  // Group insights by type for summary
+  const insightsByType = {};
+  for(const ins of allInsights){
+    if(!insightsByType[ins.type]) insightsByType[ins.type]=[];
+    insightsByType[ins.type].push(ins);
+  }
+
+  const convoRow = (c) => {
+    const cContacts = (c.contactIds||'').split(',').filter(Boolean)
+      .map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean);
+    const openC = (c.followUps||[]).filter(f=>!f.done).length;
+    return `<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;background:var(--surface);">
+      <!-- Convo header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font:700 12px/1 var(--font-ui);color:var(--text);">${c.date}</span>
+            ${cContacts.length?`<span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${cContacts.slice(0,3).map(esc).join(', ')}</span>`:''}
+            ${openC>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:8px;">⚡ ${openC} open</span>`:''}
+          </div>
+          ${c.summary?`<div style="font:500 12px/1.4 var(--font-body);color:var(--text3);margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${esc(c.summary)}</div>`:''}
+        </div>
+        <button onclick="openClientConvoModal('${org.id}','${c.id}')"
+          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
+      </div>
+      <!-- Insights -->
+      ${(c.insights||[]).length?`<div style="padding:8px 12px;display:flex;flex-direction:column;gap:4px;">
+        ${(c.insights||[]).map(ins=>{
+          const it = _CLIENT_INSIGHT_TYPES[ins.type||'feedback'];
+          return `<div style="display:flex;gap:8px;align-items:flex-start;">
+            <span style="font:700 11px/1 var(--font-ui);color:${it.color};flex-shrink:0;margin-top:1px;">${it.emoji}</span>
+            <div style="flex:1;min-width:0;">
+              <span style="font:500 12px/1.4 var(--font-body);color:var(--text);">${esc(ins.text)}</span>
+              ${ins.quote?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);font-style:italic;margin-top:2px;border-left:2px solid ${it.color}44;padding-left:6px;">"${esc(ins.quote)}"</div>`:''}
+              ${ins.initiativeId?`<span style="font:700 10px/1 var(--font-ui);color:#BA68C8;">◈ ${esc(discoveryList.find(i=>i.id===ins.initiativeId)?.title?.slice(0,30)||'Initiative')}</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`:''}
+      <!-- Follow-ups -->
+      ${(c.followUps||[]).filter(f=>!f.done).length?`<div style="padding:4px 12px 8px;border-top:1px solid var(--border);margin-top:2px;">
+        ${(c.followUps||[]).filter(f=>!f.done).map(f=>`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;">
+          <button onclick="event.stopPropagation();_toggleClientFollowUp('${c.id}','${f.what?.replace(/'/g,"\\'")||''}')"
+            style="width:18px;height:18px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;flex-shrink:0;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;"></button>
+          <span style="font:500 12px/1.3 var(--font-ui);color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.what)}</span>
+          ${f.owner&&f.owner!=='me'?`<span style="font:600 10px/1 var(--font-ui);color:var(--text4);">→ ${esc(f.owner)}</span>`:''}
+          ${f.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${f.dueDate<todayStr?'#EF5350':'var(--text4)'};">${f.dueDate.slice(5)}</span>`:''}
+        </div>`).join('')}
+      </div>`:''}
+    </div>`;
+  };
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+      <!-- Back + header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
+        <button onclick="_clientView='list';renderAll();"
+          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Back</button>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font:800 16px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(org.name)}</span>
+            <span style="font:700 10px/1 var(--font-ui);color:${h.color};padding:2px 7px;border-radius:8px;background:${h.color}18;border:1px solid ${h.color}33;white-space:nowrap;">${h.dot} ${h.label}</span>
+          </div>
+          ${org.segment||org.industry?`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${[org.segment,org.industry].filter(Boolean).map(esc).join(' · ')}</div>`:''}
+        </div>
+        <button onclick="openClientOrgModal('${org.id}')"
+          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">Edit</button>
+      </div>
+
+      <!-- Quick stats -->
+      <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${convos.length}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Convos</div>
+        </div>
+        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:${overdueFU.length>0?'#EF5350':'var(--text)'};">${openFU.length}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Open FUs</div>
+        </div>
+        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${allInsights.length}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Insights</div>
+        </div>
+        <div style="flex:1;padding:10px;text-align:center;">
+          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${contacts.length}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Contacts</div>
+        </div>
+      </div>
+
+      <!-- Scrollable body -->
+      <div style="flex:1;overflow-y:auto;">
+
+        <!-- Contacts strip -->
+        ${contacts.length?`<div style="display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;align-items:center;">
+          ${contacts.map(p=>{
+            const pc=p.priority==='High'?'#EF5350':p.priority==='Low'?'#888':'#E8A838';
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;cursor:pointer;" onclick="openPersonDetail('${p.id}','person')">
+              ${renderAvatar(p.name,p.photo,34,pc+'22',pc,false)}
+              <span style="font:600 10px/1 var(--font-ui);color:var(--text3);max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name.split(' ')[0])}</span>
+            </div>`;
+          }).join('')}
+          <button onclick="openClientOrgModal('${org.id}')"
+            style="width:34px;height:34px;border-radius:50%;border:2px dashed var(--border);background:transparent;color:var(--text4);font-size:18px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        </div>`:''}
+
+        <!-- Insight summary chips -->
+        ${Object.keys(insightsByType).length>0?`<div style="display:flex;gap:6px;padding:8px 14px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
+          ${Object.entries(insightsByType).map(([type,items])=>{
+            const it=_CLIENT_INSIGHT_TYPES[type];
+            return `<span style="font:700 10px/1 var(--font-ui);color:${it.color};padding:3px 9px;border-radius:10px;background:${it.color}18;border:1px solid ${it.color}33;">${it.emoji} ${it.label} (${items.length})</span>`;
+          }).join('')}
+        </div>`:''}
+
+        <!-- AI Synthesis button -->
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+          <button onclick="runClientSynthesis('${org.id}')"
+            style="flex:1;padding:10px 14px;border-radius:8px;border:1px solid rgba(186,104,200,0.4);
+              background:rgba(186,104,200,0.07);color:#BA68C8;
+              font:700 12px/1.3 var(--font-ui);cursor:pointer;text-align:left;">
+            🤖 Synthesise what ${esc(org.name.split(' ')[0])} has told us
+          </button>
+          ${convos.length>=3?`<button onclick="runCrossOrgSynthesis()"
+            style="padding:10px 12px;border-radius:8px;border:1px solid rgba(100,181,246,0.4);
+              background:rgba(100,181,246,0.07);color:#64B5F6;
+              font:700 12px/1.3 var(--font-ui);cursor:pointer;white-space:nowrap;">
+            🌐 All clients
+          </button>`:''}
+        </div>
+
+        <!-- AI result -->
+        <div id="client-ai-result-${org.id}" style="padding:0 14px;"></div>
+
+        <!-- Linked initiatives -->
+        ${linkedInits.length?`<div style="padding:8px 14px;border-bottom:1px solid var(--border);">
+          <div style="font:700 10px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;margin-bottom:8px;">🔭 LINKED INITIATIVES</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${linkedInits.map(i=>{
+              const s=DISC_STATUS[i.status]||DISC_STATUS.discovery;
+              const cnt=allInsights.filter(ins=>ins.initiativeId===i.id).length;
+              return `<div onclick="discActiveId='${i.id}';discView='detail';setNav('discovery');"
+                style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;
+                  border:1px solid ${s.color}33;background:${s.color}0a;cursor:pointer;">
+                <span style="font:700 11px/1 var(--font-ui);color:${s.color};">${s.label}</span>
+                <span style="flex:1;font:600 12px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(i.title)}</span>
+                <span style="font:600 10px/1 var(--font-ui);color:var(--text4);">${cnt} insight${cnt!==1?'s':''}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`:''}
+
+        <!-- Conversations -->
+        <div style="padding:10px 14px 0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">CONVERSATIONS (${convos.length})</span>
+          <button onclick="openClientConvoModal('${org.id}')"
+            style="padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:rgba(21,101,192,0.08);color:var(--accent);font:700 12px/1 var(--font-ui);cursor:pointer;">+ Log Convo</button>
+        </div>
+        <div style="padding:8px 14px 20px;">
+          ${convos.length?convos.map(convoRow).join('')
+            :`<div style="padding:24px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No conversations logged yet</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Toggle a follow-up done in a conversation ─────────────────────
+function _toggleClientFollowUp(convoId, what){
+  const c = clientConvos.find(x=>x.id===convoId); if(!c) return;
+  const f = (c.followUps||[]).find(x=>x.what===what); if(!f) return;
+  f.done = !f.done;
+  saveClientConvos(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENT ORG MODAL — add/edit organization
+// ═══════════════════════════════════════════════════════════════
+function openClientOrgModal(editId){
+  const existing = editId ? clientOrgs.find(o=>o.id===editId) : null;
+  _activePickerList = peopleList;
+
+  const old = document.getElementById('modal-client-org'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-client-org'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font:800 15px/1 var(--font-ui);color:#81C784;">🏢 ${existing?'Edit Org':'New Client Org'}</span>
+      <button class="modal-close" onclick="closeModal('modal-client-org')">✕</button>
+    </div>
+    <div class="field-group">
+      <input id="co-name" class="field-input" placeholder="Organization name…" autocomplete="off"
+        value="${existing?esc(existing.name):''}"/>
+
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div class="chip-label">Segment</div>
+          <input id="co-segment" class="field-input" placeholder="e.g. Enterprise, Mid-Market…" autocomplete="off"
+            value="${existing?esc(existing.segment||''):''}"/>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label">Industry</div>
+          <input id="co-industry" class="field-input" placeholder="e.g. Healthcare, Finance…" autocomplete="off"
+            value="${existing?esc(existing.industry||''):''}"/>
+        </div>
+      </div>
+
+      <div class="chip-label">Health</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${Object.entries(_CLIENT_HEALTH).map(([k,v])=>{
+          const sel=(existing?.health||'active')===k;
+          return `<button type="button" onclick="document.querySelectorAll('.co-health-btn').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${v.color}22';this.style.borderColor='${v.color}';this.style.color='${v.color}';document.getElementById('co-health').value='${k}';"
+            class="co-health-btn"
+            style="flex:1;padding:7px 6px;border-radius:7px;border:1px solid ${sel?v.color:'var(--border)'};background:${sel?v.color+'22':'transparent'};color:${sel?v.color:'var(--text3)'};font:700 11px/1.2 var(--font-ui);cursor:pointer;">${v.dot} ${v.label}</button>`;
+        }).join('')}
+      </div>
+      <input type="hidden" id="co-health" value="${existing?.health||'active'}"/>
+
+      <div class="chip-label">Contacts at this org</div>
+      ${buildPersonPickerHTML(existing?.contactIds||'', 'co-contact-ids', true)}
+
+      <textarea id="co-notes" class="field-input" placeholder="Notes about this org (optional)…" rows="2"
+        style="resize:none;">${existing?esc(existing.notes||''):''}</textarea>
+
+      <input type="hidden" id="co-edit-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-actions" style="display:flex;gap:8px;">
+      ${existing?`<button onclick="deleteClientOrg('${editId}')"
+        style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.35);
+          background:rgba(239,83,80,0.06);color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">
+        Delete
+      </button>`:''}
+      <button onclick="submitClientOrg()"
+        style="flex:1;padding:14px;border-radius:var(--r3);border:none;
+          background:#81C784;color:#1a1f2e;font:800 14px/1 var(--font-ui);cursor:pointer;">
+        ${existing?'✓ Save Changes':'+ Add Org'}
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-client-org'); };
+  document.body.appendChild(m);
+  setTimeout(()=>{ _watchModalInputs(m); document.getElementById('co-name')?.focus(); }, 80);
+}
+
+function submitClientOrg(){
+  _markModalClean();
+  const name       = document.getElementById('co-name')?.value.trim()||'';
+  const segment    = document.getElementById('co-segment')?.value.trim()||'';
+  const industry   = document.getElementById('co-industry')?.value.trim()||'';
+  const health     = document.getElementById('co-health')?.value||'active';
+  const contactIds = document.getElementById('co-contact-ids')?.value||'';
+  const notes      = document.getElementById('co-notes')?.value.trim()||'';
+  const editId     = document.getElementById('co-edit-id')?.value||'';
+  if(!name){ showToast('Organization name required'); return; }
+  if(editId){
+    const o = clientOrgs.find(x=>x.id===editId);
+    if(o){ o.name=name; o.segment=segment; o.industry=industry; o.health=health; o.contactIds=contactIds; o.notes=notes; o.updatedAt=today(); }
+  } else {
+    clientOrgs.unshift({ id:'co'+Date.now(), name, segment, industry, health, contactIds, notes, createdAt:today(), updatedAt:today() });
+  }
+  saveClientOrgs(); closeModal('modal-client-org');
+  showToast(`🏢 ${editId?'Updated':'Added'}: ${name}`);
+  renderAll();
+}
+
+function deleteClientOrg(id){
+  if(!confirm(`Delete this org and all its conversations?`)) return;
+  clientOrgs = clientOrgs.filter(o=>o.id!==id);
+  clientConvos = clientConvos.filter(c=>c.orgId!==id);
+  saveClientOrgs(); saveClientConvos();
+  _clientView='list'; _clientOrgId=null;
+  closeModal('modal-client-org'); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONVERSATION MODAL — log/edit a conversation
+// ═══════════════════════════════════════════════════════════════
+function openClientConvoModal(orgId, editId){
+  const org = clientOrgs.find(o=>o.id===orgId); if(!org) return;
+  const existing = editId ? clientConvos.find(c=>c.id===editId) : null;
+  _activePickerList = peopleList;
+
+  const old = document.getElementById('modal-client-convo'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-client-convo'; m.className = 'modal-overlay';
+
+  // Build existing insights HTML for editing
+  const existingInsights = existing?.insights||[];
+  const existingFollowUps = existing?.followUps||[];
+
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font:800 15px/1 var(--font-ui);color:var(--accent);">💬 ${existing?'Edit':'Log'} Conversation</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${esc(org.name)}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-client-convo')">✕</button>
+    </div>
+    <div class="field-group">
+      <!-- Who was on the call -->
+      <div class="chip-label">Who was on this call?</div>
+      ${buildPersonPickerHTML(existing?.contactIds||(org.contactIds||''), 'cc-contact-ids', true)}
+
+      <!-- Date -->
+      <div class="chip-label">Date</div>
+      <input id="cc-date" type="date" class="field-input" value="${existing?.date||today()}" style="color-scheme:dark;color:var(--text);"/>
+
+      <!-- Summary -->
+      <div class="chip-label">Summary <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">(what was this conversation about?)</span></div>
+      <textarea id="cc-summary" class="field-input" placeholder="Brief summary of the conversation…" rows="2"
+        style="resize:none;">${existing?esc(existing.summary||''):''}</textarea>
+
+      <!-- Insights -->
+      <div class="chip-label" style="margin-top:4px;">What did they tell you? <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">(add one at a time)</span></div>
+      <div id="cc-insights-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+        ${existingInsights.map((ins,i)=>`
+          <div id="cc-ins-${i}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;position:relative;">
+            <div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;">
+              <span style="font:700 11px/1 var(--font-ui);color:${_CLIENT_INSIGHT_TYPES[ins.type||'feedback'].color};">${_CLIENT_INSIGHT_TYPES[ins.type||'feedback'].emoji}</span>
+              <span style="font:600 12px/1.4 var(--font-ui);color:var(--text);flex:1;">${esc(ins.text)}</span>
+              <button onclick="document.getElementById('cc-ins-${i}').remove();"
+                style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;padding:0;flex-shrink:0;">✕</button>
+            </div>
+            ${ins.quote?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);font-style:italic;border-left:2px solid var(--border2);padding-left:6px;">"${esc(ins.quote)}"</div>`:''}
+            <input type="hidden" class="cc-ins-type" value="${ins.type||'feedback'}"/>
+            <input type="hidden" class="cc-ins-text" value="${esc(ins.text)}"/>
+            <input type="hidden" class="cc-ins-quote" value="${esc(ins.quote||'')}"/>
+            <input type="hidden" class="cc-ins-initiative" value="${ins.initiativeId||''}"/>
+          </div>`).join('')}
+      </div>
+
+      <!-- Add insight panel -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:4px;">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+          ${Object.entries(_CLIENT_INSIGHT_TYPES).map(([k,v])=>`<button type="button" onclick="document.querySelectorAll('.cc-type-btn').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${v.color}22';this.style.borderColor='${v.color}';this.style.color='${v.color}';document.getElementById('cc-new-type').value='${k}';"
+            class="cc-type-btn"
+            style="flex:1;padding:5px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 10px/1.2 var(--font-ui);cursor:pointer;min-width:52px;">${v.emoji} ${v.label}</button>`).join('')}
+        </div>
+        <input type="hidden" id="cc-new-type" value="feedback"/>
+        <input id="cc-new-text" class="field-input" placeholder="What did they say?" autocomplete="off" style="margin-bottom:6px;font-size:16px;"/>
+        <input id="cc-new-quote" class="field-input" placeholder='Their exact words (optional)…' autocomplete="off" style="margin-bottom:6px;font-size:13px;"/>
+        ${discoveryList.filter(i=>!['killed','launched'].includes(i.status)).length?`
+        <select id="cc-new-initiative" class="field-select" style="color-scheme:dark;margin-bottom:8px;font-size:13px;">
+          <option value="">Link to initiative (optional)</option>
+          ${discoveryList.filter(i=>!['killed','launched'].includes(i.status)).map(i=>`<option value="${i.id}">${esc(i.title.slice(0,40))}</option>`).join('')}
+        </select>`:'<input type="hidden" id="cc-new-initiative" value=""/>'}
+        <button onclick="_addClientInsight()"
+          style="width:100%;padding:9px;border-radius:7px;border:none;background:var(--surface3,var(--border));color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">
+          + Add Insight
+        </button>
+      </div>
+
+      <!-- Follow-ups -->
+      <div class="chip-label" style="margin-top:8px;">Follow-ups <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">(one per line: "owner: task by date")</span></div>
+      <textarea id="cc-followups" class="field-input" placeholder="You: Send proposal by Friday&#10;Sarah: Share requirements doc" rows="3"
+        style="resize:none;font-size:14px;">${existingFollowUps.map(f=>`${f.owner&&f.owner!=='me'?f.owner+': ':''}${f.what}${f.dueDate?' by '+f.dueDate:''}`).join('\n')}</textarea>
+
+      <input type="hidden" id="cc-org-id" value="${orgId}"/>
+      <input type="hidden" id="cc-edit-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-actions" style="display:flex;gap:8px;">
+      ${existing?`<button onclick="deleteClientConvo('${editId}')"
+        style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.35);background:rgba(239,83,80,0.06);color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">Delete</button>`:''}
+      <button onclick="submitClientConvo()"
+        style="flex:1;padding:14px;border-radius:var(--r3);border:none;
+          background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
+        ${existing?'✓ Save Changes':'+ Save Conversation'}
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-client-convo'); };
+  document.body.appendChild(m);
+  setTimeout(()=>{ _watchModalInputs(m); }, 80);
+}
+
+function _addClientInsight(){
+  const text = document.getElementById('cc-new-text')?.value.trim();
+  if(!text){ showToast('Add what they said'); return; }
+  const type = document.getElementById('cc-new-type')?.value||'feedback';
+  const quote = document.getElementById('cc-new-quote')?.value.trim()||'';
+  const initiativeId = document.getElementById('cc-new-initiative')?.value||'';
+  const it = _CLIENT_INSIGHT_TYPES[type];
+  const list = document.getElementById('cc-insights-list');
+  const idx = list.children.length;
+  const div = document.createElement('div');
+  div.id = 'cc-ins-'+idx;
+  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;position:relative;';
+  div.innerHTML = `<div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:${quote?'6px':'0'};">
+    <span style="font:700 11px/1 var(--font-ui);color:${it.color};">${it.emoji}</span>
+    <span style="font:600 12px/1.4 var(--font-ui);color:var(--text);flex:1;">${esc(text)}</span>
+    <button onclick="this.closest('[id^=cc-ins-]').remove();" style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;padding:0;">✕</button>
+  </div>
+  ${quote?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);font-style:italic;border-left:2px solid var(--border2);padding-left:6px;">"${esc(quote)}"</div>`:''}
+  <input type="hidden" class="cc-ins-type" value="${type}"/>
+  <input type="hidden" class="cc-ins-text" value="${esc(text)}"/>
+  <input type="hidden" class="cc-ins-quote" value="${esc(quote)}"/>
+  <input type="hidden" class="cc-ins-initiative" value="${initiativeId}"/>`;
+  list.appendChild(div);
+  document.getElementById('cc-new-text').value='';
+  document.getElementById('cc-new-quote').value='';
+  document.getElementById('cc-new-text').focus();
+  // Auto-create Discovery signal if linked to initiative
+  if(initiativeId){
+    signalList.push({ id:'sig'+Date.now(), initiativeId, type:'client', sentiment:'neutral',
+      source:'Client: '+((clientOrgs.find(o=>o.id===document.getElementById('cc-org-id')?.value)||{}).name||''),
+      notes:text, date:document.getElementById('cc-date')?.value||today() });
+    saveSignals();
+  }
+}
+
+function submitClientConvo(){
+  _markModalClean();
+  const orgId      = document.getElementById('cc-org-id')?.value||'';
+  const contactIds = document.getElementById('cc-contact-ids')?.value||'';
+  const date       = document.getElementById('cc-date')?.value||today();
+  const summary    = document.getElementById('cc-summary')?.value.trim()||'';
+  const editId     = document.getElementById('cc-edit-id')?.value||'';
+
+  // Collect insights from DOM
+  const insights = [...document.getElementById('cc-insights-list').children].map(div=>({
+    type:    div.querySelector('.cc-ins-type')?.value||'feedback',
+    text:    div.querySelector('.cc-ins-text')?.value||'',
+    quote:   div.querySelector('.cc-ins-quote')?.value||'',
+    initiativeId: div.querySelector('.cc-ins-initiative')?.value||''
+  })).filter(i=>i.text);
+
+  // Parse follow-ups: "Owner: task by YYYY-MM-DD" or "task by YYYY-MM-DD" or "task"
+  const fuRaw = document.getElementById('cc-followups')?.value||'';
+  const followUps = fuRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{
+    const ownerMatch = line.match(/^([^:]{1,30}):\s*(.+)$/);
+    let owner='me', task=line;
+    if(ownerMatch){ owner=ownerMatch[1].trim(); task=ownerMatch[2].trim(); }
+    const dateMatch = task.match(/\bby\s+(\d{4}-\d{2}-\d{2}|\w+ \d+)/i);
+    const dueDate = dateMatch ? dateMatch[1] : '';
+    const what = task.replace(/\s*by\s+\S+.*$/i,'').trim();
+    return { what, owner, dueDate, done:false };
+  });
+
+  if(!summary && !insights.length){ showToast('Add a summary or at least one insight'); return; }
+
+  const convo = { id:editId||('cc'+Date.now()), orgId, contactIds, date, summary, insights, followUps, createdAt:today() };
+  if(editId){ const idx=clientConvos.findIndex(c=>c.id===editId); if(idx>-1) clientConvos[idx]=convo; else clientConvos.unshift(convo); }
+  else clientConvos.unshift(convo);
+
+  // Update org's updatedAt
+  const o = clientOrgs.find(x=>x.id===orgId); if(o) o.updatedAt=today();
+
+  saveClientConvos(); saveClientOrgs();
+  closeModal('modal-client-convo');
+  _completePendingMove();
+  showToast('💬 Conversation saved');
+  renderAll();
+}
+
+function deleteClientConvo(id){
+  clientConvos = clientConvos.filter(c=>c.id!==id);
+  saveClientConvos(); closeModal('modal-client-convo'); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI SYNTHESIS — per-org and cross-org
+// ═══════════════════════════════════════════════════════════════
+async function runClientSynthesis(orgId){
+  const org = clientOrgs.find(o=>o.id===orgId); if(!org) return;
+  const convos = clientConvos.filter(c=>c.orgId===orgId).sort((a,b)=>a.date.localeCompare(b.date));
+  if(!convos.length){ showToast('No conversations to synthesise yet'); return; }
+
+  const resultEl = document.getElementById('client-ai-result-'+orgId);
+  if(resultEl) resultEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px;color:var(--text3);font:500 12px/1 var(--font-ui);">
+    <div style="width:16px;height:16px;border-radius:50%;border:2px solid #BA68C8;border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>
+    Synthesising ${convos.length} conversations…</div>`;
+
+  const convoText = convos.map(c=>{
+    const insights = (c.insights||[]).map(i=>`  [${i.type.toUpperCase()}] ${i.text}${i.quote?' ("'+i.quote+'")'':''}`).join('\n');
+    return `Date: ${c.date}\nSummary: ${c.summary||'(none)'}\nInsights:\n${insights||'  (none logged)'}`;
+  }).join('\n\n---\n\n');
+
+  try{
+    const result = await aiCall(
+      `You are a senior product manager analysing client conversations to inform product decisions.
+Analyse the conversation history with this client organisation and provide a structured synthesis.
+Be specific, evidence-based, and actionable. Reference the dates of conversations where relevant.
+Format your response with these sections:
+1. **What they care about most** (top 2–3 themes with evidence)
+2. **Key problems they've described** (specific pain points, ranked by frequency/urgency)
+3. **Explicit requests or asks** (things they've directly asked for)
+4. **Sentiment trend** (has the relationship gotten better/worse/stable?)
+5. **Product implications** (what should we consider building or changing, based on this client?)
+6. **What to explore next** (open questions or gaps in our understanding)
+Keep it concise — a PM should be able to act on this in 2 minutes.`,
+      `Client organisation: ${org.name}
+Segment: ${org.segment||'unknown'} | Industry: ${org.industry||'unknown'}
+Number of conversations: ${convos.length}
+
+CONVERSATION HISTORY (oldest to newest):
+${convoText.slice(0,5000)}`,
+      1200
+    );
+
+    if(resultEl) resultEl.innerHTML = `<div style="padding:14px;border-top:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font:700 11px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;">🤖 AI SYNTHESIS — ${org.name.toUpperCase()}</span>
+        <button onclick="document.getElementById('client-ai-result-${orgId}').innerHTML=''" style="font:600 10px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;">✕</button>
+      </div>
+      <div style="font:500 13px/1.7 var(--font-body);color:var(--text);">${result.replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--text)">$1</strong>').replace(/\n/g,'<br/>')}</div>
+    </div>`;
+  }catch(e){
+    const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401')||String(e.message||'').includes('404');
+    if(resultEl) resultEl.innerHTML = `<div style="padding:12px;color:#EF5350;font:500 12px/1.4 var(--font-ui);">${notSetup?'⚠ AI not configured — see Settings → AI Features':'⚠ Synthesis failed. Try again.'}</div>`;
+  }
+}
+
+async function runCrossOrgSynthesis(){
+  const allInsights = clientConvos.flatMap(c=>{
+    const org = clientOrgs.find(o=>o.id===c.orgId);
+    return (c.insights||[]).map(i=>({ ...i, orgName:org?.name||'Unknown', segment:org?.segment||'', date:c.date }));
+  });
+  if(allInsights.length < 5){ showToast('Need more conversations across orgs for cross-org synthesis'); return; }
+
+  showToast('🤖 Analysing all client insights…');
+
+  const insightText = allInsights
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .map(i=>`[${i.orgName}${i.segment?' ('+i.segment+')':''}] [${i.type.toUpperCase()}] ${i.text}${i.quote?' ("'+i.quote+'")':''}`)
+    .join('\n');
+
+  try{
+    const result = await aiCall(
+      `You are a senior product manager doing thematic analysis across multiple client organisations.
+Identify patterns, recurring problems, and high-signal product opportunities from this client feedback.
+Format your response:
+1. **Top recurring themes** (what are clients talking about most, across orgs?)
+2. **Most urgent problems** (what's causing the most pain across your client base?)
+3. **Most requested capabilities** (what are clients explicitly asking for?)
+4. **Segment differences** (do enterprise vs mid-market vs SMB clients have different needs?)
+5. **Highest-confidence product bets** (based on volume and urgency of feedback, what should we prioritise?)
+Be specific and reference which org segments the patterns come from.`,
+      `Total insights across ${clientOrgs.length} client organisations:\n\n${insightText.slice(0,6000)}`,
+      1400
+    );
+
+    // Show in a modal
+    const old = document.getElementById('modal-cross-org'); if(old) old.remove();
+    const mr = document.createElement('div');
+    mr.id = 'modal-cross-org'; mr.className = 'modal-overlay';
+    mr.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
+      <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font:800 15px/1 var(--font-ui);color:#64B5F6;">🌐 Cross-Org Synthesis</span>
+        <button class="modal-close" onclick="closeModal('modal-cross-org')">✕</button>
+      </div>
+      <div style="padding:14px 16px 20px;font:500 13px/1.7 var(--font-body);color:var(--text);">
+        ${result.replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--text)">$1</strong>').replace(/\n/g,'<br/>')}
+      </div>
+    </div>`;
+    mr.onclick = e => { if(e.target===mr) closeModal('modal-cross-org'); };
+    document.body.appendChild(mr);
+  }catch(e){
+    const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401')||String(e.message||'').includes('404');
+    showToast(notSetup?'⚠ AI not configured — see Settings':'⚠ Cross-org synthesis failed');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -14701,6 +15528,7 @@ function submitDelegation(){
   }
   saveDelegations();
   closeModal('modal-delegation');
+  _completePendingMove();
   showToast('📋 Delegation saved');
   renderAll();
 }
@@ -14796,6 +15624,7 @@ function submitTeamMeeting(){
 
   saveTeamMeetings();
   closeModal('modal-team-meeting');
+  _completePendingMove();
   showToast('💬 1:1 notes saved');
   renderAll();
 }
@@ -14808,7 +15637,7 @@ function openCommsModal(editId){
   const old = document.getElementById('modal-comms'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-comms'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()">
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
     <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
       <span style="font:800 15px/1 var(--font-ui);color:#BA68C8;">📣 ${existing?'Edit':'New'} Comms</span>
       <button class="modal-close" onclick="closeModal('modal-comms')">✕</button>
@@ -15031,6 +15860,9 @@ function renderMeetingsPage(container){
         <button onclick="event.stopPropagation();openMeetingPrep('${m.id}','${esc(m.title)}','${m.date}',undefined)"
           style="padding:3px 8px;border-radius:20px;border:1px solid var(--accent)44;
             background:transparent;color:var(--accent);font:700 10px/1 var(--font-ui);cursor:pointer;">Prep</button>
+        <button onclick="event.stopPropagation();openMoveSheet('meeting','${m.id}')"
+          style="padding:3px 8px;border-radius:20px;border:1px solid rgba(129,199,132,0.45);
+            background:rgba(129,199,132,0.07);color:#81C784;font:700 10px/1 var(--font-ui);cursor:pointer;">Move →</button>
         <button onclick="event.stopPropagation();deleteMeeting('${m.id}')"
           style="padding:3px 6px;border-radius:4px;border:none;background:transparent;
             color:var(--text4);font-size:13px;cursor:pointer;line-height:1;">✕</button>
@@ -20596,105 +21428,241 @@ async function runEmailExtraction(){
   try {
     const raw = await aiCall(
       `You are a sharp executive assistant for Jason, a Senior Director of Product Management / interim CPO at a healthcare technology company.
-Your job is to read emails and identify ONLY the action items that Jason personally needs to do — things asked of him, commitments he made, or follow-ups he owns.
-Ignore: FYI information, things others are doing, general updates, context with no action required.
-For each action item, extract:
-- title: a clear, specific task title (start with a verb — "Review", "Send", "Follow up", "Schedule", etc.)
-- priority: "high" if urgent/deadline mentioned, "medium" if requested, "low" if optional
-- dueDate: ISO date YYYY-MM-DD if a deadline is mentioned, otherwise null
-- person: the name of whoever sent the request or is involved, if identifiable
-- project: match to one of Jason's projects if relevant, otherwise null
-- context: one short sentence of context (why this matters)
-Return ONLY a JSON array. If there are no action items for Jason, return an empty array [].
-Example: [{"title":"Review Q2 roadmap doc","priority":"high","dueDate":"2026-04-30","person":"Sarah","project":"Roadmap","context":"Needed before Thursday exec review"}]`,
-      `Here are Jason's active projects for matching: ${projNames||'none'}
+Read this email and return a JSON object with two keys: "tasks" and "people".
+
+"tasks": ONLY the action items Jason personally needs to do — things asked of him, commitments he made, or follow-ups he owns.
+Ignore: FYI information, things others are doing, general updates.
+For each task:
+- title: clear task title starting with a verb
+- priority: "high" (urgent/deadline), "medium" (requested), "low" (optional)
+- dueDate: ISO date YYYY-MM-DD if mentioned, otherwise null
+- person: name of the person most associated with this task
+- project: match to Jason's projects if relevant, otherwise null
+- context: one sentence of why this matters
+
+"people": ALL people mentioned or identifiable in the email (senders, recipients, names referenced).
+For each person:
+- name: full name if available, first name only if that's all that's given
+- email: email address if visible
+- role: their job title or role if mentioned or inferable
+- org: their company or organization if identifiable
+- relationship: "sender", "recipient", "mentioned", or "unknown"
+
+Return ONLY valid JSON: {"tasks": [...], "people": [...]}
+If no tasks, return {"tasks": [], "people": [...]}`,
+      `Jason's active projects: ${projNames||'none'}
 
 EMAIL CONTENT:
 ${emailText.slice(0, 4000)}`,
-      1000
+      1200
     );
 
-    let items;
+    let parsed;
     try {
       const cleaned = raw.replace(/```json|```/g,'').trim();
-      items = JSON.parse(cleaned);
+      parsed = JSON.parse(cleaned);
+      // Handle old format (array) vs new format (object)
+      if(Array.isArray(parsed)) parsed = { tasks: parsed, people: [] };
     } catch(e) {
       throw new Error('Could not parse AI response — try again');
     }
 
-    if(!Array.isArray(items) || items.length === 0){
+    const items = parsed.tasks || [];
+    const emailPeople = parsed.people || [];
+
+    // ── People matching ───────────────────────────────────────────
+    // Match each email person against peopleList, contactsList, clientOrgs contacts
+    const allKnownPeople = [
+      ...peopleList.map(p=>({ ...p, _source:'people' })),
+      ...contactsList.map(p=>({ ...p, _source:'contacts' })),
+    ];
+
+    const matchedPeopleMap = {}; // emailPerson.name → { matched, suggested, appPerson }
+
+    for(const ep of emailPeople){
+      const nameL = (ep.name||'').toLowerCase();
+      const emailL = (ep.email||'').toLowerCase();
+
+      // Try exact name match first, then partial
+      let matched = allKnownPeople.find(p=>
+        p.name.toLowerCase() === nameL ||
+        (emailL && (p.email||'').toLowerCase() === emailL)
+      );
+      if(!matched && nameL.length > 2){
+        matched = allKnownPeople.find(p=>
+          p.name.toLowerCase().includes(nameL) ||
+          nameL.includes(p.name.toLowerCase().split(' ')[0])
+        );
+      }
+
+      // Also check client org contacts
+      let matchedOrg = null;
+      if(ep.org){
+        const orgL = ep.org.toLowerCase();
+        matchedOrg = clientOrgs.find(o=>
+          o.name.toLowerCase().includes(orgL) || orgL.includes(o.name.toLowerCase())
+        );
+      }
+
+      matchedPeopleMap[ep.name] = {
+        emailPerson: ep,
+        matched: matched || null,
+        matchedOrg: matchedOrg || null,
+        appPersonId: matched?.id || null,
+      };
+    }
+
+    // Enrich items with resolved personId from matching
+    items.forEach(item => {
+      if(item.person && matchedPeopleMap[item.person]?.appPersonId){
+        item._resolvedPersonId = matchedPeopleMap[item.person].appPersonId;
+      }
+    });
+
+    if(items.length === 0 && emailPeople.length === 0){
       resultsEl.innerHTML = `<div style="padding:20px;text-align:center;border-radius:var(--r3);
           border:1px solid var(--border);background:var(--surface2);">
         <div style="font-size:28px;margin-bottom:8px;">✅</div>
-        <div style="font:700 14px/1.3 var(--font-ui);color:var(--text3);">No action items found</div>
+        <div style="font:700 14px/1.3 var(--font-ui);color:var(--text3);">Nothing actionable found</div>
         <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
-          This email doesn't seem to have anything for you to do.
+          This email doesn't seem to have action items or identifiable people.
         </div>
       </div>`;
       return;
     }
 
-    // Render accept/skip cards
+    // ── Render results ────────────────────────────────────────────
     resultsEl.innerHTML = `
-      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
+      ${items.length>0?`<div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
           text-transform:uppercase;margin-bottom:10px;">
-        ${items.length} action item${items.length!==1?'s':''} found — tap to accept
-      </div>
+        ${items.length} action item${items.length!==1?'s':''} found
+      </div>`:''}
       <div id="email-task-cards" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div id="email-people-section" style="margin-top:${items.length?'16px':'0'};"></div>
       <div id="email-accept-summary" style="margin-top:12px;"></div>`;
 
+    // ── Task cards ────────────────────────────────────────────────
     const cardsEl = document.getElementById('email-task-cards');
-    if(!cardsEl) return;
+    if(cardsEl){
+      items.forEach((item, idx) => {
+        const matchedProj = item.project
+          ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
+                         item.project.toLowerCase().includes(p.name.toLowerCase()))
+          : null;
+        const priorityColor = item.priority==='high'?'var(--red)':item.priority==='medium'?'var(--accent)':'#888';
+        const priorityLabel = item.priority==='high'?'🔴 Urgent':item.priority==='medium'?'🟡 Medium':'⚪ Low';
 
-    items.forEach((item, idx) => {
-      const matchedProj = item.project
-        ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
-                       item.project.toLowerCase().includes(p.name.toLowerCase()))
-        : null;
-      const priorityColor = item.priority==='high'?'var(--red)':item.priority==='medium'?'var(--accent)':'#888';
-      const priorityLabel = item.priority==='high'?'🔴 Urgent':item.priority==='medium'?'🟡 Medium':'⚪ Low';
+        // Resolved person display
+        const personEntry = item.person ? matchedPeopleMap[item.person] : null;
+        const personBadge = personEntry
+          ? personEntry.matched
+            ? `<span style="font:700 10px/1 var(--font-ui);color:#81C784;padding:2px 7px;border-radius:8px;background:rgba(129,199,132,0.12);border:1px solid rgba(129,199,132,0.3);">✓ ${esc(personEntry.matched.name)}</span>`
+            : `<span style="font:700 10px/1 var(--font-ui);color:var(--text3);padding:2px 7px;border-radius:8px;background:var(--border);">👤 ${esc(item.person)}</span>`
+          : '';
 
-      const card = document.createElement('div');
-      card.id = 'email-card-'+idx;
-      card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;transition:all 0.2s;';
-      card.innerHTML = `
-        <div style="padding:14px 14px 12px;">
-          <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">
-            ${esc(item.title)}
+        const card = document.createElement('div');
+        card.id = 'email-card-'+idx;
+        card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;transition:all 0.2s;';
+        card.innerHTML = `
+          <div style="padding:14px 14px 12px;">
+            <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">
+              ${esc(item.title)}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${item.context?'8px':'0'};">
+              <span style="font:700 10px/1 var(--font-ui);color:${priorityColor};
+                padding:2px 7px;border-radius:8px;background:${priorityColor}18;
+                border:1px solid ${priorityColor}33;">${priorityLabel}</span>
+              ${item.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:var(--text4);
+                padding:2px 7px;border-radius:8px;background:var(--border);">📅 ${item.dueDate}</span>`:''}
+              ${personBadge}
+              ${matchedProj?`<span style="font:700 10px/1 var(--font-ui);color:${matchedProj.color};
+                padding:2px 7px;border-radius:8px;background:${matchedProj.color}18;
+                border:1px solid ${matchedProj.color}33;">◈ ${esc(matchedProj.name)}</span>`:''}
+            </div>
+            ${item.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
+              padding:8px 10px;border-radius:8px;background:var(--surface2);
+              border-left:3px solid #64B5F680;">${esc(item.context)}</div>`:''}
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${item.context?'8px':'0'};">
-            <span style="font:700 10px/1 var(--font-ui);color:${priorityColor};
-              padding:2px 7px;border-radius:8px;background:${priorityColor}18;
-              border:1px solid ${priorityColor}33;">${priorityLabel}</span>
-            ${item.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:var(--text4);
-              padding:2px 7px;border-radius:8px;background:var(--border);">📅 ${item.dueDate}</span>`:''}
-            ${item.person?`<span style="font:700 10px/1 var(--font-ui);color:var(--text3);
-              padding:2px 7px;border-radius:8px;background:var(--border);">👤 ${esc(item.person)}</span>`:''}
-            ${matchedProj?`<span style="font:700 10px/1 var(--font-ui);color:${matchedProj.color};
-              padding:2px 7px;border-radius:8px;background:${matchedProj.color}18;
-              border:1px solid ${matchedProj.color}33;">◈ ${esc(matchedProj.name)}</span>`:''}
-          </div>
-          ${item.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
-            padding:8px 10px;border-radius:8px;background:var(--surface2);
-            border-left:3px solid #64B5F680;">${esc(item.context)}</div>`:''}
-        </div>
-        <div style="display:flex;border-top:1px solid var(--border);">
-          <button onclick="acceptEmailTask(${idx})"
-            style="flex:1;padding:11px;border:none;border-right:1px solid var(--border);
-              background:transparent;color:#81C784;font:800 12px/1 var(--font-ui);cursor:pointer;">
-            ✓ Add to Tasks
-          </button>
-          <button onclick="skipEmailTask(${idx})"
-            style="flex:0 0 80px;padding:11px;border:none;background:transparent;
-              color:var(--text4);font:700 12px/1 var(--font-ui);cursor:pointer;">
-            Skip
-          </button>
-        </div>`;
-      cardsEl.appendChild(card);
-    });
+          <div style="display:flex;border-top:1px solid var(--border);">
+            <button onclick="acceptEmailTask(${idx})"
+              style="flex:1;padding:11px;border:none;border-right:1px solid var(--border);
+                background:transparent;color:#81C784;font:800 12px/1 var(--font-ui);cursor:pointer;">
+              ✓ Add to Tasks
+            </button>
+            <button onclick="skipEmailTask(${idx})"
+              style="flex:0 0 80px;padding:11px;border:none;background:transparent;
+                color:var(--text4);font:700 12px/1 var(--font-ui);cursor:pointer;">
+              Skip
+            </button>
+          </div>`;
+        cardsEl.appendChild(card);
+      });
+    }
+
+    // ── People section ────────────────────────────────────────────
+    const peopleSecEl = document.getElementById('email-people-section');
+    if(peopleSecEl && emailPeople.length > 0){
+      const newPeople = emailPeople.filter(ep=>!matchedPeopleMap[ep.name]?.matched);
+      const knownPeople = emailPeople.filter(ep=>matchedPeopleMap[ep.name]?.matched);
+
+      let peopleHtml = `<div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
+        👤 People in this email
+      </div>`;
+
+      // Known / matched
+      if(knownPeople.length){
+        peopleHtml += knownPeople.map(ep=>{
+          const entry = matchedPeopleMap[ep.name];
+          const ap = entry.matched;
+          const pc = ap.priority==='High'?'#EF5350':ap.priority==='Low'?'#888':'#E8A838';
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+              border-radius:10px;border:1px solid rgba(129,199,132,0.35);
+              background:rgba(129,199,132,0.05);margin-bottom:6px;">
+            ${renderAvatar(ap.name, ap.photo||'', 32, pc+'22', pc, false)}
+            <div style="flex:1;min-width:0;">
+              <div style="font:700 13px/1.2 var(--font-ui);color:var(--text);">${esc(ap.name)}</div>
+              <div style="font:500 10px/1 var(--font-ui);color:#81C784;margin-top:2px;">✓ In your app${ap.role?' · '+esc(ap.role):''}</div>
+            </div>
+            ${entry.matchedOrg?`<span style="font:600 10px/1 var(--font-ui);color:#81C784;padding:2px 6px;border-radius:6px;background:rgba(129,199,132,0.1);">🏢 ${esc(entry.matchedOrg.name.slice(0,20))}</span>`:''}
+          </div>`;
+        }).join('');
+      }
+
+      // Unknown — suggest adding
+      if(newPeople.length){
+        peopleHtml += `<div style="font:600 11px/1 var(--font-ui);color:var(--text4);margin:${knownPeople.length?'10px 0 6px':'0 0 6px'};">New people — not in your app yet:</div>`;
+        peopleHtml += newPeople.map((ep,i)=>{
+          const safeId = 'ep-'+i+'-'+Date.now();
+          return `<div id="${safeId}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+              border-radius:10px;border:1px solid var(--border);
+              background:var(--surface);margin-bottom:6px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:rgba(100,181,246,0.15);
+              border:1px solid rgba(100,181,246,0.3);display:flex;align-items:center;justify-content:center;
+              font:700 13px/1 var(--font-ui);color:#64B5F6;flex-shrink:0;">
+              ${esc((ep.name||'?').charAt(0).toUpperCase())}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:700 13px/1.2 var(--font-ui);color:var(--text);">${esc(ep.name)}</div>
+              <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">
+                ${[ep.role, ep.org].filter(Boolean).map(esc).join(' · ')||ep.relationship||''}
+              </div>
+            </div>
+            <button onclick="_addEmailPerson(${JSON.stringify(ep).replace(/"/g,'&quot;')},'${safeId}')"
+              style="padding:5px 12px;border-radius:8px;border:1px solid rgba(100,181,246,0.4);
+                background:rgba(100,181,246,0.08);color:#64B5F6;
+                font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">
+              + Add
+            </button>
+          </div>`;
+        }).join('');
+      }
+
+      peopleSecEl.innerHTML = peopleHtml;
+    }
 
     // Store extracted items for accept/skip handlers
     window._emailExtractedItems = items;
+    window._emailMatchedPeople = matchedPeopleMap;
     window._emailAcceptedCount = 0;
 
   } catch(e) {
@@ -20721,10 +21689,12 @@ function acceptEmailTask(idx){
                    item.project.toLowerCase().includes(p.name.toLowerCase()))
     : null;
 
-  // Find matched person
-  const matchedPerson = item.person
-    ? peopleList.find(p=>p.name.toLowerCase().includes(item.person.toLowerCase()))
-    : null;
+  // Use AI-resolved personId if available, otherwise fall back to name search
+  let resolvedPersonId = item._resolvedPersonId || '';
+  if(!resolvedPersonId && item.person){
+    const matchedPerson = peopleList.find(p=>p.name.toLowerCase().includes(item.person.toLowerCase()));
+    resolvedPersonId = matchedPerson?.id || '';
+  }
 
   // Create the task
   const newTask = {
@@ -20736,7 +21706,7 @@ function acceptEmailTask(idx){
     dueDate:    item.dueDate || '',
     notes:      item.context ? `From email: ${item.context}` : '',
     source:     'email',
-    personIds:  matchedPerson ? matchedPerson.id : '',
+    personIds:  resolvedPersonId,
     recur:      'none',
     effort:     '',
     estimate:   '',
@@ -20771,6 +21741,77 @@ function acceptEmailTask(idx){
         background:var(--accent);color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;">
       View Tasks →
     </button>`;
+  }
+}
+
+// Add a person suggested from email extraction to the People list
+function _addEmailPerson(ep, cardId){
+  // ep is the emailPerson object: {name, email, role, org, relationship}
+  const name = ep.name||'';
+  if(!name){ showToast('No name to add'); return; }
+
+  // Check if they already exist (race condition — user may have added manually)
+  if(peopleList.find(p=>p.name.toLowerCase()===name.toLowerCase())){
+    showToast(name + ' is already in People');
+    return;
+  }
+
+  // Add to peopleList
+  const newPerson = {
+    id: 'p'+Date.now(),
+    name: name.trim(),
+    role: (ep.role||'').trim(),
+    department: (ep.org||'').trim(),
+    priority: 'Medium',
+    photo: '',
+    isDirectReport: false,
+    isClient: false,
+  };
+  peopleList.push(newPerson);
+  savePeople();
+
+  // Also check if their org matches a client org — link them
+  if(ep.org){
+    const matchedOrg = clientOrgs.find(o=>
+      o.name.toLowerCase().includes(ep.org.toLowerCase()) ||
+      ep.org.toLowerCase().includes(o.name.toLowerCase())
+    );
+    if(matchedOrg){
+      const existingContacts = (matchedOrg.contactIds||'').split(',').filter(Boolean);
+      if(!existingContacts.includes(newPerson.id)){
+        matchedOrg.contactIds = [...existingContacts, newPerson.id].join(',');
+        saveClientOrgs();
+        showToast(`✓ Added ${name} + linked to ${matchedOrg.name}`);
+      }
+    } else {
+      showToast(`✓ Added ${name} to People`);
+    }
+  } else {
+    showToast(`✓ Added ${name} to People`);
+  }
+
+  // Update the card to show confirmed
+  const card = document.getElementById(cardId);
+  if(card){
+    card.style.border = '1px solid rgba(129,199,132,0.35)';
+    card.style.background = 'rgba(129,199,132,0.05)';
+    const btn = card.querySelector('button');
+    if(btn){ btn.textContent='✓ Added'; btn.disabled=true; btn.style.color='#81C784'; btn.style.opacity='0.7'; }
+
+    // Also update any task card that references this person
+    if(window._emailExtractedItems){
+      window._emailExtractedItems.forEach((item,idx)=>{
+        if(item.person && item.person.toLowerCase()===name.toLowerCase() && !item._resolvedPersonId){
+          item._resolvedPersonId = newPerson.id;
+          // Update the person badge on the task card
+          const tc = document.getElementById('email-card-'+idx);
+          if(tc){
+            const oldBadge = tc.querySelector('[data-person-badge]');
+            if(oldBadge) oldBadge.style.color='#81C784';
+          }
+        }
+      });
+    }
   }
 }
 
@@ -21241,6 +22282,320 @@ function toggleSearch(){
   else{document.getElementById("search-input").value="";renderAll();}
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MOVE TO TEAM / CLIENT
+// Converts a meeting or waiting-for item into a Team or Client record.
+// Shows a bottom sheet with destination choices.
+// ═══════════════════════════════════════════════════════════════
+
+function openMoveSheet(sourceType, sourceId){
+  const old = document.getElementById('_move-sheet'); if(old) old.remove();
+
+  // Resolve source data for preview
+  let previewTitle = '', previewSub = '';
+  if(sourceType === 'wf'){
+    const w = waitingFor.find(x=>x.id===sourceId);
+    if(!w){ showToast('Item not found'); return; }
+    previewTitle = w.what;
+    previewSub = w.person || getPersonNamesByIds(w.personIds||w.personId);
+  } else {
+    const m = meetingLog.find(x=>x.id===sourceId);
+    if(!m){ showToast('Meeting not found'); return; }
+    previewTitle = m.title;
+    previewSub = m.date + (m.personIds ? ' · ' + (m.personIds.split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean).join(', ')||'') : '');
+  }
+
+  const hasTeamContacts = peopleList.some(p=>p.isDirectReport);
+  const hasClientOrgs   = clientOrgs.length > 0;
+
+  const sheet = document.createElement('div');
+  sheet.id = '_move-sheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:9100;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);';
+  sheet.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);
+      width:100%;max-width:480px;padding:0 0 calc(20px + env(safe-area-inset-bottom));
+      box-shadow:0 -8px 32px rgba(0,0,0,0.3);">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 0;opacity:0.6;"></div>
+    <div style="padding:16px 18px 12px;">
+      <div style="font:800 15px/1.2 var(--font-ui);color:var(--text);margin-bottom:4px;">Move to…</div>
+      <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(previewTitle)}</div>
+      ${previewSub?`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(previewSub)}</div>`:''}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;padding:0 16px;">
+      <!-- Team option -->
+      <button onclick="_executeMoveToTeam('${sourceType}','${sourceId}')"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
+          border:1.5px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.07);
+          color:var(--text);text-align:left;cursor:pointer;width:100%;">
+        <span style="font-size:24px;flex-shrink:0;">👥</span>
+        <div>
+          <div style="font:700 14px/1.2 var(--font-ui);color:#64B5F6;">Team</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">
+            ${sourceType==='wf'?'Convert to delegation':'Convert to 1:1 or team meeting note'}
+          </div>
+        </div>
+        <span style="margin-left:auto;font-size:18px;color:var(--text4);">›</span>
+      </button>
+
+      <!-- Client option -->
+      <button onclick="_executeMoveToClient('${sourceType}','${sourceId}')"
+        style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
+          border:1.5px solid rgba(129,199,132,0.4);background:rgba(129,199,132,0.07);
+          color:var(--text);text-align:left;cursor:pointer;width:100%;">
+        <span style="font-size:24px;flex-shrink:0;">🏢</span>
+        <div>
+          <div style="font:700 14px/1.2 var(--font-ui);color:#81C784;">Client</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">
+            ${sourceType==='wf'?'Add as client follow-up':'Convert to client conversation'}
+          </div>
+        </div>
+        <span style="margin-left:auto;font-size:18px;color:var(--text4);">›</span>
+      </button>
+
+      <button onclick="document.getElementById('_move-sheet').remove();"
+        style="padding:13px;border-radius:10px;border:1px solid var(--border);background:transparent;
+          color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;margin-top:2px;">
+        Cancel
+      </button>
+    </div>
+  </div>`;
+  sheet.onclick = e => { if(e.target===sheet) sheet.remove(); };
+  document.body.appendChild(sheet);
+}
+
+// ── Move to Team ──────────────────────────────────────────────────
+function _executeMoveToTeam(sourceType, sourceId){
+  document.getElementById('_move-sheet')?.remove();
+
+  if(sourceType === 'wf'){
+    const w = waitingFor.find(x=>x.id===sourceId);
+    if(!w) return;
+    // Use whatever person is on the WF — direct report or not
+    const personIds = (w.personIds||w.personId||'').split(',').filter(Boolean);
+    const prefillId = personIds[0]||'';
+    // Open delegation modal pre-filled
+    openDelegationModal(null, prefillId);
+    setTimeout(()=>{
+      const el = document.getElementById('del-what');
+      if(el) el.value = w.what;
+      if(w.dueDate){ const dd=document.getElementById('del-due'); if(dd) dd.value=w.dueDate; }
+      if(w.notes){ const dn=document.getElementById('del-notes'); if(dn) dn.value=w.notes; }
+      _pendingMoveSourceId = sourceId;
+      _pendingMoveSourceType = 'wf';
+    }, 200);
+
+  } else {
+    const m = meetingLog.find(x=>x.id===sourceId);
+    if(!m) return;
+
+    // Detect meeting type: multi-person = team meeting, single = 1:1
+    const personIds = (m.personIds||'').split(',').filter(Boolean);
+    const isMulti = personIds.length > 1;
+
+    // If multi-person, ask 1:1 or team before opening modal
+    if(isMulti){
+      const chooser = document.createElement('div');
+      chooser.id = '_team-type-sheet';
+      chooser.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);';
+      chooser.innerHTML = `<div onclick="event.stopPropagation()"
+        style="background:var(--surface);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);
+          width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:0 0 calc(20px + env(safe-area-inset-bottom));
+          box-shadow:0 -8px 32px rgba(0,0,0,0.3);">
+        <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 12px;opacity:0.6;"></div>
+        <div style="padding:0 16px 14px;">
+          <div style="font:800 15px/1.2 var(--font-ui);color:var(--text);margin-bottom:4px;">What type of meeting?</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);">${esc(m.title)} · ${personIds.length} people</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:0 16px;">
+          <button onclick="document.getElementById('_team-type-sheet').remove();_doMoveToTeamMeeting('${sourceId}','1on1')"
+            style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;
+              border:1.5px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.07);
+              color:var(--text);text-align:left;cursor:pointer;width:100%;">
+            <span style="font-size:22px;">💬</span>
+            <div>
+              <div style="font:700 14px/1.2 var(--font-ui);color:#BA68C8;">1:1 Note</div>
+              <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);">Move as a 1:1 with the first person listed</div>
+            </div>
+          </button>
+          <button onclick="document.getElementById('_team-type-sheet').remove();_doMoveToTeamMeeting('${sourceId}','team')"
+            style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;
+              border:1.5px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.07);
+              color:var(--text);text-align:left;cursor:pointer;width:100%;">
+            <span style="font-size:22px;">👥</span>
+            <div>
+              <div style="font:700 14px/1.2 var(--font-ui);color:#64B5F6;">Team Meeting</div>
+              <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);">Move with all ${personIds.length} participants</div>
+            </div>
+          </button>
+          <button onclick="document.getElementById('_team-type-sheet').remove();"
+            style="padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;">Cancel</button>
+        </div>
+      </div>`;
+      chooser.onclick = e => { if(e.target===chooser) chooser.remove(); };
+      document.body.appendChild(chooser);
+    } else {
+      // Single person — go straight to 1:1
+      _doMoveToTeamMeeting(sourceId, '1on1');
+    }
+  }
+}
+
+function _doMoveToTeamMeeting(sourceId, type){
+  const m = meetingLog.find(x=>x.id===sourceId);
+  if(!m) return;
+  const personIds = (m.personIds||'').split(',').filter(Boolean);
+  const prefillPersonId = type==='1on1' ? personIds[0]||'' : '';
+  const prefillPersonIds = type==='team' ? m.personIds||'' : '';
+
+  openTeamMeetingModal(null, type, prefillPersonId||prefillPersonIds);
+  setTimeout(()=>{
+    const dateEl = document.getElementById('tm-date'); if(dateEl) dateEl.value = m.date;
+    // For team meeting, pre-fill all person IDs
+    if(type==='team' && m.personIds){
+      const pidEl = document.getElementById('tm-person-ids'); if(pidEl) pidEl.value = m.personIds;
+    }
+    const agEl = document.getElementById('tm-agenda');
+    if(agEl) agEl.value = [m.notes, m.decisions].filter(Boolean).join('\n\n').replace(/<[^>]+>/g,' ').trim().slice(0,500);
+    const decEl = document.getElementById('tm-decisions'); if(decEl&&m.decisions) decEl.value = m.decisions.replace(/<[^>]+>/g,' ').trim();
+    const actEl = document.getElementById('tm-actions');
+    if(actEl){
+      const myLines = (m.myCommits||'').split('\n').map(s=>s.trim()).filter(Boolean).map(s=>'You: '+s);
+      const theirLines = (m.theirCommits||'').split('\n').map(s=>s.trim()).filter(Boolean);
+      actEl.value = [...myLines, ...theirLines].join('\n');
+    }
+    _pendingMoveSourceId = sourceId;
+    _pendingMoveSourceType = 'meeting';
+  }, 200);
+}
+
+// ── Move to Client ────────────────────────────────────────────────
+function _executeMoveToClient(sourceType, sourceId){
+  document.getElementById('_move-sheet')?.remove();
+
+  if(clientOrgs.length === 0){
+    showToast('Add a client org first');
+    setNav('clients');
+    return;
+  }
+
+  // Show org picker sheet
+  const picker = document.createElement('div');
+  picker.id = '_org-picker-sheet';
+  picker.style.cssText = 'position:fixed;inset:0;z-index:9200;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);';
+  const sortedOrgs = [...clientOrgs].sort((a,b)=>{
+    const aLT = _orgLastTouched(a.id)||'0000';
+    const bLT = _orgLastTouched(b.id)||'0000';
+    return bLT.localeCompare(aLT); // most recently touched first
+  });
+
+  picker.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);
+      width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column;
+      padding-bottom:calc(12px + env(safe-area-inset-bottom));
+      box-shadow:0 -8px 32px rgba(0,0,0,0.3);">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 8px;opacity:0.6;flex-shrink:0;"></div>
+    <div style="padding:4px 18px 12px;flex-shrink:0;">
+      <div style="font:800 15px/1.2 var(--font-ui);color:var(--text);">Which client org?</div>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:0 12px;">
+      ${sortedOrgs.map(o=>{
+        const h = _CLIENT_HEALTH[o.health||'active'];
+        const lt = _orgLastTouched(o.id);
+        return `<button onclick="_confirmMoveToClient('${sourceType}','${sourceId}','${o.id}')"
+          style="display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:10px;
+            border:none;background:transparent;text-align:left;cursor:pointer;width:100%;margin-bottom:4px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${h.color};flex-shrink:0;"></span>
+          <div style="flex:1;min-width:0;">
+            <div style="font:700 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.name)}</div>
+            ${o.segment?`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(o.segment)}</div>`:''}
+          </div>
+          ${lt?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);flex-shrink:0;">${lt.slice(5)}</span>`:''}
+          <span style="color:var(--text4);font-size:16px;">›</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div style="padding:8px 12px 0;flex-shrink:0;">
+      <button onclick="document.getElementById('_org-picker-sheet').remove();"
+        style="width:100%;padding:13px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;">Cancel</button>
+    </div>
+  </div>`;
+  picker.onclick = e => { if(e.target===picker) picker.remove(); };
+  document.body.appendChild(picker);
+}
+
+function _confirmMoveToClient(sourceType, sourceId, orgId){
+  document.getElementById('_org-picker-sheet')?.remove();
+  const org = clientOrgs.find(o=>o.id===orgId); if(!org) return;
+
+  if(sourceType === 'wf'){
+    const w = waitingFor.find(x=>x.id===sourceId); if(!w) return;
+    // Open conversation modal pre-filled with the WF item as a follow-up
+    openClientConvoModal(orgId);
+    setTimeout(()=>{
+      const sumEl = document.getElementById('cc-summary');
+      if(sumEl) sumEl.value = `Follow-up: ${w.what}`;
+      const dateEl = document.getElementById('cc-date');
+      if(dateEl) dateEl.value = today();
+      // Pre-add as a follow-up in the textarea
+      const fuEl = document.getElementById('cc-followups');
+      if(fuEl){
+        const ownerName = w.person || getPersonNamesByIds(w.personIds||w.personId)||'';
+        fuEl.value = `${ownerName?ownerName+': ':''}${w.what}${w.dueDate?' by '+w.dueDate:''}`;
+      }
+      _pendingMoveSourceId = sourceId;
+      _pendingMoveSourceType = 'wf';
+      showToast(`📋 Pre-filled from waiting-for — save to complete move`);
+    }, 300);
+
+  } else {
+    const m = meetingLog.find(x=>x.id===sourceId); if(!m) return;
+    // Open conversation modal pre-filled from meeting
+    openClientConvoModal(orgId);
+    setTimeout(()=>{
+      const dateEl = document.getElementById('cc-date'); if(dateEl) dateEl.value = m.date;
+      const sumEl = document.getElementById('cc-summary');
+      if(sumEl) sumEl.value = m.title + (m.notes ? '\n\n' + m.notes.replace(/<[^>]+>/g,' ').trim().slice(0,300) : '');
+      // Pre-populate contacts from meeting personIds
+      const convoContactsEl = document.getElementById('cc-contact-ids');
+      if(convoContactsEl && m.personIds) convoContactsEl.value = m.personIds;
+      // Pre-add their commits as follow-ups
+      const fuEl = document.getElementById('cc-followups');
+      if(fuEl && m.theirCommits){
+        fuEl.value = m.theirCommits.split('\n').map(s=>s.trim()).filter(Boolean).join('\n');
+      }
+      _pendingMoveSourceId = sourceId;
+      _pendingMoveSourceType = 'meeting';
+      showToast(`💬 Pre-filled from meeting — review and save to complete move`);
+    }, 300);
+  }
+}
+
+// ── Pending move — clean up source after save ─────────────────────
+// The submit functions check these and remove/done the original source
+let _pendingMoveSourceId   = null;
+let _pendingMoveSourceType = null;
+
+// Hook into existing submit functions to complete the move
+// Called at end of submitDelegation, submitTeamMeeting, submitClientConvo
+function _completePendingMove(){
+  if(!_pendingMoveSourceId) return;
+  const sid  = _pendingMoveSourceId;
+  const stype = _pendingMoveSourceType;
+  _pendingMoveSourceId   = null;
+  _pendingMoveSourceType = null;
+  if(stype === 'wf'){
+    const w = waitingFor.find(x=>x.id===sid);
+    if(w){ w.done=true; w.resolvedAt=Date.now(); saveWaiting(); }
+    showToast('✓ Waiting-for moved and marked done');
+  } else if(stype === 'meeting'){
+    // Keep meeting in log but tag it as moved
+    const m = meetingLog.find(x=>x.id===sid);
+    if(m){ m.movedTo = m.movedTo||[]; m.movedTo.push(Date.now()); saveMeetings(); }
+    showToast('✓ Meeting moved to new location');
+  }
+}
+
 // ── Unsaved changes guard ─────────────────────────────────────
 // Tracks whether any input inside the currently open modal has been
 // touched. If so, closeModal shows a confirmation sheet instead of
@@ -21316,7 +22671,7 @@ function _showUnsavedSheet(modalId){
     <div onclick="event.stopPropagation()" style="
       background:var(--surface);border-radius:18px 18px 0 0;
       border-top:1px solid var(--border2);
-      width:100%;max-width:480px;
+      width:100%;max-width:480px;max-height:85vh;overflow-y:auto;
       padding:0 0 calc(24px + env(safe-area-inset-bottom));
       box-shadow:0 -8px 32px rgba(0,0,0,0.25);
       animation:slideUp 0.2s cubic-bezier(0.34,1.1,0.64,1);
@@ -21971,6 +23326,8 @@ async function bootApp(){
     _needsBootSync = false;
     setTimeout(()=> _flushSync().catch(()=>{}), 1500);
   }
+  // Load client intelligence data
+  _loadClientData().catch(()=>{});
   // Load team leadership data (delegations, team meetings, comms)
   _loadTeamData().catch(()=>{});
   // Inject any already-imported work meetings immediately (before first fetch)
