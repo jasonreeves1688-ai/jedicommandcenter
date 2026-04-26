@@ -11279,7 +11279,7 @@ function renderSettings(container){
     <!-- AI Diagnostics -->
     <div class="section-title" style="margin-top:var(--sp4);">🤖 AI Features</div>
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
-      ${SUPABASE_JWT_KEY === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI' ? `
+      ${SUPABASE_JWT_KEY === 'PASTE_YOUR_ANON_JWT_KEY_HERE' ? `
       <div style="padding:12px 14px;border-radius:var(--r3);border:1.5px solid rgba(232,168,56,0.5);background:rgba(232,168,56,0.06);">
         <div style="font:800 12px/1 var(--font-ui);color:var(--accent);margin-bottom:6px;">⚙ Setup required</div>
         <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">
@@ -14648,22 +14648,6 @@ function jennyLogout(){
   const modeBtn = document.getElementById('mode-toggle-btn');
   if(modeBtn) modeBtn.style.display = '';
   applyMode();
-  document.getElementById('gate').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  const fab = document.getElementById('global-capture-btn');
-  if(fab) fab.style.display = 'none';
-  setTimeout(()=>document.getElementById('gate-input')?.focus(), 200);
-}
-
-function signOut(){
-  // Works for any user type — Jenny, kid, or Jason
-  const isJenny = typeof currentUser === 'object' && currentUser.role === 'wife';
-  const isKid   = typeof currentUser === 'object' && currentUser.role === 'kid';
-  if(isJenny){ jennyLogout(); return; }
-  if(isKid){   kidsPageLogout(); return; }
-  // Jason — clear parent auth and return to gate
-  localStorage.removeItem('hub-auth');
-  currentUser = null;
   document.getElementById('gate').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   const fab = document.getElementById('global-capture-btn');
