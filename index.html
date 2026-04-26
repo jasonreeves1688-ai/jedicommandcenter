@@ -840,7 +840,7 @@ body.calm-mode .sync-dot{ display:none; }
   -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
   letter-spacing:0.2px;
 }
-#header-sub{ font:var(--type-caption); color:var(--text4); letter-spacing:0.8px; text-transform:uppercase; }
+#header-sub{ font:var(--type-caption); color:var(--text4); letter-spacing:0; text-transform:none; }
 #header-stats{ display:none; }
 #header-actions{ display:flex; gap:var(--sp2); align-items:center; }
 
@@ -865,8 +865,15 @@ body.calm-mode .sync-dot{ display:none; }
 .hbtn.engaged{ background:var(--green-soft); border-color:var(--green); color:var(--green); }
 
 /* ── Sync bar ───────────────────────────────────────────────── */
-/* Sync bar — hidden, dot moved to header */
-#sync-bar{ display:none !important; }
+/* Sync bar — compact strip below header, shown on tasks page */
+#sync-bar{
+  display:flex; align-items:center; gap:var(--sp2);
+  padding:3px var(--sp4);
+  background:var(--surface2); border-bottom:1px solid var(--border);
+  font:500 11px/1 var(--font-ui); color:var(--text4);
+  flex-shrink:0; min-height:0;
+}
+#sync-bar .hbtn{ padding:1px 8px; font-size:10px; min-height:22px; }
 #sync-dot{ width:6px; height:6px; border-radius:50%; background:var(--green); flex-shrink:0; transition:background var(--t-slow); }
 #sync-dot.syncing{ background:var(--accent); animation:pulse 1.2s infinite; }
 #sync-dot.error{ background:var(--red); }
@@ -905,10 +912,14 @@ body.calm-mode .sync-dot{ display:none; }
 /* ── Filter bar ─────────────────────────────────────────────── */
 #filter-bar{
   background:var(--surface); border-bottom:1px solid var(--border);
-  padding:var(--sp2); display:flex; gap:var(--sp1); align-items:center;
+  padding:var(--sp2) var(--sp3); display:flex; gap:var(--sp1); align-items:center;
   flex-shrink:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  transition:all var(--t-fast);
 }
 #filter-bar::-webkit-scrollbar{ display:none; }
+/* Collapsed state — only show active filters + expand button */
+#filter-bar.collapsed .fdd-wrap:not(.has-filter-wrap){ display:none; }
+#filter-bar.collapsed #view-toggle{ display:none; }
 
 /* ── Search bar ─────────────────────────────────────────────── */
 #search-bar{
@@ -1318,7 +1329,20 @@ input,select,textarea{ font-size:16px !important; }
 }
 .nav-btn.active{ color:var(--accent); }
 .nav-btn:active{ opacity:0.7; }
-.nav-icon{ font-size:20px; line-height:1; font-style:normal; display:block; transition:transform var(--t-fast); }
+/* Active pill — visible indicator for bottom nav */
+#bottom-nav .nav-btn.active{ color:var(--accent); position:relative; }
+#bottom-nav .nav-btn.active::before{
+  content:''; position:absolute; top:6px; left:50%; transform:translateX(-50%);
+  width:32px; height:3px; border-radius:2px;
+  background:var(--accent); opacity:0.8;
+}
+/* Active pill for side rail */
+#side-rail .nav-btn.active{
+  color:var(--accent);
+  background:linear-gradient(90deg, var(--accent-soft) 0%, transparent 100%);
+  border-left:2px solid var(--accent);
+}
+.nav-icon{ font-size:20px; line-height:1; font-style:normal; display:flex; align-items:center; justify-content:center; width:22px; height:22px; transition:transform var(--t-fast); }
 .nav-btn.active .nav-icon{ transform:scale(1.1); }
 .nav-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1; text-align:center; }
 
@@ -1331,7 +1355,7 @@ input,select,textarea{ font-size:16px !important; }
   padding:0; padding-bottom:env(safe-area-inset-bottom);
   display:flex; align-items:stretch; flex-shrink:0;
 }
-#bottom-nav .nav-btn{ flex:1; padding:var(--sp2) 2px; font:700 10px/1 var(--font-ui); letter-spacing:0.3px; text-transform:uppercase; min-width:0; }
+#bottom-nav .nav-btn{ flex:1; padding:var(--sp2) 2px; font:600 10px/1 var(--font-ui); letter-spacing:0; text-transform:none; min-width:0; }
 
 /* Grid overlay */
 #nav-grid-overlay{
@@ -1356,7 +1380,7 @@ input,select,textarea{ font-size:16px !important; }
 }
 .nav-grid-tile:active{ transform:scale(0.94); background:var(--surface2); }
 .nav-grid-tile.grid-active{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
-.nav-grid-tile-icon{ font-size:28px; line-height:1; }
+.nav-grid-tile-icon{ font-size:28px; line-height:1; display:flex; align-items:center; justify-content:center; width:32px; height:32px; } .nav-grid-tile-icon svg{ width:28px; height:28px; }
 /* nav-grid-add removed */
 
 /* Desktop: side rail */
@@ -1372,7 +1396,7 @@ input,select,textarea{ font-size:16px !important; }
     overflow-y:auto; overflow-x:hidden; scrollbar-width:none; z-index:10;
   }
   #side-rail::-webkit-scrollbar{ display:none; }
-  #side-rail .nav-btn{ width:calc(100% - 8px); padding:var(--sp3) var(--sp1); font:700 9px/1 var(--font-ui); letter-spacing:0.3px; text-transform:uppercase; min-height:56px; border-radius:var(--r3); margin:1px var(--sp1); flex-shrink:0; }
+  #side-rail .nav-btn{ width:calc(100% - 8px); padding:var(--sp3) var(--sp1); font:600 9px/1 var(--font-ui); letter-spacing:0; text-transform:none; min-height:56px; border-radius:var(--r3); margin:1px var(--sp1); flex-shrink:0; }
   #side-rail .nav-btn.active{ background:rgba(232,168,56,0.1); }
 
   .rail-divider{ width:32px; height:1px; background:var(--border); flex-shrink:0; margin:var(--sp1) 0; }
@@ -1398,6 +1422,15 @@ input,select,textarea{ font-size:16px !important; }
 .modal-sheet{
   background:var(--surface); border:1px solid var(--border2);
   border-radius:var(--r4) var(--r4) 0 0;
+  padding-top:20px; /* space for drag handle */
+  position:relative;
+}
+/* Drag handle on all bottom sheets */
+.modal-sheet::before{
+  content:''; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+  width:36px; height:4px; border-radius:2px;
+  background:var(--border2); opacity:0.6;
+}
   width:100%; max-width:540px; max-height:90vh;
   box-shadow:var(--shadow-modal);
   animation:slideUp var(--t-med);
@@ -1592,7 +1625,7 @@ input,select,textarea{ font-size:16px !important; }
 .today-check-btn:hover{ background:rgba(255,255,255,0.08); }
 .today-focus-btn{
   width:32px; height:32px; border-radius:50%;
-  border:none; background:var(--accent); color:#1a1f2e;
+  border:none; background:var(--accent); color:#fff;
   font-size:14px; font-weight:900; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
   flex-shrink:0; transition:transform var(--t-fast);
@@ -1876,15 +1909,42 @@ body.dark-mode .brain-dump-input{ background:var(--surface2); border-color:var(-
 .kids-prize-item-type.big{ background:rgba(255,193,7,0.2); color:#ffc107; border:1px solid rgba(255,193,7,0.3); }
 .kids-celebration{ position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999; display:none; align-items:center; justify-content:center; }
 .kids-celebration.active{ display:flex; }
-.kids-celeb-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.82); cursor:pointer; }
-.kids-celeb-box{ position:relative; background:var(--surface); border-radius:var(--r5); padding:var(--sp6) var(--sp5); text-align:center; max-width:320px; width:90%; animation:celebPop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
-@keyframes celebPop{ from{transform:scale(0.4);opacity:0;} to{transform:scale(1);opacity:1;} }
-.kids-celeb-emoji{ font-size:72px; display:block; margin-bottom:var(--sp2); animation:bounceEmoji 0.7s ease infinite alternate; }
-@keyframes bounceEmoji{ from{transform:translateY(0) rotate(-8deg);} to{transform:translateY(-12px) rotate(8deg);} }
-.kids-celeb-title{ font:700 26px/1 var(--font-body); color:var(--accent); margin-bottom:var(--sp2); }
-.kids-celeb-sub{ font:var(--type-label); color:var(--text2); margin-bottom:var(--sp2); }
-.kids-celeb-prize{ font:600 18px/1 var(--font-body); color:#fff; margin-bottom:var(--sp5); padding:var(--sp3) var(--sp4); background:rgba(255,255,255,0.08); border-radius:var(--r3); }
-.kids-celeb-close{ padding:var(--sp3) var(--sp6); border-radius:var(--r5); border:none; background:var(--accent); color:#fff; font:700 13px/1 var(--font-ui); cursor:pointer; letter-spacing:0.5px; min-height:var(--touch); }
+.kids-celeb-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.9); }
+.kids-celeb-box{
+  position:relative; text-align:center;
+  max-width:340px; width:92%;
+  border-radius:28px; padding:36px 28px 32px;
+  animation:celebPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  background:linear-gradient(145deg,#1a1f3a,#2a1a3a);
+  border:3px solid rgba(255,215,0,0.5);
+  box-shadow:0 0 80px rgba(255,215,0,0.2), 0 24px 48px rgba(0,0,0,0.7);
+}
+@keyframes celebPop{ from{transform:scale(0.3) rotate(-5deg);opacity:0;} to{transform:scale(1) rotate(0deg);opacity:1;} }
+.kids-celeb-emoji{ font-size:88px; display:block; margin-bottom:8px; animation:bounceEmoji 0.9s ease infinite alternate; line-height:1; }
+@keyframes bounceEmoji{ from{transform:translateY(0) rotate(-10deg) scale(1);} to{transform:translateY(-14px) rotate(10deg) scale(1.1);} }
+.kids-celeb-stars{ font-size:20px; letter-spacing:8px; margin-bottom:8px; display:block; opacity:0.9; }
+.kids-celeb-title{ font:900 32px/1.1 var(--font-body); color:#FFD700; margin-bottom:8px; text-shadow:0 0 24px rgba(255,215,0,0.6); letter-spacing:1px; }
+.kids-celeb-sub{ font:600 15px/1.4 var(--font-ui); color:rgba(255,255,255,0.7); margin-bottom:18px; }
+.kids-celeb-prize{
+  font:800 22px/1.3 var(--font-body); color:#FFD700;
+  margin-bottom:28px; padding:18px 20px;
+  background:rgba(255,215,0,0.08);
+  border:2px solid rgba(255,215,0,0.35);
+  border-radius:18px;
+  box-shadow:inset 0 0 20px rgba(255,215,0,0.05), 0 0 30px rgba(255,215,0,0.1);
+  text-shadow:0 0 12px rgba(255,215,0,0.4);
+}
+.kids-celeb-close{
+  width:100%; padding:18px;
+  border-radius:50px; border:none;
+  background:linear-gradient(135deg,#E8A838 0%,#FFD700 50%,#E8A838 100%);
+  color:#1a1a2e; font:900 17px/1 var(--font-ui);
+  cursor:pointer; letter-spacing:0.5px;
+  box-shadow:0 6px 28px rgba(255,215,0,0.45);
+  transition:transform 0.1s, box-shadow 0.1s;
+  min-height:58px;
+}
+.kids-celeb-close:active{ transform:scale(0.97); box-shadow:0 3px 14px rgba(255,215,0,0.3); }
 .kids-confetti-piece{ position:fixed; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; }
 @keyframes confettiFall{ 0%{opacity:1;transform:translateY(-10px) rotate(0deg);} 100%{opacity:0;transform:translateY(105vh) rotate(900deg);} }
 .wheel-wrap{ display:flex; flex-direction:column; align-items:center; gap:var(--sp4); padding:var(--sp2) 0; width:100%; }
@@ -2026,6 +2086,18 @@ body.light-mode .today-card-row:active{ background:rgba(0,0,0,0.04); }
   .modal-footer{ padding-bottom:calc(var(--sp3) + env(safe-area-inset-bottom) + 4px); }
   /* Brain dump bar sits above home indicator in home mode */
   .brain-dump-bar{ margin-bottom:calc(8px + env(safe-area-inset-bottom)); }
+
+  /* ── iOS zoom prevention: all text inputs must be ≥ 16px ──────
+     iOS Safari zooms the viewport when focusing any input with
+     font-size < 16px. These overrides apply only on mobile.      */
+  .field-input,
+  .field-select,
+  .brain-dump-input,
+  .subtask-add-input,
+  .reset-textarea,
+  #search-input,
+  #gate-input,
+  textarea { font-size:16px !important; }
 }
 
 /* ── Tap highlight suppression (belt+suspenders) */
@@ -2271,56 +2343,56 @@ function selectGateUser(who){
     <!-- Work nav (desktop) -->
     <div id="rail-work-items">
       <button class="nav-btn" id="nav-today" onclick="setNav('today')">
-        <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="4"/><line x1="10" y1="1" x2="10" y2="3"/><line x1="10" y1="17" x2="10" y2="19"/><line x1="1" y1="10" x2="3" y2="10"/><line x1="17" y1="10" x2="19" y2="10"/><line x1="3.5" y1="3.5" x2="5" y2="5"/><line x1="15" y1="15" x2="16.5" y2="16.5"/><line x1="16.5" y1="3.5" x2="15" y2="5"/><line x1="5" y1="15" x2="3.5" y2="16.5"/></svg></span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
-        <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/></svg></span><span class="nav-label">Tasks</span>
       </button>
       <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
-        <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/></svg></span><span class="nav-label">Meetings</span>
       </button>
       <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
-        <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><polyline points="10 5 10 10 14 12"/></svg></span><span class="nav-label">Waiting</span>
       </button>
       <button class="nav-btn" id="nav-discovery" onclick="setNav('discovery')">
-        <span class="nav-icon">🔭</span><span class="nav-label">Discovery</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><path d="M6 14 L8.5 8.5 L14 6 L11.5 11.5 Z"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Discovery</span>
       </button>
       <button class="nav-btn" id="nav-people" onclick="setNav('people')">
-        <span class="nav-icon">👥</span><span class="nav-label">People</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></span><span class="nav-label">People</span>
       </button>
       <button class="nav-btn" id="nav-settings" onclick="setNav('settings')">
-        <span class="nav-icon">⚙</span><span class="nav-label">Settings</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg></span><span class="nav-label">Settings</span>
       </button>
     </div>
 
     <!-- Home nav (desktop) -->
     <div id="rail-home-items" style="display:none;">
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
-        <span class="nav-icon">☀️</span><span class="nav-label">Today</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10L10 3l7 7"/><path d="M5 8.5V17h4v-4h2v4h4V8.5"/></svg></span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-calendar" onclick="setNav('calendar')">
-        <span class="nav-icon">📅</span><span class="nav-label">Calendar</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/><rect x="7" y="11" width="2" height="2" rx="0.5" fill="currentColor" stroke="none"/><rect x="11" y="11" width="2" height="2" rx="0.5" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Calendar</span>
       </button>
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
-        <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><path d="M2 17c0-3 1.8-5 4-5s4 2 4 5"/><path d="M10 17c0-3 1.8-5 4-5s4 2 4 5"/></svg></span><span class="nav-label">Family</span>
       </button>
       <button class="nav-btn" id="nav-grocery" onclick="setNav('grocery')">
-        <span class="nav-icon">🛒</span><span class="nav-label">Grocery</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h2l2.5 9h9l2-6H6"/><circle cx="9" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="17" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Grocery</span>
       </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
-        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8.2 14 12 15.1 17.5 10 14.8 4.9 17.5 6 12 2 8.2 7.5 7.5"/></svg></span><span class="nav-label">Kids</span>
       </button>
       <button class="nav-btn" id="nav-games" onclick="setNav('games')">
-        <span class="nav-icon">🎮</span><span class="nav-label">Games</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="10" rx="3"/><line x1="6" y1="9" x2="6" y2="13"/><line x1="4" y1="11" x2="8" y2="11"/><circle cx="13" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Games</span>
       </button>
       <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
-        <span class="nav-icon">👥</span><span class="nav-label">Contacts</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></span><span class="nav-label">Contacts</span>
       </button>
       <button class="nav-btn" id="nav-dinners" onclick="setNav('dinners')">
-        <span class="nav-icon">🍽</span><span class="nav-label">Dinners</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M7 2v7a3 3 0 006 0V2"/><line x1="10" y1="12" x2="10" y2="18"/><line x1="3" y1="2" x2="3" y2="8"/><path d="M1 5a2 2 0 004 0"/></svg></span><span class="nav-label">Dinners</span>
       </button>
       <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
-        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><line x1="8" y1="7" x2="12" y2="7"/><line x1="8" y1="10" x2="12" y2="10"/><line x1="8" y1="13" x2="10" y2="13"/></svg></span><span class="nav-label">Daily</span>
       </button>
     </div>
 
@@ -2471,43 +2543,43 @@ function selectGateUser(who){
     <!-- Work mode nav -->
     <div id="nav-work-items" style="display:flex;flex:1;">
       <button class="nav-btn" id="nav-today" onclick="setNav('today')">
-        <span class="nav-icon">☀</span><span class="nav-label">Today</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="4"/><line x1="10" y1="1" x2="10" y2="3"/><line x1="10" y1="17" x2="10" y2="19"/><line x1="1" y1="10" x2="3" y2="10"/><line x1="17" y1="10" x2="19" y2="10"/><line x1="3.5" y1="3.5" x2="5" y2="5"/><line x1="15" y1="15" x2="16.5" y2="16.5"/><line x1="16.5" y1="3.5" x2="15" y2="5"/><line x1="5" y1="15" x2="3.5" y2="16.5"/></svg></span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
-        <span class="nav-icon">☰</span><span class="nav-label">Tasks</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/></svg></span><span class="nav-label">Tasks</span>
       </button>
       <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
-        <span class="nav-icon">📝</span><span class="nav-label">Meetings</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/></svg></span><span class="nav-label">Meetings</span>
       </button>
       <button class="nav-btn" id="nav-waiting" onclick="setNav('waiting')">
-        <span class="nav-icon">⏳</span><span class="nav-label">Waiting</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><polyline points="10 5 10 10 14 12"/></svg></span><span class="nav-label">Waiting</span>
       </button>
       <button class="nav-btn" id="nav-people" onclick="setNav('people')">
-        <span class="nav-icon">👥</span><span class="nav-label">People</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></span><span class="nav-label">People</span>
       </button>
       <button class="nav-btn" id="nav-grid-btn" onclick="toggleNavGrid()">
-        <span class="nav-icon">⊞</span><span class="nav-label">More</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">More</span>
       </button>
     </div>
     <!-- Home mode nav -->
     <div id="nav-home-items" style="display:none;flex:1;">
       <button class="nav-btn" id="nav-home-today" onclick="setNav('home-today')">
-        <span class="nav-icon">☀️</span><span class="nav-label">Today</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10L10 3l7 7"/><path d="M5 8.5V17h4v-4h2v4h4V8.5"/></svg></span><span class="nav-label">Today</span>
       </button>
       <button class="nav-btn" id="nav-family" onclick="setNav('family')">
-        <span class="nav-icon">👨‍👩‍👧‍👦</span><span class="nav-label">Family</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><path d="M2 17c0-3 1.8-5 4-5s4 2 4 5"/><path d="M10 17c0-3 1.8-5 4-5s4 2 4 5"/></svg></span><span class="nav-label">Family</span>
       </button>
       <button class="nav-btn" id="nav-tracker" onclick="setNav('tracker')">
-        <span class="nav-icon">📋</span><span class="nav-label">Daily</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><line x1="8" y1="7" x2="12" y2="7"/><line x1="8" y1="10" x2="12" y2="10"/><line x1="8" y1="13" x2="10" y2="13"/></svg></span><span class="nav-label">Daily</span>
       </button>
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
-        <span class="nav-icon">⭐</span><span class="nav-label">Kids</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8.2 14 12 15.1 17.5 10 14.8 4.9 17.5 6 12 2 8.2 7.5 7.5"/></svg></span><span class="nav-label">Kids</span>
       </button>
       <button class="nav-btn" id="nav-games" onclick="setNav('games')">
-        <span class="nav-icon">🎮</span><span class="nav-label">Games</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="10" rx="3"/><line x1="6" y1="9" x2="6" y2="13"/><line x1="4" y1="11" x2="8" y2="11"/><circle cx="13" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Games</span>
       </button>
       <button class="nav-btn" id="nav-home-grid-btn" onclick="toggleNavGrid()">
-        <span class="nav-icon">⊞</span><span class="nav-label">More</span>
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">More</span>
       </button>
     </div>
   </div>
@@ -2520,43 +2592,43 @@ function selectGateUser(who){
     </div>
     <div id="nav-grid">
       <button class="nav-grid-tile" id="grid-today" onclick="setNav('today');closeNavGrid()">
-        <div class="nav-grid-tile-icon">☀</div><div>Today</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="4"/><line x1="10" y1="1" x2="10" y2="3"/><line x1="10" y1="17" x2="10" y2="19"/><line x1="1" y1="10" x2="3" y2="10"/><line x1="17" y1="10" x2="19" y2="10"/><line x1="3.5" y1="3.5" x2="5" y2="5"/><line x1="15" y1="15" x2="16.5" y2="16.5"/><line x1="16.5" y1="3.5" x2="15" y2="5"/><line x1="5" y1="15" x2="3.5" y2="16.5"/></svg></div><div>Today</div>
       </button>
       <button class="nav-grid-tile" id="grid-tasks" onclick="setNav('tasks');closeNavGrid()">
-        <div class="nav-grid-tile-icon">☰</div><div>Tasks</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/></svg></div><div>Tasks</div>
       </button>
       <button class="nav-grid-tile" id="grid-meetings" onclick="setNav('meetings');closeNavGrid()">
-        <div class="nav-grid-tile-icon">📝</div><div>Meetings</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/></svg></div><div>Meetings</div>
       </button>
       <button class="nav-grid-tile" id="grid-kids" onclick="setNav('kids');closeNavGrid()">
-        <div class="nav-grid-tile-icon">⭐</div><div>Kids</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8.2 14 12 15.1 17.5 10 14.8 4.9 17.5 6 12 2 8.2 7.5 7.5"/></svg></div><div>Kids</div>
       </button>
       <button class="nav-grid-tile" id="grid-waiting" onclick="setNav('waiting');closeNavGrid()">
-        <div class="nav-grid-tile-icon">⏳</div><div>Waiting</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><polyline points="10 5 10 10 14 12"/></svg></div><div>Waiting</div>
       </button>
       <button class="nav-grid-tile" id="grid-discovery" onclick="setNav('discovery');closeNavGrid()">
-        <div class="nav-grid-tile-icon">🔭</div><div>Discovery</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><path d="M6 14 L8.5 8.5 L14 6 L11.5 11.5 Z"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/></svg></div><div>Discovery</div>
       </button>
       <button class="nav-grid-tile" id="grid-people" onclick="setNav('people');closeNavGrid()">
-        <div class="nav-grid-tile-icon">👥</div><div>People</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></div><div>People</div>
       </button>
       <button class="nav-grid-tile" id="grid-home-today" onclick="setNav('home-today');closeNavGrid()">
-        <div class="nav-grid-tile-icon">☀️</div><div>Today</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10L10 3l7 7"/><path d="M5 8.5V17h4v-4h2v4h4V8.5"/></svg></div><div>Today</div>
       </button>
       <button class="nav-grid-tile" id="grid-family" onclick="setNav('family');closeNavGrid()">
-        <div class="nav-grid-tile-icon">👨‍👩‍👧‍👦</div><div>Family</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="14" cy="5" r="2"/><path d="M2 17c0-3 1.8-5 4-5s4 2 4 5"/><path d="M10 17c0-3 1.8-5 4-5s4 2 4 5"/></svg></div><div>Family</div>
       </button>
       <button class="nav-grid-tile" id="grid-grocery" onclick="setNav('grocery');closeNavGrid()">
-        <div class="nav-grid-tile-icon">🛒</div><div>Grocery</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h2l2.5 9h9l2-6H6"/><circle cx="9" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="17" r="1.2" fill="currentColor" stroke="none"/></svg></div><div>Grocery</div>
       </button>
       <button class="nav-grid-tile" id="grid-calendar" onclick="setNav('calendar');closeNavGrid()">
-        <div class="nav-grid-tile-icon">📅</div><div>Calendar</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/><rect x="7" y="11" width="2" height="2" rx="0.5" fill="currentColor" stroke="none"/><rect x="11" y="11" width="2" height="2" rx="0.5" fill="currentColor" stroke="none"/></svg></div><div>Calendar</div>
       </button>
       <button class="nav-grid-tile" id="grid-tracker" onclick="setNav('tracker');closeNavGrid()">
         <div class="nav-grid-tile-icon">📋</div><div>Daily</div>
       </button>
       <button class="nav-grid-tile" id="grid-settings" onclick="setNav('settings');closeNavGrid()">
-        <div class="nav-grid-tile-icon">⚙</div><div>Settings</div>
+        <div class="nav-grid-tile-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/></svg></div><div>Settings</div>
       </button>
     </div>
   </div>
@@ -2581,7 +2653,7 @@ function selectGateUser(who){
 </div>
 
 <!-- ADD/EDIT Task MODAL -->
-<div id="modal-task" class="modal-overlay" style="display:none;" onclick="closeModal('modal-task')">
+<div id="modal-task" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-task')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-title" id="modal-task-title">New Task</div>
     <div class="field-group">
@@ -2757,7 +2829,7 @@ function selectGateUser(who){
 </div>
 
 <!-- QUICK CAPTURE MODAL -->
-<div id="modal-quick" class="modal-overlay" style="display:none;" onclick="closeModal('modal-quick')">
+<div id="modal-quick" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-quick')">
   <div class="modal-sheet" style="max-width:380px;" onclick="event.stopPropagation()">
     <div class="modal-title" style="font-size:14px;">⚡ QUICK CAPTURE</div>
     <div style="font:500 10px/1.4 var(--font-ui);color:var(--text3);margin-bottom:10px;letter-spacing:0.5px;">Just the idea — fill in details later</div>
@@ -2785,7 +2857,7 @@ function selectGateUser(who){
 
 <!-- ADD Project MODAL -->
 <!-- SUNDAY RESET MODAL -->
-<div id="modal-reset" class="modal-overlay" style="display:none;" onclick="closeModal('modal-reset')">
+<div id="modal-reset" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-reset')">
   <div class="modal-sheet" onclick="event.stopPropagation()" style="max-width:400px;">
     <div class="modal-title">🌅 SUNDAY RESET</div>
     <div class="reset-progress" id="reset-progress"></div>
@@ -2889,7 +2961,7 @@ function selectGateUser(who){
 </div>
 
 <!-- SLOT ASSIGN MODAL -->
-<div id="modal-slot-assign" class="modal-overlay" style="display:none;" onclick="closeModal('modal-slot-assign')">
+<div id="modal-slot-assign" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-slot-assign')">
   <div class="modal-sheet" onclick="event.stopPropagation()" style="max-width:380px;">
     <div class="modal-title" id="slot-assign-title">ASSIGN Task</div>
     <div style="font:var(--type-label);color:var(--text3);margin-bottom:10px;" id="slot-assign-hint">Pick a task from your list, or type a new one.</div>
@@ -2904,7 +2976,7 @@ function selectGateUser(who){
   </div>
 </div>
 
-<div id="modal-project" class="modal-overlay" style="display:none;" onclick="closeModal('modal-project')">
+<div id="modal-project" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-project')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-title" id="modal-project-title">New Project</div>
     <div class="field-group">
@@ -2934,7 +3006,7 @@ function selectGateUser(who){
 </div>
 
 <!-- INTEL IMPORT MODAL -->
-<div id="modal-import" class="modal-overlay" style="display:none;" onclick="closeModal('modal-import')">
+<div id="modal-import" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-import')">
   <div class="modal-sheet" onclick="event.stopPropagation()">
     <div class="modal-title">⬆ INTEL UPLOAD</div>
     <div id="import-body"></div>
@@ -5514,7 +5586,7 @@ function renderFamilyPage(container){
       open.forEach(t=>{
         const _taskAsgns = taskAssignees(t);
         const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'          + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'          + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'          + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'          + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':'var(--text4)') + ';margin-top:3px;">📅 ' + (t.dueDate<=today()?'Today':t.dueDate.slice(5)) + '</div>' : '')          + '</div>'          + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'          + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')          + '</div>'          + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'          + '</div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'          + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'          + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'          + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'          + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':t.dueDate===today()?'var(--accent)':'var(--text4)') + ';margin-top:3px;">' + (t.dueDate<today()?'⚠ ':' 📅 ') + (t.dueDate===today()?'Today':t.dueDate.slice(5)) + '</div>' : '')          + '</div>'          + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'          + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')          + '</div>'          + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'          + '</div>';
       });
     }
     if(done.length){
@@ -9700,6 +9772,25 @@ function renderTaskList(container){
       if(!matches) return false;
     }
     if(q&&!t.title.toLowerCase().includes(q)&&!(proj?.name.toLowerCase().includes(q))) return false;
+    // ── Aging filter: show only tasks that haven't been touched in 14+ days ─
+    if(taskAgingFilter && t.status !== 'done'){
+      if(_ageInfo(t.createdAt).tier === 'fresh') return false;
+    }
+    // ── Parking lot: hide tasks not relevant this week ──────────
+    // Bypassed when: any other filter is active, searching, task is overdue,
+    // task is high priority, task is in-progress/blocked, or task is pinned for today
+    if(taskParkingLot && !q && !realmActive() && !partyActive() && !personActive()
+        && filterStatus.size===0 && !priorityActive() && !dueActive()){
+      if(t.status==='done') return true; // done tasks always pass (handled by group limits)
+      if(t.status==='inprogress' || t.status==='blocked') return true; // active work always shows
+      if(t.priority==='high') return true; // high priority always surfaces
+      if(t.dueDate && t.dueDate < today()) return true; // overdue always shows
+      if(todayPinned.has(t.id)) return true; // pinned for today always shows
+      const _weekAhead = new Date(); _weekAhead.setDate(_weekAhead.getDate()+7);
+      const _weekStr = _weekAhead.toISOString().slice(0,10);
+      if(t.dueDate && t.dueDate <= _weekStr) return true; // due within 7 days shows
+      return false; // everything else is parked
+    }
     return true;
   }).sort((a,b)=>{
     const todayStr=today();
@@ -9718,7 +9809,34 @@ function renderTaskList(container){
 
   let html="";
 
-  // View mode + bulk edit toggle strip
+  // Parking lot count — tasks being hidden right now
+  const _allActive = tasks.filter(t=>{
+    const proj=projects.find(p=>p.id===t.projectId);
+    if(proj && (proj.status==='archived'||proj.status==='paused')) return false;
+    return t.status!=='done';
+  });
+  const _parkedCount = taskParkingLot && !q && !realmActive() && !partyActive() && !personActive()
+    && filterStatus.size===0 && !priorityActive() && !dueActive()
+    ? _allActive.filter(t=>{
+        if(t.status==='inprogress'||t.status==='blocked') return false;
+        if(t.priority==='high') return false;
+        if(t.dueDate && t.dueDate < today()) return false;
+        if(todayPinned.has(t.id)) return false;
+        const _we = new Date(); _we.setDate(_we.getDate()+7);
+        if(t.dueDate && t.dueDate <= _we.toISOString().slice(0,10)) return false;
+        return true;
+      }).length
+    : 0;
+
+  // Aging filter — count tasks that are stale or ancient
+  const _agingCount = tasks.filter(t=>{
+    if(t.status==='done') return false;
+    const proj=projects.find(p=>p.id===t.projectId);
+    if(proj&&(proj.status==='archived'||proj.status==='paused')) return false;
+    return _ageInfo(t.createdAt).tier !== 'fresh';
+  }).length;
+
+  // View mode + parking lot + aging filter + bulk edit strip
   const vmBtns = [
     {v:'priority',   icon:'⚡', label:'Priority'},
     {v:'initiative', icon:'🔭', label:'Initiative'},
@@ -9731,19 +9849,87 @@ function renderTaskList(container){
     color:${taskViewMode===b.v?'var(--accent)':'var(--text3)'};">
     ${b.icon} ${b.label}
   </button>`).join('');
-  html += `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px 4px;overflow-x:auto;flex-shrink:0;">
-    ${vmBtns}
-    <button onclick="toggleMassEdit()" style="margin-left:auto;padding:4px 10px;border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
-      border:1px solid ${massEditMode?'var(--accent)':'var(--border)'};
-      background:${massEditMode?'rgba(232,168,56,0.12)':'transparent'};
-      color:${massEditMode?'var(--accent)':'var(--text3)'};">
-      ⊞ ${massEditMode?'Exit':'Bulk edit'}
-    </button>
+
+  // Parking lot pill — prominent when on, subtle when off
+  const _plOn = taskParkingLot;
+  const _plBtn = `<button onclick="taskParkingLot=!taskParkingLot;renderAll();"
+    title="${_plOn ? 'Parking lot ON — showing this week only. Tap to see all.' : 'Parking lot OFF — showing all tasks. Tap to focus on this week.'}"
+    style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+      font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+      border:1px solid ${_plOn?'rgba(100,181,246,0.5)':'var(--border)'};
+      background:${_plOn?'rgba(100,181,246,0.1)':'transparent'};
+      color:${_plOn?'#64B5F6':'var(--text4)'};">
+    🅿 ${_plOn ? 'This week' : 'All tasks'}
+    ${_plOn && _parkedCount > 0
+      ? `<span style="background:rgba(100,181,246,0.2);border:1px solid rgba(100,181,246,0.3);
+           color:#64B5F6;font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">
+           +${_parkedCount} parked</span>`
+      : ''}
+  </button>`;
+
+  // Aging filter button
+  const _agBtn = _agingCount > 0 ? `<button onclick="taskAgingFilter=!taskAgingFilter;if(taskAgingFilter)taskParkingLot=false;renderAll();"
+    title="${taskAgingFilter?'Showing aging tasks only — tap to clear':'Show tasks not touched in 14+ days'}"
+    style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+      font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+      border:1px solid ${taskAgingFilter?'rgba(239,83,80,0.5)':'var(--border)'};
+      background:${taskAgingFilter?'rgba(239,83,80,0.1)':'transparent'};
+      color:${taskAgingFilter?'#EF5350':'var(--text4)'};">
+    🔥 Aging
+    <span style="background:${taskAgingFilter?'rgba(239,83,80,0.2)':'var(--border)'};
+      color:${taskAgingFilter?'#EF5350':'var(--text4)'};
+      font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">${_agingCount}</span>
+  </button>` : '';
+
+  // Triage button — count triageable tasks (stale + no due date + parked)
+  const _triagePool = tasks.filter(t=>{
+    if(t.status==='done'||t.status==='inprogress'||t.status==='blocked') return false;
+    const proj=projects.find(p=>p.id===t.projectId);
+    if(proj&&(proj.status==='archived'||proj.status==='paused')) return false;
+    if(t.priority==='high') return false;
+    return _ageInfo(t.createdAt).tier !== 'fresh';
+  });
+  const _triageBtn = _triagePool.length > 0 ? `<button onclick="openTriage()"
+    title="Triage stale tasks one at a time — fast and focused"
+    style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+      font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+      border:1px solid rgba(129,199,132,0.45);background:rgba(129,199,132,0.08);color:#81C784;">
+    🧹 Triage
+    <span style="background:rgba(129,199,132,0.2);color:#81C784;
+      font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">${_triagePool.length}</span>
+  </button>` : '';
+
+  // Two-row strip: row 1 = view modes, row 2 = action controls
+  html += `<div style="border-bottom:1px solid var(--border);flex-shrink:0;">
+    <!-- Row 1: View modes -->
+    <div style="display:flex;align-items:center;gap:4px;padding:5px 10px 4px;overflow-x:auto;scrollbar-width:none;">
+      ${vmBtns}
+      <button onclick="toggleMassEdit()" style="margin-left:auto;padding:4px 10px;border-radius:6px;
+        font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;
+        border:1px solid ${massEditMode?'var(--accent)':'var(--border)'};
+        background:${massEditMode?'rgba(232,168,56,0.12)':'transparent'};
+        color:${massEditMode?'var(--accent)':'var(--text3)'};">
+        ⊞ ${massEditMode?'Exit':'Bulk'}
+      </button>
+    </div>
+    <!-- Row 2: Action controls — parking lot, aging, triage -->
+    <div style="display:flex;align-items:center;gap:4px;padding:3px 10px 5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);">
+      ${_plBtn}
+      ${_agBtn}
+      ${_triageBtn}
+    </div>
   </div>`;
 
-  if(visibleTasks.length===0){
+  if(visibleTasks.length===0 && !triageMode){
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-family:var(--font-ui);letter-spacing:0.5px;font-style:italic;">— All clear —</div>`;
     container.innerHTML=html;
+    return;
+  }
+
+  // ── TRIAGE MODE — card-by-card view ──────────────────────────
+  if(triageMode){
+    html += renderTriageCard();
+    container.innerHTML = html;
     return;
   }
 
@@ -9803,6 +9989,45 @@ function renderTaskList(container){
     if(medium.length)  html += renderGroup('🟡 MEDIUM','#E8A838',medium,'',true,'priority-med');
     if(low.length)     html += renderGroup('⚪ LOW','#888',low,'',true,'priority-low');
     if(done.length)    html += renderGroup('✓ DONE','var(--text4)',done,'',true,'priority-done');
+
+    // ── Parking lot summary (only when lot is ON) ────────────────
+    if(taskParkingLot && _parkedCount > 0){
+      const _plCollapsed = localStorage.getItem('hub-grp-parked') !== 'false';
+      const _weekAhead2 = new Date(); _weekAhead2.setDate(_weekAhead2.getDate()+7);
+      const _weekStr2 = _weekAhead2.toISOString().slice(0,10);
+      const parkedTasks = tasks.filter(t=>{
+        const _proj=projects.find(p=>p.id===t.projectId);
+        if(_proj&&(_proj.status==='archived'||_proj.status==='paused')) return false;
+        if(t.status==='done'||t.status==='inprogress'||t.status==='blocked') return false;
+        if(t.priority==='high') return false;
+        if(t.dueDate && t.dueDate < today()) return false;
+        if(todayPinned.has(t.id)) return false;
+        if(t.dueDate && t.dueDate <= _weekStr2) return false;
+        return true;
+      }).sort(smartSort);
+      if(parkedTasks.length){
+        const _plHeader = `<div class="today-card" style="margin-bottom:8px;border-color:rgba(100,181,246,0.2);opacity:0.75;">
+          <div class="today-card-header" onclick="var _k='hub-grp-parked';localStorage.setItem(_k,localStorage.getItem(_k)==='false'?'true':'false');renderAll();" style="cursor:pointer;">
+            <div class="today-card-label">
+              <div class="today-card-accent" style="background:#64B5F6;"></div>
+              <span style="font-size:13px;">🅿</span>
+              <span class="today-card-title" style="color:#64B5F6;">PARKED</span>
+              <span class="today-card-count">${parkedTasks.length} task${parkedTasks.length!==1?'s':''} · not due this week</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button onclick="event.stopPropagation();taskParkingLot=false;renderAll();"
+                style="padding:2px 8px;border-radius:5px;border:1px solid rgba(100,181,246,0.35);
+                  background:transparent;color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">
+                Show all
+              </button>
+              <span style="font-size:11px;color:var(--text4);">${_plCollapsed?'▸':'▾'}</span>
+            </div>
+          </div>
+          ${_plCollapsed ? '' : parkedTasks.map(t=>renderTaskRow(t, projects.find(p=>p.id===t.projectId)||null)).join('')}
+        </div>`;
+        html += _plHeader;
+      }
+    }
 
   } else if(taskViewMode==='initiative'){
     // ── BY DISCOVERY INITIATIVE ──
@@ -10135,6 +10360,53 @@ function relativeDue(dueDate,isDone){
   return `<span class="due-label ${cls}">${label}</span>`;
 }
 
+// ── Shared age utility — used by tasks, waiting-for, discovery ──────
+// Returns { days, tier } where tier is 'fresh'|'aging'|'stale'|'ancient'
+// and helpers for heat-map styling.
+function _ageInfo(createdAtVal, updatedAtVal){
+  const _parse = (v) => {
+    if(!v) return 0;
+    if(typeof v === 'number') return v;
+    const s = String(v);
+    if(/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s).getTime();
+    const n = parseInt(s);
+    return isNaN(n) ? 0 : n;
+  };
+  // Use most-recent of createdAt / updatedAt to measure "last touched"
+  const created = _parse(createdAtVal);
+  const updated = updatedAtVal ? _parse(updatedAtVal) : 0;
+  const reference = Math.max(created, updated);
+  if(!reference) return { days:0, tier:'fresh', borderColor:'transparent', bgColor:'transparent', badge:'' };
+  const days = Math.floor((Date.now() - reference) / 86400000);
+  // Tiers: fresh (<14d), aging (14-29d), stale (30-59d), ancient (60+d)
+  let tier, borderColor, bgColor, badge;
+  if(days < 14){
+    tier='fresh'; borderColor='transparent'; bgColor='transparent'; badge='';
+  } else if(days < 30){
+    tier='aging';
+    borderColor='rgba(232,168,56,0.5)';
+    bgColor='rgba(232,168,56,0.04)';
+    badge=`<span style="font:700 10px/1 var(--font-ui);color:rgba(232,168,56,0.8);
+      padding:1px 5px;border-radius:8px;background:rgba(232,168,56,0.1);
+      border:1px solid rgba(232,168,56,0.25);flex-shrink:0;">⏳ ${days}d</span>`;
+  } else if(days < 60){
+    tier='stale';
+    borderColor='rgba(255,138,101,0.6)';
+    bgColor='rgba(255,138,101,0.05)';
+    badge=`<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;
+      padding:1px 5px;border-radius:8px;background:rgba(255,138,101,0.1);
+      border:1px solid rgba(255,138,101,0.35);flex-shrink:0;">⏳ ${Math.round(days/7)}w</span>`;
+  } else {
+    tier='ancient';
+    borderColor='rgba(239,83,80,0.65)';
+    bgColor='rgba(239,83,80,0.06)';
+    badge=`<span style="font:700 10px/1 var(--font-ui);color:#EF5350;
+      padding:1px 5px;border-radius:8px;background:rgba(239,83,80,0.1);
+      border:1px solid rgba(239,83,80,0.35);flex-shrink:0;">🔥 ${Math.round(days/30)}mo</span>`;
+  }
+  return { days, tier, borderColor, bgColor, badge };
+}
+
 // ── Inline project management (from task view) ───────────────
 function inlineSaveProject(id){
   const p = projects.find(x=>x.id===id); if(!p) return;
@@ -10170,16 +10442,9 @@ function renderTaskRow(task,proj){
   const todayStr=today();
   const overdue=task.dueDate&&task.dueDate<todayStr&&!isDone;
 
-  // Aging badge
-  const ageMs = task.createdAt ? Date.now()-parseInt(task.createdAt) : 0;
-  const ageDays = Math.floor(ageMs/86400000);
-  const isStale = !isDone && ageDays>=14;
-  const isAncient = !isDone && ageDays>=60;
-  const ageBadge = isAncient
-    ? `<span style="font-size:10px;font-family:var(--font-ui);color:rgba(255,100,100,0.6);padding:1px 5px;border-radius:10px;background:rgba(255,100,100,0.08);border:1px solid rgba(255,100,100,0.2);flex-shrink:0;">⏳ ${Math.floor(ageDays/7)}w old</span>`
-    : isStale
-    ? `<span style="font-size:10px;font-family:var(--font-ui);color:rgba(160,140,100,0.7);padding:1px 5px;border-radius:10px;background:rgba(160,140,100,0.08);border:1px solid rgba(160,140,100,0.2);flex-shrink:0;">⏳ ${ageDays}d old</span>`
-    : '';
+  // Aging — use shared helper, factor in both createdAt and any last-touch signals
+  const _ai = !isDone ? _ageInfo(task.createdAt) : { tier:'fresh', borderColor:'transparent', bgColor:'transparent', badge:'' };
+  const ageBadge = _ai.badge;
 
   // Priority bar color
   const pColor={high:"#8B1818",medium:"#8B5C00",low:"#5C6A3C"}[task.priority]||"rgba(140,100,50,0.3)";
@@ -10290,7 +10555,7 @@ function renderTaskRow(task,proj){
   })();
 
   return `<div class="task-row ${isDone?'done':''}" data-task-id="${task.id}"
-      style="${isStale&&!isDone?'opacity:0.82;':''}">
+      style="border-left:3px solid ${_ai.borderColor};background:${_ai.bgColor};">
     <div class="task-row-top" onclick="openEditTask('${task.id}')">
       <button class="today-check-btn"
         style="color:${isDone?'var(--green)':pColor2};${isDone?'background:var(--green-soft);border-color:var(--green);':''}margin:0 var(--sp2) 0 var(--sp3);"
@@ -11014,6 +11279,15 @@ function renderSettings(container){
     <!-- AI Diagnostics -->
     <div class="section-title" style="margin-top:var(--sp4);">🤖 AI Features</div>
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
+      ${SUPABASE_JWT_KEY === 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmc3Vsand6bmx4YmZwbWlmZGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5OTg5NTMsImV4cCI6MjA5MDU3NDk1M30.BkXTbM37WDPa4aHhPh7yNsaqIIMAHd6uMTYrTZXw2RI' ? `
+      <div style="padding:12px 14px;border-radius:var(--r3);border:1.5px solid rgba(232,168,56,0.5);background:rgba(232,168,56,0.06);">
+        <div style="font:800 12px/1 var(--font-ui);color:var(--accent);margin-bottom:6px;">⚙ Setup required</div>
+        <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">
+          1. Get your Supabase anon key from <b>Project Settings → API</b><br>
+          2. Replace <code style="background:var(--surface2);padding:1px 4px;border-radius:3px;">PASTE_YOUR_ANON_JWT_KEY_HERE</code> in the HTML<br>
+          3. Deploy the <b>ai-proxy</b> Edge Function with your Anthropic API key
+        </div>
+      </div>` : ''}
       <button class="hbtn" style="width:100%;" onclick="testAIProxy()">🧪 Test AI Connection</button>
       <button class="hbtn" style="width:100%;" onclick="diagnosePush()">🔔 Diagnose Notifications</button>
       <div id="push-diag-result" style="display:none;padding:10px 12px;border-radius:var(--r2);background:var(--surface2);border:1px solid var(--border);font:500 11px/1.6 var(--font-ui);color:var(--text2);white-space:pre-wrap;word-break:break-word;margin-top:8px;"></div>
@@ -12033,6 +12307,12 @@ let todayViewMode = 'list';        // 'list' | 'timeblock' — toggle on Today s
 let todayUnifiedMode = localStorage.getItem('hub-today-unified')==='1'; // 'list' | 'unified'
 let massEditMode  = false;         // spreadsheet edit mode on Tasks
 let taskViewMode  = 'priority';    // 'priority'|'initiative'|'project'|'person'
+let taskParkingLot = true;         // when true, hide tasks not due within 7 days
+let taskAgingFilter = false;       // when true, show only aging/stale/ancient tasks
+let triageMode = false;            // when true, show one-at-a-time triage card view
+let _triageQueue = [];             // ordered list of task IDs to triage
+let _triageIndex = 0;              // current position in the queue
+let _triageStats = {kept:0, parked:0, dropped:0, snoozed:0}; // session stats
 let tbBlocks = {};                 // {date: [{taskId, startMin, durMin, color}]}
 let tbDragTask = null;             // task being dragged from unscheduled list
 let waitingPersonFilters = new Set(); // Set of person IDs, empty = show all
@@ -12404,7 +12684,7 @@ function renderTodayView(container){
           border:1.5px solid ${todayUnifiedMode?'var(--accent)':'var(--border)'};
           background:${todayUnifiedMode?'var(--accent-soft)':'transparent'};
           color:${todayUnifiedMode?'var(--accent)':'var(--text3)'};
-          font:700 10px/1 var(--font-ui);cursor:pointer;">All</button>
+          font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">☀ Full Day</button>
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
         class="today-icon-btn" title="Time blocks" style="${todayViewMode==='timeblock'?'border-color:var(--accent);color:var(--accent);background:var(--accent-soft);':''}">🗓</button>
       <button onclick="openReset()" class="today-icon-btn" title="Weekly reset">🌅</button>
@@ -12711,33 +12991,55 @@ function renderTodayView(container){
   container.innerHTML = html;
 }
 
-// ── UNIFIED TODAY VIEW ────────────────────────────────────────
-// Shows everything for today in one prioritised scroll:
-// overdue → pinned/focus → due today → calendar events → waiting-for → habits
+// ── FULL DAY VIEW ─────────────────────────────────────────────
+// One scroll covering everything due or overdue today across ALL lists:
+// work tasks, home tasks, family tasks (Jason's), calendar, waiting-for
 function renderTodayUnified(container){
   try {
   const todayStr = today();
   const hour     = new Date().getHours();
   const dateLabel= new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const isJason  = currentUser === 'parent';
 
-  // All task data
-  const overdue   = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate<todayStr)
-                         .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
-  const pinned    = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
-  const dueToday  = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate===todayStr&&!todayPinned.has(t.id))
-                         .sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1));
-  const pinnedDone= [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
-  const urgentWF  = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
-  const followUps = waitingFor.filter(w=>!w.done&&w.followUpDate&&w.followUpDate<=todayStr&&!(w.dueDate&&w.dueDate<=todayStr));
-  const nudges    = getPeopleNudges();
+  // ── Work task data ────────────────────────────────────────────
+  const workOverdue  = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate<todayStr)
+                            .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const workPinned   = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
+  const workDueToday = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate===todayStr&&!todayPinned.has(t.id))
+                            .sort((a,b)=>({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1));
+  const workPinnedDone = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
 
-  // Calendar events today — calEventsForDate reads _calEvents (the correct internal variable)
+  // ── Home task data ────────────────────────────────────────────
+  const myHomeTasks   = isJason ? jasonHomeTasks : wifeHomeTasks;
+  const homeOverdue   = myHomeTasks.filter(t=>!t.done&&t.dueDate&&t.dueDate<todayStr)
+                                   .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const homeDueToday  = myHomeTasks.filter(t=>!t.done&&t.dueDate&&t.dueDate===todayStr);
+
+  // ── Family task data (Jason's assignments) ────────────────────
+  const myFamilyDue   = familyTasks.filter(t=>{
+    if(t.done) return false;
+    if(!t.dueDate) return false;
+    const assignees = taskAssignees(t);
+    const isMine = assignees.includes('anyone') || assignees.includes('jason') || assignees.includes('jenny');
+    if(!isMine) return false;
+    return t.dueDate <= todayStr;
+  });
+  const familyOverdue  = myFamilyDue.filter(t=>t.dueDate<todayStr).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+  const familyDueToday = myFamilyDue.filter(t=>t.dueDate===todayStr);
+
+  // ── Calendar + waiting-for ────────────────────────────────────
   const todayEvents = calEventsForDate(todayStr);
+  const urgentWF    = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
+  const followUps   = waitingFor.filter(w=>!w.done&&w.followUpDate&&w.followUpDate<=todayStr&&!(w.dueDate&&w.dueDate<=todayStr));
+  const nudges      = getPeopleNudges();
 
-  const totalItems = overdue.length + pinned.length + dueToday.length + urgentWF.length + followUps.length + todayEvents.length;
+  // ── Counts ────────────────────────────────────────────────────
+  const totalOverdue = workOverdue.length + homeOverdue.length + familyOverdue.length;
+  const totalDueToday = workDueToday.length + workPinned.length + homeDueToday.length + familyDueToday.length;
+  const totalItems = totalOverdue + totalDueToday + urgentWF.length + followUps.length + todayEvents.length;
 
-  // Shared task row helper
-  function uRow(t, accentCol, badgeHtml){
+  // ── Shared row helpers ────────────────────────────────────────
+  function uRow(t, accentCol, badgeHtml, extraBtn){
     const proj = projects.find(p=>p.id===t.projectId);
     const isPinned = todayPinned.has(t.id);
     return `<div class="today-card-row" onclick="openEditTask('${t.id}')">
@@ -12751,11 +13053,230 @@ function renderTodayUnified(container){
         </div>
       </div>
       <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-        <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="${isPinned?'Unpin':'Pin for today'}">${isPinned?'✕':'📌'}</button>
+        ${extraBtn||`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="${isPinned?'Unpin':'Pin for today'}">${isPinned?'✕':'📌'}</button>`}
         <button class="today-focus-btn" onclick="event.stopPropagation();selectMission('${t.id}');todayFocusMode=true;renderAll();" title="Focus">▶</button>
       </div>
     </div>`;
   }
+
+  function homeRow(t, type){
+    const isPrivate = type === 'private';
+    const saveFn  = isPrivate ? (isJason?'saveJasonHomeTasks':'saveWifeHomeTasks') : 'saveFamilyTasks';
+    const arrName = isPrivate ? (isJason?'jasonHomeTasks':'wifeHomeTasks') : 'familyTasks';
+    const isOv = t.dueDate < todayStr;
+    const _ASSIGNEE_LABELS = {anyone:'Anyone',jason:'Jason',wife:'Jenny',jenny:'Jenny',ridley:'Ridley',connor:'Connor'};
+    const _taskAsgnsHome = !isPrivate ? taskAssignees(t).filter(k=>k!=='anyone') : [];
+    const assigneeLabel = _taskAsgnsHome.length
+      ? _taskAsgnsHome.map(k=>`<span style="font:600 10px/1 var(--font-ui);padding:1px 5px;border-radius:8px;background:var(--accent-soft);color:var(--accent);">${_ASSIGNEE_LABELS[k]||k}</span>`).join(' ')
+      : '';
+    const srcBadge = `<span style="font:700 10px/1 var(--font-ui);padding:1px 5px;border-radius:8px;
+      background:${isPrivate?'rgba(129,199,132,0.12)':'rgba(100,181,246,0.1)'};
+      color:${isPrivate?'#81C784':'#64B5F6'};">${isPrivate?'🏠 personal':'👨‍👩‍👧‍👦 family'}</span>`;
+    return `<div class="today-card-row" onclick="${isPrivate?`openPrivateTaskModal('${t.id}')`:`openFamilyTaskModal('${t.id}')`}">
+      <button class="today-check-btn" style="color:${isPrivate?'#81C784':'#64B5F6'};"
+        onclick="event.stopPropagation();toggleHomeTask('${t.id}','${arrName}','${saveFn}')">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+        <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+          ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>`:''}
+          ${srcBadge}${assigneeLabel}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  let html = '<div class="today-stack">';
+
+  // ── Header ───────────────────────────────────────────────────
+  html += `<div class="page-hero" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:none;">
+    <div class="page-hero-left">
+      <div class="page-hero-accent" style="color:var(--accent);">☀ ${hour<12?'Morning':'Today'} · Full Day</div>
+      <div class="page-hero-title">${dateLabel}</div>
+      <div class="page-hero-sub">${totalItems} item${totalItems!==1?'s':''} across all lists</div>
+    </div>
+    <button onclick="todayUnifiedMode=false;localStorage.setItem('hub-today-unified','0');renderAll();"
+      style="padding:6px 12px;border-radius:20px;border:1px solid var(--border);
+        background:transparent;color:var(--text3);font:700 11px/1 var(--font-ui);cursor:pointer;">
+      Work only
+    </button>
+  </div>`;
+
+  // ── 1. OVERDUE — all sources combined ────────────────────────
+  if(totalOverdue > 0){
+    html += `<div class="today-card" style="border-color:rgba(239,83,80,0.35);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--red);"></div>
+          <span class="today-card-title" style="color:var(--red);">⚠ Overdue</span>
+          <span class="today-card-count">${totalOverdue}</span>
+        </div>
+      </div>
+      ${workOverdue.map(t=>{
+        const proj=projects.find(p=>p.id===t.projectId);
+        return uRow(t,'var(--red)',`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ ${t.dueDate.slice(5)}</span>${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}`.replace(`${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}`,'')+`${proj?`<span style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</span>`:''}`);
+      }).join('')}
+      ${homeOverdue.map(t=>homeRow(t,'private')).join('')}
+      ${familyOverdue.map(t=>homeRow(t,'family')).join('')}
+    </div>`;
+  }
+
+  // ── 2. CALENDAR — today's events ─────────────────────────────
+  if(todayEvents.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(186,104,200,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#BA68C8;"></div>
+          <span class="today-card-title" style="color:#BA68C8;">📅 Calendar</span>
+          <span class="today-card-count">${todayEvents.length}</span>
+        </div>
+        <button onclick="setNav('calendar')" class="today-card-action">View</button>
+      </div>
+      ${todayEvents.slice(0,5).map(e=>{
+        const startTime = e.startTime ? new Date(e.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '';
+        return `<div class="today-card-row" onclick="setNav('cal')">
+          <div style="width:36px;text-align:center;font:700 11px/1 var(--font-ui);color:#BA68C8;flex-shrink:0;">${startTime||'📅'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.title||e.summary||'Event')}</div>
+            ${e.location?`<div style="font:var(--type-caption);color:var(--text4);">📍 ${esc(e.location)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── 3. WORK FOCUS — pinned + due today ───────────────────────
+  if(workPinned.length > 0 || workDueToday.length > 0){
+    const allWork = [...workPinned, ...workDueToday];
+    html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:var(--accent);"></div>
+          <span class="today-card-title" style="color:var(--accent);">💼 Work</span>
+          <span class="today-card-count">${allWork.length} due today${workPinnedDone.length>0?' · '+workPinnedDone.length+' done':''}</span>
+        </div>
+        <button onclick="openTodayPicker()" class="today-card-action">+ Pin</button>
+      </div>
+      ${allWork.map(t=>{
+        const isPinned=todayPinned.has(t.id);
+        const badge=isPinned
+          ?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📌 pinned</span>`
+          :`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📅 today</span>`;
+        return uRow(t,'var(--accent)',badge);
+      }).join('')}
+      ${workPinnedDone.length>0?`
+        <div style="padding:var(--sp1) var(--sp3);border-top:1px solid var(--border);font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">DONE ✓</div>
+        ${workPinnedDone.map(t=>`
+          <div class="today-card-row" style="opacity:0.4;" onclick="openEditTask('${t.id}')">
+            <button onclick="event.stopPropagation();completeTask('${t.id}',event)"
+              style="width:36px;height:36px;border-radius:50%;border:2px solid var(--green);
+                background:var(--green-soft);color:var(--green);font-size:13px;flex-shrink:0;
+                display:flex;align-items:center;justify-content:center;cursor:pointer;">✓</button>
+            <div style="flex:1;font:600 13px/1 var(--font-ui);color:var(--text3);
+              text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+          </div>`).join('')}`:''}
+    </div>`;
+  }
+
+  // ── 4. HOME + FAMILY due today ────────────────────────────────
+  if(homeDueToday.length > 0 || familyDueToday.length > 0){
+    html += `<div class="today-card" style="border-color:rgba(129,199,132,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#81C784;"></div>
+          <span class="today-card-title" style="color:#81C784;">🏠 Home</span>
+          <span class="today-card-count">${homeDueToday.length + familyDueToday.length} due today</span>
+        </div>
+        <button onclick="currentMode='home';applyMode();setNav('home-today');" class="today-card-action">Home →</button>
+      </div>
+      ${homeDueToday.map(t=>homeRow(t,'private')).join('')}
+      ${familyDueToday.map(t=>homeRow(t,'family')).join('')}
+    </div>`;
+  }
+
+  // ── 5. WAITING FOR due/follow-up today ───────────────────────
+  if(urgentWF.length > 0 || followUps.length > 0){
+    const allWF = [...urgentWF, ...followUps];
+    html += `<div class="today-card" style="border-color:rgba(100,181,246,0.25);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#64B5F6;"></div>
+          <span class="today-card-title" style="color:#64B5F6;">⏳ Waiting For</span>
+          <span class="today-card-count">${urgentWF.length} due${followUps.length>0?' · '+followUps.length+' follow up':''}</span>
+        </div>
+        <button onclick="setNav('waiting')" class="today-card-action">See all</button>
+      </div>
+      ${allWF.map(w=>{
+        const _ov = w.dueDate && w.dueDate < todayStr;
+        const _fu = !w.dueDate && w.followUpDate && w.followUpDate <= todayStr;
+        return `<div class="today-card-row" onclick="openWaitingModal(null,'${w.id}')">
+          <button class="today-check-btn" style="color:#64B5F6;border-color:rgba(100,181,246,0.45);"
+            onclick="event.stopPropagation();toggleWaitingDone('${w.id}')"></button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+            <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+              ${w.person?`<span style="font:var(--type-caption);color:#64B5F6;">${esc(w.person)}</span>`:''}
+              ${_ov?`<span style="font:var(--type-caption);color:var(--red);">⚠ ${w.dueDate.slice(5)}</span>`
+                :_fu?`<span style="font:var(--type-caption);color:#64B5F6;">🔔 follow up</span>`
+                :`<span style="font:var(--type-caption);color:var(--text4);">due today</span>`}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── 6. PEOPLE NUDGES ─────────────────────────────────────────
+  if(nudges.length > 0){
+    const _cc={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
+    html += `<div class="today-card" style="border-color:rgba(129,199,132,0.2);">
+      <div class="today-card-header">
+        <div class="today-card-label">
+          <div class="today-card-accent" style="background:#81C784;"></div>
+          <span class="today-card-title" style="color:#81C784;">Reach Out</span>
+          <span class="today-card-count">${nudges.length}</span>
+        </div>
+        <button onclick="setNav('people')" class="today-card-action">See all</button>
+      </div>
+      ${nudges.slice(0,3).map(c=>{
+        const _c=_cc[c.role]||'#888';
+        const _ds=c.lastContact?Math.floor((new Date(todayStr)-new Date(c.lastContact))/86400000):null;
+        return `<div class="today-card-row" onclick="openPersonDetail('${c.id}','contact')">
+          ${renderAvatar(c.name,c.photo,32,_c+'22',_c,false)}
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1 var(--font-ui);color:var(--text);">${esc(c.name)}</div>
+            <div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">${_ds===null?'Never contacted':`${_ds}d ago`}</div>
+          </div>
+          <button onclick="event.stopPropagation();openLogContactModal('${c.id}');"
+            style="padding:var(--sp1) var(--sp2);border-radius:var(--r2);min-height:32px;
+              border:1px solid rgba(129,199,132,0.4);background:transparent;color:#81C784;
+              font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">✓ Log</button>
+        </div>`;
+      }).join('')}
+      ${nudges.length>3?`<div style="padding:var(--sp2) var(--sp3);font:var(--type-caption);color:var(--text4);text-align:center;">+${nudges.length-3} more</div>`:''}
+    </div>`;
+  }
+
+  // ── All clear state ───────────────────────────────────────────
+  if(totalItems === 0){
+    html += `<div class="today-card" style="border-style:dashed;">
+      <div style="padding:40px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🌟</div>
+        <div style="font:700 16px/1.4 var(--font-ui);color:var(--text3);">All clear across the board</div>
+        <div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);margin-top:6px;">Nothing due today from any list</div>
+      </div>
+    </div>`;
+  }
+
+  // ── Quick capture ─────────────────────────────────────────────
+  html += `<div class="brain-dump-bar">
+    <input class="brain-dump-input" id="brain-dump-input" placeholder="💭 Quick capture…"
+      onkeydown="if(event.key==='Enter'){brainDump(this.value);this.value='';}" autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button class="mic-btn" id="mic-btn-dump" onclick="toggleVoice('brain-dump-input','mic-btn-dump')" title="Voice">🎙</button>
+    <button class="brain-dump-btn" onclick="brainDump(document.getElementById('brain-dump-input').value);document.getElementById('brain-dump-input').value=''">+</button>
+  </div>`;
+
+  html += '</div>';
+  container.innerHTML = html;
 
   let html = '<div class="today-stack">';
 
@@ -13291,6 +13812,181 @@ function resetNext(){
   showResetStep(resetStep);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// QUICK TRIAGE MODE
+// Card-by-card review of stale tasks. Keep / Park / Drop / Snooze.
+// One decision at a time — no list, no scroll, no overwhelm.
+// ═══════════════════════════════════════════════════════════════
+
+function openTriage(){
+  _triageQueue = tasks
+    .filter(t=>{
+      if(t.status==='done'||t.status==='inprogress'||t.status==='blocked') return false;
+      const proj=projects.find(p=>p.id===t.projectId);
+      if(proj&&(proj.status==='archived'||proj.status==='paused')) return false;
+      if(t.priority==='high') return false;
+      return _ageInfo(t.createdAt).tier !== 'fresh';
+    })
+    .sort((a,b)=>{
+      const _p=(v)=>{ if(!v) return 0; const s=String(v); if(/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s).getTime(); const n=parseInt(s); return isNaN(n)?0:n; };
+      return _p(a.createdAt) - _p(b.createdAt);
+    })
+    .map(t=>t.id);
+  if(_triageQueue.length === 0){ showToast('✨ Nothing to triage — all tasks are fresh!'); return; }
+  _triageIndex = 0;
+  _triageStats = {kept:0, parked:0, dropped:0, snoozed:0};
+  triageMode = true;
+  taskParkingLot = false;
+  renderAll();
+}
+
+function closeTriage(){
+  triageMode = false;
+  taskParkingLot = true;
+  renderAll();
+  const total = _triageStats.kept + _triageStats.parked + _triageStats.dropped + _triageStats.snoozed;
+  if(total > 0){
+    const parts = [];
+    if(_triageStats.kept)    parts.push(_triageStats.kept + ' kept');
+    if(_triageStats.parked)  parts.push(_triageStats.parked + ' parked');
+    if(_triageStats.dropped) parts.push(_triageStats.dropped + ' dropped');
+    if(_triageStats.snoozed) parts.push(_triageStats.snoozed + ' snoozed');
+    showToast('🧹 Triage done — ' + parts.join(', '));
+  }
+}
+
+function triageAction(action){
+  const taskId = _triageQueue[_triageIndex];
+  if(!taskId){ closeTriage(); return; }
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t){ _triageAdvance(); return; }
+  if(action === 'keep'){
+    t.createdAt = String(Date.now());
+    _triageStats.kept++;
+  } else if(action === 'park'){
+    somedayList.unshift({id:'sd'+Date.now(), title:t.title, createdAt:today(), context:t.realm||'work'});
+    saveSomeday();
+    t.status = 'done'; t.completedAt = Date.now();
+    _triageStats.parked++;
+  } else if(action === 'drop'){
+    t.status = 'done'; t.completedAt = Date.now();
+    _triageStats.dropped++;
+  } else if(action === 'snooze'){
+    const _tw = new Date(); _tw.setDate(_tw.getDate()+14);
+    t.dueDate = _tw.toISOString().slice(0,10);
+    t.createdAt = String(Date.now());
+    _triageStats.snoozed++;
+  }
+  saveAllDebounced();
+  _triageAdvance();
+}
+
+function _triageAdvance(){
+  _triageIndex++;
+  if(_triageIndex >= _triageQueue.length){
+    triageMode = false;
+    taskParkingLot = true;
+    renderAll();
+    const parts = [];
+    if(_triageStats.kept)    parts.push(_triageStats.kept + ' kept ✓');
+    if(_triageStats.parked)  parts.push(_triageStats.parked + ' parked 💭');
+    if(_triageStats.dropped) parts.push(_triageStats.dropped + ' dropped ✕');
+    if(_triageStats.snoozed) parts.push(_triageStats.snoozed + ' snoozed 💤');
+    showToast('🧹 All triaged! ' + (parts.join(' · ')||'Nothing actioned'));
+  } else {
+    renderAll();
+  }
+}
+
+function renderTriageCard(){
+  const taskId = _triageQueue[_triageIndex];
+  const remaining = _triageQueue.length - _triageIndex;
+  const done = _triageIndex;
+  const total = _triageQueue.length;
+  const progress = total > 0 ? (done / total) * 100 : 0;
+
+  if(!taskId || remaining === 0){
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:48px 24px;text-align:center;min-height:300px;">
+      <div style="font-size:52px;margin-bottom:16px;">✨</div>
+      <div style="font:900 22px/1.2 var(--font-ui);color:var(--text);margin-bottom:8px;">All triaged!</div>
+      <div style="font:500 14px/1.5 var(--font-ui);color:var(--text3);margin-bottom:28px;">
+        ${_triageStats.kept} kept &middot; ${_triageStats.parked} parked &middot; ${_triageStats.dropped} dropped &middot; ${_triageStats.snoozed} snoozed
+      </div>
+      <button onclick="closeTriage()" style="padding:14px 32px;border-radius:50px;border:none;background:var(--accent);color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;">Done 🧹</button>
+    </div>`;
+  }
+
+  const t = tasks.find(x=>x.id===taskId);
+  if(!t){ setTimeout(()=>_triageAdvance(), 50); return '<div style="padding:20px;text-align:center;color:var(--text4);">Loading…</div>'; }
+
+  const proj = projects.find(p=>p.id===t.projectId);
+  const ai   = _ageInfo(t.createdAt);
+  const personNames = (t.personIds||'').split(',').filter(Boolean)
+    .map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean).join(', ');
+  const ini = t.discoveryId ? discoveryList.find(i=>i.id===t.discoveryId) : null;
+  const ageLabel = ai.badge || '';
+
+  return `
+    <div style="padding:12px 14px 0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">🧹 Triage &mdash; ${remaining} left</span>
+        <button onclick="closeTriage()" style="font:600 11px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;padding:2px 8px;">Stop</button>
+      </div>
+      <div style="height:5px;border-radius:3px;background:var(--border);overflow:hidden;">
+        <div style="height:100%;border-radius:3px;background:var(--accent);width:${progress}%;transition:width 0.3s ease;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${done} of ${total} done</span>
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${_triageStats.kept>0?_triageStats.kept+' kept &middot; ':''}${_triageStats.dropped>0?_triageStats.dropped+' dropped':''}</span>
+      </div>
+    </div>
+
+    <div style="margin:12px 10px 0;border-radius:16px;border:2px solid ${ai.borderColor||'var(--border)'};background:var(--surface);overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.15);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${proj?`<span style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:8px;background:${proj.color}22;color:${proj.color};border:1px solid ${proj.color}44;">◈ ${esc(proj.name)}</span>`:''}
+          ${ini?`<span style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:8px;background:rgba(186,104,200,0.1);color:#BA68C8;border:1px solid rgba(186,104,200,0.25);">🔭 ${esc(ini.title.slice(0,20))}</span>`:''}
+        </div>
+        ${ageLabel}
+      </div>
+
+      <div style="padding:20px 16px 16px;">
+        <div style="font:700 20px/1.35 var(--font-ui);color:var(--text);margin-bottom:10px;">${esc(t.title)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${t.priority==='medium'?`<span style="font:700 10px/1 var(--font-ui);color:#E8A838;padding:2px 7px;border-radius:8px;background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.25);">🟡 Medium</span>`:''}
+          ${t.priority==='low'?`<span style="font:700 10px/1 var(--font-ui);color:#888;padding:2px 7px;border-radius:8px;background:rgba(128,128,128,0.1);">⚪ Low</span>`:''}
+          ${t.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:${t.dueDate<today()?'var(--red)':'var(--text4)'};padding:2px 7px;border-radius:8px;background:${t.dueDate<today()?'rgba(239,83,80,0.1)':'var(--border)'};">📅 ${t.dueDate}</span>`:''}
+          ${personNames?`<span style="font:700 10px/1 var(--font-ui);color:var(--text3);padding:2px 7px;border-radius:8px;background:var(--border);">👤 ${esc(personNames.slice(0,30))}</span>`:''}
+        </div>
+        ${t.notes?`<div style="margin-top:10px;font:500 12px/1.5 var(--font-body);color:var(--text3);border-top:1px solid var(--border);padding-top:10px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${t.notes.replace(/<[^>]+>/g,' ').trim()}</div>`:''}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 16px;">
+        <button onclick="triageAction('keep')" style="padding:14px 8px;border-radius:12px;border:2px solid rgba(129,199,132,0.5);background:rgba(129,199,132,0.1);color:#81C784;font:800 13px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:20px;">✓</span><span>Keep</span><span style="font:500 10px/1 var(--font-ui);opacity:0.7;">resets clock</span>
+        </button>
+        <button onclick="triageAction('snooze')" style="padding:14px 8px;border-radius:12px;border:2px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.08);color:#64B5F6;font:800 13px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:20px;">💤</span><span>Snooze</span><span style="font:500 10px/1 var(--font-ui);opacity:0.7;">due in 2 weeks</span>
+        </button>
+        <button onclick="triageAction('park')" style="padding:14px 8px;border-radius:12px;border:2px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font:800 13px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:20px;">💭</span><span>Park</span><span style="font:500 10px/1 var(--font-ui);opacity:0.7;">move to Someday</span>
+        </button>
+        <button onclick="triageAction('drop')" style="padding:14px 8px;border-radius:12px;border:2px solid rgba(239,83,80,0.4);background:rgba(239,83,80,0.08);color:#EF5350;font:800 13px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:20px;">✕</span><span>Drop</span><span style="font:500 10px/1 var(--font-ui);opacity:0.7;">done and gone</span>
+        </button>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding:10px 14px;text-align:center;">
+        <button onclick="triageMode=false;taskParkingLot=false;openEditTask('${t.id}');" style="font:600 12px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;">✏ Edit first</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:14px 0 8px;">
+      <button onclick="_triageAdvance()" style="font:600 12px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;padding:8px 16px;">Skip this one →</button>
+    </div>`;
+}
+
 function resetTaskAction(taskId, action){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
   if(action==='drop'){
@@ -13450,7 +14146,8 @@ function renderWaitingPage(container){
     const overdue = w.dueDate && w.dueDate < todayStr;
     const linkedTask = w.taskId ? tasks.find(t=>t.id===w.taskId) : null;
     const linkedIni  = w.initiativeId ? discoveryList.find(i=>i.id===w.initiativeId) : null;
-    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:var(--sp3) var(--sp4) var(--sp3) 20px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}">
+    const _wai = !isDone ? _ageInfo(w.createdAt) : { borderColor:'transparent', bgColor:'transparent', badge:'' };
+    return `<div style="display:flex;align-items:flex-start;gap:var(--sp2);padding:var(--sp3) var(--sp4) var(--sp3) 20px;border-bottom:1px solid var(--border);${isDone?'opacity:0.45;':''}border-left:3px solid ${_wai.borderColor};background:${_wai.bgColor};">
       <button onclick="toggleWaitingDone('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:2px solid ${isDone?'var(--green)':'#64B5F6'};background:${isDone?'var(--green)':'transparent'};color:${isDone?'#fff':'#64B5F6'};font-size:11px;cursor:pointer;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;color:var(--text);line-height:1.4;margin-top:2px;">${esc(w.what)}</div>
@@ -13459,6 +14156,7 @@ function renderWaitingPage(container){
           ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openEditTask('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
           ${linkedIni?`<span onclick="discActiveId='${linkedIni.id}';discView='detail';setNav('discovery');" style="font-size:10px;font-weight:700;font-family:var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.25);padding:1px 7px;border-radius:4px;cursor:pointer;">◈ ${esc(linkedIni.title.slice(0,24))}</span>`:''}
           <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">added ${w.createdAt.slice(5)}</span>
+          ${_wai.badge}
         </div>
       </div>
       <button onclick="openWaitingModal(null,'${w.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;flex-shrink:0;">edit</button>
@@ -14324,6 +15022,23 @@ function openWaitingModal(prefillTaskId, editId){
   _activePickerList = peopleList;
   const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
   const existing   = editId ? waitingFor.find(w=>w.id===editId) : null;
+
+  // Resolve pre-selected person IDs — handles legacy items that only stored
+  // person name string (w.person) without personId/personIds
+  let preselectedIds = '';
+  if(existing){
+    if(existing.personIds){
+      preselectedIds = existing.personIds;
+    } else if(existing.personId){
+      preselectedIds = existing.personId;
+    } else if(existing.person){
+      // Legacy: look up by name
+      const matched = peopleList.filter(p=>
+        existing.person.split(',').map(s=>s.trim()).includes(p.name)
+      ).map(p=>p.id).join(',');
+      preselectedIds = matched;
+    }
+  }
   const old = document.getElementById('modal-waiting');
   if(old) old.remove();
   const el = document.createElement('div');
@@ -14335,7 +15050,7 @@ function openWaitingModal(prefillTaskId, editId){
     </div>
     <div class="field-group">
       <div class="chip-label">Who?</div>
-      ${buildPersonPickerHTML(existing?.personIds||existing?.personId||'', 'wf-person-ids', true)}
+      ${buildPersonPickerHTML(preselectedIds, 'wf-person-ids', true)}
 
       <input id="wf-what" class="field-input" placeholder="What are you waiting on?" autocomplete="off"
         value="${existing?esc(existing.what):linkedTask?esc(linkedTask.title):''}"/>
@@ -16889,7 +17604,11 @@ Give 3-4 tight bullets. Flag the biggest risk. Suggest the one thing to start wi
       if(match) hintEl.placeholder = match[1].trim().slice(0,80);
     }
   } catch(e){
-    el.innerHTML = `<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);">Briefing unavailable offline — carry on.</div>`;
+    
+  const _aiNotSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+  const _aiErrMsg = _aiNotSetup ? 'AI not configured — add your Anthropic API key in Settings → AI Diagnostics.' : ('AI unavailable: ' + (e.message||'check connection'));
+  const _aiErrBtn = _aiNotSetup ? `<button onclick="setNav('settings')" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font:700 10px/1 var(--font-ui);cursor:pointer;">→ Settings</button>` : '';
+      el.innerHTML = `<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r2);padding:10px 12px;"><div style="font:700 10px/1 var(--font-ui);color:#EF5350;letter-spacing:1px;margin-bottom:5px;">⚠ AI UNAVAILABLE</div><div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);">${_aiErrMsg}</div>${_aiErrBtn}<button onclick="generateMorningBriefing()" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 10px/1 var(--font-ui);cursor:pointer;">↻ Retry</button></div>`;
   }
 }
 
@@ -17018,7 +17737,12 @@ Notes: ${t.notes?t.notes.replace(/<[^>]+>/g,' ').trim().slice(0,300):'none'}`;
         }`;
     }
   } catch(e){
-    el.innerHTML=`<div style="font-size:13px;color:var(--text4);font-family:var(--font-ui);">AI unavailable — check connection.</div>`;
+    const _notSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+    el.innerHTML=`<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r2);padding:10px 12px;">
+      <div style="font:700 10px/1 var(--font-ui);color:#EF5350;margin-bottom:5px;">⚠ AI UNAVAILABLE</div>
+      <div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);">${_notSetup ? 'AI not configured yet — add your API key in Settings → AI Diagnostics.' : 'Could not reach AI. Check your connection or try again.'}</div>
+      ${_notSetup ? `<button onclick="closeModal('modal-task-ai');setNav('settings');" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font:700 10px/1 var(--font-ui);cursor:pointer;">→ Settings</button>` : ''}
+    </div>`;
   }
 }
 
@@ -17089,7 +17813,8 @@ Be concise. myCommits = things Jason committed to. theirCommits = things others 
     if(obj.theirCommits){ const el=document.getElementById('mtg-theircommits'); if(el) el.value=obj.theirCommits; }
     showToast('✓ Notes structured');
   } catch(e){
-    showToast('AI structuring failed — check connection');
+    const _notSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+    showToast(_notSetup ? '⚠ AI not configured — see Settings → AI Features' : '⚠ AI structuring failed — check connection');
   } finally {
     if(btn){ btn.textContent='🤖 Structure with AI'; btn.disabled=false; }
   }
@@ -17142,7 +17867,11 @@ PEOPLE TO REACH OUT: ${nudges.slice(0,5).map(p=>p.name+(p.priority?' ('+p.priori
       <button onclick="runResetAI()" style="margin-top:8px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">↻ Regenerate</button>
     </div>`;
   } catch(e){
-    el.innerHTML=`<div style="font-size:12px;color:var(--text4);font-family:var(--font-ui);padding:8px 0;">AI unavailable — carry on manually.</div>`;
+    
+  const _aiNotSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+  const _aiErrMsg = _aiNotSetup ? 'AI not configured — add your Anthropic API key in Settings → AI Diagnostics.' : ('AI unavailable: ' + (e.message||'check connection'));
+  const _aiErrBtn = _aiNotSetup ? `<button onclick="setNav('settings')" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font:700 10px/1 var(--font-ui);cursor:pointer;">→ Settings</button>` : '';
+      el.innerHTML=`<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r2);padding:10px 12px;"><div style="font:700 10px/1 var(--font-ui);color:#EF5350;letter-spacing:1px;margin-bottom:5px;">⚠ AI UNAVAILABLE</div><div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);">${_aiErrMsg}</div>${_aiErrBtn}<button onclick="runResetAI()" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 10px/1 var(--font-ui);cursor:pointer;">↻ Retry</button></div>`;
   }
 }
 
@@ -18202,7 +18931,9 @@ function renderDiscoveryCard(ini){
   const confirmsN = signals.filter(s=>s.sentiment==='confirms').length;
   const contradictsN = signals.filter(s=>s.sentiment==='contradicts').length;
 
-  return `<div class="disc-card" onclick="openDiscoveryDetail('${ini.id}')">
+  const _discCardAi = _ageInfo(ini.createdAt, ini.updatedAt);
+  return `<div class="disc-card" onclick="openDiscoveryDetail('${ini.id}')"
+    style="border-left:3px solid ${_discCardAi.borderColor};background:${_discCardAi.bgColor};">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp2);margin-bottom:var(--sp2);">
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.title)}</div>
@@ -18230,24 +18961,24 @@ function renderDiscoveryCard(ini){
     </div>
     <!-- Footer stats + quick add signal -->
     ${(()=>{
-      const lastUpdate = ini.updatedAt||ini.createdAt||today();
-      const daysSince = Math.floor((Date.now()-new Date(lastUpdate+'T00:00:00').getTime())/86400000);
-      const isStale = ['building','validating','scoped','discovery'].includes(ini.status) && daysSince>=30;
-      const openTaskCt = (ini.linkedTaskIds||[]).filter(id=>{ const t=tasks.find(x=>x.id===id); return t&&t.status!=='done'; }).length;
-      return `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
-        <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
-        ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
-        ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
-        ${openTaskCt>0?`<span style="font:600 10px/1.4 var(--font-ui);color:var(--accent);">☐ ${openTaskCt}</span>`:''}
-        ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
-        ${isStale?`<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;padding:1px 6px;border-radius:8px;background:rgba(255,138,101,0.1);border:1px solid rgba(255,138,101,0.3);">💤 ${daysSince}d quiet</span>`:lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:''}
-        <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
-          style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
-            background:var(--accent);color:#fff;
-            font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
-          + Signal
-        </button>
-      </div>`;
+    // ── Footer stats + quick add signal
+    const lastUpdate = ini.updatedAt||ini.createdAt||today();
+    const _discAi = _ageInfo(ini.createdAt, ini.updatedAt);
+    const openTaskCt = (ini.linkedTaskIds||[]).filter(id=>{ const t=tasks.find(x=>x.id===id); return t&&t.status!=='done'; }).length;
+    return `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
+      <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
+      ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
+      ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
+      ${openTaskCt>0?`<span style="font:600 10px/1.4 var(--font-ui);color:var(--accent);">☐ ${openTaskCt}</span>`:''}
+      ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
+      ${_discAi.badge || (lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:'')}
+      <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
+        style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
+          background:var(--accent);color:#fff;
+          font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+        + Signal
+      </button>
+    </div>`;
     })()}
   </div>`;
 }
@@ -18885,8 +19616,12 @@ ${ini.prd?'PRD exists — note any contradictions between PRD assumptions and si
     if(briefEl) briefEl.innerHTML = renderDiscAIBrief(ini.lastSynthesis);
     showToast('✨ Synthesis complete');
   } catch(e){
-    if(briefEl) briefEl.innerHTML=`<div style="font-size:12px;color:#EF5350;font-family:var(--font-ui);">Synthesis failed — check AI connection</div>`;
-    showToast('AI call failed');
+    if(briefEl) briefEl.innerHTML=`<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r2);padding:10px 12px;"><div style="font:700 10px/1 var(--font-ui);color:#EF5350;letter-spacing:1px;margin-bottom:5px;">⚠ AI UNAVAILABLE</div><div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);">${_aiErrMsg}</div>${_aiErrBtn}</div>`;
+
+  const _aiNotSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+  const _aiErrMsg = _aiNotSetup ? 'AI not configured — add your Anthropic API key in Settings → AI Diagnostics.' : ('AI unavailable: ' + (e.message||'check connection'));
+  const _aiErrBtn = _aiNotSetup ? `<button onclick="setNav('settings')" style="margin-top:6px;padding:3px 10px;border-radius:5px;border:1px solid rgba(239,83,80,0.3);background:transparent;color:#EF5350;font:700 10px/1 var(--font-ui);cursor:pointer;">→ Settings</button>` : '';
+    showToast(_aiNotSetup ? '⚠ AI not configured — see Settings' : '⚠ Synthesis failed');
   }
 }
 
@@ -18957,8 +19692,9 @@ ${sigSummary||'No signals captured yet.'}`,
     if(briefEl) briefEl.innerHTML = `<div style="font-size:10px;font-family:var(--font-ui);color:#BA68C8;font-weight:800;letter-spacing:1px;margin-bottom:6px;padding:0 0 4px;border-bottom:1px solid rgba(186,104,200,0.2);">📋 PRD EVALUATION</div>` + renderDiscAIBrief(evalBrief);
     showToast('📋 PRD evaluation complete');
   } catch(e){
-    if(briefEl) briefEl.innerHTML=`<div style="font-size:12px;color:#EF5350;font-family:var(--font-ui);">Evaluation failed</div>`;
-    showToast('AI call failed');
+    const _notSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
+    if(briefEl) briefEl.innerHTML=`<div style="background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r2);padding:10px 12px;"><div style="font:700 10px/1 var(--font-ui);color:#EF5350;margin-bottom:5px;">⚠ AI UNAVAILABLE</div><div style="font:500 12px/1.4 var(--font-ui);color:var(--text3);">${_notSetup ? 'AI not configured — add your key in Settings → AI Diagnostics.' : 'Evaluation failed. Check connection or try again.'}</div></div>`;
+    showToast(_notSetup ? '⚠ AI not configured — see Settings' : '⚠ PRD evaluation failed');
   }
 }
 
@@ -19135,6 +19871,18 @@ function openFrictionlessCapture(){
       typeBtn('meeting', 'meeting', '📝', 'Meeting note', 'Opens meeting capture',     '#BA68C8',      false);
   }
 
+  // Email extract button — work mode only (Jason only, not Jenny)
+  const emailBtn = (!isHome && isJason) ? `
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <button onclick="closeFrictionlessCapture();openEmailCapture();"
+        style="width:100%;padding:12px 14px;border-radius:var(--r3);
+          border:1px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.06);
+          color:#64B5F6;font:700 13px/1 var(--font-ui);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:8px;">
+        📧 Extract tasks from an email
+      </button>
+    </div>` : '';
+
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(32px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto;">
 
@@ -19175,6 +19923,8 @@ function openFrictionlessCapture(){
       }).join('')}
     </div>`:''}
 
+    ${emailBtn||''}
+
   </div>`;
 
   m.onclick = e => { if(e.target===m) closeFrictionlessCapture(); };
@@ -19185,6 +19935,282 @@ function openFrictionlessCapture(){
 function closeFrictionlessCapture(){
   const m = document.getElementById('modal-fc');
   if(m) m.remove();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL TASK EXTRACTION
+// Paste email text → Claude identifies action items → accept/skip cards
+// No API connection needed beyond the ai-proxy Edge Function.
+// ═══════════════════════════════════════════════════════════════
+
+function openEmailCapture(){
+  const old = document.getElementById('modal-email-capture'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-email-capture';
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.6);';
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;
+      padding:20px 16px calc(32px + env(safe-area-inset-bottom));
+      max-height:85vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <div style="font:800 16px/1 var(--font-ui);color:#64B5F6;">📧 Extract Tasks from Email</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          Paste email text — AI finds what's yours to do
+        </div>
+      </div>
+      <button onclick="closeEmailCapture()" style="width:28px;height:28px;border-radius:50%;
+        border:1px solid var(--border);background:transparent;color:var(--text3);
+        font-size:16px;cursor:pointer;">✕</button>
+    </div>
+
+    <textarea id="email-paste-input" rows="8"
+      style="width:100%;background:var(--surface2);border:1.5px solid var(--border);
+        border-radius:var(--r3);padding:12px 14px;font:500 13px/1.6 var(--font-body);
+        color:var(--text);resize:none;outline:none;box-sizing:border-box;"
+      placeholder="Paste email content here…&#10;&#10;Tip: just paste the relevant part — doesn't need to be the whole thread. Subject line helps if you include it."
+      onfocus="this.style.borderColor='#64B5F6'"
+      onblur="this.style.borderColor='var(--border)'"></textarea>
+
+    <div id="email-extract-hint" style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:6px;min-height:14px;">
+      Only action items assigned to you will be extracted — FYIs are ignored.
+    </div>
+
+    <button onclick="runEmailExtraction()"
+      style="width:100%;margin-top:14px;padding:14px;border-radius:var(--r3);border:none;
+        background:linear-gradient(135deg,#64B5F6,#1E88E5);
+        color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;
+        box-shadow:0 4px 16px rgba(100,181,246,0.3);">
+      🤖 Extract Action Items
+    </button>
+
+    <div id="email-extract-results" style="margin-top:16px;"></div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeEmailCapture(); };
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('email-paste-input')?.focus(), 150);
+}
+
+function closeEmailCapture(){
+  const m = document.getElementById('modal-email-capture');
+  if(m) m.remove();
+}
+
+async function runEmailExtraction(){
+  const input = document.getElementById('email-paste-input');
+  const resultsEl = document.getElementById('email-extract-results');
+  const hint = document.getElementById('email-extract-hint');
+  if(!input || !resultsEl) return;
+
+  const emailText = input.value.trim();
+  if(!emailText){
+    input.style.borderColor = 'var(--red)';
+    if(hint) hint.textContent = '⚠ Paste some email text first';
+    setTimeout(()=>{ input.style.borderColor='var(--border)'; if(hint) hint.textContent=''; }, 2000);
+    return;
+  }
+
+  // Loading state
+  resultsEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:16px;
+      border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">
+    <div style="width:18px;height:18px;border-radius:50%;border:2px solid #64B5F6;
+      border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>
+    <span style="font:600 13px/1 var(--font-ui);color:var(--text3);">Reading email…</span>
+  </div>`;
+
+  const proj = projects.filter(p=>p.status!=='archived'&&p.status!=='paused').slice(0,12);
+  const projNames = proj.map(p=>p.name).join(', ');
+
+  try {
+    const raw = await aiCall(
+      `You are a sharp executive assistant for Jason, a Senior Director of Product Management / interim CPO at a healthcare technology company.
+Your job is to read emails and identify ONLY the action items that Jason personally needs to do — things asked of him, commitments he made, or follow-ups he owns.
+Ignore: FYI information, things others are doing, general updates, context with no action required.
+For each action item, extract:
+- title: a clear, specific task title (start with a verb — "Review", "Send", "Follow up", "Schedule", etc.)
+- priority: "high" if urgent/deadline mentioned, "medium" if requested, "low" if optional
+- dueDate: ISO date YYYY-MM-DD if a deadline is mentioned, otherwise null
+- person: the name of whoever sent the request or is involved, if identifiable
+- project: match to one of Jason's projects if relevant, otherwise null
+- context: one short sentence of context (why this matters)
+Return ONLY a JSON array. If there are no action items for Jason, return an empty array [].
+Example: [{"title":"Review Q2 roadmap doc","priority":"high","dueDate":"2026-04-30","person":"Sarah","project":"Roadmap","context":"Needed before Thursday exec review"}]`,
+      `Here are Jason's active projects for matching: ${projNames||'none'}
+
+EMAIL CONTENT:
+${emailText.slice(0, 4000)}`,
+      1000
+    );
+
+    let items;
+    try {
+      const cleaned = raw.replace(/```json|```/g,'').trim();
+      items = JSON.parse(cleaned);
+    } catch(e) {
+      throw new Error('Could not parse AI response — try again');
+    }
+
+    if(!Array.isArray(items) || items.length === 0){
+      resultsEl.innerHTML = `<div style="padding:20px;text-align:center;border-radius:var(--r3);
+          border:1px solid var(--border);background:var(--surface2);">
+        <div style="font-size:28px;margin-bottom:8px;">✅</div>
+        <div style="font:700 14px/1.3 var(--font-ui);color:var(--text3);">No action items found</div>
+        <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          This email doesn't seem to have anything for you to do.
+        </div>
+      </div>`;
+      return;
+    }
+
+    // Render accept/skip cards
+    resultsEl.innerHTML = `
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
+          text-transform:uppercase;margin-bottom:10px;">
+        ${items.length} action item${items.length!==1?'s':''} found — tap to accept
+      </div>
+      <div id="email-task-cards" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div id="email-accept-summary" style="margin-top:12px;"></div>`;
+
+    const cardsEl = document.getElementById('email-task-cards');
+    if(!cardsEl) return;
+
+    items.forEach((item, idx) => {
+      const matchedProj = item.project
+        ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
+                       item.project.toLowerCase().includes(p.name.toLowerCase()))
+        : null;
+      const priorityColor = item.priority==='high'?'var(--red)':item.priority==='medium'?'var(--accent)':'#888';
+      const priorityLabel = item.priority==='high'?'🔴 Urgent':item.priority==='medium'?'🟡 Medium':'⚪ Low';
+
+      const card = document.createElement('div');
+      card.id = 'email-card-'+idx;
+      card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;transition:all 0.2s;';
+      card.innerHTML = `
+        <div style="padding:14px 14px 12px;">
+          <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">
+            ${esc(item.title)}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${item.context?'8px':'0'};">
+            <span style="font:700 10px/1 var(--font-ui);color:${priorityColor};
+              padding:2px 7px;border-radius:8px;background:${priorityColor}18;
+              border:1px solid ${priorityColor}33;">${priorityLabel}</span>
+            ${item.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:var(--text4);
+              padding:2px 7px;border-radius:8px;background:var(--border);">📅 ${item.dueDate}</span>`:''}
+            ${item.person?`<span style="font:700 10px/1 var(--font-ui);color:var(--text3);
+              padding:2px 7px;border-radius:8px;background:var(--border);">👤 ${esc(item.person)}</span>`:''}
+            ${matchedProj?`<span style="font:700 10px/1 var(--font-ui);color:${matchedProj.color};
+              padding:2px 7px;border-radius:8px;background:${matchedProj.color}18;
+              border:1px solid ${matchedProj.color}33;">◈ ${esc(matchedProj.name)}</span>`:''}
+          </div>
+          ${item.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
+            padding:8px 10px;border-radius:8px;background:var(--surface2);
+            border-left:3px solid #64B5F680;">${esc(item.context)}</div>`:''}
+        </div>
+        <div style="display:flex;border-top:1px solid var(--border);">
+          <button onclick="acceptEmailTask(${idx})"
+            style="flex:1;padding:11px;border:none;border-right:1px solid var(--border);
+              background:transparent;color:#81C784;font:800 12px/1 var(--font-ui);cursor:pointer;">
+            ✓ Add to Tasks
+          </button>
+          <button onclick="skipEmailTask(${idx})"
+            style="flex:0 0 80px;padding:11px;border:none;background:transparent;
+              color:var(--text4);font:700 12px/1 var(--font-ui);cursor:pointer;">
+            Skip
+          </button>
+        </div>`;
+      cardsEl.appendChild(card);
+    });
+
+    // Store extracted items for accept/skip handlers
+    window._emailExtractedItems = items;
+    window._emailAcceptedCount = 0;
+
+  } catch(e) {
+    resultsEl.innerHTML = `<div style="padding:16px;border-radius:var(--r3);
+        border:1px solid rgba(239,83,80,0.3);background:rgba(239,83,80,0.06);">
+      <div style="font:700 13px/1 var(--font-ui);color:#EF5350;margin-bottom:4px;">⚠ Extraction failed</div>
+      <div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);">${esc(e.message)}</div>
+      ${e.message.includes('PASTE_YOUR')||e.message.includes('key')||e.message.includes('proxy')
+        ? `<div style="font:600 11px/1.4 var(--font-ui);color:var(--accent);margin-top:8px;">
+            → API not yet configured. See Settings → AI Diagnostics to set up.</div>` : ''}
+    </div>`;
+  }
+}
+
+function acceptEmailTask(idx){
+  const items = window._emailExtractedItems;
+  if(!items || !items[idx]) return;
+  const item = items[idx];
+
+  // Find matched project
+  const proj = projects.filter(p=>p.status!=='archived'&&p.status!=='paused');
+  const matchedProj = item.project
+    ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
+                   item.project.toLowerCase().includes(p.name.toLowerCase()))
+    : null;
+
+  // Find matched person
+  const matchedPerson = item.person
+    ? peopleList.find(p=>p.name.toLowerCase().includes(item.person.toLowerCase()))
+    : null;
+
+  // Create the task
+  const newTask = {
+    id:         genId(),
+    title:      item.title,
+    projectId:  matchedProj?.id || '',
+    priority:   item.priority || 'medium',
+    status:     'todo',
+    dueDate:    item.dueDate || '',
+    notes:      item.context ? `From email: ${item.context}` : '',
+    source:     'email',
+    personIds:  matchedPerson ? matchedPerson.id : '',
+    recur:      'none',
+    effort:     '',
+    estimate:   '',
+    energy:     'medium',
+    subtasks:   [],
+    createdAt:  today(),
+    completedAt: null,
+  };
+  tasks.unshift(newTask);
+  saveAllDebounced();
+
+  // Visually mark accepted
+  const card = document.getElementById('email-card-'+idx);
+  if(card){
+    card.style.opacity = '0.5';
+    card.style.border = '1.5px solid rgba(129,199,132,0.5)';
+    card.style.background = 'rgba(129,199,132,0.05)';
+    card.innerHTML = `<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">✅</span>
+      <span style="font:600 13px/1 var(--font-ui);color:#81C784;">Added: ${esc(item.title)}</span>
+    </div>`;
+  }
+
+  window._emailAcceptedCount = (window._emailAcceptedCount||0) + 1;
+  showToast('✓ Task added: ' + item.title.slice(0,40));
+
+  // Show "Done — view tasks" once at least one accepted
+  const summaryEl = document.getElementById('email-accept-summary');
+  if(summaryEl){
+    summaryEl.innerHTML = `<button onclick="closeEmailCapture();setNav('tasks');"
+      style="width:100%;padding:12px;border-radius:var(--r3);border:none;
+        background:var(--accent);color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;">
+      View Tasks →
+    </button>`;
+  }
+}
+
+function skipEmailTask(idx){
+  const card = document.getElementById('email-card-'+idx);
+  if(card){
+    card.style.transition = 'all 0.2s';
+    card.style.opacity = '0.3';
+    card.style.transform = 'scale(0.97)';
+    setTimeout(()=>{ card.style.display='none'; }, 200);
+  }
 }
 
 // ── Auto-route: detect intent from typed text ─────────────────
@@ -20218,9 +21244,17 @@ async function bootApp(){
   const lt=localStorage.getItem("hub-tasks");
   if(lp) projects=JSON.parse(lp);
   if(lt) tasks=JSON.parse(lt);
-  await loadAll();
-  document.getElementById("loading").style.display="none";
-  document.getElementById("app").style.display="flex";
+  try{
+    await loadAll();
+  } catch(e){
+    // loadAll has its own internal catch, but wrap here as final safety net
+    // so the loading screen never stays visible permanently
+    console.error('[bootApp] loadAll threw unexpectedly:', e);
+    showToast('⚠ Loaded from cache — some data may be stale');
+  } finally {
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="flex";
+  }
   // Auto-advance daily recurring tasks — no pile-up for habit-style tasks
   advanceDailyTasks();
   pruneHabitLog();
@@ -24356,21 +25390,17 @@ function onSpinComplete(prize) {
 
   // Sound + confetti always
   playKidsSound('prize-reveal');
-  launchConfetti(milestone?.type === 'big' ? 150 : 60);
+  launchConfetti(milestone?.type === 'big' ? 150 : 80);
 
-  // Kids page — show star burst + big announcement then re-render
+  // Route EVERYTHING through the full-screen celebration — no more messy banner
   if(typeof currentUser === 'object' && currentUser.role === 'kid'){
     kidsPageStarBurst(milestone?.type === 'big' ? 15 : 8, '🎁');
-    showPrizeBanner(player.name, prize, milestone?.type || 'small');
-    // Re-render kids page after banner so button resets correctly
-    setTimeout(()=> renderKidsPageForKid(), 600);
-    return;
   }
-
-  // Parent app
-  const btn = document.getElementById('kids-spin-btn');
-  if (btn) { btn.disabled = false; btn.textContent = 'SPIN!'; }
-  showPrizeBanner(player.name, prize, milestone?.type || 'small');
+  showCelebration(player.name, prize, milestone?.type || 'small', false);
+  // Re-render kids page in background so it's fresh when they dismiss
+  if(typeof currentUser === 'object' && currentUser.role === 'kid'){
+    setTimeout(()=> renderKidsPageForKid(), 600);
+  }
 }
 
 function showPrizeBanner(playerName, prize, type) {
@@ -24409,73 +25439,62 @@ function closePrizeBanner() {
 }
 
 function showCelebration(playerName, prize, type, isMilestone=false) {
-  const el = document.getElementById('kids-celebration');
+  const el    = document.getElementById('kids-celebration');
   const emoji = document.getElementById('kids-celeb-emoji');
   const title = document.getElementById('kids-celeb-title');
-  const sub = document.getElementById('kids-celeb-sub');
-  const prizeEl = document.getElementById('kids-celeb-prize-name');
+  const sub   = document.getElementById('kids-celeb-sub');
+  const prizeEl  = document.getElementById('kids-celeb-prize-name');
   const closeBtn = document.getElementById('kids-celeb-close-btn');
-  const box = document.getElementById('kids-celeb-box');
+  const starsEl  = document.getElementById('kids-celeb-stars');
+  const box   = document.getElementById('kids-celeb-box');
 
-  // Apply kid's color scheme if on kids page
+  // Kid-color themes for the box border/glow
   const kidThemes = [
-    {bg:'#FFF0F8', accent:'#E91E8C', accent2:'#FF6B9D', star:'#FF8C00',
-     titleColor:'#E91E8C', boxBorder:'#FFB3D9', btnBg:'#E91E8C'},
-    {bg:'#F0F8FF', accent:'#0066CC', accent2:'#00AAFF', star:'#FF8C00',
-     titleColor:'#0066CC', boxBorder:'#A8D8FF', btnBg:'#0066CC'},
+    { border:'rgba(233,30,140,0.6)', glow:'rgba(233,30,140,0.25)', btnBg:'linear-gradient(135deg,#E91E8C,#FF6B9D)', stars:'💖 💖 💖' },
+    { border:'rgba(0,102,204,0.6)',  glow:'rgba(0,102,204,0.25)',  btnBg:'linear-gradient(135deg,#0066CC,#00AAFF)', stars:'⭐ ⭐ ⭐' },
   ];
-  if(typeof currentUser === 'object' && currentUser.role === 'kid' && box){
-    const kt = kidThemes[currentUser.playerIdx % kidThemes.length];
-    box.style.background = kt.bg;
-    box.style.border = `3px solid ${kt.boxBorder}`;
-    box.style.color = '#1a1a2e';
-    if(closeBtn){
-      closeBtn.style.background = kt.btnBg;
-      closeBtn.style.color = '#fff';
-    }
-    if(title) title.style.color = kt.titleColor;
-    if(sub)   sub.style.color   = '#555';
-    if(prizeEl){ prizeEl.style.color = kt.accent; prizeEl.style.background = kt.bg === '#FFF0F8' ? '#FFD6EE' : '#C8E8FF'; prizeEl.style.border = `2px solid ${kt.boxBorder}`; }
-  } else if(box){
-    // Restore parent app styles
-    box.style.background = '';
-    box.style.border = '';
-    box.style.color = '';
-    if(closeBtn){ closeBtn.style.background = ''; closeBtn.style.color = ''; }
-    if(title) title.style.color = '';
-    if(sub)   sub.style.color   = '';
-  }
+  const isKid = typeof currentUser === 'object' && currentUser.role === 'kid';
+  const kt = isKid ? kidThemes[currentUser.playerIdx % kidThemes.length] : null;
 
-  if (type === 'big') {
+  if(box){
+    box.style.border = kt ? `3px solid ${kt.border}` : '3px solid rgba(255,215,0,0.5)';
+    box.style.boxShadow = kt
+      ? `0 0 80px ${kt.glow}, 0 24px 48px rgba(0,0,0,0.7)`
+      : '0 0 80px rgba(255,215,0,0.2), 0 24px 48px rgba(0,0,0,0.7)';
+  }
+  if(closeBtn){
+    closeBtn.style.background = kt ? kt.btnBg : 'linear-gradient(135deg,#E8A838 0%,#FFD700 50%,#E8A838 100%)';
+    closeBtn.style.color = '#1a1a2e';
+  }
+  if(starsEl) starsEl.textContent = (kt ? kt.stars : (type === 'big' ? '🏆 🏆 🏆' : '⭐ ⭐ ⭐'));
+
+  if(type === 'big'){
     emoji.textContent = '🏆';
-    title.textContent = isMilestone ? 'BIG MILESTONE!' : 'MEGA PRIZE!';
-    if(!(typeof currentUser === 'object' && currentUser.role === 'kid'))
-      title.style.color = '#ffc107';
+    title.textContent = isMilestone ? '🎖 BIG MILESTONE!' : '🏆 MEGA PRIZE!';
     sub.textContent = isMilestone
-      ? `${playerName} earned a BIG prize! Spin the wheel to find out what you won!`
-      : `Amazing, ${playerName}! You won:`;
+      ? `${playerName} earned a BIG prize! Spin the wheel!`
+      : `${playerName}, you absolutely crushed it! You won:`;
   } else {
     emoji.textContent = isMilestone ? '🎉' : '🎁';
-    title.textContent = isMilestone ? 'PRIZE MILESTONE!' : 'PRIZE TIME!';
-    title.style.color = 'var(--accent)';
+    title.textContent = isMilestone ? '🎉 PRIZE TIME!' : '🎁 YOU WON!';
     sub.textContent = isMilestone
-      ? `${playerName} earned a prize! Spin the wheel to find out what you won!`
+      ? `${playerName} earned a prize! Spin the wheel!`
       : `Amazing work, ${playerName}! You won:`;
   }
 
-  if (prize) {
+  if(prize){
     prizeEl.textContent = prize;
     prizeEl.style.display = 'block';
   } else {
     prizeEl.style.display = 'none';
   }
 
-  if (closeBtn) {
-    if (isMilestone) {
+  if(closeBtn){
+    if(isMilestone){
       closeBtn.textContent = '🎡 Spin the Wheel!';
       closeBtn.onclick = goToSpinAfterCelebration;
     } else {
-      closeBtn.textContent = 'Awesome! 🎊';
+      closeBtn.textContent = '🎊 Awesome! Claim it!';
       closeBtn.onclick = closeCelebration;
     }
   }
@@ -25601,6 +26620,44 @@ function runSyncTests(){
   return {passed, failed};
 }
 
+// ── iOS keyboard avoidance ────────────────────────────────────
+// When the soft keyboard opens, the visual viewport shrinks.
+// We shift the FAB and toast up so they stay above the keyboard.
+(function setupKeyboardAvoidance(){
+  if(!window.visualViewport) return; // not supported (desktop/old Android)
+  
+  let _lastVvHeight = window.visualViewport.height;
+  const _FAB_BASE   = 80;  // matches bottom:80px in CSS
+  const _TOAST_BASE = 88;
+
+  function onViewportResize(){
+    const vvHeight = window.visualViewport.height;
+    const winHeight = window.innerHeight;
+    const keyboardHeight = Math.max(0, winHeight - vvHeight - window.visualViewport.offsetTop);
+    const isKeyboardOpen = keyboardHeight > 100;
+
+    const fab = document.getElementById('global-capture-btn');
+    const toast = document.getElementById('toast');
+    const undo = document.getElementById('undo-bar');
+
+    if(isKeyboardOpen){
+      const lift = keyboardHeight;
+      if(fab)   fab.style.bottom   = (lift + 12) + 'px';
+      if(toast) toast.style.bottom = (lift + 12) + 'px';
+      if(undo)  undo.style.bottom  = (lift + 12) + 'px';
+    } else {
+      // Restore original positions
+      if(fab)   fab.style.bottom   = '';
+      if(toast) toast.style.bottom = '';
+      if(undo)  undo.style.bottom  = '';
+    }
+    _lastVvHeight = vvHeight;
+  }
+
+  window.visualViewport.addEventListener('resize', onViewportResize);
+  window.visualViewport.addEventListener('scroll', onViewportResize);
+})();
+
 init();
 </script>
 
@@ -25759,13 +26816,14 @@ init();
 
 
 <div class="kids-celebration" id="kids-celebration">
-  <div class="kids-celeb-backdrop" onclick="closeCelebration()"></div>
+  <div class="kids-celeb-backdrop"></div>
   <div class="kids-celeb-box" id="kids-celeb-box">
-    <span class="kids-celeb-emoji" id="kids-celeb-emoji">🎉</span>
+    <span class="kids-celeb-emoji" id="kids-celeb-emoji">🎁</span>
+    <span class="kids-celeb-stars" id="kids-celeb-stars">⭐ ⭐ ⭐</span>
     <div class="kids-celeb-title" id="kids-celeb-title">PRIZE TIME!</div>
     <div class="kids-celeb-sub" id="kids-celeb-sub">You earned a reward!</div>
     <div class="kids-celeb-prize" id="kids-celeb-prize-name" style="display:none;"></div>
-    <button class="kids-celeb-close" id="kids-celeb-close-btn" onclick="closeCelebration()">Awesome! 🎊</button>
+    <button class="kids-celeb-close" id="kids-celeb-close-btn" onclick="closeCelebration()">🎊 Awesome! Claim it!</button>
   </div>
 </div>
 
