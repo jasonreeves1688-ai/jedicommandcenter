@@ -13278,7 +13278,8 @@ function renderTodayUnified(container){
   html += '</div>';
   container.innerHTML = html;
 
-
+  } catch(e){ console.error('[renderTodayUnified]', e); container.innerHTML = '<div style="padding:20px;color:var(--text3);font-family:var(--font-ui);">⚠ Could not render Full Day view</div>'; }
+}
 
 function renderTodayFocusMode(container){
   const todayStr = today();
