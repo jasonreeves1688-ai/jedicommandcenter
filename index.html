@@ -14982,7 +14982,7 @@ async function runClientSynthesis(orgId){
     Synthesising ${convos.length} conversations…</div>`;
 
   const convoText = convos.map(c=>{
-    const insights = (c.insights||[]).map(i=>`  [${i.type.toUpperCase()}] ${i.text}${i.quote?' ("'+i.quote+'")'':''}`).join('\n');
+    const insights = (c.insights||[]).map(i=>`  [${i.type.toUpperCase()}] ${i.text}${i.quote?' ("'+i.quote+'")':''}`).join('\n');
     return `Date: ${c.date}\nSummary: ${c.summary||'(none)'}\nInsights:\n${insights||'  (none logged)'}`;
   }).join('\n\n---\n\n');
 
