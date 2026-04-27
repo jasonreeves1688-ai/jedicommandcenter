@@ -15915,10 +15915,7 @@ function renderTeamPersonDetail(container, personId){
               <div style="font:700 13px/1.2 var(--font-ui);color:${series?'#BA68C8':'var(--text3)'};">
                 🔁 ${series?series.cadence+' 1:1':'No recurring series set up'}
               </div>
-              ${series?`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
-                Next: ${series.nextDate||'not scheduled'}
-                ${series.notes?` · ${esc(series.notes.slice(0,40))}`:''}
-              </div>`:'<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">Set a cadence for your recurring 1:1s with ${esc(p.name.split(' ')[0])}</div>'}
+              ${series?'<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Next: '+(series.nextDate||'not scheduled')+(series.notes?' · '+esc(series.notes.slice(0,40)):'')+'</div>':'<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">Set a cadence for your recurring 1:1s with '+esc(p.name.split(' ')[0])+'</div>'}
             </div>
             <button onclick="openOneOnOneSeriesModal('${personId}')"
               style="padding:6px 12px;border-radius:7px;border:1px solid rgba(186,104,200,0.4);
