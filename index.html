@@ -3982,6 +3982,7 @@ async function _loadClientData(){
 }
 
 // ── Team leadership save functions ───────────────────────────────
+function saveOneOnOneSeries(){ localStorage.setItem('hub-1on1-series',JSON.stringify(oneOnOneSeries)); }
 function saveDelegations(){ localStorage.setItem('hub-delegations',JSON.stringify(delegations)); _queueSave('delegations',_sbSaveDelegations); }
 function saveTeamMeetings(){ localStorage.setItem('hub-team-meetings',JSON.stringify(teamMeetings)); _queueSave('teamMeetings',_sbSaveTeamMeetings); }
 function saveCommsOwed(){ localStorage.setItem('hub-comms-owed',JSON.stringify(commsOwed)); _queueSave('commsOwed',_sbSaveCommsOwed); }
@@ -5536,6 +5537,7 @@ function renderMealPlanner(){
     if(r.meal){
       html += '<button onclick="addMealFavourite(\''+r.meal+'\');showToast(\'⭐ Added to favourites\')" style="padding:3px 7px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;" title="Save to favourites">⭐</button>';
       html += '<button onclick="clearMeal(&quot;' + r.ds + '&quot;)" style="padding:3px 7px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;opacity:0.5;">✕</button>';
+      html += '<button onclick="openRecipeSheet(\'' + r.ds + '\')" style="padding:3px 7px;border:none;background:transparent;font-size:13px;cursor:pointer;color:' + (mealPlan[r.ds]?.recipe ? '\'#BA68C8\'':'\'var(--text4)\'') + ';" title="' + (mealPlan[r.ds]?.recipe ? 'View recipe' : 'Get recipe') + '">📖</button>';
     }
     html += '</div>';
   });
@@ -5604,12 +5606,32 @@ function renderMealModal(existingVal, labelVal){
   const favs     = getMealFavourites();
 
   sheet.innerHTML =
-    '<div style="padding:18px 18px 10px;flex-shrink:0;">'    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'    +   '<div><div style="font:700 15px/1 var(--font-ui);color:var(--text);">🍽 ' + (label||'Dinner') + '</div>'    +   '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">What&#39;s for dinner?</div></div>'    +   '<button onclick="document.getElementById(&quot;modal-meal&quot;).remove()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'    + '</div>'    + '<input id="meal-input" style="width:100%;padding:11px 14px;border-radius:var(--r3);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font:500 15px/1 var(--font-ui);outline:none;box-sizing:border-box;" placeholder="e.g. Tacos, Pasta, Roast chicken…" value="' + esc(existing) + '" autocomplete="off"/>'    + '<div id="meal-fav-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>'    + '</div>'    + '<div style="flex:1;overflow-y:auto;padding:0 18px 8px;" id="meal-favs-area"></div>'    + '<div style="padding:12px 18px 32px;border-top:1px solid var(--border);flex-shrink:0;">'    +   '<button onclick="saveMeal()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 14px/1 var(--font-ui);cursor:pointer;">Save dinner</button>'    + '</div>';
+    '<div style="padding:18px 18px 10px;flex-shrink:0;">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+    +   '<div><div style="font:700 15px/1 var(--font-ui);color:var(--text);">🍽 ' + (label||'Dinner') + '</div>'
+    +   '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">What\'s for dinner?</div></div>'
+    +   '<button onclick="document.getElementById(&quot;modal-meal&quot;).remove()" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'
+    + '</div>'
+    + '<input id="meal-input" style="width:100%;padding:11px 14px;border-radius:var(--r3);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font:500 15px/1 var(--font-ui);outline:none;box-sizing:border-box;font-size:16px;" placeholder="e.g. Tacos, Pasta, Roast chicken…" value="' + esc(existing) + '" autocomplete="off"/>'
+    + '<div id="meal-fav-suggestions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>'
+    // AI suggest button
+    + '<button onclick="runMealAISuggest()" id="meal-ai-btn"'
+    + ' style="margin-top:10px;width:100%;padding:10px 14px;border-radius:var(--r3);'
+    + ' border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.07);'
+    + ' color:#BA68C8;font:700 13px/1 var(--font-ui);cursor:pointer;'
+    + ' display:flex;align-items:center;justify-content:center;gap:6px;">'
+    + '🤖 Suggest dinner ideas</button>'
+    + '<div id="meal-ai-suggestions" style="margin-top:8px;"></div>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:0 18px 8px;" id="meal-favs-area"></div>'
+    + '<div style="padding:12px 18px calc(20px + env(safe-area-inset-bottom));border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">'
+    +   '<button onclick="saveMeal()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:700 14px/1 var(--font-ui);cursor:pointer;">Save dinner</button>'
+    +   '<button onclick="saveMealAndSuggestGrocery()" style="width:100%;padding:13px;border-radius:var(--r3);border:1px solid rgba(129,199,132,0.4);background:rgba(129,199,132,0.07);color:#81C784;font:700 13px/1 var(--font-ui);cursor:pointer;">Save + 🛒 Add ingredients to grocery</button>'
+    + '</div>';
 
   renderMealFavsArea(favs);
   renderMealFavSuggestions('');
 
-  // Re-attach listeners after re-render
   setTimeout(()=>{
     const inp = document.getElementById('meal-input');
     if(inp){
@@ -5657,7 +5679,7 @@ function saveMeal(){
   if(!val){ showToast('Type a meal name first'); return; }
   if(!mealPlan[ds]) mealPlan[ds] = {};
   mealPlan[ds].dinner = val;
-  delete mealPlan[ds].recipe; // remove old AI recipe data if present
+  // recipe field preserved — do not delete
   saveMealPlan();
   document.getElementById('modal-meal')?.remove();
   renderAll();
@@ -5669,6 +5691,286 @@ function saveMealAndFavourite(){
   if(!val){ showToast('Type a meal name first'); return; }
   addMealFavourite(val);
   saveMeal();
+}
+
+async function saveMealAndSuggestGrocery(){
+  const val = (document.getElementById('meal-input')?.value || '').trim();
+  if(!val){ showToast('Type a meal name first'); return; }
+  // Save the meal first
+  const ds = _mealCurrentDs;
+  if(ds){
+    if(!mealPlan[ds]) mealPlan[ds] = {};
+    mealPlan[ds].dinner = val;
+    saveMealPlan();
+  }
+  // Close the meal modal and open the grocery suggestion modal
+  document.getElementById('modal-meal')?.remove();
+  renderAll();
+  // Fetch recipe in background while grocery modal opens
+  _fetchAndStoreRecipe(ds, val);
+  await openGrocerySuggestModal(val);
+}
+
+async function runMealAISuggest(){
+  const btn = document.getElementById('meal-ai-btn');
+  const resultsEl = document.getElementById('meal-ai-suggestions');
+  if(!resultsEl) return;
+
+  const favs = getMealFavourites();
+  const usedThisWeek = [];
+  const todayStr = today();
+  for(let i=0; i<7; i++){
+    const d = new Date(todayStr+'T00:00:00'); d.setDate(d.getDate()-i);
+    const meal = mealPlan[d.toISOString().slice(0,10)]?.dinner;
+    if(meal) usedThisWeek.push(meal);
+  }
+
+  if(btn){ btn.textContent='🤖 Thinking…'; btn.disabled=true; }
+  resultsEl.innerHTML = '<div style="font:500 12px/1 var(--font-ui);color:var(--text4);padding:4px 0;">Finding ideas…</div>';
+
+  try{
+    const raw = await aiCall(
+      `You are a helpful family dinner planner. Suggest 5 dinner ideas.
+Rules: family-friendly, varied, practical for a weeknight.
+${favs.length ? 'The family likes: ' + favs.slice(0,8).join(', ') + '. Include 1-2 of their favourites if it makes sense.' : ''}
+${usedThisWeek.length ? 'Already had this week: ' + usedThisWeek.join(', ') + '. Do not suggest these.' : ''}
+${familyProfile.dietaryNotes ? 'IMPORTANT dietary notes: ' + familyProfile.dietaryNotes : ''}
+${familyProfile.kidsInfo ? 'Family: ' + familyProfile.kidsInfo : ''}
+Return ONLY a JSON array of 5 strings, e.g. ["Chicken tacos","Pasta carbonara","Stir-fry beef","Salmon with rice","Veggie curry"]`,
+      'Suggest 5 family dinner ideas.',
+      300
+    );
+    let ideas;
+    try{ ideas = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch(e){ throw new Error('Could not parse suggestions'); }
+
+    resultsEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">'
+      + ideas.map(idea =>
+          '<button onclick="document.getElementById(&quot;meal-input&quot;).value=&quot;'+esc(idea)+'&quot;;document.getElementById(&quot;meal-ai-suggestions&quot;).innerHTML=&quot;&quot;"'
+          + ' style="padding:10px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);'
+          + ' color:var(--text);font:500 13px/1.3 var(--font-ui);cursor:pointer;text-align:left;">'
+          + '🍽 ' + esc(idea) + '</button>'
+        ).join('')
+      + '</div>';
+
+  }catch(e){
+    const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401')||String(e.message||'').includes('404');
+    resultsEl.innerHTML = '<div style="font:500 11px/1.4 var(--font-ui);color:#EF5350;padding:4px 0;">'
+      + (notSetup ? '⚠ AI not configured — see Settings' : '⚠ ' + esc(e.message)) + '</div>';
+  } finally {
+    if(btn){ btn.textContent='🤖 Suggest dinner ideas'; btn.disabled=false; }
+  }
+}
+
+async function openGrocerySuggestModal(mealName){
+  const old = document.getElementById('modal-grocery-suggest'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-grocery-suggest';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;display:flex;align-items:flex-end;justify-content:center;';
+  m.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
+    + '<div style="padding:16px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--border);">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;">'
+    +     '<div>'
+    +       '<div style="font:700 15px/1 var(--font-ui);color:#81C784;">🛒 Add to Grocery</div>'
+    +       '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Ingredients for ' + esc(mealName) + '</div>'
+    +     '</div>'
+    +     '<button onclick="document.getElementById(&quot;modal-grocery-suggest&quot;).remove()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div id="grocery-suggest-body" style="flex:1;overflow-y:auto;padding:14px 18px;">'
+    +   '<div style="display:flex;align-items:center;gap:10px;color:var(--text3);font:500 12px/1 var(--font-ui);">'
+    +     '<div style="width:16px;height:16px;border-radius:50%;border:2px solid #81C784;border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>'
+    +     'Getting ingredients…'
+    +   '</div>'
+    + '</div>'
+    + '<div id="grocery-suggest-footer" style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;display:none;">'
+    +   '<button onclick="acceptAllGrocerySuggestions()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:#81C784;color:#1a1f2e;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Add all to grocery list</button>'
+    + '</div>'
+    + '</div>';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+
+  // Now fetch ingredients
+  try{
+    const raw = await aiCall(
+      `You are a helpful grocery list assistant for a family.
+Given a dinner meal, return a practical list of ingredients to buy.
+Only include items that a typical family might need to buy (skip very common pantry staples like salt, pepper, oil unless the dish specifically needs a special variety).
+Group by: produce, meat/fish, dairy, pantry, other.
+Return ONLY a JSON array of objects: [{"name":"chicken breast","category":"meat"},{"name":"bell peppers","category":"produce"}]
+Keep it to 5-12 items — practical, not exhaustive.`,
+      'Dinner: ' + mealName,
+      400
+    );
+    let items;
+    try{ items = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch(e){ throw new Error('Could not parse ingredients'); }
+
+    // Filter out items already on the grocery list
+    const existingNames = new Set(groceryList.map(g=>g.name.toLowerCase()));
+    const newItems = items.filter(i=> !existingNames.has((i.name||'').toLowerCase()));
+    const alreadyHave = items.filter(i=> existingNames.has((i.name||'').toLowerCase()));
+
+    window._grocerySuggestions = newItems;
+
+    const body = document.getElementById('grocery-suggest-body');
+    if(!body) return;
+
+    const catColors = {produce:'#81C784',meat:'#EF5350','meat/fish':'#EF5350',dairy:'#64B5F6',pantry:'#E8A838',other:'var(--text3)'};
+    body.innerHTML = newItems.length === 0
+      ? '<div style="padding:8px 0;font:500 13px/1.4 var(--font-ui);color:var(--text3);">You already have everything for this meal! 🎉</div>'
+      : '<div style="display:flex;flex-direction:column;gap:6px;">'
+        + newItems.map((item,i)=>{
+            const col = catColors[item.category?.toLowerCase()] || 'var(--text3)';
+            return '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;">'
+              + '<input type="checkbox" class="grocery-sug-check" data-idx="'+i+'" checked style="width:18px;height:18px;accent-color:#81C784;cursor:pointer;flex-shrink:0;"/>'
+              + '<span style="flex:1;font:500 13px/1.3 var(--font-ui);color:var(--text);">'+esc(item.name)+'</span>'
+              + '<span style="font:600 10px/1 var(--font-ui);color:'+col+';padding:2px 7px;border-radius:8px;background:'+col+'18;">'+esc(item.category||'other')+'</span>'
+              + '</label>';
+          }).join('')
+        + '</div>'
+        + (alreadyHave.length ? '<div style="margin-top:10px;font:500 11px/1.4 var(--font-ui);color:var(--text4);">Already on your list: '
+          + alreadyHave.map(i=>esc(i.name)).join(', ') + '</div>' : '');
+
+    const footer = document.getElementById('grocery-suggest-footer');
+    if(footer && newItems.length > 0) footer.style.display='block';
+
+  }catch(e){
+    const body = document.getElementById('grocery-suggest-body');
+    const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401');
+    if(body) body.innerHTML = '<div style="font:500 12px/1.4 var(--font-ui);color:#EF5350;">'
+      + (notSetup?'⚠ AI not configured — see Settings':'⚠ '+esc(e.message)) + '</div>';
+  }
+}
+
+function acceptAllGrocerySuggestions(){
+  const items = window._grocerySuggestions || [];
+  const checks = document.querySelectorAll('.grocery-sug-check');
+  let added = 0;
+  checks.forEach(cb => {
+    if(!cb.checked) return;
+    const item = items[parseInt(cb.dataset.idx)];
+    if(!item) return;
+    const cat = groceryCatFor(item.name) !== 'other' ? groceryCatFor(item.name) : (item.category||'other');
+    groceryList.unshift({
+      id:'gr'+Date.now()+Math.random().toString(36).slice(2,5),
+      name: item.name, checked: false, category: cat,
+      addedBy: currentUser==='parent'?'jason':'wife'
+    });
+    added++;
+  });
+  saveGrocery();
+  document.getElementById('modal-grocery-suggest')?.remove();
+  showToast('🛒 ' + added + ' item' + (added!==1?'s':'') + ' added to grocery list');
+  renderAll();
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MEAL RECIPE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+async function _fetchAndStoreRecipe(ds, mealName){
+  if(!ds || !mealName) return;
+  // Don't re-fetch if we already have it
+  if(mealPlan[ds]?.recipe) return;
+  try{
+    const raw = await aiCall(
+      `You are a helpful family cook. Give a clear, practical recipe for home cooking.
+${familyProfile.dietaryNotes ? 'IMPORTANT: ' + familyProfile.dietaryNotes : ''}
+${familyProfile.kidsInfo ? 'Family includes: ' + familyProfile.kidsInfo : ''}
+Format your response with these sections:
+**Serves:** [number]
+**Prep time:** [minutes]
+**Cook time:** [minutes]
+
+**Ingredients:**
+[bullet list]
+
+**Instructions:**
+[numbered steps, each on its own line]
+
+**Tips:**
+[1-2 practical tips for this dish]
+
+Keep it concise and practical for a family weeknight meal.`,
+      `Recipe for: ${mealName}`,
+      800
+    );
+    if(!mealPlan[ds]) mealPlan[ds] = {};
+    mealPlan[ds].dinner = mealPlan[ds].dinner || mealName;
+    mealPlan[ds].recipe = raw;
+    saveMealPlan();
+    renderAll(); // refresh the 📖 button to purple
+  }catch(e){
+    console.warn('[Recipe] Fetch failed:', e.message);
+  }
+}
+
+function openRecipeSheet(ds){
+  const meal = mealPlan[ds]?.dinner;
+  if(!meal){ showToast('No meal set for this day'); return; }
+
+  const old = document.getElementById('modal-recipe'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-recipe';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;display:flex;align-items:flex-end;justify-content:center;';
+
+  const recipe = mealPlan[ds]?.recipe;
+  const d = new Date(ds+'T00:00:00');
+  const label = d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+
+  // Format recipe text into HTML
+  const formatRecipe = (text) => {
+    if(!text) return '';
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text);display:block;margin:12px 0 6px;">$1</strong>')
+      .replace(/^(\d+)\.\s+/gm, '<span style="color:#BA68C8;font-weight:700;">$1.</span> ')
+      .replace(/^[-•]\s+/gm, '<span style="color:var(--accent);">•</span> ')
+      .replace(/\n/g, '<br/>');
+  };
+
+  m.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;'
+    + 'max-height:88vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
+    + '<div style="padding:16px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--border);">'
+    +   '<div style="display:flex;align-items:center;justify-content:space-between;">'
+    +     '<div>'
+    +       '<div style="font:700 16px/1.2 var(--font-ui);color:var(--text);">📖 ' + esc(meal) + '</div>'
+    +       '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">' + label + '</div>'
+    +     '</div>'
+    +     '<button onclick="document.getElementById(&quot;modal-recipe&quot;).remove()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:14px;cursor:pointer;">✕</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div style="flex:1;overflow-y:auto;padding:16px 18px 12px;" id="recipe-body">'
+    + (recipe
+        ? '<div style="font:400 14px/1.8 var(--font-body);color:var(--text3);">' + formatRecipe(recipe) + '</div>'
+        : '<div style="display:flex;flex-direction:column;align-items:center;padding:24px 0;gap:12px;">'
+        +   '<div style="font-size:32px;">📖</div>'
+        +   '<div style="font:700 14px/1.3 var(--font-ui);color:var(--text2);">No recipe yet</div>'
+        +   '<div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);">Tap below to get the recipe from AI</div>'
+        + '</div>')
+    + '</div>'
+    + '<div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;">'
+    + (!recipe
+        ? '<button onclick="_getRecipeNow(\''+ds+'\',\''+esc(meal)+'\')" style="flex:1;padding:13px;border-radius:var(--r3);border:none;background:#BA68C8;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">🤖 Get Recipe</button>'
+        : '<button onclick="_getRecipeNow(\''+ds+'\',\''+esc(meal)+'\')" style="flex:1;padding:13px;border-radius:var(--r3);border:1px solid rgba(186,104,200,0.4);background:transparent;color:#BA68C8;font:700 13px/1 var(--font-ui);cursor:pointer;">↻ Refresh recipe</button>')
+    + '</div>'
+    + '</div>';
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
+async function _getRecipeNow(ds, mealName){
+  const body = document.getElementById('recipe-body');
+  if(body) body.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--text3);font:500 13px/1 var(--font-ui);">'
+    + '<div style="width:18px;height:18px;border-radius:50%;border:2px solid #BA68C8;border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>'
+    + 'Getting recipe…</div>';
+
+  await _fetchAndStoreRecipe(ds, mealName);
+
+  // Re-open to show result
+  document.getElementById('modal-recipe')?.remove();
+  openRecipeSheet(ds);
 }
 
 function clearMeal(ds){
@@ -11466,6 +11768,30 @@ function renderSettings(container){
 
 
 
+    <!-- Family Profile -->
+    <div class="section-title">👨‍👩‍👧‍👦 Family Profile</div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
+      <div style="font:500 11px/1.5 var(--font-ui);color:var(--text4);">
+        This context is used by AI to personalise meal suggestions, recipes, and daily briefings for your family.
+      </div>
+      <div>
+        <div class="chip-label">Dietary preferences & allergies</div>
+        <textarea id="fp-dietary" class="field-input" rows="2" placeholder="e.g. Ridley is lactose intolerant. Jason doesn't eat pork. Jenny is vegetarian on weekdays…" style="resize:none;font-size:16px;"
+          onchange="familyProfile.dietaryNotes=this.value;familyProfile.updatedAt=today();localStorage.setItem('hub-family-profile',JSON.stringify(familyProfile));showToast('✓ Saved');">${esc(familyProfile.dietaryNotes||'')}</textarea>
+      </div>
+      <div>
+        <div class="chip-label">Kids info (ages, schools, activities)</div>
+        <textarea id="fp-kids" class="field-input" rows="2" placeholder="e.g. Ridley is 12, attends Lincoln Middle, does soccer Tues/Thurs. Connor is 9, attends Oak Elem, does swimming Sat mornings…" style="resize:none;font-size:16px;"
+          onchange="familyProfile.kidsInfo=this.value;familyProfile.updatedAt=today();localStorage.setItem('hub-family-profile',JSON.stringify(familyProfile));showToast('✓ Saved');">${esc(familyProfile.kidsInfo||'')}</textarea>
+      </div>
+      <div>
+        <div class="chip-label">Regular routines & commitments</div>
+        <textarea id="fp-routine" class="field-input" rows="2" placeholder="e.g. School pickup at 3:30pm. Jason WFH Mon/Fri. Jenny travels every other week. Family dinner every Sunday…" style="resize:none;font-size:16px;"
+          onchange="familyProfile.routineNotes=this.value;familyProfile.updatedAt=today();localStorage.setItem('hub-family-profile',JSON.stringify(familyProfile));showToast('✓ Saved');">${esc(familyProfile.routineNotes||'')}</textarea>
+      </div>
+      ${familyProfile.updatedAt?`<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">Last updated: ${familyProfile.updatedAt}</div>`:''}
+    </div>
+
     <!-- Sync & Notifications -->
     <div class="section-title">📡 Sync & Notifications</div>
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
@@ -12546,6 +12872,16 @@ function saveHubData(key, val){
 
 let waitingFor     = loadHubData('hub-waiting', []);
 
+// ── Family profile (memory for AI context) ───────────────────
+let familyProfile = loadHubData('hub-family-profile', {
+  dietaryNotes: '',      // allergies, preferences, dietary restrictions
+  kidsInfo: '',          // ages, schools, activities, schedules
+  routineNotes: '',      // regular commitments, pickup times, etc
+  updatedAt: ''
+});
+// Proactive AI suggestion cache — refreshed once per day
+let _proactiveSuggestion = loadHubData('hub-proactive-cache', { date:'', text:'', dismissed:false });
+
 // ── Home/Family data ──────────────────────────────────────────
 let familyTasks    = loadHubData('hub-family-tasks', []);  // shared, visible to both adults
 let jasonHomeTasks = loadHubData('hub-jason-home',   []);  // private to Jason
@@ -13315,6 +13651,18 @@ function renderTodayUnified(container){
       Work only
     </button>
   </div>`;
+
+  // ── Proactive AI suggestion card ───────────────────────────────
+  if(_proactiveSuggestion.text && _proactiveSuggestion.date === todayStr && !_proactiveSuggestion.dismissed){
+    html += `<div class="today-card" style="border-color:rgba(186,104,200,0.3);background:rgba(186,104,200,0.04);">
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;">
+        <span style="font-size:22px;flex-shrink:0;">🤖</span>
+        <div style="flex:1;font:500 13px/1.6 var(--font-ui);color:var(--text);">${_proactiveSuggestion.text}</div>
+        <button onclick="dismissProactiveSuggestion()"
+          style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+      </div>
+    </div>`;
+  }
 
   // ── 1. OVERDUE — all sources combined ────────────────────────
   if(totalOverdue > 0){
@@ -15072,14 +15420,674 @@ Be specific and reference which org segments the patterns come from.`,
 }
 
 // ═══════════════════════════════════════════════════════════════
+// FEATURE 1: PROACTIVE AI TODAY SUGGESTION
+// Runs once per day on app open — uses family context + today's
+// data to surface a smart suggestion on the Today screen
+// ═══════════════════════════════════════════════════════════════
+
+async function refreshProactiveSuggestion(){
+  const todayStr = today();
+  // Only run once per day and only if AI is configured
+  if(_proactiveSuggestion.date === todayStr) return;
+  if(SUPABASE_JWT_KEY === 'PASTE_YOUR_ANON_JWT_KEY_HERE') return;
+
+  try{
+    // Build context snapshot
+    const overdueTasks = tasks.filter(t=>t.status!=='done'&&t.dueDate&&t.dueDate<todayStr).length;
+    const todayTasks   = tasks.filter(t=>t.status!=='done'&&t.dueDate===todayStr).length;
+    const overdueWF    = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<todayStr).length;
+    const openDels     = delegations.filter(d=>d.status==='active').length;
+    const overdueDels  = delegations.filter(d=>d.status==='active'&&d.dueDate&&d.dueDate<todayStr).length;
+    const familyDue    = familyTasks.filter(t=>!t.done&&t.dueDate&&t.dueDate<=todayStr).length;
+    const openComms    = commsOwed.filter(c=>!c.done&&c.dueDate&&c.dueDate<=todayStr).length;
+    const staleTasks   = tasks.filter(t=>{
+      if(t.status==='done') return false;
+      const ai = _ageInfo(t.createdAt);
+      return ai.tier === 'ancient' || ai.tier === 'stale';
+    }).length;
+    const tonightMeal  = mealPlan[todayStr]?.dinner || '';
+    const groceryCount = groceryList.filter(g=>!g.checked).length;
+    const hour = new Date().getHours();
+
+    const raw = await aiCall(
+      `You are a smart daily assistant for Jason, a busy product leader with ADHD. 
+Your job is to give ONE short, specific, actionable suggestion based on his situation right now.
+Be direct, helpful, and brief. One sentence max, sometimes two if really needed.
+Don't be generic. Reference specific numbers or context from what's given.
+Focus on the most important thing that needs attention.
+Examples of good suggestions:
+- "You have 3 overdue delegations — a quick check-in with your team before end of day would clear the backlog."
+- "No dinner planned tonight — tap Dinners to set something before the grocery store closes."
+- "12 ancient tasks in triage — 10 minutes right now could clear your mental load significantly."`,
+      `Current time: ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}
+Work overdue tasks: ${overdueTasks}
+Work tasks due today: ${todayTasks}
+Overdue waiting-fors: ${overdueWF}
+Active delegations: ${openDels} (${overdueDels} overdue)
+Family tasks due today/overdue: ${familyDue}
+Comms owed today: ${openComms}
+Stale/ancient tasks needing triage: ${staleTasks}
+Tonight's dinner planned: ${tonightMeal || 'not yet'}
+Grocery items on list: ${groceryCount}
+${familyProfile.routineNotes ? 'Family routine context: ' + familyProfile.routineNotes : ''}`,
+      250
+    );
+
+    _proactiveSuggestion = { date: todayStr, text: raw.trim(), dismissed: false };
+    localStorage.setItem('hub-proactive-cache', JSON.stringify(_proactiveSuggestion));
+    renderAll();
+  }catch(e){
+    // Silent fail — proactive suggestion is nice-to-have, not critical
+  }
+}
+
+function dismissProactiveSuggestion(){
+  _proactiveSuggestion.dismissed = true;
+  localStorage.setItem('hub-proactive-cache', JSON.stringify(_proactiveSuggestion));
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FEATURE 2: PHOTO → CALENDAR EVENT
+// Tap 📷, pick a photo of a flyer/notice/schedule,
+// Claude Vision extracts events → add to calendar
+// ═══════════════════════════════════════════════════════════════
+
+function openPhotoEventCapture(){
+  const old = document.getElementById('modal-photo-event'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-photo-event';
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.65);';
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;
+      padding:20px 16px calc(32px + env(safe-area-inset-bottom));
+      max-height:90vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font:800 16px/1 var(--font-ui);color:#BA68C8;">📷 Photo → Calendar</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          Take a photo of a flyer, notice, or schedule
+        </div>
+      </div>
+      <button onclick="closePhotoEventCapture()" style="width:28px;height:28px;border-radius:50%;
+        border:1px solid var(--border);background:transparent;color:var(--text3);font-size:16px;cursor:pointer;">✕</button>
+    </div>
+
+    <!-- Photo picker area -->
+    <div id="photo-event-preview" style="border:2px dashed var(--border);border-radius:12px;
+      padding:32px 20px;text-align:center;cursor:pointer;background:var(--surface2);margin-bottom:14px;"
+      onclick="document.getElementById('photo-event-input').click()">
+      <div style="font-size:36px;margin-bottom:10px;">📸</div>
+      <div style="font:700 14px/1.3 var(--font-ui);color:var(--text2);">Tap to pick photo</div>
+      <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:6px;">
+        School notices · Sports schedules · Event flyers · Permission slips
+      </div>
+    </div>
+    <input type="file" id="photo-event-input" accept="image/*" capture="environment"
+      style="display:none;" onchange="handlePhotoEventFile(this)"/>
+
+    <div id="photo-event-results" style="margin-top:4px;"></div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closePhotoEventCapture(); };
+  document.body.appendChild(m);
+}
+
+function closePhotoEventCapture(){
+  document.getElementById('modal-photo-event')?.remove();
+}
+
+async function handlePhotoEventFile(input){
+  const file = input.files?.[0];
+  if(!file) return;
+
+  const preview = document.getElementById('photo-event-preview');
+  const resultsEl = document.getElementById('photo-event-results');
+  if(!preview || !resultsEl) return;
+
+  // Show image preview
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result; // "data:image/jpeg;base64,..."
+    const base64Data = base64.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+
+    preview.innerHTML = `<img src="${base64}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;"/>`;
+
+    resultsEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:14px;
+        border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">
+      <div style="width:18px;height:18px;border-radius:50%;border:2px solid #BA68C8;
+        border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>
+      <span style="font:600 13px/1 var(--font-ui);color:var(--text3);">Reading photo…</span>
+    </div>`;
+
+    try{
+      const todayStr = today();
+      const currentYear = new Date().getFullYear();
+
+      // Call Claude Vision
+      const raw = await aiCallVision([{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: base64Data }
+          },
+          {
+            type: 'text',
+            text: `Extract all calendar events, dates, and deadlines from this image.
+Today is ${todayStr}. Current year is ${currentYear}.
+For each event found, return:
+- title: clear event name
+- date: ISO format YYYY-MM-DD (infer year if not shown — use upcoming date)
+- time: HH:MM in 24h format if mentioned, otherwise null
+- location: location if mentioned, otherwise null
+- notes: any relevant details (who it's for, what to bring, RSVP details)
+- assignedTo: who in the family this is for — "jason", "jenny", "ridley", "connor", or "anyone"
+
+Return ONLY a JSON array. If no events found, return [].
+Example: [{"title":"Science Fair","date":"2026-05-15","time":"18:00","location":"Lincoln Middle School Gym","notes":"Ridley presenting project. Parents invited.","assignedTo":"ridley"}]`
+          }
+        ]
+      }], 800);
+
+      let events;
+      try{ events = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+      catch(e){ throw new Error('Could not read events from photo — try a clearer image'); }
+
+      if(!Array.isArray(events) || events.length === 0){
+        resultsEl.innerHTML = `<div style="padding:16px;text-align:center;border-radius:var(--r3);
+            border:1px solid var(--border);background:var(--surface2);">
+          <div style="font-size:24px;margin-bottom:8px;">🤔</div>
+          <div style="font:700 13px/1.3 var(--font-ui);color:var(--text3);">No events found in this photo</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">Try a clearer photo or one with specific dates</div>
+        </div>`;
+        return;
+      }
+
+      const _ASGN = {jason:'Jason',jenny:'Jenny',ridley:'Ridley',connor:'Connor',anyone:'Anyone'};
+
+      resultsEl.innerHTML = `
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
+            text-transform:uppercase;margin-bottom:10px;">
+          ${events.length} event${events.length!==1?'s':''} found
+        </div>
+        <div id="photo-event-cards" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <div id="photo-event-summary" style="margin-top:12px;"></div>`;
+
+      const cardsEl = document.getElementById('photo-event-cards');
+      window._photoEvents = events;
+
+      events.forEach((ev, idx) => {
+        const asgn = _ASGN[ev.assignedTo]||'Anyone';
+        const asgnColor = ev.assignedTo==='ridley'?'#E91E8C':ev.assignedTo==='connor'?'#0066CC':ev.assignedTo==='jenny'?'#BA68C8':'var(--accent)';
+        const card = document.createElement('div');
+        card.id = 'pev-card-'+idx;
+        card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;';
+        card.innerHTML = `
+          <div style="padding:12px 14px 10px;">
+            <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);margin-bottom:6px;">${esc(ev.title)}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <span style="font:700 10px/1 var(--font-ui);color:var(--accent);padding:2px 7px;border-radius:8px;background:var(--accent-soft);">📅 ${ev.date}${ev.time?' '+ev.time:''}</span>
+              <span style="font:700 10px/1 var(--font-ui);color:${asgnColor};padding:2px 7px;border-radius:8px;background:${asgnColor}18;">👤 ${asgn}</span>
+              ${ev.location?`<span style="font:600 10px/1 var(--font-ui);color:var(--text4);">📍 ${esc(ev.location)}</span>`:''}
+            </div>
+            ${ev.notes?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);margin-top:6px;padding:6px 8px;border-radius:7px;background:var(--surface2);">${esc(ev.notes)}</div>`:''}
+          </div>
+          <div style="display:flex;border-top:1px solid var(--border);">
+            <button onclick="acceptPhotoEvent(${idx},'family')"
+              style="flex:1;padding:10px 6px;border:none;border-right:1px solid var(--border);
+                background:transparent;color:#81C784;font:700 11px/1.3 var(--font-ui);cursor:pointer;line-height:1.3;">
+              ✓ Family<br><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">Tasks list</span>
+            </button>
+            <button onclick="acceptPhotoEvent(${idx},'calendar')"
+              style="flex:1;padding:10px 6px;border:none;border-right:1px solid var(--border);
+                background:transparent;color:var(--accent);font:700 11px/1.3 var(--font-ui);cursor:pointer;line-height:1.3;">
+              📅 Calendar<br><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">Add event</span>
+            </button>
+            <button onclick="acceptPhotoEvent(${idx},'both')"
+              style="flex:1;padding:10px 6px;border:none;border-right:1px solid var(--border);
+                background:transparent;color:#BA68C8;font:700 11px/1.3 var(--font-ui);cursor:pointer;line-height:1.3;">
+              ✚ Both<br><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">Task + event</span>
+            </button>
+            <button onclick="skipPhotoEvent(${idx})"
+              style="flex:0 0 52px;padding:10px 4px;border:none;background:transparent;
+                color:var(--text4);font:700 11px/1.3 var(--font-ui);cursor:pointer;line-height:1.3;">
+              Skip
+            </button>
+          </div>`;
+        cardsEl.appendChild(card);
+      });
+
+    }catch(e){
+      const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401');
+      resultsEl.innerHTML = `<div style="padding:14px;border-radius:var(--r3);
+          border:1px solid rgba(239,83,80,0.3);background:rgba(239,83,80,0.06);">
+        <div style="font:700 12px/1 var(--font-ui);color:#EF5350;margin-bottom:4px;">⚠ Failed to read photo</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);">${notSetup?'AI not configured — see Settings':esc(e.message)}</div>
+      </div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function acceptPhotoEvent(idx, destination){
+  const events = window._photoEvents;
+  if(!events||!events[idx]) return;
+  const ev = events[idx];
+  const card = document.getElementById('pev-card-'+idx);
+
+  // Disable buttons while processing
+  if(card) card.querySelectorAll('button').forEach(b=>{ b.disabled=true; b.style.opacity='0.5'; });
+
+  const assignees = ev.assignedTo && ev.assignedTo !== 'anyone' ? [ev.assignedTo] : ['anyone'];
+  const addedItems = [];
+
+  // ── Add to Family Tasks ──────────────────────────────────────
+  if(destination === 'family' || destination === 'both'){
+    const newId = 'ft'+Date.now();
+    familyTasks.unshift({
+      id: newId, title: ev.title, done: false,
+      assignedTo: assignees,
+      dueDate: ev.date||'',
+      createdAt: today(),
+      createdBy: currentUser==='parent'?'jason':'jenny',
+      comments: []
+    });
+    logFamilyTaskHistory(newId, 'Added via photo capture'
+      + (ev.location?' · '+ev.location:'')
+      + (ev.notes?' · '+ev.notes.slice(0,60):''));
+    saveFamilyTasks();
+    addedItems.push('family task');
+  }
+
+  // ── Add to Calendar ──────────────────────────────────────────
+  if(destination === 'calendar' || destination === 'both'){
+    try{
+      // Build ISO datetimes
+      let startISO, endISO;
+      const allDay = !ev.time;
+      if(allDay){
+        startISO = ev.date + 'T00:00:00';
+        endISO   = ev.date + 'T23:59:59';
+      } else {
+        startISO = ev.date + 'T' + ev.time + ':00';
+        // Default 1-hour duration
+        const [h, m] = ev.time.split(':').map(Number);
+        const endH = String(h + 1).padStart(2, '0');
+        endISO = ev.date + 'T' + endH + ':' + String(m).padStart(2, '0') + ':00';
+      }
+
+      const desc = [
+        ev.notes||'',
+        ev.assignedTo && ev.assignedTo !== 'anyone' ? 'For: ' + (ev.assignedTo.charAt(0).toUpperCase() + ev.assignedTo.slice(1)) : '',
+        'Added via photo capture in Reeves HQ'
+      ].filter(Boolean).join('\n');
+
+      const created = await calCreateEvent({
+        title: ev.title,
+        start: startISO,
+        end: endISO,
+        allDay,
+        description: desc,
+        location: ev.location||''
+      });
+
+      if(created){
+        addedItems.push('calendar event');
+        // Invalidate calendar cache so it shows immediately
+        _calFetchedAt = null;
+      } else {
+        // calCreateEvent shows its own toast on failure
+        addedItems.push('calendar (check connection)');
+      }
+    }catch(e){
+      addedItems.push('calendar failed: ' + e.message.slice(0,40));
+    }
+  }
+
+  // ── Update card UI ───────────────────────────────────────────
+  if(card){
+    const icons = { family:'✅', calendar:'📅', both:'✅📅' };
+    const icon = destination === 'both' ? '✅📅' : destination === 'calendar' ? '📅' : '✅';
+    card.style.opacity = '0.5';
+    card.style.border = '1.5px solid rgba(129,199,132,0.5)';
+    card.innerHTML = `<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">${icon}</span>
+      <div>
+        <div style="font:600 13px/1.2 var(--font-ui);color:#81C784;">${esc(ev.title)}</div>
+        <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Added to: ${addedItems.join(' + ')}</div>
+      </div>
+    </div>`;
+  }
+
+  showToast('✓ ' + ev.title.slice(0,30) + ' → ' + addedItems.join(' + '));
+  renderAll();
+
+  const sumEl = document.getElementById('photo-event-summary');
+  if(sumEl) sumEl.innerHTML = `<button onclick="closePhotoEventCapture();setNav('family');"
+    style="width:100%;padding:12px;border-radius:var(--r3);border:none;
+      background:#81C784;color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">
+    View Family Tasks →</button>`;
+}
+
+function skipPhotoEvent(idx){
+  const card = document.getElementById('pev-card-'+idx);
+  if(card){ card.style.transition='all 0.2s'; card.style.opacity='0.3'; setTimeout(()=>card.style.display='none',200); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TEAM PERSON DETAIL
+// Single-person view: series info, 1:1 history, delegations,
+// waiting-fors, linked initiatives — all in one scroll
+// ═══════════════════════════════════════════════════════════════
+
+function renderTeamPersonDetail(container, personId){
+  const p = peopleList.find(x=>x.id===personId);
+  if(!p){ _teamPersonId=null; renderTeamPage(container); return; }
+
+  const todayStr = today();
+  const pc = p.priority==='High'?'#EF5350':p.priority==='Low'?'#888':'#E8A838';
+
+  // Gather all data for this person
+  const series = oneOnOneSeries.find(s=>s.personId===personId);
+  const meetings = teamMeetings
+    .filter(m=>m.type==='1on1'&&(m.personIds||'').split(',').includes(personId))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const activeDels = delegations.filter(d=>d.personId===personId&&d.status==='active')
+    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
+  const doneDels = delegations.filter(d=>d.personId===personId&&d.status==='done').slice(0,3);
+  const openWFs = waitingFor.filter(w=>!w.done&&((w.personIds||'').split(',').includes(personId)||w.personId===personId));
+  const personTasks = tasks.filter(t=>t.status!=='done'&&(t.personIds||'').split(',').includes(personId));
+  const lastMtg = meetings[0];
+  const daysSinceLastMtg = lastMtg ? Math.floor((Date.now()-new Date(lastMtg.date).getTime())/86400000) : null;
+
+  // Overdue check
+  const overdueDels = activeDels.filter(d=>d.dueDate&&d.dueDate<todayStr);
+
+  const sectionTitle = (label, color='var(--text4)', count=null, btn='') =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">
+      <span style="font:700 10px/1 var(--font-ui);color:${color};letter-spacing:1px;">${label}${count!=null?' ('+count+')':''}</span>
+      ${btn}
+    </div>`;
+
+  const delRow = (d) => {
+    const isOv = d.dueDate&&d.dueDate<todayStr&&d.status==='active';
+    const ai = _ageInfo(d.createdAt);
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+        border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.03);':''}">
+      <button onclick="completeDelegation('${d.id}')"
+        style="width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+          border:2px solid ${d.status==='done'?'var(--green)':'#64B5F6'};
+          background:${d.status==='done'?'var(--green)':'transparent'};
+          color:${d.status==='done'?'#fff':'#64B5F6'};font-size:10px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.3 var(--font-ui);color:${d.status==='done'?'var(--text4)':'var(--text)'};${d.status==='done'?'text-decoration:line-through;':''}">${esc(d.what)}</div>
+        <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
+          ${d.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">📅 ${d.dueDate.slice(5)}</span>`:''}
+          ${ai.badge}
+        </div>
+      </div>
+      <button onclick="openDelegationModal('${d.id}')"
+        style="padding:3px 7px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
+    </div>`;
+  };
+
+  const mtgRow = (m) => {
+    const openActions = (m.actionItems||[]).filter(a=>!a.done).length;
+    const contacts = (m.personIds||'').split(',').filter(Boolean)
+      .map(id=>peopleList.find(x=>x.id===id)?.name).filter(Boolean).join(', ');
+    return `<div style="border:1px solid var(--border);border-radius:10px;margin:0 14px 8px;overflow:hidden;cursor:pointer;"
+        onclick="openTeamMeetingModal('${m.id}')">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);">
+        <div style="width:40px;height:36px;border-radius:7px;background:rgba(186,104,200,0.12);
+          border:1px solid rgba(186,104,200,0.3);display:flex;flex-direction:column;align-items:center;
+          justify-content:center;flex-shrink:0;">
+          <span style="font:700 10px/1 var(--font-ui);color:#BA68C8;">${m.date.slice(5,7)}/${m.date.slice(8)}</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          ${m.agenda?`<div style="font:500 12px/1.3 var(--font-body);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.agenda.slice(0,60))}</div>`:'<div style="font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No agenda recorded</div>'}
+          <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
+            ${m.decisions?`<span style="font:700 10px/1 var(--font-ui);color:#81C784;padding:1px 5px;border-radius:6px;background:rgba(129,199,132,0.1);">✅ decisions</span>`:''}
+            ${openActions>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);padding:1px 5px;border-radius:6px;background:var(--accent-soft);">⚡ ${openActions} open</span>`:''}
+          </div>
+        </div>
+        <button onclick="event.stopPropagation();deleteTeamMeeting('${m.id}')"
+          style="padding:3px 6px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
+      </div>
+    </div>`;
+  };
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+      <!-- Back header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
+        <button onclick="_teamPersonId=null;renderAll();"
+          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Team</button>
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+          ${renderAvatar(p.name, p.photo, 36, pc+'22', pc, false)}
+          <div style="min-width:0;">
+            <div style="font:800 16px/1.2 var(--font-ui);color:var(--text);">${esc(p.name)}</div>
+            <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(p.role||p.department||'')}</div>
+          </div>
+        </div>
+        <button onclick="_teamPulseAction('prep','${personId}')"
+          style="padding:7px 12px;border-radius:8px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
+          ✏ Prep
+        </button>
+        <button onclick="openAddPersonModal('${personId}')"
+          style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">
+          📷
+        </button>
+      </div>
+
+      <!-- Quick stats -->
+      <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:${overdueDels.length>0?'#EF5350':'var(--text)'};">${activeDels.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Delegations</div>
+        </div>
+        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:${openWFs.length>0?'#64B5F6':'var(--text)'};">${openWFs.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Waiting for</div>
+        </div>
+        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${meetings.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">1:1s logged</div>
+        </div>
+        <div style="flex:1;padding:10px 6px;text-align:center;">
+          <div style="font:800 18px/1 var(--font-ui);color:${daysSinceLastMtg>14?'#FF8A65':daysSinceLastMtg===null?'var(--text4)':'var(--text)'};">${daysSinceLastMtg===null?'—':daysSinceLastMtg+'d'}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Since 1:1</div>
+        </div>
+      </div>
+
+      <!-- Scrollable body -->
+      <div style="flex:1;overflow-y:auto;padding-bottom:20px;">
+
+        <!-- 1:1 Series -->
+        <div style="margin:10px 14px 0;padding:12px 14px;border-radius:10px;
+          border:1.5px solid ${series?'rgba(186,104,200,0.4)':'var(--border)'};
+          background:${series?'rgba(186,104,200,0.05)':'var(--surface2)'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${series?'8px':'0'};">
+            <div>
+              <div style="font:700 13px/1.2 var(--font-ui);color:${series?'#BA68C8':'var(--text3)'};">
+                🔁 ${series?series.cadence+' 1:1':'No recurring series set up'}
+              </div>
+              ${series?`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+                Next: ${series.nextDate||'not scheduled'}
+                ${series.notes?` · ${esc(series.notes.slice(0,40))}`:''}
+              </div>`:'<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">Set a cadence for your recurring 1:1s with ${esc(p.name.split(' ')[0])}</div>'}
+            </div>
+            <button onclick="openOneOnOneSeriesModal('${personId}')"
+              style="padding:6px 12px;border-radius:7px;border:1px solid rgba(186,104,200,0.4);
+                background:transparent;color:#BA68C8;font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:10px;">
+              ${series?'Edit':'Set up'}
+            </button>
+          </div>
+          ${series?.notes?`<div style="font:500 11px/1.5 var(--font-body);color:var(--text3);border-top:1px solid rgba(186,104,200,0.2);padding-top:8px;margin-top:4px;">${esc(series.notes)}</div>`:''}
+        </div>
+
+        <!-- Quick actions -->
+        <div style="display:flex;gap:8px;padding:10px 14px;">
+          <button onclick="_teamPulseAction('delegate','${personId}')"
+            style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(100,181,246,0.4);
+              background:rgba(100,181,246,0.08);color:#64B5F6;font:700 12px/1.3 var(--font-ui);cursor:pointer;">
+            📋 Delegate
+          </button>
+          <button onclick="_teamPulseAction('1on1','${personId}')"
+            style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(186,104,200,0.4);
+              background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1.3 var(--font-ui);cursor:pointer;">
+            💬 Log 1:1
+          </button>
+        </div>
+
+        <!-- Active delegations -->
+        ${activeDels.length>0?`
+          ${sectionTitle('📋 ACTIVE DELEGATIONS','#64B5F6',activeDels.length,
+            `<button onclick="_teamPulseAction('delegate','${personId}')"
+              style="padding:4px 10px;border-radius:6px;border:1px solid rgba(100,181,246,0.35);background:transparent;color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">+ Add</button>`)}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
+            ${activeDels.map(delRow).join('')}
+          </div>`:
+          sectionTitle('📋 DELEGATIONS','var(--text4)',0,
+            `<button onclick="_teamPulseAction('delegate','${personId}')"
+              style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text4);font:700 10px/1 var(--font-ui);cursor:pointer;">+ Delegate</button>`)}
+
+        <!-- Open waiting-fors -->
+        ${openWFs.length>0?`
+          ${sectionTitle('⏳ WAITING FOR','#64B5F6',openWFs.length)}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
+            ${openWFs.map(w=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);" onclick="openWaitingModal(null,'${w.id}')">
+              <div style="width:8px;height:8px;border-radius:50%;background:#64B5F6;flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font:500 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+                ${w.dueDate?`<div style="font:600 10px/1 var(--font-ui);color:${w.dueDate<todayStr?'#EF5350':'var(--text4)'};margin-top:2px;">📅 ${w.dueDate.slice(5)}</div>`:''}
+              </div>
+            </div>`).join('')}
+          </div>`:''}
+
+        <!-- Open tasks they're involved in -->
+        ${personTasks.length>0?`
+          ${sectionTitle('☐ RELATED TASKS','var(--accent)',personTasks.length)}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
+            ${personTasks.slice(0,5).map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openEditTask('${t.id}')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+              <div style="flex:1;font:500 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+              ${t.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${t.dueDate<todayStr?'#EF5350':'var(--text4)'};flex-shrink:0;">${t.dueDate.slice(5)}</span>`:''}
+            </div>`).join('')}
+            ${personTasks.length>5?`<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);">+${personTasks.length-5} more</div>`:''}
+          </div>`:''}
+
+        <!-- 1:1 history -->
+        ${sectionTitle('💬 1:1 HISTORY','#BA68C8',meetings.length,
+          `<button onclick="_teamPulseAction('1on1','${personId}')"
+            style="padding:4px 10px;border-radius:6px;border:1px solid rgba(186,104,200,0.35);background:transparent;color:#BA68C8;font:700 10px/1 var(--font-ui);cursor:pointer;">+ Log</button>`)}
+        ${meetings.length?meetings.map(mtgRow).join('')
+          :`<div style="padding:16px 14px;font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No 1:1s logged yet</div>`}
+
+        <!-- Done delegations -->
+        ${doneDels.length?`
+          <div style="padding:6px 14px 4px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-top:8px;">RECENTLY COMPLETED</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
+            ${doneDels.map(delRow).join('')}
+          </div>`:''}
+
+      </div>
+    </div>`;
+}
+
+// ── 1:1 Series Modal ──────────────────────────────────────────────
+function openOneOnOneSeriesModal(personId){
+  const p = peopleList.find(x=>x.id===personId); if(!p) return;
+  const existing = oneOnOneSeries.find(s=>s.personId===personId);
+
+  const old = document.getElementById('modal-1on1-series'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-1on1-series'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font:800 15px/1 var(--font-ui);color:#BA68C8;">🔁 1:1 Series</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${esc(p.name)}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-1on1-series')">✕</button>
+    </div>
+    <div class="field-group">
+      <div class="chip-label">Cadence</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+        ${['Weekly','Biweekly','Monthly','Ad-hoc'].map(c=>{
+          const sel=(existing?.cadence||'Biweekly')===c;
+          return `<button type="button" onclick="document.querySelectorAll('.s1c').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='rgba(186,104,200,0.15)';this.style.borderColor='#BA68C8';this.style.color='#BA68C8';document.getElementById('s1c-val').value='${c}';"
+            class="s1c" style="flex:1;padding:8px 6px;border-radius:7px;border:1px solid ${sel?'#BA68C8':'var(--border)'};background:${sel?'rgba(186,104,200,0.15)':'transparent'};color:${sel?'#BA68C8':'var(--text3)'};font:700 11px/1.2 var(--font-ui);cursor:pointer;min-width:60px;">${c}</button>`;
+        }).join('')}
+      </div>
+      <input type="hidden" id="s1c-val" value="${existing?.cadence||'Biweekly'}"/>
+
+      <div class="chip-label">Next scheduled</div>
+      <input id="s1c-next" type="date" class="field-input" value="${existing?.nextDate||''}" style="color-scheme:dark;color:var(--text);"/>
+
+      <div class="chip-label">Standing agenda / notes</div>
+      <textarea id="s1c-notes" class="field-input" placeholder="Regular topics, what you always cover, links to shared docs…" rows="3"
+        style="resize:none;">${esc(existing?.notes||'')}</textarea>
+
+      <input type="hidden" id="s1c-person-id" value="${personId}"/>
+    </div>
+    <div class="modal-actions" style="display:flex;gap:8px;">
+      ${existing?`<button onclick="deleteOneOnOneSeries('${personId}')"
+        style="padding:13px 14px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.35);
+          background:rgba(239,83,80,0.06);color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">Remove</button>`:''}
+      <button onclick="submitOneOnOneSeries()"
+        style="flex:1;padding:14px;border-radius:var(--r3);border:none;
+          background:#BA68C8;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
+        ${existing?'✓ Save':'Set up Series'}
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-1on1-series'); };
+  document.body.appendChild(m);
+  setTimeout(()=>_watchModalInputs(m), 80);
+}
+
+function submitOneOnOneSeries(){
+  _markModalClean();
+  const personId = document.getElementById('s1c-person-id')?.value||'';
+  const cadence  = document.getElementById('s1c-val')?.value||'Biweekly';
+  const nextDate = document.getElementById('s1c-next')?.value||'';
+  const notes    = document.getElementById('s1c-notes')?.value.trim()||'';
+  const existing = oneOnOneSeries.findIndex(s=>s.personId===personId);
+  const entry = { id:'s1c'+Date.now(), personId, cadence, nextDate, notes };
+  if(existing>-1) oneOnOneSeries[existing]=entry; else oneOnOneSeries.push(entry);
+  saveOneOnOneSeries();
+  closeModal('modal-1on1-series');
+  showToast(`🔁 1:1 series with ${peopleList.find(p=>p.id===personId)?.name||'them'} set to ${cadence}`);
+  renderAll();
+}
+
+function deleteOneOnOneSeries(personId){
+  oneOnOneSeries = oneOnOneSeries.filter(s=>s.personId!==personId);
+  saveOneOnOneSeries();
+  closeModal('modal-1on1-series');
+  showToast('Series removed');
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // TEAM LEADERSHIP VIEW
 // Sections: Team Pulse · Delegations · This Week's 1:1s · Roadmap · Comms Owed
 // All data captured and managed here — separate from external-facing views
 // ═══════════════════════════════════════════════════════════════
 
-let _teamTab = 'pulse'; // 'pulse' | 'delegations' | '1on1s' | 'roadmap' | 'comms'
+let _teamTab      = 'pulse'; // 'pulse' | 'delegations' | '1on1s' | 'roadmap' | 'comms'
+let _teamPersonId = null;    // when set, shows the single-person detail view
+// 1:1 series — one per direct report: {id, personId, cadence, nextDate, notes}
+let oneOnOneSeries = loadHubData('hub-1on1-series', []);
 
 function renderTeamPage(container){
+  // If a person is selected, show their full detail view
+  if(_teamPersonId){ renderTeamPersonDetail(container, _teamPersonId); return; }
+
   const todayStr = today();
   const directReports = peopleList.filter(p=>p.isDirectReport)
     .sort((a,b)=>a.name.localeCompare(b.name));
@@ -15120,16 +16128,20 @@ function renderTeamPage(container){
       ).length;
 
       return `<div class="today-card" style="margin-bottom:8px;border-color:${hasIssue?'rgba(239,83,80,0.35)':'var(--border)'};">
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="_teamPersonId='${p.id}';renderAll();">
           ${renderAvatar(p.name, p.photo, 40, pc+'22', pc, false)}
           <div style="flex:1;min-width:0;">
             <div style="font:700 15px/1.2 var(--font-ui);color:var(--text);">${esc(p.name)}</div>
-            <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${esc(p.role||p.department||'')}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${esc(p.role||p.department||'')}</span>
+              ${(() => { const s = oneOnOneSeries.find(x=>x.personId===p.id); return s ? `<span style="font:600 10px/1 var(--font-ui);color:#BA68C8;background:rgba(186,104,200,0.1);padding:1px 6px;border-radius:8px;">🔁 ${s.cadence}</span>` : `<span style="font:600 10px/1 var(--font-ui);color:var(--text4);font-style:italic;">no series</span>`; })()}
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
             ${overdueDels.length>0?`<span style="font:700 10px/1 var(--font-ui);color:#EF5350;background:rgba(239,83,80,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(239,83,80,0.25);">⚠ ${overdueDels.length} overdue</span>`:''}
             ${oneOnOneOverdue?`<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(255,138,101,0.25);">💬 ${ds}d no 1:1</span>`:''}
             ${!hasIssue&&openDels.length>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:8px;">📋 ${openDels.length} active</span>`:''}
+            <span style="font-size:16px;color:var(--text4);">›</span>
           </div>
         </div>
         <div style="display:flex;gap:0;">
@@ -15148,10 +16160,10 @@ function renderTeamPage(container){
               background:transparent;color:var(--accent);font:700 11px/1.3 var(--font-ui);cursor:pointer;">
             ✏ Prep
           </button>
-          <button onclick="openPersonDetail('${p.id}','person')"
+          <button onclick="_teamPersonId='${p.id}';renderAll();"
             style="flex:1;padding:10px 4px;border:none;
               background:transparent;color:var(--text3);font:700 11px/1.3 var(--font-ui);cursor:pointer;">
-            👤 Detail
+            👤 View all
           </button>
         </div>
       </div>`;
@@ -15577,9 +16589,51 @@ function openTeamMeetingModal(editId, type, prefillPersonId){
       <textarea id="tm-decisions" class="field-input" placeholder="What was decided?" rows="2"
         style="resize:none;">${existing?esc(existing.decisions||''):''}</textarea>
 
-      <div class="chip-label">Action items <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">(one per line: owner: task)</span></div>
-      <textarea id="tm-actions" class="field-input" placeholder="Marcus: Write PRD draft by Friday&#10;You: Share slide deck by Monday" rows="3"
-        style="resize:none;">${existingActions.map(a=>`${a.owner?a.owner+': ':''}${a.what}`).join('\n')}</textarea>
+      <div class="chip-label">Action items <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">who owns what</span></div>
+
+      <!-- Existing action items -->
+      <div id="tm-action-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+        ${existingActions.map((a,i)=>`
+          <div id="tm-ai-${i}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <input class="tm-ai-owner" placeholder="Owner" value="${esc(a.owner||'')}"
+                style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
+              <input class="tm-ai-what" placeholder="Task…" value="${esc(a.what||'')}"
+                style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"/>
+              <button onclick="document.getElementById('tm-ai-${i}').remove();"
+                style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input class="tm-ai-due" type="date" value="${a.dueDate||''}"
+                style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+                <input type="checkbox" class="tm-ai-delegate" ${a.isDelegate?'checked':''} style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
+                <span style="font:700 10px/1 var(--font-ui);color:#64B5F6;">📋 Delegate</span>
+              </label>
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Add action item row -->
+      <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <input id="tm-new-owner" placeholder="Owner (e.g. Marcus, You)" autocomplete="off"
+            style="width:110px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
+          <input id="tm-new-what" placeholder="What needs to happen…" autocomplete="off"
+            style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_addTmActionItem();}"/>
+          <button onclick="_addTmActionItem()"
+            style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input id="tm-new-due" type="date"
+            style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" id="tm-new-delegate" style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
+            <span style="font:700 10px/1 var(--font-ui);color:#64B5F6;">📋 Delegate</span>
+          </label>
+        </div>
+      </div>
 
       <input type="hidden" id="tm-edit-id" value="${editId||''}"/>
       <input type="hidden" id="tm-type" value="${mtgType}"/>
@@ -15597,22 +16651,62 @@ function openTeamMeetingModal(editId, type, prefillPersonId){
   setTimeout(()=>{ _watchModalInputs(m); document.getElementById('tm-agenda')?.focus(); }, 80);
 }
 
+function _addTmActionItem(){
+  const owner = document.getElementById('tm-new-owner')?.value.trim()||'';
+  const what  = document.getElementById('tm-new-what')?.value.trim()||'';
+  const due   = document.getElementById('tm-new-due')?.value||'';
+  const isDel = document.getElementById('tm-new-delegate')?.checked||false;
+  if(!what){ showToast('Add a task first'); return; }
+
+  const list = document.getElementById('tm-action-list');
+  const idx  = list.children.length;
+  const div  = document.createElement('div');
+  div.id = 'tm-ai-'+idx;
+  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <input class="tm-ai-owner" placeholder="Owner" value="${esc(owner)}"
+        style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
+      <input class="tm-ai-what" placeholder="Task…" value="${esc(what)}"
+        style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"/>
+      <button onclick="this.closest('[id^=tm-ai-]').remove();"
+        style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input class="tm-ai-due" type="date" value="${esc(due)}"
+        style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
+        <input type="checkbox" class="tm-ai-delegate" ${isDel?'checked':''} style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
+        <span style="font:700 10px/1 var(--font-ui);color:${isDel?'#64B5F6':'var(--text4)'};">📋 Delegate</span>
+      </label>
+    </div>`;
+  list.appendChild(div);
+
+  // Clear add row
+  document.getElementById('tm-new-owner').value='';
+  document.getElementById('tm-new-what').value='';
+  document.getElementById('tm-new-due').value='';
+  document.getElementById('tm-new-delegate').checked=false;
+  document.getElementById('tm-new-what').focus();
+}
+
 function submitTeamMeeting(){
   _markModalClean();
   const personIds = document.getElementById('tm-person-ids')?.value||'';
   const date      = document.getElementById('tm-date')?.value||today();
   const agenda    = document.getElementById('tm-agenda')?.value.trim()||'';
   const decisions = document.getElementById('tm-decisions')?.value.trim()||'';
-  const actionsRaw= document.getElementById('tm-actions')?.value.trim()||'';
   const editId    = document.getElementById('tm-edit-id')?.value||'';
   const type      = document.getElementById('tm-type')?.value||'1on1';
 
-  // Parse action items: "Owner: task" or just "task"
-  const actionItems = actionsRaw.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{
-    const match = line.match(/^([^:]{1,30}):\s*(.+)$/);
-    return match ? {owner:match[1].trim(), what:match[2].trim(), done:false}
-                 : {owner:'', what:line, done:false};
-  });
+  // Read structured action items from DOM
+  const actionItems = [...document.getElementById('tm-action-list').children].map(div=>({
+    owner:      (div.querySelector('.tm-ai-owner')?.value||'').trim(),
+    what:       (div.querySelector('.tm-ai-what')?.value||'').trim(),
+    dueDate:    div.querySelector('.tm-ai-due')?.value||'',
+    isDelegate: div.querySelector('.tm-ai-delegate')?.checked||false,
+    done:       false,
+  })).filter(a=>a.what);
 
   if(!agenda && !decisions && !actionItems.length){ showToast('Add some notes first'); return; }
 
@@ -15623,9 +16717,37 @@ function submitTeamMeeting(){
   else teamMeetings.unshift(meeting);
 
   saveTeamMeetings();
+
+  // Auto-create delegations for items flagged as delegate
+  const meetingPersonId = personIds.split(',').filter(Boolean)[0]||'';
+  const delegateItems = actionItems.filter(a=>a.isDelegate && a.owner.toLowerCase()!=='you' && a.owner.toLowerCase()!=='me');
+  if(delegateItems.length && meetingPersonId){
+    delegateItems.forEach(a=>{
+      // Find person by owner name, fall back to first person in meeting
+      const ownerPerson = peopleList.find(p=>
+        p.name.toLowerCase().includes(a.owner.toLowerCase()) ||
+        a.owner.toLowerCase().includes(p.name.toLowerCase().split(' ')[0])
+      );
+      const targetPersonId = ownerPerson?.id || meetingPersonId;
+      delegations.unshift({
+        id:         'del'+Date.now()+Math.random().toString(36).slice(2,6),
+        personId:   targetPersonId,
+        what:       a.what,
+        dueDate:    a.dueDate||'',
+        status:     'active',
+        notes:      `From 1:1 on ${date}`,
+        createdAt:  today(),
+        checkInDays: null,
+      });
+    });
+    saveDelegations();
+    showToast(`💬 Notes saved · ${delegateItems.length} delegation${delegateItems.length!==1?'s':''} created`);
+  } else {
+    showToast('💬 1:1 notes saved');
+  }
+
   closeModal('modal-team-meeting');
   _completePendingMove();
-  showToast('💬 1:1 notes saved');
   renderAll();
 }
 
@@ -18306,6 +19428,12 @@ function renderTimeBlock(container){
                   background:transparent;color:${mtg.color};
                   font:600 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;
                   flex-shrink:0;">📝</button>
+              <button onclick="openMeetingBlockEdit('${date}',${mtg.startMin},'${encodeURIComponent(mtg.calEventId||'')}','${encodeURIComponent(mtg.title)}')"
+                title="Edit / move"
+                style="padding:3px 8px;border-radius:12px;border:1px solid ${mtg.color}55;
+                  background:transparent;color:${mtg.color};
+                  font:600 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;
+                  flex-shrink:0;">✏</button>
           </div>`;
         } else {
           // Continuation slot — render as part of the block (empty, no border)
@@ -18482,6 +19610,178 @@ function openTbTimePicker(date, taskId, isReschedule){
 // Reschedule — pick new time for already-scheduled task
 function openTbReschedule(date, taskId){
   openTbTimePicker(date, taskId, true);
+}
+
+// ── Meeting block edit / move ─────────────────────────────────────
+// Works for both cal events (Google/Outlook) and local tbBlock meetings
+function openMeetingBlockEdit(date, startMin, encodedCalId, encodedTitle){
+  const calEventId = decodeURIComponent(encodedCalId||'');
+  const title      = decodeURIComponent(encodedTitle||'');
+  const HS = getTbHourStart(), HE = getTbHourEnd();
+
+  // Find the meeting data
+  const calEv = calEventId ? _calEvents.find(e=>e.id===calEventId) : null;
+  const tbMtg = !calEv ? (tbBlocks[date]||[]).find(b=>b.isMeeting&&b.startMin===startMin) : null;
+
+  const startMin_num = parseInt(startMin);
+  const curStart = minsToTime(startMin_num);
+  const curEnd   = calEv
+    ? minsToTime( (()=>{ const [h,m]=calEv.end.slice(11,16).split(':').map(Number); return h*60+m; })() )
+    : tbMtg ? minsToTime(startMin_num + tbMtg.durMin) : '';
+  const durMins  = calEv
+    ? (()=>{ const [sh,sm]=calEv.start.slice(11,16).split(':').map(Number); const [eh,em]=calEv.end.slice(11,16).split(':').map(Number); return (eh*60+em)-(sh*60+sm); })()
+    : tbMtg ? tbMtg.durMin : 60;
+
+  const old = document.getElementById('modal-mtg-edit'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-mtg-edit'; m.className = 'modal-overlay';
+
+  // Build time slot options
+  const slots = [];
+  for(let h=HS; h<HE; h++){ slots.push(h*60); slots.push(h*60+15); slots.push(h*60+30); slots.push(h*60+45); }
+
+  // Duration options
+  const durOptions = [15,30,45,60,90,120].map(d=>
+    `<option value="${d}" ${d===durMins?'selected':''}>${d<60?d+'m':Math.floor(d/60)+'h'+(d%60?''+d%60+'m':'')}</option>`
+  ).join('');
+
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font:800 15px/1 var(--font-ui);color:var(--accent);">✏ Edit Meeting</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${curStart}${curEnd?' – '+curEnd:''}</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-mtg-edit')">✕</button>
+    </div>
+    <div class="field-group">
+      <div class="chip-label">Title</div>
+      <input id="mtg-edit-title" class="field-input" value="${esc(calEv?.title||tbMtg?.title||title)}" autocomplete="off" style="font-size:16px;"/>
+
+      <div class="chip-label">Move to time</div>
+      <select id="mtg-edit-start" class="field-select" style="color-scheme:dark;">
+        ${slots.map(s=>`<option value="${s}" ${s===startMin_num?'selected':''}>${minsToTime(s)}</option>`).join('')}
+      </select>
+
+      <div class="chip-label">Duration</div>
+      <select id="mtg-edit-dur" class="field-select" style="color-scheme:dark;">
+        ${durOptions}
+      </select>
+
+      ${calEv?.location!==undefined?`
+      <div class="chip-label">Location</div>
+      <input id="mtg-edit-loc" class="field-input" value="${esc(calEv.location||'')}" placeholder="Add location…" autocomplete="off" style="font-size:16px;"/>
+      `:''}
+
+      <input type="hidden" id="mtg-edit-date" value="${date}"/>
+      <input type="hidden" id="mtg-edit-orig-start" value="${startMin_num}"/>
+      <input type="hidden" id="mtg-edit-cal-id" value="${calEventId}"/>
+    </div>
+    <div class="modal-actions" style="display:flex;gap:8px;">
+      <button onclick="deleteMeetingBlock()"
+        style="padding:13px 14px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.35);
+          background:rgba(239,83,80,0.06);color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">
+        🗑 Remove
+      </button>
+      <button onclick="saveMeetingBlockEdit()"
+        style="flex:1;padding:14px;border-radius:var(--r3);border:none;
+          background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
+        ✓ Save Changes
+      </button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-mtg-edit'); };
+  document.body.appendChild(m);
+  setTimeout(()=>_watchModalInputs(m), 80);
+}
+
+async function saveMeetingBlockEdit(){
+  _markModalClean();
+  const newTitle    = document.getElementById('mtg-edit-title')?.value.trim()||'';
+  const newStart    = parseInt(document.getElementById('mtg-edit-start')?.value||'0');
+  const newDur      = parseInt(document.getElementById('mtg-edit-dur')?.value||'60');
+  const newLoc      = document.getElementById('mtg-edit-loc')?.value.trim()||'';
+  const date        = document.getElementById('mtg-edit-date')?.value||'';
+  const origStart   = parseInt(document.getElementById('mtg-edit-orig-start')?.value||'0');
+  const calEventId  = document.getElementById('mtg-edit-cal-id')?.value||'';
+
+  if(!newTitle){ showToast('Title required'); return; }
+
+  if(calEventId){
+    // Cal event — update via API
+    const calEv = _calEvents.find(e=>e.id===calEventId);
+    if(!calEv){ showToast('Event not found'); return; }
+
+    const newStartISO = date + 'T' + minsToTime(newStart).replace(' ','') + ':00';
+    const endMins = newStart + newDur;
+    const newEndISO = date + 'T' + minsToTime(endMins) + ':00';
+
+    const btn = document.querySelector('#modal-mtg-edit button:last-child');
+    if(btn){ btn.textContent='Saving…'; btn.disabled=true; }
+
+    const updated = await calUpdateEvent({
+      id: calEventId,
+      title: newTitle,
+      start: newStartISO,
+      end: newEndISO,
+      location: newLoc,
+      description: calEv.description||''
+    });
+
+    if(updated){
+      showToast('✓ Meeting updated');
+      _calFetchedAt = null; // invalidate cache
+      closeModal('modal-mtg-edit');
+      renderAll();
+    } else {
+      if(btn){ btn.textContent='✓ Save Changes'; btn.disabled=false; }
+    }
+
+  } else {
+    // Local tbBlock meeting — update in place
+    if(!tbBlocks[date]) tbBlocks[date] = [];
+    const block = tbBlocks[date].find(b=>b.isMeeting&&b.startMin===origStart);
+    if(block){
+      block.title    = newTitle;
+      block.startMin = newStart;
+      block.durMin   = newDur;
+    } else {
+      // Shouldn't happen but add defensively
+      tbBlocks[date].push({ id:'tbm'+Date.now(), title:newTitle, startMin:newStart,
+        durMin:newDur, isMeeting:true, color:'#E65100' });
+    }
+    saveTbBlocks();
+    showToast('✓ Meeting updated');
+    closeModal('modal-mtg-edit');
+    renderAll();
+  }
+}
+
+async function deleteMeetingBlock(){
+  const date       = document.getElementById('mtg-edit-date')?.value||'';
+  const origStart  = parseInt(document.getElementById('mtg-edit-orig-start')?.value||'0');
+  const calEventId = document.getElementById('mtg-edit-cal-id')?.value||'';
+
+  if(calEventId){
+    // Delete from Google Calendar
+    const today2 = new Date(); today2.setDate(today2.getDate()-1);
+    const nextMo  = new Date(); nextMo.setDate(nextMo.getDate()+30);
+    const deleted = await calDeleteEvent(calEventId, today2.toISOString(), nextMo.toISOString());
+    if(deleted !== false){
+      showToast('🗑 Meeting removed from calendar');
+      _calFetchedAt = null;
+      closeModal('modal-mtg-edit');
+      renderAll();
+    }
+  } else {
+    // Remove local tbBlock meeting
+    if(tbBlocks[date]){
+      tbBlocks[date] = tbBlocks[date].filter(b=>!(b.isMeeting&&b.startMin===origStart));
+      saveTbBlocks();
+    }
+    showToast('🗑 Meeting removed');
+    closeModal('modal-mtg-edit');
+    renderAll();
+  }
 }
 
 
@@ -21286,6 +22586,30 @@ function openFrictionlessCapture(){
       </button>
     </div>` : '';
 
+  // Photo event capture — home mode, both Jason and Jenny
+  const photoEventBtn = (isHome && (isJason || isJenny)) ? `
+    <div style="margin-top:8px;">
+      <button onclick="closeFrictionlessCapture();openPhotoEventCapture();"
+        style="width:100%;padding:12px 14px;border-radius:var(--r3);
+          border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.06);
+          color:#BA68C8;font:700 13px/1 var(--font-ui);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:8px;">
+        📷 Photo → calendar event (flyers, notices)
+      </button>
+    </div>` : '';
+
+  // Family email capture — home mode, both Jason and Jenny
+  const familyEmailBtn = (isHome && (isJason || isJenny)) ? `
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
+      <button onclick="closeFrictionlessCapture();openFamilyEmailCapture();"
+        style="width:100%;padding:12px 14px;border-radius:var(--r3);
+          border:1px solid rgba(129,199,132,0.45);background:rgba(129,199,132,0.06);
+          color:#81C784;font:700 13px/1 var(--font-ui);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:8px;">
+        📧 Extract family tasks from an email
+      </button>
+    </div>` : '';
+
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(32px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto;">
 
@@ -21327,6 +22651,8 @@ function openFrictionlessCapture(){
     </div>`:''}
 
     ${emailBtn||''}
+    ${familyEmailBtn||''}
+    ${photoEventBtn||''}
 
   </div>`;
 
@@ -21399,6 +22725,248 @@ function closeEmailCapture(){
   const m = document.getElementById('modal-email-capture');
   if(m) m.remove();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FAMILY EMAIL CAPTURE
+// Paste an email → AI extracts family tasks → assign + accept
+// Available to both Jason and Jenny in home mode
+// ═══════════════════════════════════════════════════════════════
+
+function openFamilyEmailCapture(){
+  const old = document.getElementById('modal-family-email'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-family-email';
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.6);';
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="background:var(--surface);border-radius:18px 18px 0 0;
+      padding:20px 16px calc(32px + env(safe-area-inset-bottom));
+      max-height:85vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <div style="font:800 16px/1 var(--font-ui);color:#81C784;">📧 Family Email Capture</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          AI finds tasks for anyone in the family
+        </div>
+      </div>
+      <button onclick="closeFamilyEmailCapture()" style="width:28px;height:28px;border-radius:50%;
+        border:1px solid var(--border);background:transparent;color:var(--text3);
+        font-size:16px;cursor:pointer;">✕</button>
+    </div>
+
+    <textarea id="family-email-input" rows="7"
+      style="width:100%;background:var(--surface2);border:1.5px solid var(--border);
+        border-radius:var(--r3);padding:12px 14px;font:500 14px/1.6 var(--font-body);
+        color:var(--text);resize:none;outline:none;box-sizing:border-box;font-size:16px;"
+      placeholder="Paste email text here…&#10;&#10;Works great for: school newsletters, sports schedules, appointment confirmations, HOA notices, anything with tasks for the family."
+      onfocus="this.style.borderColor='#81C784'"
+      onblur="this.style.borderColor='var(--border)'"></textarea>
+
+    <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:6px;">
+      Tasks will be assigned to the right family member based on context.
+    </div>
+
+    <button onclick="runFamilyEmailExtraction()"
+      style="width:100%;margin-top:14px;padding:14px;border-radius:var(--r3);border:none;
+        background:linear-gradient(135deg,#66BB6A,#43A047);
+        color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;
+        box-shadow:0 4px 16px rgba(102,187,106,0.35);">
+      🤖 Extract Family Tasks
+    </button>
+
+    <div id="family-email-results" style="margin-top:16px;"></div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeFamilyEmailCapture(); };
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('family-email-input')?.focus(), 150);
+}
+
+function closeFamilyEmailCapture(){
+  const m = document.getElementById('modal-family-email');
+  if(m) m.remove();
+}
+
+async function runFamilyEmailExtraction(){
+  const input     = document.getElementById('family-email-input');
+  const resultsEl = document.getElementById('family-email-results');
+  if(!input || !resultsEl) return;
+
+  const emailText = input.value.trim();
+  if(!emailText){
+    input.style.borderColor = 'var(--red)';
+    setTimeout(()=>input.style.borderColor='var(--border)', 2000);
+    return;
+  }
+
+  resultsEl.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:16px;
+      border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);">
+    <div style="width:18px;height:18px;border-radius:50%;border:2px solid #81C784;
+      border-top-color:transparent;animation:loadingRing 0.8s linear infinite;flex-shrink:0;"></div>
+    <span style="font:600 13px/1 var(--font-ui);color:var(--text3);">Reading email…</span>
+  </div>`;
+
+  try{
+    const raw = await aiCall(
+      `You are a helpful family assistant for the Reeves family (Jason, Jenny, Ridley, Connor).
+Read this email and extract any tasks, to-dos, or action items that anyone in the family needs to do.
+Be inclusive — include school pickup reminders, appointment scheduling, forms to fill out, RSVPs, purchases to make, things to arrange, etc.
+
+For each task extract:
+- title: clear task title starting with a verb
+- assignedTo: who should do it — one of: "jason", "jenny", "ridley", "connor", "anyone"
+  · "jason" or "jenny" if clearly for a specific parent
+  · "ridley" or "connor" if clearly for that child
+  · "anyone" if it could be either parent or is unclear
+- dueDate: ISO date YYYY-MM-DD if a deadline or event date is mentioned, otherwise null
+- context: one short sentence explaining what this is about (helps the family understand why)
+- urgent: true if time-sensitive (due within 48 hours or contains urgent/ASAP language)
+
+Return ONLY a JSON array. If no tasks found, return [].
+Example: [{"title":"RSVP to Emma's birthday party","assignedTo":"jenny","dueDate":"2026-05-03","context":"Party is May 10th, RSVP by May 3rd","urgent":false}]`,
+      `EMAIL CONTENT:\n${emailText.slice(0, 4000)}`,
+      900
+    );
+
+    let items;
+    try{ items = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch(e){ throw new Error('Could not parse response — try again'); }
+
+    if(!Array.isArray(items) || items.length === 0){
+      resultsEl.innerHTML = `<div style="padding:20px;text-align:center;border-radius:var(--r3);
+          border:1px solid var(--border);background:var(--surface2);">
+        <div style="font-size:28px;margin-bottom:8px;">🏠</div>
+        <div style="font:700 14px/1.3 var(--font-ui);color:var(--text3);">No family tasks found</div>
+        <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">This email doesn't seem to have action items for the family.</div>
+      </div>`;
+      return;
+    }
+
+    // Assignee display config
+    const _ASSIGNEE = {
+      jason:  { label:'Jason',  color:'#64B5F6',  bg:'rgba(100,181,246,0.12)'  },
+      jenny:  { label:'Jenny',  color:'#BA68C8',  bg:'rgba(186,104,200,0.12)'  },
+      ridley: { label:'Ridley', color:'#E91E8C',  bg:'rgba(233,30,140,0.12)'   },
+      connor: { label:'Connor', color:'#0066CC',  bg:'rgba(0,102,204,0.12)'    },
+      anyone: { label:'Anyone', color:'#81C784',  bg:'rgba(129,199,132,0.12)'  },
+    };
+
+    resultsEl.innerHTML = `
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
+          text-transform:uppercase;margin-bottom:10px;">
+        ${items.length} family task${items.length!==1?'s':''} found
+      </div>
+      <div id="family-task-cards" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <div id="family-accept-summary" style="margin-top:12px;"></div>`;
+
+    const cardsEl = document.getElementById('family-task-cards');
+    items.forEach((item, idx) => {
+      const assignee = _ASSIGNEE[item.assignedTo] || _ASSIGNEE.anyone;
+      const todayStr = today();
+      const isOv = item.dueDate && item.dueDate < todayStr;
+
+      const card = document.createElement('div');
+      card.id = 'fam-card-'+idx;
+      card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;transition:all 0.2s;';
+      card.innerHTML = `
+        <div style="padding:14px 14px 12px;">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            ${item.urgent?`<span style="font:700 10px/1 var(--font-ui);color:#EF5350;background:rgba(239,83,80,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(239,83,80,0.25);flex-shrink:0;margin-top:2px;">🔴 Urgent</span>`:''}
+            <div style="font:700 14px/1.35 var(--font-ui);color:var(--text);flex:1;">${esc(item.title)}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:${item.context?'8px':'0'};">
+            <!-- Assignee pill — tappable to change -->
+            <div style="position:relative;">
+              <select class="fam-assignee-${idx}"
+                style="padding:3px 8px;border-radius:8px;border:1px solid ${assignee.color}44;
+                  background:${assignee.bg};color:${assignee.color};
+                  font:700 11px/1.4 var(--font-ui);cursor:pointer;outline:none;
+                  -webkit-appearance:none;appearance:none;">
+                ${Object.entries(_ASSIGNEE).map(([k,v])=>
+                  `<option value="${k}" ${item.assignedTo===k?'selected':''}>${v.label}</option>`
+                ).join('')}
+              </select>
+            </div>
+            ${item.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};
+              padding:2px 7px;border-radius:8px;background:${isOv?'rgba(239,83,80,0.1)':'var(--border)'};">
+              📅 ${item.dueDate}</span>`:''}
+          </div>
+          ${item.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
+            padding:8px 10px;border-radius:8px;background:var(--surface2);
+            border-left:3px solid #81C78480;">${esc(item.context)}</div>`:''}
+        </div>
+        <div style="display:flex;border-top:1px solid var(--border);">
+          <button onclick="acceptFamilyEmailTask(${idx})"
+            style="flex:1;padding:11px;border:none;border-right:1px solid var(--border);
+              background:transparent;color:#81C784;font:800 12px/1 var(--font-ui);cursor:pointer;">
+            ✓ Add to Family
+          </button>
+          <button onclick="skipFamilyEmailTask(${idx})"
+            style="flex:0 0 80px;padding:11px;border:none;background:transparent;
+              color:var(--text4);font:700 12px/1 var(--font-ui);cursor:pointer;">
+            Skip
+          </button>
+        </div>`;
+      cardsEl.appendChild(card);
+    });
+
+    window._familyEmailItems = items;
+
+  }catch(e){
+    const notSetup = String(e.message||'').includes('PASTE_YOUR')||String(e.message||'').includes('401')||String(e.message||'').includes('404');
+    resultsEl.innerHTML = `<div style="padding:16px;border-radius:var(--r3);
+        border:1px solid rgba(239,83,80,0.3);background:rgba(239,83,80,0.06);">
+      <div style="font:700 13px/1 var(--font-ui);color:#EF5350;margin-bottom:4px;">⚠ Extraction failed</div>
+      <div style="font:500 11px/1.4 var(--font-ui);color:var(--text3);">${notSetup?'AI not configured — see Settings → AI Features':esc(e.message)}</div>
+    </div>`;
+  }
+}
+
+function acceptFamilyEmailTask(idx){
+  const items = window._familyEmailItems;
+  if(!items||!items[idx]) return;
+  const item = items[idx];
+
+  // Read possibly-changed assignee from the select element
+  const selectEl = document.querySelector(`.fam-assignee-${idx}`);
+  const assignedTo = selectEl ? [selectEl.value] : [item.assignedTo||'anyone'];
+
+  const author = currentUser==='parent' ? 'jason' : 'jenny';
+  const newId = 'ft'+Date.now();
+  familyTasks.unshift({
+    id: newId, title: item.title, done: false,
+    assignedTo, dueDate: item.dueDate||'',
+    createdAt: today(), createdBy: author, comments: []
+  });
+  logFamilyTaskHistory(newId, (author==='jason'?'Jason':'Jenny') + ' added via email capture'+(item.context?' · '+item.context:''));
+  saveFamilyTasks();
+
+  // Mark card done
+  const card = document.getElementById('fam-card-'+idx);
+  if(card){
+    card.style.opacity = '0.5';
+    card.style.border = '1.5px solid rgba(129,199,132,0.5)';
+    card.style.background = 'rgba(129,199,132,0.05)';
+    card.innerHTML = `<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;">✅</span>
+      <span style="font:600 13px/1 var(--font-ui);color:#81C784;">${esc(item.title)}</span>
+    </div>`;
+  }
+  showToast('✓ Added: ' + item.title.slice(0,40));
+
+  // Show "View family tasks" button
+  const sumEl = document.getElementById('family-accept-summary');
+  if(sumEl) sumEl.innerHTML = `<button onclick="closeFamilyEmailCapture();setNav('family');"
+    style="width:100%;padding:12px;border-radius:var(--r3);border:none;
+      background:#81C784;color:#1a1f2e;font:800 13px/1 var(--font-ui);cursor:pointer;">
+    View Family Tasks →
+  </button>`;
+}
+
+function skipFamilyEmailTask(idx){
+  const card = document.getElementById('fam-card-'+idx);
+  if(card){ card.style.transition='all 0.2s'; card.style.opacity='0.3'; card.style.transform='scale(0.97)'; setTimeout(()=>card.style.display='none', 200); }
+}
+
 
 async function runEmailExtraction(){
   const input = document.getElementById('email-paste-input');
@@ -23314,6 +24882,8 @@ async function bootApp(){
   }
   // Auto-advance daily recurring tasks — no pile-up for habit-style tasks
   advanceDailyTasks();
+  // Proactive AI suggestion — fires once per day, silent fail
+  setTimeout(()=>refreshProactiveSuggestion(), 3000);
   pruneHabitLog();
   pruneCompletedTasks().catch(()=>{}); // async — archive old done tasks to tasks_archive table
   applyMode();
