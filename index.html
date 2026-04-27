@@ -2703,6 +2703,12 @@ function selectGateUser(who){
         <input type="hidden" id="task-person-ids" value=""/>
       </div>
 
+      <!-- Client org (optional) -->
+      <div id="task-org-wrap" style="display:none;">
+        <div class="chip-label">Client org (optional)</div>
+        <div id="task-org-picker-slot"></div>
+      </div>
+
       <!-- More options toggle -->
       <button id="task-more-toggle" onclick="toggleTaskMoreOptions()"
         style="background:none;border:none;color:var(--text4);font-family:var(--font-ui);
@@ -11015,6 +11021,12 @@ function renderTaskRow(task,proj){
     return ini?`<span onclick="event.stopPropagation();openDiscoveryDetail('${task.discoveryId}')" title="${esc(ini.title)}"
         style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(186,104,200,0.3);background:rgba(186,104,200,0.08);color:#BA68C8;">🔭</span>`:'';
   })();
+  const orgChip=(()=>{
+    if(!task.orgId) return '';
+    const o=clientOrgs.find(x=>x.id===task.orgId);
+    return o?`<span onclick="event.stopPropagation();_clientOrgId='${task.orgId}';_clientView='detail';setNav('clients');" title="${esc(o.name)}"
+        style="font-size:10px;font-family:var(--font-ui);padding:2px 6px;border-radius:10px;flex-shrink:0;cursor:pointer;border:1px solid rgba(129,199,132,0.35);background:rgba(129,199,132,0.08);color:#81C784;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🏢 ${esc(o.name.slice(0,14))}</span>`:'';
+  })();
   // Initiative dot — small coloured dot on the priority bar side for at-a-glance scanning
   const iniDotStyle = task.discoveryId
     ? `box-shadow:0 0 0 2px #BA68C8;`
@@ -11066,7 +11078,7 @@ function renderTaskRow(task,proj){
         </div>
         <div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">
           ${proj ? `<span style="font:var(--type-caption);color:${projColor};">◈ ${esc(proj.name)}</span>` : ''}
-          ${dueBadge}${statusChip}${priChip}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}
+          ${dueBadge}${statusChip}${priChip}${ageBadge}${subPill}${personChip}${attachChip}${mtgChip}${discChip}${orgChip}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;padding-right:var(--sp2);">
@@ -12274,6 +12286,106 @@ function openAddTask(projectId=""){
   setTimeout(()=>document.getElementById("task-title-input").focus(),300);
 }
 
+
+// ── Client org selector — searchable ─────────────────────────────
+function buildOrgPickerHTML(selectedOrgId, inputId){
+  if(!clientOrgs.length) return `<input type="hidden" id="${inputId}" value="${selectedOrgId||''}"/>`;
+  const selected = selectedOrgId ? clientOrgs.find(o=>o.id===selectedOrgId) : null;
+  const h = selected ? ({active:'🟢',atrisk:'🟠',churned:'🔴',prospect:'🔵'}[selected.health||'active']||'🟢') : '';
+  return `<div id="${inputId}-org-wrap" style="position:relative;">
+    <!-- Selected chip -->
+    <div id="${inputId}-org-chip" style="display:flex;flex-wrap:wrap;gap:5px;min-height:24px;margin-bottom:6px;">
+      ${selected ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;
+        background:rgba(129,199,132,0.12);border:1px solid rgba(129,199,132,0.3);
+        font:600 12px/1 var(--font-ui);color:#81C784;">
+        ${h} ${esc(selected.name)}
+        <span onclick="orgPickerClear('${inputId}')" style="cursor:pointer;opacity:0.7;margin-left:2px;font-size:13px;line-height:1;">×</span>
+      </span>` : ''}
+    </div>
+    <!-- Search input -->
+    <div style="position:relative;">
+      <input id="${inputId}-org-search" type="text" class="field-input"
+        placeholder="Search client orgs…"
+        autocomplete="off" style="margin:0;font-size:16px;"
+        oninput="orgPickerSearch(this.value,'${inputId}')"
+        onfocus="orgPickerSearch(this.value,'${inputId}')"
+        onblur="setTimeout(()=>orgPickerClose('${inputId}'),150)"/>
+      <div id="${inputId}-org-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;
+        background:var(--surface);border:1px solid var(--border2);border-radius:0 0 8px 8px;
+        box-shadow:0 4px 16px rgba(0,0,0,0.3);max-height:200px;overflow-y:auto;"></div>
+    </div>
+    <input type="hidden" id="${inputId}" value="${selectedOrgId||''}"/>
+  </div>`;
+}
+
+function orgPickerSearch(query, inputId){
+  const dropdown = document.getElementById(inputId+'-org-dropdown');
+  if(!dropdown) return;
+  const q = (query||'').toLowerCase().trim();
+  const sorted = [...clientOrgs]
+    .filter(o => !q || o.name.toLowerCase().includes(q) || (o.segment||'').toLowerCase().includes(q) || (o.industry||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      // active/atrisk first, then alpha
+      const hOrd = {active:0, atrisk:1, prospect:2, churned:3};
+      const hd = (hOrd[a.health||'active']||0) - (hOrd[b.health||'active']||0);
+      return hd || a.name.localeCompare(b.name);
+    });
+  if(!sorted.length){
+    dropdown.innerHTML = `<div style="padding:10px 12px;font:500 12px/1 var(--font-ui);color:var(--text4);">No matches</div>`;
+    dropdown.style.display = 'block';
+    return;
+  }
+  const _healthIcon = {active:'🟢',atrisk:'🟠',churned:'🔴',prospect:'🔵'};
+  dropdown.innerHTML = sorted.map(o => {
+    const hIcon = _healthIcon[o.health||'active']||'🟢';
+    const sub = [o.segment, o.industry].filter(Boolean).join(' · ');
+    return `<div onmousedown="orgPickerSelect('${o.id}','${inputId}')"
+      style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:8px;"
+      onmouseover="this.style.background='var(--surface2)'"
+      onmouseout="this.style.background='transparent'">
+      <span style="flex-shrink:0;">${hIcon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.name)}</div>
+        ${sub?`<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(sub)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+}
+
+function orgPickerSelect(orgId, inputId){
+  const hidden = document.getElementById(inputId);
+  const chip   = document.getElementById(inputId+'-org-chip');
+  const search = document.getElementById(inputId+'-org-search');
+  const drop   = document.getElementById(inputId+'-org-dropdown');
+  if(hidden) hidden.value = orgId;
+  // Update chip
+  const o = clientOrgs.find(x=>x.id===orgId);
+  const hIcon = {active:'🟢',atrisk:'🟠',churned:'🔴',prospect:'🔵'}[o?.health||'active']||'🟢';
+  if(chip) chip.innerHTML = o ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;
+    background:rgba(129,199,132,0.12);border:1px solid rgba(129,199,132,0.3);
+    font:600 12px/1 var(--font-ui);color:#81C784;">
+    ${hIcon} ${esc(o.name)}
+    <span onclick="orgPickerClear('${inputId}')" style="cursor:pointer;opacity:0.7;margin-left:2px;font-size:13px;line-height:1;">×</span>
+  </span>` : '';
+  if(search){ search.value = ''; }
+  if(drop)  { drop.style.display = 'none'; }
+}
+
+function orgPickerClear(inputId){
+  const hidden = document.getElementById(inputId);
+  const chip   = document.getElementById(inputId+'-org-chip');
+  const search = document.getElementById(inputId+'-org-search');
+  if(hidden) hidden.value = '';
+  if(chip)   chip.innerHTML = '';
+  if(search) search.value = '';
+}
+
+function orgPickerClose(inputId){
+  const drop = document.getElementById(inputId+'-org-dropdown');
+  if(drop) drop.style.display = 'none';
+}
 function openEditTask(id){
   _activePickerList = peopleList;
   const t=tasks.find(t=>t.id===id);if(!t) return;
@@ -12403,6 +12515,15 @@ function renderTaskPeoplePicker(selectedIds){
   // Use _activePickerList so picker always draws from work people
   _activePickerList = sortedPeople;
   wrap.innerHTML = buildPersonPickerHTML(selectedIds, 'task-person-ids', true);
+  // Show client org picker if there are client orgs
+  if(clientOrgs.length > 0){
+    const orgWrap = document.getElementById('task-org-wrap');
+    const orgSlot = document.getElementById('task-org-picker-slot');
+    if(orgWrap && orgSlot){
+      orgWrap.style.display='block';
+      orgSlot.innerHTML = buildOrgPickerHTML(task?.orgId||'', 'task-org-id');
+    }
+  }
   // Sync hidden input
   const hidden = document.getElementById('task-person-ids');
   if(hidden && !hidden.value) hidden.value = (selectedIds||'').split(',').filter(Boolean).join(',');
@@ -12434,6 +12555,7 @@ function saveTask(){
     t.estimate=document.getElementById("task-estimate-input")?.value||"";
     t.energy=document.getElementById("task-energy-input")?.value||"";
     t.personIds=document.getElementById("task-person-ids")?.value||"";
+    t.orgId=document.getElementById("task-org-id")?.value||"";
     t.discoveryId=document.getElementById("task-discovery-id")?.value||"";
     t.subtasks=_modalSubtasks;
     // Sync discoveryId change to initiative linkedTaskIds
@@ -12450,6 +12572,7 @@ function saveTask(){
       estimate:document.getElementById("task-estimate-input")?.value||"",
       energy:document.getElementById("task-energy-input")?.value||"",
       personIds:document.getElementById("task-person-ids")?.value||"",
+    orgId:document.getElementById("task-org-id")?.value||"",
       discoveryId:document.getElementById("task-discovery-id")?.value||"",
       subtasks:_modalSubtasks,
       createdAt:Date.now()};
@@ -14538,6 +14661,7 @@ function renderWaitingPage(container){
           ${w.dueDate?`<span style="font-size:11px;color:${overdue?'#ff6060':'var(--text4)'};font-family:var(--font-ui);">${overdue?'⚠ overdue ':'📅 '}${w.dueDate.slice(5)}</span>`:''}
           ${linkedTask?`<span style="font-size:11px;color:var(--accent);font-family:var(--font-ui);cursor:pointer;" onclick="openEditTask('${linkedTask.id}')">↗ ${esc(linkedTask.title.slice(0,32))}</span>`:''}
           ${linkedIni?`<span onclick="discActiveId='${linkedIni.id}';discView='detail';setNav('discovery');" style="font-size:10px;font-weight:700;font-family:var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.25);padding:1px 7px;border-radius:4px;cursor:pointer;">◈ ${esc(linkedIni.title.slice(0,24))}</span>`:''}
+          ${w.orgId ? (()=>{ const o=clientOrgs.find(x=>x.id===w.orgId); return o?`<span onclick="_clientOrgId='${w.orgId}';_clientView='detail';setNav('clients');" style="font:700 10px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.1);border:1px solid rgba(129,199,132,0.25);padding:1px 7px;border-radius:4px;cursor:pointer;">🏢 ${esc(o.name.slice(0,20))}</span>`:''; })() : ''}
           <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">added ${w.createdAt.slice(5)}</span>
           ${_wai.badge}
         </div>
@@ -14860,6 +14984,14 @@ function renderClientDetail(container){
     allInsights.some(ins=>ins.initiativeId===i.id)
   );
 
+  // Items tagged with this org
+  const orgTasks    = tasks.filter(t=>t.orgId===org.id&&t.status!=='done')
+    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
+  const orgWF       = waitingFor.filter(w=>!w.done&&w.orgId===org.id)
+    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
+  const orgMeetings = meetingLog.filter(m=>m.orgId===org.id)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+
   // Group insights by type for summary
   const insightsByType = {};
   for(const ins of allInsights){
@@ -14931,21 +15063,25 @@ function renderClientDetail(container){
 
       <!-- Quick stats -->
       <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
-        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${convos.length}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Convos</div>
+        <div style="flex:1;padding:10px 4px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:var(--text);">${convos.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Convos</div>
         </div>
-        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:${overdueFU.length>0?'#EF5350':'var(--text)'};">${openFU.length}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Open FUs</div>
+        <div style="flex:1;padding:10px 4px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${overdueFU.length>0?'#EF5350':'var(--text)'};">${openFU.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">FU open</div>
         </div>
-        <div style="flex:1;padding:10px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${allInsights.length}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Insights</div>
+        <div style="flex:1;padding:10px 4px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${orgTasks.length>0?'var(--accent)':'var(--text)'};">${orgTasks.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Tasks</div>
         </div>
-        <div style="flex:1;padding:10px;text-align:center;">
-          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${contacts.length}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Contacts</div>
+        <div style="flex:1;padding:10px 4px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${orgWF.length>0?'#64B5F6':'var(--text)'};">${orgWF.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Waiting</div>
+        </div>
+        <div style="flex:1;padding:10px 4px;text-align:center;">
+          <div style="font:800 17px/1 var(--font-ui);color:var(--text);">${allInsights.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Insights</div>
         </div>
       </div>
 
@@ -15008,6 +15144,59 @@ function renderClientDetail(container){
               </div>`;
             }).join('')}
           </div>
+        </div>`:''}
+
+        <!-- Open tasks tagged to this org -->
+        ${orgTasks.length?`<div style="border-bottom:1px solid var(--border);">
+          <div style="padding:8px 14px 4px;font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;">☐ OPEN TASKS (${orgTasks.length})</div>
+          ${orgTasks.slice(0,8).map(t=>{
+            const proj=projects.find(p=>p.id===t.projectId);
+            const isOv=t.dueDate&&t.dueDate<todayStr;
+            return `<div onclick="openEditTask('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;${isOv?'background:rgba(239,83,80,0.03);':''}">
+              <div style="width:8px;height:8px;border-radius:50%;background:${{high:'#EF5350',medium:'var(--accent)',low:'#81C784'}[t.priority]||'var(--accent)'};flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+                ${proj?`<div style="font:500 10px/1 var(--font-ui);color:${proj.color};margin-top:2px;">◈ ${esc(proj.name)}</div>`:''}
+              </div>
+              ${t.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};flex-shrink:0;">${t.dueDate.slice(5)}</span>`:''}
+            </div>`;
+          }).join('')}
+          ${orgTasks.length>8?`<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);">+${orgTasks.length-8} more → Tasks tab</div>`:''}
+        </div>`:''}
+
+        <!-- Waiting-fors tagged to this org -->
+        ${orgWF.length?`<div style="border-bottom:1px solid var(--border);">
+          <div style="padding:8px 14px 4px;font:700 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:1px;">⏳ WAITING FOR (${orgWF.length})</div>
+          ${orgWF.slice(0,5).map(w=>{
+            const isOv=w.dueDate&&w.dueDate<todayStr;
+            const pName=getPersonNamesByIds(w.personIds||w.personId);
+            return `<div onclick="openWaitingModal(null,'${w.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+              <div style="width:8px;height:8px;border-radius:50%;background:#64B5F6;flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
+                ${pName?`<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(pName)}</div>`:''}
+              </div>
+              ${w.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};flex-shrink:0;">${w.dueDate.slice(5)}</span>`:''}
+            </div>`;
+          }).join('')}
+          ${orgWF.length>5?`<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);">+${orgWF.length-5} more → Waiting For tab</div>`:''}
+        </div>`:''}
+
+        <!-- Meetings tagged to this org -->
+        ${orgMeetings.length?`<div style="border-bottom:1px solid var(--border);">
+          <div style="padding:8px 14px 4px;font:700 10px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;">📝 MEETINGS (${orgMeetings.length})</div>
+          ${orgMeetings.slice(0,5).map(m=>{
+            const attendees=(m.personIds||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean);
+            return `<div onclick="openMeetingCapture('${m.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;">
+              <span style="font:700 11px/1 var(--font-ui);color:#BA68C8;flex-shrink:0;">${m.date.slice(5)}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</div>
+                ${attendees.length?`<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${attendees.slice(0,3).map(esc).join(', ')}</div>`:''}
+              </div>
+              ${m.decisions?'<span style="font-size:12px;flex-shrink:0;">✅</span>':''}
+            </div>`;
+          }).join('')}
+          ${orgMeetings.length>5?`<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);">+${orgMeetings.length-5} more → Meetings tab</div>`:''}
         </div>`:''}
 
         <!-- Conversations -->
@@ -16970,6 +17159,7 @@ function renderMeetingsPage(container){
             :`<span style="font:700 10px/1 var(--font-ui);color:var(--green);background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">⚡ done ✓</span>`):''}
           ${hasWaiting?`<span style="font:700 10px/1 var(--font-ui);color:#64B5F6;background:rgba(100,181,246,0.1);padding:1px 6px;border-radius:4px;">⏳ wf</span>`:''}
           ${m.decisions?`<span style="font:700 10px/1 var(--font-ui);color:#66BB6A;background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">✅</span>`:''}
+          ${m.orgId?(()=>{const o=clientOrgs.find(x=>x.id===m.orgId);return o?`<span onclick="event.stopPropagation();_clientOrgId='${m.orgId}';_clientView='detail';setNav('clients');" style="font:700 10px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.1);padding:1px 6px;border-radius:4px;cursor:pointer;">🏢 ${esc(o.name.slice(0,18))}</span>`:'';})():''}
         </div>
         ${!compact&&m.notes?`<div style="font:500 11px/1.3 var(--font-body);color:var(--text3);
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px;">
@@ -17590,6 +17780,11 @@ function openWaitingModal(prefillTaskId, editId){
         ${discoveryList.map(i=>`<option value="${i.id}" ${existing?.initiativeId===i.id?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
       </select>`:`<input id="wf-initiative-id" type="hidden" value="${existing?.initiativeId||''}"/>`}
 
+      ${clientOrgs.length>0?`
+      <div class="chip-label">Client org (optional)</div>
+      ${buildOrgPickerHTML(existing?.orgId||'', 'wf-org-id')}
+      `:`<input type="hidden" id="wf-org-id" value="${existing?.orgId||''}"/>`}
+
       <input id="wf-task-id"  type="hidden" value="${existing?.taskId||prefillTaskId||''}"/>
       <input id="wf-edit-id"  type="hidden" value="${editId||''}"/>
     </div>
@@ -17615,6 +17810,7 @@ function submitWaitingFor(){
   const taskId       = document.getElementById('wf-task-id')?.value||'';
   const editId       = document.getElementById('wf-edit-id')?.value||'';
   const initiativeId = document.getElementById('wf-initiative-id')?.value||'';
+  const orgId        = document.getElementById('wf-org-id')?.value||'';
   const followUpDaysVal = document.getElementById('wf-followup-days')?.value||'';
   const followUpDays = followUpDaysVal ? parseInt(followUpDaysVal) : null;
   // Compute follow-up date from today + days
@@ -17629,10 +17825,10 @@ function submitWaitingFor(){
   const personId = ids[0]||'';
   if(editId){
     const w = waitingFor.find(x=>x.id===editId);
-    if(w){ w.person=person; w.personId=personId; w.personIds=personIds; w.what=what; w.dueDate=due; w.taskId=taskId; w.initiativeId=initiativeId||undefined; w.followUpDays=followUpDays||undefined; w.followUpDate=followUpDate||undefined; /* done/resolvedAt intentionally NOT overwritten — editing must not undo completion */ }
+    if(w){ w.person=person; w.personId=personId; w.personIds=personIds; w.what=what; w.dueDate=due; w.taskId=taskId; w.orgId=orgId||undefined; w.initiativeId=initiativeId||undefined; w.followUpDays=followUpDays||undefined; w.followUpDate=followUpDate||undefined; /* done/resolvedAt intentionally NOT overwritten — editing must not undo completion */ }
     showToast('✓ Updated');
   } else {
-    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, personIds, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today(), ...(initiativeId?{initiativeId}:{}), ...(followUpDays?{followUpDays,followUpDate}:{}) });
+    waitingFor.unshift({ id:'wf'+Date.now(), person, personId, personIds, what, dueDate:due, taskId:taskId||'', done:false, createdAt:today(), ...(orgId?{orgId}:{}), ...(initiativeId?{initiativeId}:{}), ...(followUpDays?{followUpDays,followUpDate}:{}) });
     showToast('⏳ Added to Waiting For'+(followUpDate?' · nudge in '+followUpDays+'d':''));
   }
   saveWaiting(); renderAll();
@@ -18745,6 +18941,10 @@ function openMeetingCapture(existingId, seriesId, prevMeeting){
           ${discoveryList.map(i=>`<option value="${i.id}" ${(existing?.initiativeId===i.id)?'selected':''}>${esc(i.title.slice(0,45))}</option>`).join('')}
         </select>
       </div>
+      ${clientOrgs.length>0?`<div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">CLIENT ORG (OPTIONAL)</div>
+        ${buildOrgPickerHTML(existing?.orgId||'','mtg-org-id')}
+      </div>`:`<input type="hidden" id="mtg-org-id" value="${existing?.orgId||''}"/>`}
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp2);">
           <div style="font-family:var(--font-ui);font-size:11px;font-weight:800;color:var(--text3);letter-spacing:0.5px;">Paste raw notes → let AI structure them, or fill manually</div>
@@ -19124,6 +19324,7 @@ function _doSaveMeetingCapture(){
   const myCommits    = document.getElementById('mtg-mycommits')?.value.trim()||'';
   const theirCommits = document.getElementById('mtg-theircommits')?.value.trim()||'';
   const initiativeId = document.getElementById('mtg-initiative-id')?.value||'';
+  const orgId        = document.getElementById('mtg-org-id')?.value||'';
 
   const capSeriesId = document.getElementById('mtg-series-id')?.value||'';
   // Preserve existing taskIds and attachments — managed separately, must not be dropped on edit
@@ -19137,6 +19338,7 @@ function _doSaveMeetingCapture(){
     createdAt: existingCreatedAt,
     taskIds: existingTaskIds,
     attachments: existingAttachments,
+    ...(orgId ? {orgId} : {}),
     ...(initiativeId ? {initiativeId} : {}),
     ...(capSeriesId  ? {seriesId:capSeriesId} : {})
   };
