@@ -12521,7 +12521,8 @@ function renderTaskPeoplePicker(selectedIds){
     const orgSlot = document.getElementById('task-org-picker-slot');
     if(orgWrap && orgSlot){
       orgWrap.style.display='block';
-      orgSlot.innerHTML = buildOrgPickerHTML(task?.orgId||'', 'task-org-id');
+      const _orgTask = editingTaskId ? tasks.find(t=>t.id===editingTaskId) : null;
+      orgSlot.innerHTML = buildOrgPickerHTML(_orgTask?.orgId||'', 'task-org-id');
     }
   }
   // Sync hidden input
@@ -21769,6 +21770,297 @@ function discQuarters(){
   return [`Q1 ${y}`,`Q2 ${y}`,`Q3 ${y}`,`Q4 ${y}`,`Q1 ${y+1}`,`Q2 ${y+1}`,`Q3 ${y+1}`,`Q4 ${y+1}`];
 }
 
+// ── Iteration helpers ─────────────────────────────────────────────
+const ITER_STATE = {
+  planned:  { label:'Planned',  color:'#8896B4', icon:'○' },
+  active:   { label:'Active',   color:'#E8A838', icon:'●' },
+  complete: { label:'Done',     color:'#81C784', icon:'✓' },
+  killed:   { label:'Dropped',  color:'#EF5350', icon:'✗' },
+  skipped:  { label:'Skipped',  color:'#888',    icon:'–' },
+};
+
+function getActiveIteration(ini){
+  if(!ini.iterations||!ini.iterations.length) return null;
+  return ini.iterations.find(it=>it.state==='active') || null;
+}
+function getIterationLabel(ini){
+  if(!ini.iterations||!ini.iterations.length) return '';
+  const active = getActiveIteration(ini);
+  const total  = ini.iterations.length;
+  if(!active) return total > 0 ? `${total} iter` : '';
+  const idx = ini.iterations.indexOf(active) + 1;
+  return `v${idx} of ${total}`;
+}
+
+// Migrate old initiative to have iterations array if missing
+function migrateInitiativeIterations(ini){
+  if(ini.iterations && ini.iterations.length > 0) return ini;
+  ini.iterations = [{
+    id: 'iter_' + ini.id + '_1',
+    label: 'v1',
+    state: (ini.status === 'launched' || ini.status === 'killed') ? 'complete' : 'active',
+    status: ini.status || 'discovery',
+    confidence: ini.confidence || 'low',
+    hypothesis: ini.hypothesis || '',
+    goal: '',
+    outcome: '',
+    targetQuarter: ini.engineeringTrack?.targetQuarter || ini.marketTrack?.targetQuarter || '',
+    startedAt: ini.createdAt || today(),
+    closedAt: (ini.status === 'launched' || ini.status === 'killed') ? ini.updatedAt : null,
+  }];
+  return ini;
+}
+
+// ── Open iteration sheet (create or edit) ────────────────────────
+function openIterationSheet(iniId, iterId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  migrateInitiativeIterations(ini);
+  const iter = iterId ? ini.iterations.find(it=>it.id===iterId) : null;
+  const isNew = !iter;
+  const quarters = discQuarters();
+
+  const old = document.getElementById('sheet-iteration'); if(old) old.remove();
+  const sheet = document.createElement('div');
+  sheet.id = 'sheet-iteration';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:1200;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.45);';
+
+  const defaultLabel = isNew ? `v${ini.iterations.length + 1}` : iter.label;
+
+  sheet.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px 16px 32px;max-height:80vh;overflow-y:auto;">
+    <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font:800 15px/1 var(--font-ui);color:var(--text);margin-bottom:16px;">${isNew ? '＋ Plan New Iteration' : '✏ Edit Iteration'}</div>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <div class="chip-label">Label</div>
+        <input id="iter-f-label" class="field-input" placeholder="e.g. v2 — SMB pivot" value="${esc(defaultLabel)}" style="margin-bottom:0;"/>
+      </div>
+      <div style="flex:1;">
+        <div class="chip-label">State</div>
+        <select id="iter-f-state" class="field-select" style="margin-bottom:0;">
+          ${Object.entries(ITER_STATE).map(([k,v])=>`<option value="${k}" ${(iter?.state||'planned')===k?'selected':''}>${v.icon} ${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="chip-label">Goal — what must be true to call this iteration a success?</div>
+    <textarea id="iter-f-goal" class="field-input" placeholder="e.g. Get 2 LOIs at $X price point, or validate that ops teams will pay separately…" style="resize:none;min-height:60px;margin-bottom:12px;">${esc(iter?.goal||'')}</textarea>
+
+    <div class="chip-label">Hypothesis going in</div>
+    <textarea id="iter-f-hyp" class="field-input" placeholder="What do you currently believe to be true?" style="resize:none;min-height:55px;margin-bottom:12px;">${esc(iter?.hypothesis||'')}</textarea>
+
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <div class="chip-label">Target Quarter</div>
+        <select id="iter-f-q" class="field-select" style="margin-bottom:0;">
+          <option value="">No target…</option>
+          ${quarters.map(q=>`<option value="${q}" ${iter?.targetQuarter===q?'selected':''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:1;">
+        <div class="chip-label">Status</div>
+        <select id="iter-f-status" class="field-select" style="margin-bottom:0;">
+          ${Object.entries(DISC_STATUS).map(([k,v])=>`<option value="${k}" ${(iter?.status||'discovery')===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    ${!isNew && (iter.state==='complete'||iter.state==='killed') ? `
+    <div class="chip-label">Outcome / what we learned</div>
+    <textarea id="iter-f-outcome" class="field-input" placeholder="What did this iteration teach you?" style="resize:none;min-height:55px;">${esc(iter?.outcome||'')}</textarea>
+    ` : '<textarea id="iter-f-outcome" style="display:none;"></textarea>'}
+
+    <input type="hidden" id="iter-f-id" value="${iterId||''}"/>
+    <input type="hidden" id="iter-f-iniid" value="${iniId}"/>
+
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      ${!isNew ? `<button onclick="deleteIteration('${iniId}','${iterId}')" style="padding:12px 14px;border-radius:9px;border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">Delete</button>` : ''}
+      <button onclick="document.getElementById('sheet-iteration').remove();" style="flex:1;padding:12px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;">Cancel</button>
+      <button onclick="submitIterationSheet()" style="flex:2;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">${isNew ? '＋ Add Iteration' : '✓ Save'}</button>
+    </div>
+  </div>`;
+  sheet.onclick = e => { if(e.target===sheet) sheet.remove(); };
+  document.body.appendChild(sheet);
+  setTimeout(()=>document.getElementById('iter-f-label')?.focus(), 100);
+}
+
+function submitIterationSheet(){
+  const iniId  = document.getElementById('iter-f-iniid')?.value||'';
+  const iterId = document.getElementById('iter-f-id')?.value||'';
+  const ini    = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  migrateInitiativeIterations(ini);
+
+  const label   = document.getElementById('iter-f-label')?.value.trim()||'';
+  const state   = document.getElementById('iter-f-state')?.value||'planned';
+  const goal    = document.getElementById('iter-f-goal')?.value.trim()||'';
+  const hyp     = document.getElementById('iter-f-hyp')?.value.trim()||'';
+  const q       = document.getElementById('iter-f-q')?.value||'';
+  const status  = document.getElementById('iter-f-status')?.value||'discovery';
+  const outcome = document.getElementById('iter-f-outcome')?.value.trim()||'';
+
+  if(iterId){
+    const idx = ini.iterations.findIndex(it=>it.id===iterId);
+    if(idx>-1){
+      // If activating this one, deactivate any current active
+      if(state==='active'){
+        ini.iterations.forEach(it=>{ if(it.state==='active'&&it.id!==iterId) it.state='complete'; });
+      }
+      ini.iterations[idx] = { ...ini.iterations[idx], label, state, goal, hypothesis:hyp, targetQuarter:q, status, outcome,
+        startedAt: state==='active' && !ini.iterations[idx].startedAt ? today() : ini.iterations[idx].startedAt,
+        closedAt:  (state==='complete'||state==='killed') && !ini.iterations[idx].closedAt ? today() : ini.iterations[idx].closedAt
+      };
+    }
+  } else {
+    // New iteration
+    if(state==='active'){
+      ini.iterations.forEach(it=>{ if(it.state==='active') it.state='complete'; });
+    }
+    ini.iterations.push({
+      id: 'iter_'+Date.now(),
+      label, state, goal, hypothesis:hyp, targetQuarter:q, status, outcome,
+      confidence: 'low',
+      startedAt: state==='active' ? today() : null,
+      closedAt:  null,
+    });
+  }
+
+  // Sync top-level status/confidence from active iteration
+  const active = getActiveIteration(ini);
+  if(active){
+    ini.status     = active.status || ini.status;
+    ini.confidence = active.confidence || ini.confidence;
+    ini.hypothesis = active.hypothesis || ini.hypothesis;
+  }
+  ini.updatedAt = today();
+  saveDiscovery();
+  document.getElementById('sheet-iteration')?.remove();
+  showToast(iterId ? '✓ Iteration updated' : '🗓 Iteration added');
+  renderAll();
+}
+
+function deleteIteration(iniId, iterId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!confirm('Delete this iteration?')) return;
+  ini.iterations = (ini.iterations||[]).filter(it=>it.id!==iterId);
+  ini.updatedAt = today();
+  saveDiscovery();
+  document.getElementById('sheet-iteration')?.remove();
+  showToast('🗑 Iteration deleted');
+  renderAll();
+}
+
+function activateIteration(iniId, iterId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  migrateInitiativeIterations(ini);
+  // Close current active
+  ini.iterations.forEach(it=>{
+    if(it.state==='active'){ it.state='complete'; if(!it.closedAt) it.closedAt=today(); }
+  });
+  const iter = ini.iterations.find(it=>it.id===iterId);
+  if(iter){ iter.state='active'; iter.startedAt=today(); }
+  ini.status    = iter?.status || ini.status;
+  ini.updatedAt = today();
+  saveDiscovery();
+  showToast('▶ Iteration activated');
+  renderAll();
+}
+
+// Render the iteration pipeline — used in both card (compact) and detail (full)
+function renderIterationPipeline(ini, compact){
+  if(!ini.iterations||!ini.iterations.length) return '';
+  const iters = ini.iterations;
+
+  if(compact){
+    // Card view: small horizontal dots/steps strip
+    return `<div style="display:flex;align-items:center;gap:3px;margin-top:6px;margin-bottom:2px;">
+      ${iters.map((it,i)=>{
+        const s = ITER_STATE[it.state]||ITER_STATE.planned;
+        const isActive = it.state==='active';
+        return `<div title="${esc(it.label)}" style="display:flex;align-items:center;gap:2px;">
+          ${i>0?`<div style="width:12px;height:1px;background:${s.color}55;"></div>`:''}
+          <div style="width:${isActive?20:14}px;height:${isActive?20:14}px;border-radius:50%;
+            background:${isActive?s.color:s.color+'33'};
+            border:2px solid ${s.color};
+            display:flex;align-items:center;justify-content:center;
+            font-size:${isActive?9:8}px;font-weight:900;font-family:var(--font-ui);
+            color:${isActive?'#fff':s.color};
+            transition:all 0.15s;flex-shrink:0;">
+            ${it.state==='complete'?'✓':it.state==='killed'?'✗':it.state==='active'?`v${i+1}`:''}
+          </div>
+        </div>`;
+      }).join('')}
+      <span style="font:700 10px/1 var(--font-ui);color:var(--text4);margin-left:4px;">${getIterationLabel(ini)}</span>
+      ${iters.find(it=>it.targetQuarter&&it.state!=='complete'&&it.state!=='killed')?
+        `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-left:2px;">· ${iters.find(it=>it.targetQuarter&&it.state==='active')?.targetQuarter||iters.find(it=>it.targetQuarter&&it.state==='planned')?.targetQuarter}</span>`:''}
+    </div>`;
+  }
+
+  // Detail view: full timeline cards
+  return `<div style="position:relative;padding:4px 14px 14px;">
+    <!-- Connecting line -->
+    <div style="position:absolute;left:34px;top:20px;bottom:20px;width:2px;background:var(--border);z-index:0;"></div>
+
+    ${iters.map((it,i)=>{
+      const s = ITER_STATE[it.state]||ITER_STATE.planned;
+      const isActive = it.state==='active';
+      const isPlanned = it.state==='planned';
+      const isDone = it.state==='complete'||it.state==='killed'||it.state==='skipped';
+      const discSt = DISC_STATUS[it.status]||DISC_STATUS.discovery;
+
+      return `<div style="display:flex;gap:12px;margin-bottom:10px;position:relative;z-index:1;">
+        <!-- Node -->
+        <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;
+          background:${isActive?s.color:isDone?s.color+'44':'var(--surface2)'};
+          border:2px solid ${s.color};
+          display:flex;align-items:center;justify-content:center;
+          font-size:11px;font-weight:900;font-family:var(--font-ui);
+          color:${isActive?'#fff':s.color};margin-top:4px;">
+          ${it.state==='complete'?'✓':it.state==='killed'?'✗':it.state==='skipped'?'–':`v${i+1}`}
+        </div>
+        <!-- Card -->
+        <div style="flex:1;border-radius:var(--r2);border:1px solid ${isActive?s.color+'66':'var(--border)'};
+          background:${isActive?s.color+'08':'var(--surface)'};
+          padding:9px 11px;cursor:pointer;transition:all 0.12s;"
+          onclick="openIterationSheet('${ini.id}','${it.id}')"
+          onmouseover="this.style.borderColor='${s.color}99'"
+          onmouseout="this.style.borderColor='${isActive?s.color+'66':'var(--border)'}'">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+                <span style="font:800 12px/1 var(--font-ui);color:${isActive?s.color:isDone?'var(--text3)':'var(--text2)'};">${esc(it.label||'v'+(i+1))}</span>
+                <span style="font:700 10px/1 var(--font-ui);color:${s.color};background:${s.color}18;padding:1px 6px;border-radius:8px;border:1px solid ${s.color}33;">${s.label}</span>
+                <span style="font:600 10px/1 var(--font-ui);color:${discSt.color};background:${discSt.color}12;padding:1px 6px;border-radius:6px;border:1px solid ${discSt.color}33;">${discSt.label}</span>
+                ${it.targetQuarter?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">📅 ${it.targetQuarter}</span>`:''}
+              </div>
+              ${it.goal?`<div style="font:500 11px/1.4 var(--font-ui);color:${isDone?'var(--text4)':'var(--text3)'};margin-bottom:${it.outcome?'4px':'0'};">🎯 ${esc(it.goal)}</div>`:''}
+              ${it.hypothesis&&isActive?`<div style="font:400 11px/1.4 var(--font-body);color:var(--text3);font-style:italic;margin-top:3px;">"${esc(it.hypothesis)}"</div>`:''}
+              ${it.outcome?`<div style="font:600 11px/1.4 var(--font-ui);color:${it.state==='killed'?'#EF5350':'#81C784'};margin-top:4px;padding:4px 8px;border-radius:5px;background:${it.state==='killed'?'rgba(239,83,80,0.07)':'rgba(129,199,132,0.07)'};">→ ${esc(it.outcome)}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0;">
+              ${isPlanned?`<button onclick="event.stopPropagation();activateIteration('${ini.id}','${it.id}')"
+                style="padding:3px 9px;border-radius:6px;border:1px solid ${s.color}66;background:${s.color}15;
+                color:${s.color};font:700 10px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">▶ Activate</button>`:''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+
+    <!-- Add planned iteration button -->
+    <div style="display:flex;gap:12px;margin-top:4px;position:relative;z-index:1;">
+      <div style="width:28px;flex-shrink:0;"></div>
+      <button onclick="openIterationSheet('${ini.id}',null)"
+        style="flex:1;padding:8px;border-radius:var(--r2);border:1px dashed var(--border2);
+        background:transparent;color:var(--text4);font:700 11px/1 var(--font-ui);cursor:pointer;
+        transition:all 0.12s;"
+        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+        onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text4)'">
+        ＋ Plan next iteration
+      </button>
+    </div>
+  </div>`;
+}
+
 // ── List view ────────────────────────────────────────────────────
 function renderDiscoveryPage(container){
   if(discView==='detail' && discActiveId){
@@ -21824,50 +22116,54 @@ function renderDiscoveryWithFilter(container, status){
 }
 
 function renderDiscoveryCard(ini){
+  migrateInitiativeIterations(ini);
   const signals = getInitiativeSignals(ini.id);
-  const engPct  = discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none');
-  const mktPct  = discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering');
   const owner   = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
   const lastSig = signals[0];
-  const confirmsN = signals.filter(s=>s.sentiment==='confirms').length;
+  const confirmsN    = signals.filter(s=>s.sentiment==='confirms').length;
   const contradictsN = signals.filter(s=>s.sentiment==='contradicts').length;
+  const hasIters = ini.iterations && ini.iterations.length > 0;
+  const activeIter = getActiveIteration(ini);
 
   const _discCardAi = _ageInfo(ini.createdAt, ini.updatedAt);
   return `<div class="disc-card" onclick="openDiscoveryDetail('${ini.id}')"
     style="border-left:3px solid ${_discCardAi.borderColor};background:${_discCardAi.bgColor};">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp2);margin-bottom:var(--sp2);">
+    <!-- Title row -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp2);margin-bottom:6px;">
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.title)}</div>
-        ${ini.problemStatement?`<div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.problemStatement)}</div>`:''}
+        ${activeIter?.goal
+          ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎯 ${esc(activeIter.goal)}</div>`
+          : ini.problemStatement?`<div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.problemStatement)}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
         ${discStatusBadge(ini.status)}
         <div>${discConfidencePips(ini.confidence||'low')}</div>
       </div>
     </div>
-    <!-- Two-track progress -->
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:var(--sp2);">
+
+    <!-- Iteration pipeline strip (if iterations exist) -->
+    ${hasIters ? renderIterationPipeline(ini, true) : `
+    <!-- Two-track progress (no iterations) -->
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:6px;">
       <div style="display:flex;align-items:center;gap:var(--sp2);">
         <span style="font-size:10px;font-family:var(--font-ui);color:#64B5F6;font-weight:700;width:20px;">ENG</span>
-        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${engPct}%;background:#64B5F6;"></div></div>
+        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none')}%;background:#64B5F6;"></div></div>
         <span style="font:500 10px/1.4 var(--font-ui);color:var(--text3);width:70px;text-align:right;">${ENG_LABELS[ini.engineeringTrack?.status||'none']||''}</span>
-        ${ini.engineeringTrack?.targetQuarter?`<span style="font-size:10px;color:#64B5F6;opacity:0.5;font-family:var(--font-ui);">${ini.engineeringTrack.targetQuarter}</span>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:var(--sp2);">
         <span style="font-size:10px;font-family:var(--font-ui);color:#81C784;font-weight:700;width:20px;">MKT</span>
-        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${mktPct}%;background:#81C784;"></div></div>
+        <div class="disc-track-bar"><div class="disc-track-fill" style="width:${discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering')}%;background:#81C784;"></div></div>
         <span style="font:500 10px/1.4 var(--font-ui);color:var(--text3);width:70px;text-align:right;">${MKT_LABELS[ini.marketTrack?.status||'signal-gathering']||''}</span>
-        ${ini.marketTrack?.targetQuarter?`<span style="font-size:10px;color:#81C784;opacity:0.5;font-family:var(--font-ui);">${ini.marketTrack.targetQuarter}</span>`:''}
       </div>
-    </div>
+    </div>`}
+
     <!-- Footer stats + quick add signal -->
     ${(()=>{
-    // ── Footer stats + quick add signal
-    const lastUpdate = ini.updatedAt||ini.createdAt||today();
     const _discAi = _ageInfo(ini.createdAt, ini.updatedAt);
     const openTaskCt = (ini.linkedTaskIds||[]).filter(id=>{ const t=tasks.find(x=>x.id===id); return t&&t.status!=='done'; }).length;
-    return `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
-      <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length} signals</span>
+    return `<div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;margin-top:6px;">
+      <span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">📡 ${signals.length}</span>
       ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
       ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
       ${openTaskCt>0?`<span style="font:600 10px/1.4 var(--font-ui);color:var(--accent);">☐ ${openTaskCt}</span>`:''}
@@ -21946,6 +22242,27 @@ function renderDiscoveryDetail(container){
         <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">💡 HYPOTHESIS</div>
         <div style="font-size:13px;color:var(--text);line-height:1.5;">${esc(ini.hypothesis)}</div>
       </div>`:''}
+
+      <!-- ITERATIONS TIMELINE -->
+      ${(()=>{
+        migrateInitiativeIterations(ini);
+        const iters = ini.iterations||[];
+        return `<div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
+          <span>ITERATIONS (${iters.length})</span>
+          <button onclick="openIterationSheet('${ini.id}',null)"
+            style="padding:3px 9px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:10px;cursor:pointer;">+ Plan</button>
+        </div>
+        ${iters.length===0
+          ? `<div style="margin:0 14px 10px;padding:12px;border-radius:var(--r2);border:1px dashed var(--border2);text-align:center;">
+              <div style="font:500 12px/1.5 var(--font-ui);color:var(--text4);">No iterations planned yet.</div>
+              <button onclick="openIterationSheet('${ini.id}',null)"
+                style="margin-top:8px;padding:6px 14px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);font:700 12px/1 var(--font-ui);cursor:pointer;">
+                Plan first iteration →
+              </button>
+            </div>`
+          : renderIterationPipeline(ini, false)
+        }`;
+      })()}
 
       <!-- Two-track progress -->
       <div class="disc-section-hdr">PROGRESS TRACKS</div>
@@ -22230,6 +22547,7 @@ function submitDiscoveryModal(){
     linkedPersonIds:  id ? (discoveryList.find(i=>i.id===id)?.linkedPersonIds||[])  : [],
     linkedTaskIds:    id ? (discoveryList.find(i=>i.id===id)?.linkedTaskIds||[])    : [],
     openQuestions:    id ? (discoveryList.find(i=>i.id===id)?.openQuestions||[])    : [],
+    iterations:       id ? (discoveryList.find(i=>i.id===id)?.iterations||[])       : [],
     prd:              id ? (discoveryList.find(i=>i.id===id)?.prd||'')              : '',
     lastSynthesis:    id ? (discoveryList.find(i=>i.id===id)?.lastSynthesis||null)  : null,
     lastMarketPull:   id ? (discoveryList.find(i=>i.id===id)?.lastMarketPull||null) : null,
