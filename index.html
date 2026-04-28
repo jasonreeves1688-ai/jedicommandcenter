@@ -8855,10 +8855,10 @@ function renderAttachmentSection(recordType, recordId, attachments){
         <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
           ${attachmentSizeLabel(a.size)}</div>
       </div>
-      <a href="${a.viewUrl}" target="_blank" rel="noopener"
+      <button onclick="openAttachment('attachments','${a.sbPath||''}')"
         style="padding:4px 8px;border-radius:var(--r2);border:1px solid var(--border);
           background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);
-          text-decoration:none;white-space:nowrap;">Open</a>
+          cursor:pointer;white-space:nowrap;">Open</button>
       <button onclick="deleteAttachmentFrom('${recordType}','${recordId}','${a.id}')"
         style="border:none;background:transparent;color:var(--text4);
           font-size:14px;cursor:pointer;padding:2px;flex-shrink:0;"
@@ -8910,20 +8910,11 @@ function pickAttachment(recordType, recordId){
 
       if(uploadError) throw uploadError;
 
-      const { data: urlData } = _sb.storage
-        .from('attachments')
-        .getPublicUrl(path);
-
-      const publicUrl = urlData && urlData.publicUrl;
-      if(!publicUrl) throw new Error('No public URL');
-
       const attachment = {
         id:       'att_' + Date.now(),
         sbPath:   path,
         filename: file.name,
         mimeType: file.type || 'application/octet-stream',
-        viewUrl:  publicUrl,
-        dlUrl:    publicUrl,
         size:     file.size,
         addedAt:  today()
       };
@@ -13307,6 +13298,7 @@ function _buildUTriageCount(){
 }
 
 function renderTodayView(container){
+  setTimeout(resolveAvatarPhotos, 150);
   if(todayFocusMode || activeNav==='focus'){ renderTodayFocusMode(container); return; }
   if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
   if(todayUnifiedMode){ renderTodayUnified(container); return; }
@@ -17229,6 +17221,7 @@ function completeComms(id){
 }
 
 function renderPeoplePage(container){
+  setTimeout(resolveAvatarPhotos, 150);
   const nudges = getPeopleNudges();
   const restContacts = contactsList.filter(c=>!nudges.find(n=>n.id===c.id));
   const todayStr = today();
@@ -21440,13 +21433,47 @@ function autoApplyPriority(task){
 
 
 
+// ── Signed URL helpers (private Supabase buckets) ───────────────
+async function getSignedUrl(bucket, path, expiresIn){
+  if(!path) return null;
+  try {
+    const { data, error } = await _sb.storage.from(bucket).createSignedUrl(path, expiresIn||3600);
+    if(error) throw error;
+    return data?.signedUrl || null;
+  } catch(e){ console.warn('[signed-url]', bucket, e.message); return null; }
+}
+
+async function openAttachment(bucket, path){
+  if(!path){ showToast('No file path stored'); return; }
+  const btn = event?.currentTarget;
+  const orig = btn?.textContent;
+  if(btn){ btn.textContent='…'; btn.disabled=true; }
+  const url = await getSignedUrl(bucket, path, 3600);
+  if(btn){ btn.textContent=orig||'Open'; btn.disabled=false; }
+  if(url) window.open(url, '_blank', 'noopener');
+  else showToast('Could not open file — check Supabase storage is set to private');
+}
+
+// Resolve sbpath: photos async after render
+function resolveAvatarPhotos(){
+  document.querySelectorAll('img[data-sbpath]').forEach(async img => {
+    if(img.dataset.resolving) return;
+    img.dataset.resolving = '1';
+    const url = await getSignedUrl('contact-photos', img.dataset.sbpath, 3600);
+    if(url) img.src = url;
+    delete img.dataset.resolving;
+  });
+}
+
 // ── Avatar helper — renders photo or initial badge ───────────────
 function renderAvatar(name, photo, size, bgColor, textColor, showEdit, onClickFn){
   size = size || 38;
   const initial = (name||'?').slice(0,1).toUpperCase();
   if(photo && photo.length > 10){  // ignore empty strings and stubs
     return `<div class="avatar-wrap" style="width:${size}px;height:${size}px;" ${onClickFn?`onclick="${onClickFn}"`:''}">
-      <img src="${photo}" alt="${esc(name)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;"/>
+      <img src="${photo.startsWith('sbpath:')?'':photo}" alt="${esc(name)}"
+        ${photo.startsWith('sbpath:')?`data-sbpath="${esc(photo.slice(7))}"`:''  }
+        style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;${photo.startsWith('sbpath:')?'background:var(--border2);':''}"/>
       ${showEdit?`<div class="avatar-edit-btn">✎</div>`:''}
     </div>`;
   }
@@ -21493,15 +21520,10 @@ async function pickContactPhoto(inputId, previewId, hiddenId){
 
         if(uploadError) throw uploadError;
 
-        const { data: urlData } = _sb.storage
-          .from('contact-photos')
-          .getPublicUrl(path);
-
-        const publicUrl = urlData && urlData.publicUrl;
-        if(!publicUrl) throw new Error('No public URL');
-
-        if(hidden){ hidden.value = publicUrl; }
-        if(preview){ preview.src = publicUrl; preview.style.opacity = '1'; }
+        // Store the storage path — signed URLs generated on display
+        if(hidden){ hidden.value = 'sbpath:' + path; }
+        const signedPreview = await getSignedUrl('contact-photos', path, 3600);
+        if(preview){ preview.src = signedPreview || dataUrl; preview.style.opacity = '1'; }
         showToast('Photo saved ✓');
 
       } catch(err) {
