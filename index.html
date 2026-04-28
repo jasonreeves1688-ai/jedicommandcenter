@@ -8902,7 +8902,7 @@ function pickAttachment(recordType, recordId){
     try {
       const userId   = _sbUserId || 'anon';
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path     = 'attachments/' + userId + '/' + recordType + '_' + recordId + '_' + Date.now() + '_' + safeName;
+      const path     = userId + '/' + recordType + '_' + recordId + '_' + Date.now() + '_' + safeName;
 
       const { error: uploadError } = await _sb.storage
         .from('attachments')
@@ -21512,7 +21512,7 @@ async function pickContactPhoto(inputId, previewId, hiddenId){
         // Upload to Supabase Storage
         const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
         const userId = _sbUserId || 'anon';
-        const path   = 'contact-photos/' + userId + '/' + Date.now() + '.jpg';
+        const path   = userId + '/' + Date.now() + '.jpg';
 
         const { error: uploadError } = await _sb.storage
           .from('contact-photos')
