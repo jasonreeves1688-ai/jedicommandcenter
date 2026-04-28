@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-visual-viewport"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -3297,6 +3297,7 @@ const personActive=()=>filterPerson.size>0;
 const priorityActive=()=>filterPriority.size>0;
 const dueActive=()=>filterDue.size>0;
 let editingTaskId=null, selectedMissionId=null;
+function selectMission(id){ selectedMissionId=id; }
 let _projPanelOpen=null; // project id with inline edit panel open
 let todayFocusMode=false;  // true = focus mode within Today screen
 let dragSrcId=null;
@@ -8886,13 +8887,11 @@ function renderAttachmentSection(recordType, recordId, attachments){
 function pickAttachment(recordType, recordId){
   const input = document.createElement('input');
   input.type = 'file';
-  // Accept common doc types
   input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.gif,.mp4,.zip';
   input.onchange = async e => {
     const file = e.target.files[0];
     if(!file) return;
 
-    // 50MB limit
     if(file.size > 50*1024*1024){
       showToast('File too large — max 50MB');
       return;
@@ -8900,38 +8899,40 @@ function pickAttachment(recordType, recordId){
 
     showToast('Uploading ' + file.name + '…');
 
-    // Read as base64
-    const base64 = await new Promise((res, rej)=>{
-      const reader = new FileReader();
-      reader.onload  = ()=> res(reader.result.split(',')[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
-
     try {
-      const data = await apiCall('uploadAttachment', {
-        data:     base64,
-        filename: file.name,
-        mimeType: file.type || 'application/octet-stream'
-      });
+      const userId   = _sbUserId || 'anon';
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path     = 'attachments/' + userId + '/' + recordType + '_' + recordId + '_' + Date.now() + '_' + safeName;
 
-      if(data.error) throw new Error(data.error);
+      const { error: uploadError } = await _sb.storage
+        .from('attachments')
+        .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+
+      if(uploadError) throw uploadError;
+
+      const { data: urlData } = _sb.storage
+        .from('attachments')
+        .getPublicUrl(path);
+
+      const publicUrl = urlData && urlData.publicUrl;
+      if(!publicUrl) throw new Error('No public URL');
 
       const attachment = {
         id:       'att_' + Date.now(),
-        fileId:   data.fileId,
-        filename: data.filename,
-        mimeType: data.mimeType,
-        viewUrl:  data.viewUrl,
-        dlUrl:    data.dlUrl,
-        size:     data.size,
+        sbPath:   path,
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        viewUrl:  publicUrl,
+        dlUrl:    publicUrl,
+        size:     file.size,
         addedAt:  today()
       };
 
       addAttachmentToRecord(recordType, recordId, attachment);
       showToast('📎 ' + file.name + ' attached ✓');
     } catch(err) {
-      showToast('Upload failed — ' + err.message);
+      console.error('[attach] upload error:', err);
+      showToast('Upload failed — ' + (err.message || 'check Supabase storage bucket'));
     }
   };
   input.click();
@@ -8993,9 +8994,9 @@ async function deleteAttachmentFrom(recordType, recordId, attachmentId){
     saveDiscovery();
   }
   renderAll();
-  // Delete from Drive in background
-  if(att?.fileId){
-    apiCall('deleteAttachment', {fileId: att.fileId}).catch(()=>{});
+  // Delete from Supabase storage in background
+  if(att?.sbPath){
+    _sb.storage.from('attachments').remove([att.sbPath]).catch(()=>{});
   }
   showToast('Attachment removed');
 }
@@ -10427,6 +10428,14 @@ function renderTaskList(container){
   if(visibleTasks.length===0 && !triageMode){
     html+=`<div style="text-align:center;padding:32px 20px;color:var(--text3);font-size:12px;font-family:var(--font-ui);letter-spacing:0.5px;font-style:italic;">— All clear —</div>`;
     container.innerHTML=html;
+    return;
+  }
+
+  // ── UNIVERSAL TRIAGE MODE ────────────────────────────────────
+  if(_uTriageMode){
+    html += renderUniversalTriageCard();
+    html += '</div>';
+    container.innerHTML = html;
     return;
   }
 
@@ -13283,6 +13292,20 @@ function renderTodayTaskRow(t, accentColor, badgeHtml, extraActions){
   ].join('\n');
 }
 
+function _buildUTriageCount(){
+  const todayStr = today();
+  const _stale = (c,u) => _ageInfo(c,u).tier !== 'fresh';
+  const _needs = (d,c,u) => (d&&d<=todayStr) || _stale(c,u);
+  let n = 0;
+  n += tasks.filter(t=>t.status!=='done'&&t.status!=='inprogress'&&t.status!=='blocked'&&t.priority!=='high'&&_needs(t.dueDate,t.createdAt,t.updatedAt)).length;
+  n += jasonHomeTasks.filter(t=>!t.done&&_needs(t.dueDate,t.createdAt,t.updatedAt)).length;
+  n += familyTasks.filter(t=>!t.done&&_needs(t.dueDate,t.createdAt,t.updatedAt)).length;
+  n += waitingFor.filter(w=>!w.done&&_needs(w.dueDate,w.createdAt,w.updatedAt)).length;
+  n += delegations.filter(d=>d.status==='active'&&_needs(d.dueDate,d.createdAt,d.updatedAt)).length;
+  n += commsOwed.filter(c=>!c.done&&_needs(c.dueDate,c.createdAt,c.updatedAt)).length;
+  return n;
+}
+
 function renderTodayView(container){
   if(todayFocusMode || activeNav==='focus'){ renderTodayFocusMode(container); return; }
   if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
@@ -13363,6 +13386,8 @@ function renderTodayView(container){
       <button onclick="todayViewMode=todayViewMode==='list'?'timeblock':'list';renderAll();"
         class="today-icon-btn" title="Time blocks" style="${todayViewMode==='timeblock'?'border-color:var(--accent);color:var(--accent);background:var(--accent-soft);':''}">🗓</button>
       <button onclick="openReset()" class="today-icon-btn" title="Weekly reset">🌅</button>
+      <button onclick="openUniversalTriage()" class="today-icon-btn" title="Review everything that needs attention"
+        style="position:relative;">🧹${(()=>{ const c=_buildUTriageCount(); return c>0?`<span style="position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#EF5350;color:#fff;font:800 8px/14px var(--font-ui);text-align:center;">${c>9?'9+':c}</span>`:''; })()}</button>
       ${_next?`<button onclick="selectMission('${_next.id}');todayFocusMode=true;renderAll();"
         style="padding:0 var(--sp3);height:32px;border-radius:var(--r5);border:none;
           background:var(--accent);color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;
@@ -13614,6 +13639,51 @@ function renderTodayView(container){
       }).join('')}
       ${nudges2.length>3?`<div style="padding:var(--sp2) var(--sp3);font:var(--type-caption);color:var(--text4);text-align:center;">+${nudges2.length-3} more</div>`:''}
     </div>`;
+  }
+
+  // ── 8b. TEAM ITEMS DUE TODAY ─────────────────────────────────
+  {
+    const teamDels   = delegations.filter(d=>d.status==='active'&&d.dueDate&&d.dueDate<=todayStr);
+    const teamComms  = commsOwed.filter(c=>!c.done&&c.dueDate&&c.dueDate<=todayStr);
+    const teamWFs    = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr&&w.personId&&peopleList.find(p=>p.id===w.personId&&p.isDirectReport));
+    const teamItems  = [
+      ...teamDels.map(d=>({ type:'del',  id:d.id, what:d.what, personId:d.personId, dueDate:d.dueDate })),
+      ...teamComms.map(c=>({ type:'comms',id:c.id, what:c.what, personId:c.personId, dueDate:c.dueDate })),
+      ...teamWFs.map(w=>({ type:'wf',   id:w.id, what:w.what, personId:w.personId||w.personIds?.split(',')[0], dueDate:w.dueDate })),
+    ];
+    if(teamItems.length > 0){
+      html += `<div class="today-card" style="border-color:rgba(100,181,246,0.3);">
+        <div class="today-card-header">
+          <div class="today-card-label">
+            <div class="today-card-accent" style="background:#64B5F6;"></div>
+            <span class="today-card-title" style="color:#64B5F6;">Team</span>
+            <span class="today-card-count">${teamItems.length} due</span>
+          </div>
+          <button onclick="setNav('team')" class="today-card-action">See all</button>
+        </div>
+        ${teamItems.map(item=>{
+          const p = peopleList.find(x=>x.id===item.personId);
+          const pc = p?.priority==='High'?'#EF5350':p?.priority==='Low'?'#888':'#E8A838';
+          const isOv = item.dueDate < todayStr;
+          const typeLabel = item.type==='del'?'📋 Delegation':item.type==='comms'?'📣 Comms':'⏳ Waiting for';
+          const typeColor = item.type==='del'?'#64B5F6':item.type==='comms'?'#BA68C8':'#E8A838';
+          const onclick = item.type==='del'?`openDelegationModal('${item.id}')`:item.type==='comms'?`openCommsModal('${item.id}')`:item.type==='wf'?`openWaitingModal(null,'${item.id}')`:'';
+          const onDone = item.type==='del'?`completeDelegation('${item.id}')`:item.type==='comms'?`completeComms('${item.id}')`:item.type==='wf'?`toggleWaitingDone('${item.id}')`:'';
+          return `<div class="today-card-row" onclick="${onclick}">
+            <button class="today-check-btn" style="color:${typeColor};"
+              onclick="event.stopPropagation();${onDone}">✓</button>
+            <div style="flex:1;min-width:0;">
+              <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.what)}</div>
+              <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+                ${p?`<span style="font:var(--type-caption);color:${pc};">👤 ${esc(p.name)}</span>`:''}
+                <span style="font:600 10px/1 var(--font-ui);color:${typeColor};background:${typeColor}15;padding:1px 5px;border-radius:4px;">${typeLabel}</span>
+                <span style="font:var(--type-caption);color:${isOv?'var(--red)':'var(--text4)'};">${isOv?'⚠ overdue · ':''}${item.dueDate.slice(5)}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
   }
 
   // ── 9. WAITING FOR (due/overdue + follow-up nudges) ─────────
@@ -13878,6 +13948,51 @@ function renderTodayUnified(container){
       ${homeDueToday.map(t=>homeRow(t,'private')).join('')}
       ${familyDueToday.map(t=>homeRow(t,'family')).join('')}
     </div>`;
+  }
+
+  // ── 4b. TEAM ITEMS DUE TODAY ─────────────────────────────────
+  {
+    const teamDels   = delegations.filter(d=>d.status==='active'&&d.dueDate&&d.dueDate<=todayStr);
+    const teamComms  = commsOwed.filter(c=>!c.done&&c.dueDate&&c.dueDate<=todayStr);
+    const teamWFs    = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr&&w.personId&&peopleList.find(p=>p.id===w.personId&&p.isDirectReport));
+    const teamItems  = [
+      ...teamDels.map(d=>({ type:'del',  id:d.id, what:d.what, personId:d.personId, dueDate:d.dueDate })),
+      ...teamComms.map(c=>({ type:'comms',id:c.id, what:c.what, personId:c.personId, dueDate:c.dueDate })),
+      ...teamWFs.map(w=>({ type:'wf',   id:w.id, what:w.what, personId:w.personId||w.personIds?.split(',')[0], dueDate:w.dueDate })),
+    ];
+    if(teamItems.length > 0){
+      unifiedHtml += `<div class="today-card" style="border-color:rgba(100,181,246,0.3);">
+        <div class="today-card-header">
+          <div class="today-card-label">
+            <div class="today-card-accent" style="background:#64B5F6;"></div>
+            <span class="today-card-title" style="color:#64B5F6;">Team</span>
+            <span class="today-card-count">${teamItems.length} due</span>
+          </div>
+          <button onclick="setNav('team')" class="today-card-action">See all</button>
+        </div>
+        ${teamItems.map(item=>{
+          const p = peopleList.find(x=>x.id===item.personId);
+          const pc = p?.priority==='High'?'#EF5350':p?.priority==='Low'?'#888':'#E8A838';
+          const isOv = item.dueDate < todayStr;
+          const typeLabel = item.type==='del'?'📋 Delegation':item.type==='comms'?'📣 Comms':'⏳ Waiting for';
+          const typeColor = item.type==='del'?'#64B5F6':item.type==='comms'?'#BA68C8':'#E8A838';
+          const onclick = item.type==='del'?`openDelegationModal('${item.id}')`:item.type==='comms'?`openCommsModal('${item.id}')`:item.type==='wf'?`openWaitingModal(null,'${item.id}')`:'';
+          const onDone = item.type==='del'?`completeDelegation('${item.id}')`:item.type==='comms'?`completeComms('${item.id}')`:item.type==='wf'?`toggleWaitingDone('${item.id}')`:'';
+          return `<div class="today-card-row" onclick="${onclick}">
+            <button class="today-check-btn" style="color:${typeColor};"
+              onclick="event.stopPropagation();${onDone}">✓</button>
+            <div style="flex:1;min-width:0;">
+              <div style="font:600 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.what)}</div>
+              <div style="display:flex;gap:var(--sp2);align-items:center;margin-top:3px;flex-wrap:wrap;">
+                ${p?`<span style="font:var(--type-caption);color:${pc};">👤 ${esc(p.name)}</span>`:''}
+                <span style="font:600 10px/1 var(--font-ui);color:${typeColor};background:${typeColor}15;padding:1px 5px;border-radius:4px;">${typeLabel}</span>
+                <span style="font:var(--type-caption);color:${isOv?'var(--red)':'var(--text4)'};">${isOv?'⚠ overdue · ':''}${item.dueDate.slice(5)}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
   }
 
   // ── 5. WAITING FOR due/follow-up today ───────────────────────
@@ -14494,6 +14609,387 @@ function renderTriageCard(){
     </div>`;
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// UNIVERSAL TRIAGE — everything that needs attention across all
+// data types: work tasks, home tasks, family tasks, waiting-fors,
+// delegations, client follow-ups, comms owed.
+// Items surface by: overdue date OR aging (no date, 14d+ old).
+// ════════════════════════════════════════════════════════════════
+
+let _uTriageQueue  = [];   // [{type, id, ...display data}]
+let _uTriageIndex  = 0;
+let _uTriageStats  = {today:0, kept:0, dropped:0, snoozed:0};
+let _uTriageMode   = false;
+
+function openUniversalTriage(){
+  const todayStr = today();
+  const items = [];
+
+  // Helper: age-based include check
+  const _stale = (createdAt, updatedAt) => {
+    const ai = _ageInfo(createdAt, updatedAt);
+    return ai.tier !== 'fresh';
+  };
+  const _overdue = (dueDate) => dueDate && dueDate < todayStr;
+  const _needs   = (dueDate, createdAt, updatedAt) => _overdue(dueDate) || _stale(createdAt, updatedAt);
+
+  // ── Work tasks (non-high-priority, not done/in-progress/blocked) ──
+  tasks.filter(t => {
+    if(t.status==='done'||t.status==='inprogress'||t.status==='blocked') return false;
+    if(t.priority==='high') return false;
+    const proj = projects.find(p=>p.id===t.projectId);
+    if(proj&&(proj.status==='archived'||proj.status==='paused')) return false;
+    return _needs(t.dueDate, t.createdAt, t.updatedAt);
+  }).forEach(t => {
+    const proj = projects.find(p=>p.id===t.projectId);
+    items.push({ type:'task', id:t.id,
+      title: t.title,
+      sub: proj?.name || '',
+      dueDate: t.dueDate,
+      createdAt: t.createdAt, updatedAt: t.updatedAt,
+      color: '#64B5F6', emoji: '☐', area: 'Work' });
+  });
+
+  // ── Jason's home tasks ──
+  jasonHomeTasks.filter(t => !t.done && _needs(t.dueDate, t.createdAt, t.updatedAt))
+    .forEach(t => items.push({ type:'hometask', id:t.id,
+      title: t.title, sub: 'Home', dueDate: t.dueDate,
+      createdAt: t.createdAt, updatedAt: t.updatedAt,
+      color: '#81C784', emoji: '🏠', area: 'Home' }));
+
+  // ── Family tasks assigned to Jason ──
+  familyTasks.filter(t => {
+    if(t.done) return false;
+    if(t.assignedTo && t.assignedTo !== 'jason' && t.assignedTo !== 'both') return false;
+    return _needs(t.dueDate, t.createdAt, t.updatedAt);
+  }).forEach(t => items.push({ type:'familytask', id:t.id,
+    title: t.title, sub: 'Family', dueDate: t.dueDate,
+    createdAt: t.createdAt, updatedAt: t.updatedAt,
+    color: '#FF8A65', emoji: '👨‍👩‍👧', area: 'Family' }));
+
+  // ── Waiting-fors (overdue or 14d+ open) ──
+  waitingFor.filter(w => !w.done && _needs(w.dueDate, w.createdAt, w.updatedAt))
+    .forEach(w => {
+      const p = w.personId ? peopleList.find(x=>x.id===w.personId) : null;
+      items.push({ type:'wf', id:w.id,
+        title: w.what,
+        sub: p ? ('Waiting on ' + p.name) : (w.person ? 'Waiting on ' + w.person : 'Waiting For'),
+        dueDate: w.dueDate,
+        createdAt: w.createdAt, updatedAt: w.updatedAt,
+        color: '#E8A838', emoji: '⏳', area: 'Work' });
+    });
+
+  // ── Delegations (overdue or 21d+ no check-in) ──
+  delegations.filter(d => {
+    if(d.status !== 'active') return false;
+    if(_overdue(d.dueDate)) return true;
+    const ai = _ageInfo(d.createdAt, d.updatedAt);
+    return ai.days >= 21;
+  }).forEach(d => {
+    const p = peopleList.find(x=>x.id===d.personId);
+    items.push({ type:'delegation', id:d.id,
+      title: d.what,
+      sub: p ? ('Delegated to ' + p.name) : 'Delegation',
+      dueDate: d.dueDate,
+      createdAt: d.createdAt, updatedAt: d.updatedAt,
+      color: '#64B5F6', emoji: '📋', area: 'Team' });
+  });
+
+  // ── Comms owed (overdue or 7d+ unsent) ──
+  commsOwed.filter(c => !c.done && _needs(c.dueDate, c.createdAt, c.updatedAt))
+    .forEach(c => {
+      const p = c.personId ? peopleList.find(x=>x.id===c.personId) : null;
+      items.push({ type:'comms', id:c.id,
+        title: c.what,
+        sub: (c.recipient ? 'To: ' + c.recipient : '') || (p ? 'Re: ' + p.name : 'Comms'),
+        dueDate: c.dueDate,
+        createdAt: c.createdAt, updatedAt: c.updatedAt,
+        color: '#BA68C8', emoji: '📣', area: 'Team' });
+    });
+
+  // ── Client follow-ups (flagged open FUs or org untouched 30d) ──
+  clientOrgs.forEach(org => {
+    const convos = clientConvos.filter(c=>c.orgId===org.id);
+    const openFUs = convos.flatMap(c=>(c.followUps||[]).filter(f=>!f.done));
+    openFUs.forEach(fu => {
+      if(!_needs(fu.dueDate, fu.createdAt || fu.date, null)) return;
+      items.push({ type:'clientfu', id:org.id+'__'+fu.id,
+        title: fu.what || fu.task,
+        sub: '🏢 ' + org.name,
+        dueDate: fu.dueDate,
+        createdAt: fu.createdAt || fu.date, updatedAt: null,
+        color: '#81C784', emoji: '🏢', area: 'Clients',
+        _orgId: org.id, _fuId: fu.id });
+    });
+  });
+
+  // Sort: overdue first, then by age (oldest first)
+  items.sort((a, b) => {
+    const aOv = _overdue(a.dueDate) ? 0 : 1;
+    const bOv = _overdue(b.dueDate) ? 0 : 1;
+    if(aOv !== bOv) return aOv - bOv;
+    const aDays = _ageInfo(a.createdAt, a.updatedAt).days;
+    const bDays = _ageInfo(b.createdAt, b.updatedAt).days;
+    return bDays - aDays; // oldest first
+  });
+
+  if(items.length === 0){
+    showToast('✨ Nothing needs your attention — you\'re clear!');
+    return;
+  }
+
+  _uTriageQueue = items;
+  _uTriageIndex = 0;
+  _uTriageStats = {today:0, kept:0, dropped:0, snoozed:0};
+  _uTriageMode  = true;
+  setNav('today');
+}
+
+function closeUniversalTriage(){
+  _uTriageMode = false;
+  renderAll();
+  const s = _uTriageStats;
+  const total = s.today + s.kept + s.dropped + s.snoozed;
+  if(total > 0){
+    const parts = [];
+    if(s.today)   parts.push(s.today   + ' → Today');
+    if(s.kept)    parts.push(s.kept    + ' kept');
+    if(s.snoozed) parts.push(s.snoozed + ' snoozed');
+    if(s.dropped) parts.push(s.dropped + ' dropped');
+    showToast('🧹 Done — ' + parts.join(' · '));
+  }
+}
+
+function uTriageAction(action){
+  const item = _uTriageQueue[_uTriageIndex];
+  if(!item){ closeUniversalTriage(); return; }
+
+  const todayStr = today();
+
+  if(action === 'today'){
+    // Pin to Today — only tasks can be pinned directly
+    // For other types, open them instead
+    if(item.type === 'task'){
+      todayPinned.add(item.id);
+      saveAllDebounced();
+    } else if(item.type === 'hometask' || item.type === 'familytask'){
+      // Set due date to today so it surfaces in today view
+      const arr = item.type === 'hometask' ? jasonHomeTasks : familyTasks;
+      const t = arr.find(x=>x.id===item.id);
+      if(t){ t.dueDate = todayStr; }
+      if(item.type === 'hometask') saveJasonHomeTasks();
+      else saveFamilyTasks();
+    }
+    _uTriageStats.today++;
+
+  } else if(action === 'keep'){
+    // Reset the clock so it won't resurface for another ~14 days
+    const now = String(Date.now());
+    if(item.type === 'task'){
+      const t = tasks.find(x=>x.id===item.id);
+      if(t) t.createdAt = now;
+      saveAllDebounced();
+    } else if(item.type === 'hometask'){
+      const t = jasonHomeTasks.find(x=>x.id===item.id);
+      if(t) t.createdAt = now;
+      saveJasonHomeTasks();
+    } else if(item.type === 'familytask'){
+      const t = familyTasks.find(x=>x.id===item.id);
+      if(t) t.createdAt = now;
+      saveFamilyTasks();
+    } else if(item.type === 'wf'){
+      const w = waitingFor.find(x=>x.id===item.id);
+      if(w) w.createdAt = now;
+      saveWaiting();
+    } else if(item.type === 'delegation'){
+      const d = delegations.find(x=>x.id===item.id);
+      if(d) d.updatedAt = now;
+      saveDelegations();
+    } else if(item.type === 'comms'){
+      const c = commsOwed.find(x=>x.id===item.id);
+      if(c) c.createdAt = now;
+      saveCommsOwed();
+    }
+    _uTriageStats.kept++;
+
+  } else if(action === 'snooze'){
+    const snoozeDate = new Date(); snoozeDate.setDate(snoozeDate.getDate()+14);
+    const snoozeDateStr = snoozeDate.toISOString().slice(0,10);
+    if(item.type === 'task'){
+      const t = tasks.find(x=>x.id===item.id);
+      if(t){ t.dueDate = snoozeDateStr; t.createdAt = String(Date.now()); }
+      saveAllDebounced();
+    } else if(item.type === 'hometask'){
+      const t = jasonHomeTasks.find(x=>x.id===item.id);
+      if(t){ t.dueDate = snoozeDateStr; t.createdAt = String(Date.now()); }
+      saveJasonHomeTasks();
+    } else if(item.type === 'familytask'){
+      const t = familyTasks.find(x=>x.id===item.id);
+      if(t){ t.dueDate = snoozeDateStr; t.createdAt = String(Date.now()); }
+      saveFamilyTasks();
+    } else if(item.type === 'wf'){
+      const w = waitingFor.find(x=>x.id===item.id);
+      if(w){ w.dueDate = snoozeDateStr; w.createdAt = String(Date.now()); }
+      saveWaiting();
+    } else if(item.type === 'delegation'){
+      const d = delegations.find(x=>x.id===item.id);
+      if(d){ d.dueDate = snoozeDateStr; d.updatedAt = String(Date.now()); }
+      saveDelegations();
+    } else if(item.type === 'comms'){
+      const c = commsOwed.find(x=>x.id===item.id);
+      if(c){ c.dueDate = snoozeDateStr; c.createdAt = String(Date.now()); }
+      saveCommsOwed();
+    }
+    _uTriageStats.snoozed++;
+
+  } else if(action === 'drop'){
+    if(item.type === 'task'){
+      const t = tasks.find(x=>x.id===item.id);
+      if(t){ t.status='done'; t.completedAt=Date.now(); }
+      saveAllDebounced();
+    } else if(item.type === 'hometask'){
+      const t = jasonHomeTasks.find(x=>x.id===item.id);
+      if(t) t.done = true;
+      saveJasonHomeTasks();
+    } else if(item.type === 'familytask'){
+      const t = familyTasks.find(x=>x.id===item.id);
+      if(t) t.done = true;
+      saveFamilyTasks();
+    } else if(item.type === 'wf'){
+      const w = waitingFor.find(x=>x.id===item.id);
+      if(w) w.done = true;
+      saveWaiting();
+    } else if(item.type === 'delegation'){
+      const d = delegations.find(x=>x.id===item.id);
+      if(d) d.status = 'done';
+      saveDelegations();
+    } else if(item.type === 'comms'){
+      const c = commsOwed.find(x=>x.id===item.id);
+      if(c) c.done = true;
+      saveCommsOwed();
+    } else if(item.type === 'clientfu'){
+      const org = clientOrgs.find(o=>o.id===item._orgId);
+      if(org){
+        clientConvos.filter(c=>c.orgId===item._orgId).forEach(c=>{
+          const fu = (c.followUps||[]).find(f=>f.id===item._fuId);
+          if(fu) fu.done = true;
+        });
+        saveClientConvos();
+      }
+    }
+    _uTriageStats.dropped++;
+  }
+
+  _uTriageAdvance();
+}
+
+function _uTriageAdvance(){
+  _uTriageIndex++;
+  if(_uTriageIndex >= _uTriageQueue.length){
+    _uTriageMode = false;
+    renderAll();
+    const s = _uTriageStats;
+    const total = s.today + s.kept + s.dropped + s.snoozed;
+    const parts = [];
+    if(s.today)   parts.push(s.today   + ' → Today ☀');
+    if(s.kept)    parts.push(s.kept    + ' kept ✓');
+    if(s.snoozed) parts.push(s.snoozed + ' snoozed 💤');
+    if(s.dropped) parts.push(s.dropped + ' dropped ✕');
+    showToast('🧹 All triaged! ' + (parts.join(' · ') || 'Nothing actioned'));
+  } else {
+    renderAll();
+  }
+}
+
+function renderUniversalTriageCard(){
+  const item = _uTriageQueue[_uTriageIndex];
+  const remaining = _uTriageQueue.length - _uTriageIndex;
+  const done = _uTriageIndex;
+  const total = _uTriageQueue.length;
+  const progress = total > 0 ? (done / total) * 100 : 0;
+
+  if(!item || remaining === 0){
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:48px 24px;text-align:center;min-height:300px;">
+      <div style="font-size:52px;margin-bottom:16px;">✨</div>
+      <div style="font:900 22px/1.2 var(--font-ui);color:var(--text);margin-bottom:8px;">All clear!</div>
+      <div style="font:500 14px/1.5 var(--font-ui);color:var(--text3);margin-bottom:28px;">
+        ${_uTriageStats.today} to Today &middot; ${_uTriageStats.kept} kept &middot; ${_uTriageStats.dropped} dropped &middot; ${_uTriageStats.snoozed} snoozed
+      </div>
+      <button onclick="closeUniversalTriage()" style="padding:14px 32px;border-radius:50px;border:none;background:var(--accent);color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;">Done 🧹</button>
+    </div>`;
+  }
+
+  const ai = _ageInfo(item.createdAt, item.updatedAt);
+  const isOverdue = item.dueDate && item.dueDate < today();
+  const urgencyColor = isOverdue ? '#EF5350' : ai.tier === 'ancient' ? '#EF5350' : ai.tier === 'stale' ? '#FF8A65' : '#E8A838';
+
+  // Area badge colors
+  const areaColors = {Work:'#64B5F6', Team:'#BA68C8', Home:'#81C784', Family:'#FF8A65', Clients:'#81C784'};
+  const areaColor = areaColors[item.area] || 'var(--text4)';
+
+  return `
+    <div style="padding:12px 14px 0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">🧹 Review — ${remaining} left</span>
+        <button onclick="closeUniversalTriage()" style="font:600 11px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;padding:2px 8px;">Stop</button>
+      </div>
+      <div style="height:5px;border-radius:3px;background:var(--border);overflow:hidden;">
+        <div style="height:100%;border-radius:3px;background:var(--accent);width:${progress}%;transition:width 0.3s ease;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${done} of ${total} reviewed</span>
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${_uTriageStats.today>0?_uTriageStats.today+' → Today &middot; ':''}</span>
+      </div>
+    </div>
+
+    <div style="margin:12px 10px 0;border-radius:16px;border:2px solid ${urgencyColor}55;background:var(--surface);overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.15);">
+      <!-- Header: area + type + urgency -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font:700 10px/1 var(--font-ui);padding:2px 7px;border-radius:8px;background:${areaColor}18;color:${areaColor};border:1px solid ${areaColor}44;">${item.emoji} ${item.area}</span>
+          ${item.sub?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${esc(item.sub)}</span>`:''}
+        </div>
+        ${isOverdue
+          ? `<span style="font:700 10px/1 var(--font-ui);color:#EF5350;background:rgba(239,83,80,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(239,83,80,0.3);">⚠ Overdue</span>`
+          : ai.badge}
+      </div>
+
+      <!-- Content -->
+      <div style="padding:20px 16px 16px;">
+        <div style="font:700 20px/1.35 var(--font-ui);color:var(--text);margin-bottom:10px;">${esc(item.title)}</div>
+        ${item.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:${isOverdue?'var(--red)':'var(--text4)'};padding:2px 7px;border-radius:8px;background:${isOverdue?'rgba(239,83,80,0.1)':'var(--border)'};">📅 ${item.dueDate}</span>`:''}
+      </div>
+
+      <!-- Actions: 5-button grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 8px;">
+        <button onclick="uTriageAction('today')" style="padding:13px 8px;border-radius:12px;border:2px solid rgba(232,168,56,0.5);background:rgba(232,168,56,0.08);color:var(--accent);font:800 12px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:18px;">☀</span><span>Add to Today</span>
+        </button>
+        <button onclick="uTriageAction('keep')" style="padding:13px 8px;border-radius:12px;border:2px solid rgba(129,199,132,0.5);background:rgba(129,199,132,0.08);color:#81C784;font:800 12px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:18px;">✓</span><span>Keep</span><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">resets clock</span>
+        </button>
+        <button onclick="uTriageAction('snooze')" style="padding:13px 8px;border-radius:12px;border:2px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.06);color:#64B5F6;font:800 12px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:18px;">💤</span><span>Snooze</span><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">2 weeks</span>
+        </button>
+        <button onclick="uTriageAction('drop')" style="padding:13px 8px;border-radius:12px;border:2px solid rgba(239,83,80,0.4);background:rgba(239,83,80,0.06);color:#EF5350;font:800 12px/1.2 var(--font-ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <span style="font-size:18px;">✕</span><span>Done / Drop</span>
+        </button>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding:10px 14px;text-align:center;">
+        <button onclick="_uTriageAdvance()" style="font:600 12px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;padding:6px 16px;">Skip →</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:12px 0 4px;">
+      <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">
+        Work · Team · Home · Family · Clients
+      </span>
+    </div>`;
+}
+
 function resetTaskAction(taskId, action){
   const t = tasks.find(x=>x.id===taskId); if(!t) return;
   if(action==='drop'){
@@ -14982,7 +15478,8 @@ function renderClientDetail(container){
   const contacts = (org.contactIds||'').split(',').filter(Boolean)
     .map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
   const linkedInits = discoveryList.filter(i=>
-    allInsights.some(ins=>ins.initiativeId===i.id)
+    allInsights.some(ins=>ins.initiativeId===i.id) ||
+    (i.linkedOrgIds||[]).includes(org.id)
   );
 
   // Items tagged with this org
@@ -15979,33 +16476,32 @@ function renderTeamPersonDetail(container, personId){
   const todayStr = today();
   const pc = p.priority==='High'?'#EF5350':p.priority==='Low'?'#888':'#E8A838';
 
-  // Gather all data for this person
-  const series = oneOnOneSeries.find(s=>s.personId===personId);
-  const meetings = teamMeetings
+  const activeDels  = delegations.filter(d=>d.personId===personId&&d.status==='active')
+    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
+  const doneDels    = delegations.filter(d=>d.personId===personId&&d.status==='done')
+    .sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,3);
+  const openWFs     = waitingFor.filter(w=>!w.done&&((w.personIds||'').split(',').includes(personId)||w.personId===personId));
+  const openCommsP  = commsOwed.filter(c=>!c.done&&c.personId===personId)
+    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
+  const doneCommsP  = commsOwed.filter(c=>c.done&&c.personId===personId).slice(0,3);
+  const meetings    = teamMeetings
     .filter(m=>m.type==='1on1'&&(m.personIds||'').split(',').includes(personId))
     .sort((a,b)=>b.date.localeCompare(a.date));
-  const activeDels = delegations.filter(d=>d.personId===personId&&d.status==='active')
-    .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
-  const doneDels = delegations.filter(d=>d.personId===personId&&d.status==='done').slice(0,3);
-  const openWFs = waitingFor.filter(w=>!w.done&&((w.personIds||'').split(',').includes(personId)||w.personId===personId));
-  const personTasks = tasks.filter(t=>t.status!=='done'&&(t.personIds||'').split(',').includes(personId));
-  const lastMtg = meetings[0];
-  const daysSinceLastMtg = lastMtg ? Math.floor((Date.now()-new Date(lastMtg.date).getTime())/86400000) : null;
+  const lastMtg     = meetings[0];
+  const ds          = lastMtg ? Math.floor((Date.now()-new Date(lastMtg.date).getTime())/86400000) : null;
 
-  // Overdue check
-  const overdueDels = activeDels.filter(d=>d.dueDate&&d.dueDate<todayStr);
-
-  const sectionTitle = (label, color='var(--text4)', count=null, btn='') =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">
-      <span style="font:700 10px/1 var(--font-ui);color:${color};letter-spacing:1px;">${label}${count!=null?' ('+count+')':''}</span>
-      ${btn}
+  const secHdr = (label, color, count, onAdd, addLabel='+ Add') =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;
+      padding:10px 14px 6px;border-bottom:1px solid var(--border);background:var(--surface2);">
+      <span style="font:800 10px/1 var(--font-ui);color:${color};letter-spacing:1px;">${label}${count!=null?' ('+count+')':''}</span>
+      <button onclick="${onAdd}" style="padding:3px 9px;border-radius:5px;border:1px solid ${color}44;
+        background:${color}12;color:${color};font:700 10px/1 var(--font-ui);cursor:pointer;">${addLabel}</button>
     </div>`;
 
   const delRow = (d) => {
     const isOv = d.dueDate&&d.dueDate<todayStr&&d.status==='active';
-    const ai = _ageInfo(d.createdAt);
     return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
-        border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.03);':''}">
+        border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.02);':''}">
       <button onclick="completeDelegation('${d.id}')"
         style="width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
           border:2px solid ${d.status==='done'?'var(--green)':'#64B5F6'};
@@ -16013,11 +16509,13 @@ function renderTeamPersonDetail(container, personId){
           color:${d.status==='done'?'#fff':'#64B5F6'};font-size:10px;cursor:pointer;
           display:flex;align-items:center;justify-content:center;">✓</button>
       <div style="flex:1;min-width:0;">
-        <div style="font:600 13px/1.3 var(--font-ui);color:${d.status==='done'?'var(--text4)':'var(--text)'};${d.status==='done'?'text-decoration:line-through;':''}">${esc(d.what)}</div>
+        <div style="font:600 13px/1.3 var(--font-ui);color:${d.status==='done'?'var(--text4)':'var(--text)'};
+          ${d.status==='done'?'text-decoration:line-through;':''}">${esc(d.what)}</div>
         <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
           ${d.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">📅 ${d.dueDate.slice(5)}</span>`:''}
-          ${ai.badge}
+          ${_ageInfo(d.createdAt).badge}
         </div>
+        ${d.notes?`<div style="font:400 11px/1.4 var(--font-body);color:var(--text3);margin-top:3px;font-style:italic;">${esc(d.notes)}</div>`:''}
       </div>
       <button onclick="openDelegationModal('${d.id}')"
         style="padding:3px 7px;border-radius:5px;border:1px solid var(--border);
@@ -16025,37 +16523,89 @@ function renderTeamPersonDetail(container, personId){
     </div>`;
   };
 
+  const wfRow = (w) => {
+    const isOv = w.dueDate&&w.dueDate<todayStr;
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+      <button onclick="toggleWaitingDone('${w.id}')"
+        style="width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+          border:2px solid #E8A838;background:transparent;color:#E8A838;
+          font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);">${esc(w.what)}</div>
+        ${w.dueDate?`<div style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};margin-top:3px;">📅 ${w.dueDate.slice(5)}</div>`:''}
+      </div>
+      <button onclick="openWaitingModal(null,'${w.id}')"
+        style="padding:3px 7px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
+    </div>`;
+  };
+
+  const commsRow = (c) => {
+    const isOv = c.dueDate&&c.dueDate<todayStr&&!c.done;
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+        border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.02);':''}">
+      <button onclick="completeComms('${c.id}')"
+        style="width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+          border:2px solid ${c.done?'var(--green)':'#BA68C8'};
+          background:${c.done?'var(--green)':'transparent'};
+          color:${c.done?'#fff':'#BA68C8'};font-size:10px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1.3 var(--font-ui);color:${c.done?'var(--text4)':'var(--text)'};
+          ${c.done?'text-decoration:line-through;':''}">${esc(c.what)}</div>
+        <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;align-items:center;">
+          ${c.recipient?`<span style="font:600 10px/1 var(--font-ui);color:#BA68C8;">→ ${esc(c.recipient)}</span>`:''}
+          ${c.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">📅 ${c.dueDate.slice(5)}</span>`:''}
+        </div>
+        ${c.context?`<div style="font:400 11px/1.4 var(--font-body);color:var(--text3);margin-top:3px;font-style:italic;">${esc(c.context)}</div>`:''}
+      </div>
+      <button onclick="openCommsModal('${c.id}')"
+        style="padding:3px 7px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
+    </div>`;
+  };
+
   const mtgRow = (m) => {
-    const openActions = (m.actionItems||[]).filter(a=>!a.done).length;
-    const contacts = (m.personIds||'').split(',').filter(Boolean)
-      .map(id=>peopleList.find(x=>x.id===id)?.name).filter(Boolean).join(', ');
-    return `<div style="border:1px solid var(--border);border-radius:10px;margin:0 14px 8px;overflow:hidden;cursor:pointer;"
+    const openAct = (m.actionItems||[]).filter(a=>!a.done).length;
+    return `<div style="border:1px solid var(--border);border-radius:var(--r2);margin:0 14px 8px;overflow:hidden;cursor:pointer;"
         onclick="openTeamMeetingModal('${m.id}')">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);">
-        <div style="width:40px;height:36px;border-radius:7px;background:rgba(186,104,200,0.12);
-          border:1px solid rgba(186,104,200,0.3);display:flex;flex-direction:column;align-items:center;
-          justify-content:center;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);">
+        <div style="width:38px;height:34px;border-radius:6px;background:rgba(186,104,200,0.1);
+          border:1px solid rgba(186,104,200,0.25);display:flex;flex-direction:column;
+          align-items:center;justify-content:center;flex-shrink:0;">
           <span style="font:700 10px/1 var(--font-ui);color:#BA68C8;">${m.date.slice(5,7)}/${m.date.slice(8)}</span>
         </div>
         <div style="flex:1;min-width:0;">
-          ${m.agenda?`<div style="font:500 12px/1.3 var(--font-body);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.agenda.slice(0,60))}</div>`:'<div style="font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No agenda recorded</div>'}
-          <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;">
-            ${m.decisions?`<span style="font:700 10px/1 var(--font-ui);color:#81C784;padding:1px 5px;border-radius:6px;background:rgba(129,199,132,0.1);">✅ decisions</span>`:''}
-            ${openActions>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);padding:1px 5px;border-radius:6px;background:var(--accent-soft);">⚡ ${openActions} open</span>`:''}
-          </div>
+          ${m.agenda?`<div style="font:500 12px/1.3 var(--font-body);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.agenda.slice(0,60))}</div>`
+            :`<div style="font:500 11px/1 var(--font-ui);color:var(--text4);font-style:italic;">No agenda</div>`}
+          ${openAct>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);margin-top:3px;display:block;">⚡ ${openAct} open action${openAct!==1?'s':''}</span>`:''}
         </div>
         <button onclick="event.stopPropagation();deleteTeamMeeting('${m.id}')"
-          style="padding:3px 6px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;flex-shrink:0;">✕</button>
+          style="padding:3px 6px;border:none;background:transparent;color:var(--text4);font-size:12px;cursor:pointer;">✕</button>
       </div>
     </div>`;
   };
 
+  const emptyRow = (msg) =>
+    `<div style="padding:14px 14px;font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">${msg}</div>`;
+
+  const section = (hdr, rows, emptyMsg) => `
+    <div style="margin:0 0 4px;">
+      ${hdr}
+      <div style="background:var(--surface);border-bottom:1px solid var(--border);">
+        ${rows.length ? rows.join('') : emptyRow(emptyMsg)}
+      </div>
+    </div>`;
+
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
-      <!-- Back header -->
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+          border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
         <button onclick="_teamPersonId=null;renderAll();"
-          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Team</button>
+          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Team</button>
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
           ${renderAvatar(p.name, p.photo, 36, pc+'22', pc, false)}
           <div style="min-width:0;">
@@ -16063,521 +16613,145 @@ function renderTeamPersonDetail(container, personId){
             <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(p.role||p.department||'')}</div>
           </div>
         </div>
-        <button onclick="_teamPulseAction('prep','${personId}')"
-          style="padding:7px 12px;border-radius:8px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;">
-          ✏ Prep
-        </button>
         <button onclick="openAddPersonModal('${personId}')"
-          style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">
-          📷
-        </button>
+          style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:700 11px/1 var(--font-ui);cursor:pointer;">✏ Edit</button>
       </div>
 
-      <!-- Quick stats -->
+      <!-- Stats strip -->
       <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
-        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:${overdueDels.length>0?'#EF5350':'var(--text)'};">${activeDels.length}</div>
-          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Delegations</div>
+        <div style="flex:1;padding:9px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${activeDels.filter(d=>d.dueDate&&d.dueDate<todayStr).length?'#EF5350':'var(--text)'};">${activeDels.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:2px;">Delegations</div>
         </div>
-        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:${openWFs.length>0?'#64B5F6':'var(--text)'};">${openWFs.length}</div>
-          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Waiting for</div>
+        <div style="flex:1;padding:9px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${openWFs.length?'#E8A838':'var(--text)'};">${openWFs.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:2px;">Waiting for</div>
         </div>
-        <div style="flex:1;padding:10px 6px;text-align:center;border-right:1px solid var(--border);">
-          <div style="font:800 18px/1 var(--font-ui);color:var(--text);">${meetings.length}</div>
-          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">1:1s logged</div>
+        <div style="flex:1;padding:9px 6px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font:800 17px/1 var(--font-ui);color:${openCommsP.length?'#BA68C8':'var(--text)'};">${openCommsP.length}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:2px;">Comms</div>
         </div>
-        <div style="flex:1;padding:10px 6px;text-align:center;">
-          <div style="font:800 18px/1 var(--font-ui);color:${daysSinceLastMtg>14?'#FF8A65':daysSinceLastMtg===null?'var(--text4)':'var(--text)'};">${daysSinceLastMtg===null?'—':daysSinceLastMtg+'d'}</div>
-          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:3px;">Since 1:1</div>
+        <div style="flex:1;padding:9px 6px;text-align:center;">
+          <div style="font:800 17px/1 var(--font-ui);color:${ds>14?'#FF8A65':ds===null?'var(--text4)':'var(--text)'};">${ds===null?'—':ds+'d'}</div>
+          <div style="font:500 9px/1.2 var(--font-ui);color:var(--text4);margin-top:2px;">Since 1:1</div>
         </div>
       </div>
 
       <!-- Scrollable body -->
-      <div style="flex:1;overflow-y:auto;padding-bottom:20px;">
+      <div style="flex:1;overflow-y:auto;padding-bottom:24px;">
 
-        <!-- 1:1 Series -->
-        <div style="margin:10px 14px 0;padding:12px 14px;border-radius:10px;
-          border:1.5px solid ${series?'rgba(186,104,200,0.4)':'var(--border)'};
-          background:${series?'rgba(186,104,200,0.05)':'var(--surface2)'};">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${series?'8px':'0'};">
-            <div>
-              <div style="font:700 13px/1.2 var(--font-ui);color:${series?'#BA68C8':'var(--text3)'};">
-                🔁 ${series?series.cadence+' 1:1':'No recurring series set up'}
-              </div>
-              ${series?'<div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Next: '+(series.nextDate||'not scheduled')+(series.notes?' · '+esc(series.notes.slice(0,40)):'')+'</div>':'<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">Set a cadence for your recurring 1:1s with '+esc(p.name.split(' ')[0])+'</div>'}
-            </div>
-            <button onclick="openOneOnOneSeriesModal('${personId}')"
-              style="padding:6px 12px;border-radius:7px;border:1px solid rgba(186,104,200,0.4);
-                background:transparent;color:#BA68C8;font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:10px;">
-              ${series?'Edit':'Set up'}
-            </button>
-          </div>
-          ${series?.notes?`<div style="font:500 11px/1.5 var(--font-body);color:var(--text3);border-top:1px solid rgba(186,104,200,0.2);padding-top:8px;margin-top:4px;">${esc(series.notes)}</div>`:''}
-        </div>
+        ${section(
+          secHdr('DELEGATIONS','#64B5F6', activeDels.length, `openDelegationModal(null,'${personId}')`, '+ Add'),
+          [...activeDels.map(delRow), ...(doneDels.length?[`<div style="padding:6px 14px 2px;font:700 9px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;background:var(--surface2);">RECENTLY DONE</div>`, ...doneDels.map(delRow)]:[])],
+          'No active delegations'
+        )}
 
-        <!-- Quick actions -->
-        <div style="display:flex;gap:8px;padding:10px 14px;">
-          <button onclick="_teamPulseAction('delegate','${personId}')"
-            style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(100,181,246,0.4);
-              background:rgba(100,181,246,0.08);color:#64B5F6;font:700 12px/1.3 var(--font-ui);cursor:pointer;">
-            📋 Delegate
-          </button>
-          <button onclick="_teamPulseAction('1on1','${personId}')"
-            style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(186,104,200,0.4);
-              background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1.3 var(--font-ui);cursor:pointer;">
-            💬 Log 1:1
-          </button>
-        </div>
+        ${section(
+          secHdr('WAITING FOR','#E8A838', openWFs.length, `openWaitingModal(null,null,'${personId}')`, '+ Add'),
+          openWFs.map(wfRow),
+          'Not waiting on anything'
+        )}
 
-        <!-- Active delegations -->
-        ${activeDels.length>0?`
-          ${sectionTitle('📋 ACTIVE DELEGATIONS','#64B5F6',activeDels.length,
-            `<button onclick="_teamPulseAction('delegate','${personId}')"
-              style="padding:4px 10px;border-radius:6px;border:1px solid rgba(100,181,246,0.35);background:transparent;color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">+ Add</button>`)}
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
-            ${activeDels.map(delRow).join('')}
-          </div>`:
-          sectionTitle('📋 DELEGATIONS','var(--text4)',0,
-            `<button onclick="_teamPulseAction('delegate','${personId}')"
-              style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text4);font:700 10px/1 var(--font-ui);cursor:pointer;">+ Delegate</button>`)}
+        ${section(
+          secHdr('COMMS TO SEND','#BA68C8', openCommsP.length, `openCommsModal(null,'${personId}')`, '+ Add'),
+          [...openCommsP.map(commsRow), ...(doneCommsP.length?[`<div style="padding:6px 14px 2px;font:700 9px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;background:var(--surface2);">RECENTLY DONE</div>`, ...doneCommsP.map(commsRow)]:[])],
+          'No comms owed'
+        )}
 
-        <!-- Open waiting-fors -->
-        ${openWFs.length>0?`
-          ${sectionTitle('⏳ WAITING FOR','#64B5F6',openWFs.length)}
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
-            ${openWFs.map(w=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);" onclick="openWaitingModal(null,'${w.id}')">
-              <div style="width:8px;height:8px;border-radius:50%;background:#64B5F6;flex-shrink:0;"></div>
-              <div style="flex:1;min-width:0;">
-                <div style="font:500 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(w.what)}</div>
-                ${w.dueDate?`<div style="font:600 10px/1 var(--font-ui);color:${w.dueDate<todayStr?'#EF5350':'var(--text4)'};margin-top:2px;">📅 ${w.dueDate.slice(5)}</div>`:''}
-              </div>
-            </div>`).join('')}
-          </div>`:''}
-
-        <!-- Open tasks they're involved in -->
-        ${personTasks.length>0?`
-          ${sectionTitle('☐ RELATED TASKS','var(--accent)',personTasks.length)}
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
-            ${personTasks.slice(0,5).map(t=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="openEditTask('${t.id}')">
-              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
-              <div style="flex:1;font:500 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-              ${t.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${t.dueDate<todayStr?'#EF5350':'var(--text4)'};flex-shrink:0;">${t.dueDate.slice(5)}</span>`:''}
-            </div>`).join('')}
-            ${personTasks.length>5?`<div style="padding:8px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);">+${personTasks.length-5} more</div>`:''}
-          </div>`:''}
-
-        <!-- 1:1 history -->
-        ${sectionTitle('💬 1:1 HISTORY','#BA68C8',meetings.length,
-          `<button onclick="_teamPulseAction('1on1','${personId}')"
-            style="padding:4px 10px;border-radius:6px;border:1px solid rgba(186,104,200,0.35);background:transparent;color:#BA68C8;font:700 10px/1 var(--font-ui);cursor:pointer;">+ Log</button>`)}
-        ${meetings.length?meetings.map(mtgRow).join('')
-          :`<div style="padding:16px 14px;font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;">No 1:1s logged yet</div>`}
-
-        <!-- Done delegations -->
-        ${doneDels.length?`
-          <div style="padding:6px 14px 4px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-top:8px;">RECENTLY COMPLETED</div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;margin:0 14px;">
-            ${doneDels.map(delRow).join('')}
-          </div>`:''}
+        ${section(
+          secHdr('1:1 NOTES','#BA68C8', meetings.length, `openTeamMeetingModal(null,'1on1','${personId}')`, '+ Log'),
+          meetings.map(mtgRow),
+          'No 1:1s logged yet'
+        )}
 
       </div>
     </div>`;
 }
 
-// ── 1:1 Series Modal ──────────────────────────────────────────────
-function openOneOnOneSeriesModal(personId){
-  const p = peopleList.find(x=>x.id===personId); if(!p) return;
-  const existing = oneOnOneSeries.find(s=>s.personId===personId);
-
-  const old = document.getElementById('modal-1on1-series'); if(old) old.remove();
-  const m = document.createElement('div');
-  m.id = 'modal-1on1-series'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <div>
-        <div style="font:800 15px/1 var(--font-ui);color:#BA68C8;">🔁 1:1 Series</div>
-        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${esc(p.name)}</div>
-      </div>
-      <button class="modal-close" onclick="closeModal('modal-1on1-series')">✕</button>
-    </div>
-    <div class="field-group">
-      <div class="chip-label">Cadence</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
-        ${['Weekly','Biweekly','Monthly','Ad-hoc'].map(c=>{
-          const sel=(existing?.cadence||'Biweekly')===c;
-          return `<button type="button" onclick="document.querySelectorAll('.s1c').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='rgba(186,104,200,0.15)';this.style.borderColor='#BA68C8';this.style.color='#BA68C8';document.getElementById('s1c-val').value='${c}';"
-            class="s1c" style="flex:1;padding:8px 6px;border-radius:7px;border:1px solid ${sel?'#BA68C8':'var(--border)'};background:${sel?'rgba(186,104,200,0.15)':'transparent'};color:${sel?'#BA68C8':'var(--text3)'};font:700 11px/1.2 var(--font-ui);cursor:pointer;min-width:60px;">${c}</button>`;
-        }).join('')}
-      </div>
-      <input type="hidden" id="s1c-val" value="${existing?.cadence||'Biweekly'}"/>
-
-      <div class="chip-label">Next scheduled</div>
-      <input id="s1c-next" type="date" class="field-input" value="${existing?.nextDate||''}" style="color-scheme:dark;color:var(--text);"/>
-
-      <div class="chip-label">Standing agenda / notes</div>
-      <textarea id="s1c-notes" class="field-input" placeholder="Regular topics, what you always cover, links to shared docs…" rows="3"
-        style="resize:none;">${esc(existing?.notes||'')}</textarea>
-
-      <input type="hidden" id="s1c-person-id" value="${personId}"/>
-    </div>
-    <div class="modal-actions" style="display:flex;gap:8px;">
-      ${existing?`<button onclick="deleteOneOnOneSeries('${personId}')"
-        style="padding:13px 14px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.35);
-          background:rgba(239,83,80,0.06);color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">Remove</button>`:''}
-      <button onclick="submitOneOnOneSeries()"
-        style="flex:1;padding:14px;border-radius:var(--r3);border:none;
-          background:#BA68C8;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
-        ${existing?'✓ Save':'Set up Series'}
-      </button>
-    </div>
-  </div>`;
-  m.onclick = e => { if(e.target===m) closeModal('modal-1on1-series'); };
-  document.body.appendChild(m);
-  setTimeout(()=>_watchModalInputs(m), 80);
-}
-
-function submitOneOnOneSeries(){
-  _markModalClean();
-  const personId = document.getElementById('s1c-person-id')?.value||'';
-  const cadence  = document.getElementById('s1c-val')?.value||'Biweekly';
-  const nextDate = document.getElementById('s1c-next')?.value||'';
-  const notes    = document.getElementById('s1c-notes')?.value.trim()||'';
-  const existing = oneOnOneSeries.findIndex(s=>s.personId===personId);
-  const entry = { id:'s1c'+Date.now(), personId, cadence, nextDate, notes };
-  if(existing>-1) oneOnOneSeries[existing]=entry; else oneOnOneSeries.push(entry);
-  saveOneOnOneSeries();
-  closeModal('modal-1on1-series');
-  showToast(`🔁 1:1 series with ${peopleList.find(p=>p.id===personId)?.name||'them'} set to ${cadence}`);
-  renderAll();
-}
-
-function deleteOneOnOneSeries(personId){
-  oneOnOneSeries = oneOnOneSeries.filter(s=>s.personId!==personId);
-  saveOneOnOneSeries();
-  closeModal('modal-1on1-series');
-  showToast('Series removed');
-  renderAll();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// TEAM LEADERSHIP VIEW
-// Sections: Team Pulse · Delegations · This Week's 1:1s · Roadmap · Comms Owed
-// All data captured and managed here — separate from external-facing views
-// ═══════════════════════════════════════════════════════════════
-
-let _teamTab      = 'pulse'; // 'pulse' | 'delegations' | '1on1s' | 'roadmap' | 'comms'
-let _teamPersonId = null;    // when set, shows the single-person detail view
-// 1:1 series — one per direct report: {id, personId, cadence, nextDate, notes}
-let oneOnOneSeries = loadHubData('hub-1on1-series', []);
 
 function renderTeamPage(container){
-  // If a person is selected, show their full detail view
   if(_teamPersonId){ renderTeamPersonDetail(container, _teamPersonId); return; }
 
   const todayStr = today();
   const directReports = peopleList.filter(p=>p.isDirectReport)
     .sort((a,b)=>a.name.localeCompare(b.name));
+  const personColor = (p) => p?.priority==='High'?'#EF5350':p?.priority==='Low'?'#888':'#E8A838';
+  const daysSince = (d) => d ? Math.floor((Date.now()-new Date(d).getTime())/86400000) : null;
 
-  // ── Helpers ──────────────────────────────────────────────────
-  const personName = (id) => peopleList.find(p=>p.id===id)?.name || 'Unknown';
-  const personColor = (id) => {
-    const p = peopleList.find(x=>x.id===id);
-    return p?.priority==='High'?'#EF5350':p?.priority==='Low'?'#888':'#E8A838';
-  };
-  const daysSince = (dateStr) => dateStr
-    ? Math.floor((Date.now()-new Date(dateStr).getTime())/86400000)
-    : null;
+  const emptyState = `
+    <div style="padding:48px 20px;text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">👥</div>
+      <div style="font:700 16px/1.4 var(--font-ui);color:var(--text2);margin-bottom:8px;">No direct reports yet</div>
+      <div style="font:500 13px/1.5 var(--font-ui);color:var(--text4);margin-bottom:20px;">Edit a person in People and check "Reports to me"</div>
+      <button onclick="setNav('people')" style="padding:10px 20px;border-radius:8px;border:1px solid var(--accent);background:rgba(21,101,192,0.08);color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;">→ Go to People</button>
+    </div>`;
 
-  // ── Tab content renderers ─────────────────────────────────────
+  const cards = directReports.map(p => {
+    const pc = personColor(p);
+    const activeDels    = delegations.filter(d=>d.personId===p.id&&d.status==='active');
+    const overdueDels   = activeDels.filter(d=>d.dueDate&&d.dueDate<todayStr);
+    const openWFs       = waitingFor.filter(w=>!w.done&&((w.personIds||'').split(',').includes(p.id)||w.personId===p.id));
+    const openCommsP    = commsOwed.filter(c=>!c.done&&c.personId===p.id);
+    const lastMtg       = teamMeetings
+      .filter(m=>m.type==='1on1'&&(m.personIds||'').split(',').includes(p.id))
+      .sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const ds = daysSince(lastMtg?.date);
+    const mtgOverdue    = ds !== null && ds > 14;
+    const hasAlert      = overdueDels.length > 0 || mtgOverdue;
 
-  const renderPulse = () => {
-    if(directReports.length === 0) return `
-      <div style="padding:40px 20px;text-align:center;">
-        <div style="font-size:40px;margin-bottom:12px;">👥</div>
-        <div style="font:700 16px/1.4 var(--font-ui);color:var(--text2);margin-bottom:8px;">No direct reports yet</div>
-        <div style="font:500 13px/1.5 var(--font-ui);color:var(--text4);margin-bottom:20px;">Go to People → edit a person → check "Reports to me"</div>
-        <button onclick="openAddPersonModal()" style="padding:10px 20px;border-radius:8px;border:1px solid var(--accent);background:rgba(21,101,192,0.08);color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;">→ Go to People</button>
-      </div>`;
+    // Health dots row
+    const dots = [
+      activeDels.length   ? `<span style="font:700 10px/1 var(--font-ui);color:${overdueDels.length?'#EF5350':'#64B5F6'};background:${overdueDels.length?'rgba(239,83,80,0.1)':'rgba(100,181,246,0.1)'};padding:2px 7px;border-radius:8px;">📋 ${activeDels.length}${overdueDels.length?' overdue':''}</span>` : '',
+      openWFs.length      ? `<span style="font:700 10px/1 var(--font-ui);color:#E8A838;background:rgba(232,168,56,0.1);padding:2px 7px;border-radius:8px;">⏳ ${openWFs.length}</span>` : '',
+      openCommsP.length   ? `<span style="font:700 10px/1 var(--font-ui);color:#BA68C8;background:rgba(186,104,200,0.1);padding:2px 7px;border-radius:8px;">📣 ${openCommsP.length}</span>` : '',
+      mtgOverdue          ? `<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.1);padding:2px 7px;border-radius:8px;">💬 ${ds}d</span>` : '',
+    ].filter(Boolean).join('');
 
-    return directReports.map(p => {
-      const openDels = delegations.filter(d=>d.personId===p.id&&d.status==='active');
-      const overdueDels = openDels.filter(d=>d.dueDate&&d.dueDate<todayStr);
-      const lastMtg = teamMeetings
-        .filter(m=>m.type==='1on1'&&(m.personIds||'').split(',').includes(p.id))
-        .sort((a,b)=>b.date.localeCompare(a.date))[0];
-      const ds = daysSince(lastMtg?.date);
-      const oneOnOneOverdue = ds !== null && ds > 14;
-      const hasIssue = overdueDels.length > 0 || oneOnOneOverdue;
-      const pc = personColor(p.id);
-      const openWF = waitingFor.filter(w=>
-        !w.done && ((w.personIds||'').split(',').includes(p.id)||w.personId===p.id)
-      ).length;
-
-      return `<div class="today-card" style="margin-bottom:8px;border-color:${hasIssue?'rgba(239,83,80,0.35)':'var(--border)'};">
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;" onclick="_teamPersonId='${p.id}';renderAll();">
-          ${renderAvatar(p.name, p.photo, 40, pc+'22', pc, false)}
-          <div style="flex:1;min-width:0;">
-            <div style="font:700 15px/1.2 var(--font-ui);color:var(--text);">${esc(p.name)}</div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${esc(p.role||p.department||'')}</span>
-              ${(() => { const s = oneOnOneSeries.find(x=>x.personId===p.id); return s ? `<span style="font:600 10px/1 var(--font-ui);color:#BA68C8;background:rgba(186,104,200,0.1);padding:1px 6px;border-radius:8px;">🔁 ${s.cadence}</span>` : `<span style="font:600 10px/1 var(--font-ui);color:var(--text4);font-style:italic;">no series</span>`; })()}
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-            ${overdueDels.length>0?`<span style="font:700 10px/1 var(--font-ui);color:#EF5350;background:rgba(239,83,80,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(239,83,80,0.25);">⚠ ${overdueDels.length} overdue</span>`:''}
-            ${oneOnOneOverdue?`<span style="font:700 10px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.1);padding:2px 7px;border-radius:8px;border:1px solid rgba(255,138,101,0.25);">💬 ${ds}d no 1:1</span>`:''}
-            ${!hasIssue&&openDels.length>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:8px;">📋 ${openDels.length} active</span>`:''}
-            <span style="font-size:16px;color:var(--text4);">›</span>
-          </div>
-        </div>
-        <div style="display:flex;gap:0;">
-          <button onclick="_teamPulseAction('delegate','${p.id}')"
-            style="flex:1;padding:10px 4px;border:none;border-right:1px solid var(--border);
-              background:transparent;color:#64B5F6;font:700 11px/1.3 var(--font-ui);cursor:pointer;">
-            📋 Delegate
-          </button>
-          <button onclick="_teamPulseAction('1on1','${p.id}')"
-            style="flex:1;padding:10px 4px;border:none;border-right:1px solid var(--border);
-              background:transparent;color:#BA68C8;font:700 11px/1.3 var(--font-ui);cursor:pointer;">
-            💬 Log 1:1${lastMtg?`<br><span style="font:500 9px/1 var(--font-ui);color:var(--text4);">${lastMtg.date.slice(5)}</span>`:''}
-          </button>
-          <button onclick="_teamPulseAction('prep','${p.id}')"
-            style="flex:1;padding:10px 4px;border:none;border-right:1px solid var(--border);
-              background:transparent;color:var(--accent);font:700 11px/1.3 var(--font-ui);cursor:pointer;">
-            ✏ Prep
-          </button>
-          <button onclick="_teamPersonId='${p.id}';renderAll();"
-            style="flex:1;padding:10px 4px;border:none;
-              background:transparent;color:var(--text3);font:700 11px/1.3 var(--font-ui);cursor:pointer;">
-            👤 View all
-          </button>
-        </div>
-      </div>`;
-    }).join('');
-  };
-
-  const renderDelegations = () => {
-    const active = delegations.filter(d=>d.status==='active')
-      .sort((a,b)=>{
-        const aOv = a.dueDate&&a.dueDate<todayStr?0:1;
-        const bOv = b.dueDate&&b.dueDate<todayStr?0:1;
-        return aOv-bOv||(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz');
-      });
-    const done = delegations.filter(d=>d.status==='done').slice(0,5);
-
-    const delRow = (d) => {
-      const p = peopleList.find(x=>x.id===d.personId);
-      const pc = personColor(d.personId);
-      const isOv = d.dueDate&&d.dueDate<todayStr&&d.status==='active';
-      const ageDays = _ageInfo(d.createdAt);
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
-          border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.03);':''}">
-        <button onclick="completeDelegation('${d.id}')"
-          style="width:24px;height:24px;border-radius:50%;flex-shrink:0;margin-top:2px;
-            border:2px solid ${d.status==='done'?'var(--green)':pc};
-            background:${d.status==='done'?'var(--green)':'transparent'};
-            color:${d.status==='done'?'#fff':pc};font-size:11px;cursor:pointer;
-            display:flex;align-items:center;justify-content:center;">✓</button>
+    return `<div style="background:var(--surface);border-radius:var(--r3);border:1px solid ${hasAlert?'rgba(239,83,80,0.3)':'var(--border)'};margin-bottom:8px;overflow:hidden;">
+      <!-- Person row -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;${hasAlert?'background:rgba(239,83,80,0.02);':''}"
+        onclick="_teamPersonId='${p.id}';renderAll();">
+        ${renderAvatar(p.name, p.photo, 42, pc+'22', pc, false)}
         <div style="flex:1;min-width:0;">
-          <div style="font:600 14px/1.3 var(--font-ui);color:${d.status==='done'?'var(--text4)':' var(--text)'};${d.status==='done'?'text-decoration:line-through;':''}">${esc(d.what)}</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">
-            ${p?`<span style="font:700 10px/1 var(--font-ui);color:${pc};padding:1px 6px;border-radius:8px;background:${pc}18;border:1px solid ${pc}33;">${esc(p.name)}</span>`:''}
-            ${d.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">📅 ${d.dueDate.slice(5)}</span>`:''}
-            ${ageDays.badge}
-          </div>
-          ${d.notes?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);margin-top:4px;font-style:italic;">${esc(d.notes)}</div>`:''}
+          <div style="font:700 15px/1.2 var(--font-ui);color:var(--text);">${esc(p.name)}</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(p.role||p.department||'')}</div>
+          ${dots ? `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">${dots}</div>` : ''}
         </div>
-        <button onclick="openDelegationModal('${d.id}')"
-          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);
-            background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
-      </div>`;
-    };
-
-    return `
-      <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">${active.length} active delegation${active.length!==1?'s':''}</span>
-        <button onclick="openDelegationModal()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.08);color:#64B5F6;font:700 12px/1 var(--font-ui);cursor:pointer;">+ Delegate</button>
+        <span style="font-size:18px;color:var(--text4);">›</span>
       </div>
-      ${active.length===0?'<div style="padding:24px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No active delegations</div>':''}
-      ${active.map(delRow).join('')}
-      ${done.length>0?`
-        <div style="padding:8px 14px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);margin-top:4px;">RECENTLY DONE</div>
-        ${done.map(delRow).join('')}`:''}`;
-  };
-
-  const renderOneOnOnes = () => {
-    const mtgs = teamMeetings.filter(m=>m.type==='1on1')
-      .sort((a,b)=>b.date.localeCompare(a.date));
-    const upcomingMtgs = mtgs.filter(m=>m.date>=todayStr).slice(0,3);
-    const pastMtgs = mtgs.filter(m=>m.date<todayStr).slice(0,10);
-
-    const mtgRow = (m) => {
-      const personId = (m.personIds||'').split(',')[0];
-      const p = peopleList.find(x=>x.id===personId);
-      const pc = personColor(personId);
-      const openActions = (m.actionItems||[]).filter(a=>!a.done).length;
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:11px 14px;
-          border-bottom:1px solid var(--border);cursor:pointer;"
-          onclick="openTeamMeetingModal('${m.id}')">
-        <div style="width:36px;height:36px;border-radius:8px;background:${pc}18;
-          border:1px solid ${pc}33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font:700 11px/1 var(--font-ui);color:${pc};">${m.date.slice(5)}</span>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);">1:1 with ${esc(p?.name||'Unknown')}</div>
-          ${m.agenda?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">${esc(m.agenda.slice(0,60))}</div>`:''}
-          <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
-            ${m.decisions?`<span style="font:700 10px/1 var(--font-ui);color:#81C784;padding:1px 6px;border-radius:8px;background:rgba(129,199,132,0.1);">✅ decisions</span>`:''}
-            ${openActions>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);padding:1px 6px;border-radius:8px;background:var(--accent-soft);">⚡ ${openActions} open</span>`:''}
-          </div>
-        </div>
-        <button onclick="event.stopPropagation();deleteTeamMeeting('${m.id}')"
-          style="padding:3px 6px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
-      </div>`;
-    };
-
-    return `
-      <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">${mtgs.length} 1:1 note${mtgs.length!==1?'s':''}</span>
-        <button onclick="openTeamMeetingModal(null,'1on1')" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1 var(--font-ui);cursor:pointer;">+ Log 1:1</button>
+      <!-- Quick-add strip -->
+      <div style="display:flex;border-top:1px solid var(--border);">
+        <button onclick="event.stopPropagation();openDelegationModal(null,'${p.id}')"
+          style="flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);background:transparent;
+            color:#64B5F6;font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ Delegation</button>
+        <button onclick="event.stopPropagation();openWaitingModal(null,null,'${p.id}')"
+          style="flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);background:transparent;
+            color:#E8A838;font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ Waiting For</button>
+        <button onclick="event.stopPropagation();openCommsModal(null,'${p.id}')"
+          style="flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);background:transparent;
+            color:#BA68C8;font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ Comms</button>
+        <button onclick="event.stopPropagation();openTeamMeetingModal(null,'1on1','${p.id}')"
+          style="flex:1;padding:9px 4px;border:none;background:transparent;
+            color:var(--text3);font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ 1:1 Note</button>
       </div>
-      ${upcomingMtgs.length>0?`<div style="font:700 10px/1 var(--font-ui);color:var(--text4);padding:8px 14px 4px;letter-spacing:1px;">UPCOMING</div>${upcomingMtgs.map(mtgRow).join('')}`:''}
-      ${pastMtgs.length>0?`<div style="font:700 10px/1 var(--font-ui);color:var(--text4);padding:8px 14px 4px;letter-spacing:1px;">PAST</div>${pastMtgs.map(mtgRow).join('')}`:''}
-      ${mtgs.length===0?'<div style="padding:24px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No 1:1s logged yet</div>':''}`;
-  };
+    </div>`;
+  }).join('');
 
-  const renderRoadmap = () => {
-    const active = discoveryList.filter(i=>!['killed','launched'].includes(i.status));
-    if(active.length===0) return '<div style="padding:24px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No active initiatives in Discovery</div>';
-
-    const quarters = ['Q1','Q2','Q3','Q4'].flatMap(q=>[`${q} ${new Date().getFullYear()}`,`${q} ${new Date().getFullYear()+1}`]);
-    const byQuarter = {};
-    const unscheduled = [];
-    for(const ini of active){
-      const q = ini.engineeringTrack?.targetQuarter || ini.marketTrack?.targetQuarter;
-      if(q){ if(!byQuarter[q]) byQuarter[q]=[]; byQuarter[q].push(ini); }
-      else unscheduled.push(ini);
-    }
-
-    const iniPill = (ini) => {
-      const s = DISC_STATUS[ini.status]||DISC_STATUS.discovery;
-      const pmIds = (ini.personIds||'').split(',').filter(Boolean);
-      const pm = pmIds.length ? peopleList.find(p=>p.id===pmIds[0]) : null;
-      const openTasks = (ini.linkedTaskIds||[]).filter(id=>{ const t=tasks.find(x=>x.id===id); return t&&t.status!=='done'; }).length;
-      return `<div onclick="discActiveId='${ini.id}';discView='detail';setNav('discovery');"
-          style="padding:10px 12px;border-radius:10px;border:1px solid ${s.color}44;
-            background:${s.color}0e;cursor:pointer;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-            <span style="font:700 13px/1.3 var(--font-ui);color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ini.title)}</span>
-            <span style="font:700 10px/1 var(--font-ui);color:${s.color};padding:2px 7px;border-radius:8px;background:${s.color}18;border:1px solid ${s.color}33;white-space:nowrap;flex-shrink:0;">${s.label}</span>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;align-items:center;">
-            ${pm?`<span style="font:500 10px/1 var(--font-ui);color:var(--text3);">👤 ${esc(pm.name)}</span>`:''}
-            ${openTasks>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">⚡ ${openTasks} open tasks</span>`:''}
-            ${_ageInfo(ini.createdAt, ini.updatedAt).badge}
-          </div>
-        </div>`;
-    };
-
-    const scheduledHtml = quarters
-      .filter(q=>byQuarter[q]?.length)
-      .map(q=>`
-        <div style="margin-bottom:14px;">
-          <div style="font:800 11px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;padding:6px 0 8px;border-bottom:2px solid var(--accent-soft);margin-bottom:8px;">${q}</div>
-          ${byQuarter[q].map(iniPill).join('')}
-        </div>`).join('');
-
-    const unschHtml = unscheduled.length ? `
-      <div style="margin-bottom:14px;">
-        <div style="font:800 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;padding:6px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px;">UNSCHEDULED</div>
-        ${unscheduled.map(iniPill).join('')}
-      </div>` : '';
-
-    return `<div style="padding:10px 14px;">${scheduledHtml}${unschHtml}</div>`;
-  };
-
-  const renderComms = () => {
-    const open = commsOwed.filter(c=>!c.done)
-      .sort((a,b)=>(a.dueDate||'zzz').localeCompare(b.dueDate||'zzz'));
-    const done = commsOwed.filter(c=>c.done).slice(0,5);
-
-    const commsRow = (c) => {
-      const isOv = c.dueDate&&c.dueDate<todayStr&&!c.done;
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;
-          border-bottom:1px solid var(--border);${isOv?'background:rgba(239,83,80,0.03);':''}">
-        <button onclick="completeComms('${c.id}')"
-          style="width:24px;height:24px;border-radius:50%;flex-shrink:0;margin-top:2px;
-            border:2px solid ${c.done?'var(--green)':'#BA68C8'};
-            background:${c.done?'var(--green)':'transparent'};
-            color:${c.done?'#fff':'#BA68C8'};font-size:11px;cursor:pointer;
-            display:flex;align-items:center;justify-content:center;">✓</button>
-        <div style="flex:1;min-width:0;">
-          <div style="font:600 14px/1.3 var(--font-ui);color:${c.done?'var(--text4)':'var(--text)'};${c.done?'text-decoration:line-through;':''}">${esc(c.what)}</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;">
-            ${c.recipient?`<span style="font:700 10px/1 var(--font-ui);color:#BA68C8;padding:1px 6px;border-radius:8px;background:rgba(186,104,200,0.1);">→ ${esc(c.recipient)}</span>`:''}
-            ${c.dueDate?`<span style="font:700 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">📅 ${c.dueDate.slice(5)}</span>`:''}
-          </div>
-          ${c.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);margin-top:4px;font-style:italic;">${esc(c.context)}</div>`:''}
-        </div>
-        <button onclick="openCommsModal('${c.id}')"
-          style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);
-            background:transparent;color:var(--text4);font:600 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
-      </div>`;
-    };
-
-    return `
-      <div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">${open.length} comm${open.length!==1?'s':''} owed</span>
-        <button onclick="openCommsModal()" style="padding:6px 14px;border-radius:6px;border:1px solid rgba(186,104,200,0.4);background:rgba(186,104,200,0.08);color:#BA68C8;font:700 12px/1 var(--font-ui);cursor:pointer;">+ Add</button>
-      </div>
-      ${open.length===0?'<div style="padding:24px;text-align:center;color:var(--text4);font:500 13px/1 var(--font-ui);">No comms owed 🎉</div>':''}
-      ${open.map(commsRow).join('')}
-      ${done.length>0?`<div style="padding:8px 14px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;border-top:1px solid var(--border);margin-top:4px;">RECENTLY DONE</div>${done.map(commsRow).join('')}`:''}`;
-  };
-
-  // Tab labels and counts
-  const overdueDels = delegations.filter(d=>d.status==='active'&&d.dueDate&&d.dueDate<todayStr).length;
-  const openComms = commsOwed.filter(c=>!c.done&&c.dueDate&&c.dueDate<=todayStr).length;
-  const tabs = [
-    { id:'pulse',       label:'Team',         count: directReports.filter(p=>{ const ods=delegations.filter(d=>d.personId===p.id&&d.status==='active'&&d.dueDate&&d.dueDate<todayStr).length; return ods>0; }).length, color:'#64B5F6' },
-    { id:'delegations', label:'Delegations',  count: overdueDels,  color:'#EF5350' },
-    { id:'1on1s',       label:'1:1s',         count: 0,            color:'#BA68C8' },
-    { id:'roadmap',     label:'Roadmap',      count: 0,            color:'var(--accent)' },
-    { id:'comms',       label:'Comms',        count: openComms,    color:'#BA68C8' },
-  ];
+  const totalAlerts = delegations.filter(d=>d.status==='active'&&d.dueDate&&d.dueDate<todayStr).length
+    + commsOwed.filter(c=>!c.done&&c.dueDate&&c.dueDate<=todayStr).length;
 
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
-      <!-- Header -->
       <div class="page-hero" style="flex-shrink:0;">
         <div class="page-hero-left">
           <div class="page-hero-accent" style="color:#64B5F6;">👥 Leadership</div>
           <div class="page-hero-title">Team</div>
-          <div class="page-hero-sub">${directReports.length} direct report${directReports.length!==1?'s':''} · ${delegations.filter(d=>d.status==='active').length} active delegations</div>
+          <div class="page-hero-sub">${directReports.length} direct report${directReports.length!==1?'s':''}</div>
         </div>
       </div>
-
-      <!-- Tab bar -->
-      <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;">
-        ${tabs.map(t=>`
-          <button onclick="_teamTab='${t.id}';renderAll();"
-            style="flex:1;padding:9px 4px;border:none;min-width:60px;
-              border-bottom:2px solid ${_teamTab===t.id?t.color:'transparent'};
-              background:transparent;
-              color:${_teamTab===t.id?t.color:'var(--text3)'};
-              font:${_teamTab===t.id?'800':'600'} 11px/1.2 var(--font-ui);cursor:pointer;white-space:nowrap;transition:all 0.15s;">
-            ${t.label}${t.count>0?` <span style="background:${t.color};color:#fff;font:700 9px/1 var(--font-ui);padding:1px 4px;border-radius:8px;margin-left:2px;">${t.count}</span>`:''}
-          </button>`).join('')}
-      </div>
-
-      <!-- Tab content -->
-      <div style="flex:1;overflow-y:auto;padding:8px 10px 20px;">
-        ${_teamTab==='pulse'       ? renderPulse()       : ''}
-        ${_teamTab==='delegations' ? renderDelegations() : ''}
-        ${_teamTab==='1on1s'       ? renderOneOnOnes()   : ''}
-        ${_teamTab==='roadmap'     ? renderRoadmap()     : ''}
-        ${_teamTab==='comms'       ? renderComms()       : ''}
+      <div style="flex:1;overflow-y:auto;padding:10px 10px 24px;">
+        ${directReports.length === 0 ? emptyState : cards}
       </div>
     </div>`;
 }
@@ -16741,140 +16915,176 @@ function completeDelegation(id){
 // ── Team meeting (1:1 / team) modal ──────────────────────────────
 function openTeamMeetingModal(editId, type, prefillPersonId){
   const existing = editId ? teamMeetings.find(m=>m.id===editId) : null;
-  const mtgType = existing?.type || type || '1on1';
+  const mtgType  = existing?.type || type || '1on1';
+  const personId = prefillPersonId || (existing ? existing.personIds.split(',')[0] : '');
+  const person   = personId ? peopleList.find(p=>p.id===personId) : null;
   _activePickerList = peopleList.filter(p=>p.isDirectReport);
   if(!_activePickerList.length) _activePickerList = peopleList;
 
   const old = document.getElementById('modal-team-meeting'); if(old) old.remove();
   const m = document.createElement('div');
-  m.id = 'modal-team-meeting'; m.className = 'modal-overlay';
+  m.id = 'modal-team-meeting'; m.className = 'modal-overlay fullscreen';
 
   const prefillIds = existing?.personIds||(prefillPersonId||'');
-  const existingActions = existing?.actionItems||[];
 
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
-    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span style="font:800 15px/1 var(--font-ui);color:#BA68C8;">${mtgType==='1on1'?'💬 1:1 Notes':'👥 Team Meeting'}</span>
+  // Outstanding items from previous meetings for this person
+  const openItems = personId ? teamMeetings
+    .filter(mtg => (mtg.personIds||'').split(',').includes(personId))
+    .sort((a,b)=>b.date.localeCompare(a.date))
+    .flatMap(mtg => (mtg.actionItems||[])
+      .filter(a=>!a.done&&a.what)
+      .map(a=>({ ...a, _mtgId: mtg.id, _mtgDate: mtg.date }))
+    ) : [];
+
+  // Helper: compact inline add row
+  const addRow = (id, placeholder, color, btnLabel) =>
+    `<div style="display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface2);">
+      <input id="${id}" class="field-input" placeholder="${placeholder}" autocomplete="off"
+        style="flex:1;margin:0;padding:8px 10px;font-size:14px;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();_tm1on1Add('${id}');}"/>
+      <input id="${id}-due" type="date" style="width:110px;padding:8px 8px;border-radius:var(--r2);
+        border:1px solid var(--border);background:var(--surface);color:var(--text);
+        font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+      <button onclick="_tm1on1Add('${id}')"
+        style="padding:8px 12px;border-radius:var(--r2);border:none;background:${color};
+          color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">
+        ${btnLabel}
+      </button>
+    </div>
+    <div id="${id}-list" style="display:flex;flex-direction:column;"></div>`;
+
+  const secHdr = (label, color) =>
+    `<div style="padding:8px 12px 6px;font:800 10px/1 var(--font-ui);color:${color};
+      letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">${label}</div>`;
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="font:800 15px/1 var(--font-ui);color:#BA68C8;">💬 1:1${person?' — '+esc(person.name):''}</div>
       <button class="modal-close" onclick="closeModal('modal-team-meeting')">✕</button>
     </div>
-    <div class="field-group">
-      <div class="chip-label">${mtgType==='1on1'?'Who was this with?':'Team members present'}</div>
-      ${buildPersonPickerHTML(prefillIds, 'tm-person-ids', mtgType==='team')}
 
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1;">
-          <div class="chip-label">Date</div>
-          <input id="tm-date" type="date" class="field-input" value="${existing?.date||today()}" style="color-scheme:dark;color:var(--text);"/>
+    <div style="flex:1;overflow-y:auto;">
+
+      <!-- Person picker + date (new meeting only) -->
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);">
+        ${!existing
+          ? `<div class="chip-label" style="margin-bottom:4px;">${mtgType==='1on1'?'With':'Team members'}</div>
+             ${buildPersonPickerHTML(prefillIds, 'tm-person-ids', mtgType==='team')}`
+          : `<input type="hidden" id="tm-person-ids" value="${esc(prefillIds)}"/>`}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+          <div class="chip-label" style="margin:0;flex-shrink:0;">Date</div>
+          <input id="tm-date" type="date" class="field-input" style="margin:0;flex:1;"
+            value="${existing?.date||today()}" style="color-scheme:dark;"/>
         </div>
       </div>
 
-      <div class="chip-label">Agenda / Topics covered</div>
-      <textarea id="tm-agenda" class="field-input" placeholder="What did you cover?" rows="3"
-        style="resize:none;">${existing?esc(existing.agenda||''):''}</textarea>
+      <!-- Notes -->
+      <div style="padding:10px 12px 0;border-bottom:1px solid var(--border);">
+        <textarea id="tm-agenda" class="field-input" placeholder="Notes — what did you cover, any context…" rows="3"
+          style="resize:none;margin-bottom:0;">${existing?esc(existing.agenda||''):''}</textarea>
+      </div>
 
-      <div class="chip-label">Key decisions</div>
-      <textarea id="tm-decisions" class="field-input" placeholder="What was decided?" rows="2"
-        style="resize:none;">${existing?esc(existing.decisions||''):''}</textarea>
-
-      <div class="chip-label">Action items <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">who owns what</span></div>
-
-      <!-- Existing action items -->
-      <div id="tm-action-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
-        ${existingActions.map((a,i)=>`
-          <div id="tm-ai-${i}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <input class="tm-ai-owner" placeholder="Owner" value="${esc(a.owner||'')}"
-                style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
-              <input class="tm-ai-what" placeholder="Task…" value="${esc(a.what||'')}"
-                style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"/>
-              <button onclick="document.getElementById('tm-ai-${i}').remove();"
-                style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <input class="tm-ai-due" type="date" value="${a.dueDate||''}"
-                style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
-              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
-                <input type="checkbox" class="tm-ai-delegate" ${a.isDelegate?'checked':''} style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
-                <span style="font:700 10px/1 var(--font-ui);color:#64B5F6;">📋 Delegate</span>
-              </label>
+      <!-- Outstanding items -->
+      ${openItems.length ? `
+      <div>
+        <div style="padding:8px 12px 6px;font:800 10px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;
+          background:var(--surface2);border-top:2px solid var(--border);">
+          OUTSTANDING FROM PREVIOUS (${openItems.length})
+        </div>
+        ${openItems.map((a,i)=>`
+          <div id="oi-row-${i}" style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;
+              border-bottom:1px solid var(--border);">
+            <button onclick="toggleOpenItem(${i},'${a._mtgId}','${a.what.replace(/'/g,"\\'")}')"
+              id="oi-check-${i}"
+              style="width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;
+                border:2px solid #BA68C8;background:transparent;color:#BA68C8;
+                font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            </button>
+            <div style="flex:1;min-width:0;">
+              <div id="oi-text-${i}" style="font:500 13px/1.4 var(--font-ui);color:var(--text);">${esc(a.what)}</div>
+              <div style="display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;">
+                ${a.dueDate?`<span style="font:600 10px/1 var(--font-ui);color:${a.dueDate<today()?'#EF5350':'var(--text4)'};">📅 ${a.dueDate.slice(5)}</span>`:''}
+                <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">from ${a._mtgDate.slice(5)}</span>
+              </div>
             </div>
           </div>`).join('')}
-      </div>
+      </div>` : ''}
 
-      <!-- Add action item row -->
-      <div style="background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px 12px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          <input id="tm-new-owner" placeholder="Owner (e.g. Marcus, You)" autocomplete="off"
-            style="width:110px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
-          <input id="tm-new-what" placeholder="What needs to happen…" autocomplete="off"
-            style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();_addTmActionItem();}"/>
-          <button onclick="_addTmActionItem()"
-            style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input id="tm-new-due" type="date"
-            style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
-            <input type="checkbox" id="tm-new-delegate" style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
-            <span style="font:700 10px/1 var(--font-ui);color:#64B5F6;">📋 Delegate</span>
-          </label>
-        </div>
-      </div>
+      <!-- 📋 Delegations -->
+      ${secHdr('📋 DELEGATE TO THEM', '#64B5F6')}
+      ${addRow('tm-del', 'What are you delegating…', '#64B5F6', '+ Add')}
 
-      <input type="hidden" id="tm-edit-id" value="${editId||''}"/>
-      <input type="hidden" id="tm-type" value="${mtgType}"/>
+      <!-- ⏳ Waiting for -->
+      ${secHdr('⏳ WAITING FOR FROM THEM', '#E8A838')}
+      ${addRow('tm-wf', 'What are you waiting on…', '#E8A838', '+ Add')}
+
+      <!-- 📣 Comms to send -->
+      ${secHdr('📣 COMMS TO SEND ABOUT THEM', '#BA68C8')}
+      ${addRow('tm-comms', 'What needs to be communicated, to whom…', '#BA68C8', '+ Add')}
+
+      <!-- ☐ My tasks -->
+      ${secHdr('☐ TASKS FOR ME', 'var(--accent)')}
+      ${addRow('tm-task', 'Something you need to do…', 'var(--accent)', '+ Add')}
+
     </div>
-    <div class="modal-actions">
+
+    <input type="hidden" id="tm-edit-id" value="${editId||''}"/>
+    <input type="hidden" id="tm-type" value="${mtgType}"/>
+    <div class="modal-footer" style="flex-shrink:0;">
       <button onclick="submitTeamMeeting()"
         style="width:100%;padding:14px;border-radius:var(--r3);border:none;
           background:#BA68C8;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">
-        ${existing?'✓ Save Changes':'+ Save Notes'}
+        ${existing?'✓ Save Changes':'Save & Create Items'}
       </button>
     </div>
   </div>`;
+
   m.onclick = e => { if(e.target===m) closeModal('modal-team-meeting'); };
   document.body.appendChild(m);
   setTimeout(()=>{ _watchModalInputs(m); document.getElementById('tm-agenda')?.focus(); }, 80);
 }
 
-function _addTmActionItem(){
-  const owner = document.getElementById('tm-new-owner')?.value.trim()||'';
-  const what  = document.getElementById('tm-new-what')?.value.trim()||'';
-  const due   = document.getElementById('tm-new-due')?.value||'';
-  const isDel = document.getElementById('tm-new-delegate')?.checked||false;
-  if(!what){ showToast('Add a task first'); return; }
+// Generic add-to-list for 1:1 capture sections
+function _tm1on1Add(inputId){
+  const input = document.getElementById(inputId);
+  const due   = document.getElementById(inputId+'-due');
+  const text  = input?.value.trim();
+  if(!text) return;
 
-  const list = document.getElementById('tm-action-list');
-  const idx  = list.children.length;
-  const div  = document.createElement('div');
-  div.id = 'tm-ai-'+idx;
-  div.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;';
+  const list = document.getElementById(inputId+'-list');
+  const dueVal = due?.value||'';
+  const div = document.createElement('div');
+  div.dataset.text = text;
+  div.dataset.due  = dueVal;
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface);';
   div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <input class="tm-ai-owner" placeholder="Owner" value="${esc(owner)}"
-        style="width:90px;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px/1 var(--font-ui);outline:none;flex-shrink:0;font-size:16px;"/>
-      <input class="tm-ai-what" placeholder="Task…" value="${esc(what)}"
-        style="flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);outline:none;min-width:0;font-size:16px;"/>
-      <button onclick="this.closest('[id^=tm-ai-]').remove();"
-        style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+    <div style="flex:1;min-width:0;">
+      <div style="font:500 13px/1.3 var(--font-ui);color:var(--text);">${esc(text)}</div>
+      ${dueVal?`<div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">📅 ${dueVal.slice(5)}</div>`:''}
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <input class="tm-ai-due" type="date" value="${esc(due)}"
-        style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);color-scheme:dark;outline:none;font-size:16px;"/>
-      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;flex-shrink:0;">
-        <input type="checkbox" class="tm-ai-delegate" ${isDel?'checked':''} style="width:15px;height:15px;accent-color:#64B5F6;cursor:pointer;"/>
-        <span style="font:700 10px/1 var(--font-ui);color:${isDel?'#64B5F6':'var(--text4)'};">📋 Delegate</span>
-      </label>
-    </div>`;
+    <button onclick="this.parentElement.remove()"
+      style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>`;
   list.appendChild(div);
 
-  // Clear add row
-  document.getElementById('tm-new-owner').value='';
-  document.getElementById('tm-new-what').value='';
-  document.getElementById('tm-new-due').value='';
-  document.getElementById('tm-new-delegate').checked=false;
-  document.getElementById('tm-new-what').focus();
+  input.value = '';
+  if(due) due.value = '';
+  input.focus();
+}
+
+// Toggle an outstanding item as done from the 1:1 modal
+function toggleOpenItem(idx, mtgId, what){
+  const mtg = teamMeetings.find(m=>m.id===mtgId);
+  if(!mtg) return;
+  const item = (mtg.actionItems||[]).find(a=>a.what===what);
+  if(item){ item.done = true; saveTeamMeetings(); }
+
+  const check = document.getElementById('oi-check-'+idx);
+  const text  = document.getElementById('oi-text-'+idx);
+  const row   = document.getElementById('oi-row-'+idx);
+  if(check){ check.style.background='#BA68C8'; check.style.color='#fff'; check.textContent='✓'; check.disabled=true; }
+  if(text) { text.style.textDecoration='line-through'; text.style.color='var(--text4)'; }
+  if(row)  { row.style.opacity='0.5'; }
+  showToast('✓ Done');
 }
 
 function submitTeamMeeting(){
@@ -16882,67 +17092,78 @@ function submitTeamMeeting(){
   const personIds = document.getElementById('tm-person-ids')?.value||'';
   const date      = document.getElementById('tm-date')?.value||today();
   const agenda    = document.getElementById('tm-agenda')?.value.trim()||'';
-  const decisions = document.getElementById('tm-decisions')?.value.trim()||'';
   const editId    = document.getElementById('tm-edit-id')?.value||'';
   const type      = document.getElementById('tm-type')?.value||'1on1';
+  const personId  = personIds.split(',').filter(Boolean)[0]||'';
 
-  // Read structured action items from DOM
-  const actionItems = [...document.getElementById('tm-action-list').children].map(div=>({
-    owner:      (div.querySelector('.tm-ai-owner')?.value||'').trim(),
-    what:       (div.querySelector('.tm-ai-what')?.value||'').trim(),
-    dueDate:    div.querySelector('.tm-ai-due')?.value||'',
-    isDelegate: div.querySelector('.tm-ai-delegate')?.checked||false,
-    done:       false,
-  })).filter(a=>a.what);
+  // Read items from each capture list
+  const readList = (listId) => [...(document.getElementById(listId)?.children||[])].map(d=>({
+    text: d.dataset.text||'', due: d.dataset.due||''
+  })).filter(d=>d.text);
 
-  if(!agenda && !decisions && !actionItems.length){ showToast('Add some notes first'); return; }
+  const newDelegations = readList('tm-del-list');
+  const newWFs         = readList('tm-wf-list');
+  const newComms       = readList('tm-comms-list');
+  const newTasks       = readList('tm-task-list');
+  const hasAnything    = agenda || newDelegations.length || newWFs.length || newComms.length || newTasks.length;
 
-  const meeting = { id: editId||('tm'+Date.now()), type, personIds, date,
-    agenda, decisions, actionItems, createdAt: today() };
+  if(!hasAnything){ showToast('Add some notes or items first'); return; }
 
+  // Save the meeting note itself
+  const meeting = { id: editId||('tm'+Date.now()), type, personIds, date, agenda,
+    decisions:'', actionItems:[], createdAt: today() };
   if(editId){ const idx=teamMeetings.findIndex(m=>m.id===editId); if(idx>-1) teamMeetings[idx]=meeting; else teamMeetings.unshift(meeting); }
   else teamMeetings.unshift(meeting);
-
   saveTeamMeetings();
 
-  // Auto-create delegations for items flagged as delegate
-  const meetingPersonId = personIds.split(',').filter(Boolean)[0]||'';
-  const delegateItems = actionItems.filter(a=>a.isDelegate && a.owner.toLowerCase()!=='you' && a.owner.toLowerCase()!=='me');
-  if(delegateItems.length && meetingPersonId){
-    delegateItems.forEach(a=>{
-      // Find person by owner name, fall back to first person in meeting
-      const ownerPerson = peopleList.find(p=>
-        p.name.toLowerCase().includes(a.owner.toLowerCase()) ||
-        a.owner.toLowerCase().includes(p.name.toLowerCase().split(' ')[0])
-      );
-      const targetPersonId = ownerPerson?.id || meetingPersonId;
-      delegations.unshift({
-        id:         'del'+Date.now()+Math.random().toString(36).slice(2,6),
-        personId:   targetPersonId,
-        what:       a.what,
-        dueDate:    a.dueDate||'',
-        status:     'active',
-        notes:      `From 1:1 on ${date}`,
-        createdAt:  today(),
-        checkInDays: null,
-      });
-    });
-    saveDelegations();
-    showToast(`💬 Notes saved · ${delegateItems.length} delegation${delegateItems.length!==1?'s':''} created`);
-  } else {
-    showToast('💬 1:1 notes saved');
-  }
+  // Create delegations
+  newDelegations.forEach(d=>{
+    delegations.unshift({ id:'del'+Date.now()+Math.random().toString(36).slice(2,6),
+      personId, what:d.text, dueDate:d.due, status:'active',
+      notes:`From 1:1 on ${date}`, createdAt:today(), checkInDays:null });
+  });
+  if(newDelegations.length) saveDelegations();
+
+  // Create waiting-fors
+  newWFs.forEach(w=>{
+    waitingFor.unshift({ id:'wf'+Date.now()+Math.random().toString(36).slice(2,6),
+      person: peopleList.find(p=>p.id===personId)?.name||'',
+      personId, personIds:personId,
+      what:w.text, dueDate:w.due, done:false, createdAt:today() });
+  });
+  if(newWFs.length) saveWaiting();
+
+  // Create comms
+  newComms.forEach(c=>{
+    commsOwed.unshift({ id:'co'+Date.now()+Math.random().toString(36).slice(2,6),
+      what:c.text, recipient:'', dueDate:c.due, context:`From 1:1 on ${date}`,
+      personId, done:false, createdAt:today() });
+  });
+  if(newComms.length) saveCommsOwed();
+
+  // Create tasks for me
+  newTasks.forEach(t=>{
+    tasks.unshift({ id:'t'+Date.now()+Math.random().toString(36).slice(2,6),
+      projectId:'', title:t.text, priority:'medium', status:'todo',
+      dueDate:t.due, notes:`From 1:1 with ${peopleList.find(p=>p.id===personId)?.name||''} on ${date}`,
+      source:'meeting:'+meeting.id, recur:'none', effort:'', estimate:'', energy:'medium',
+      personIds:personId, createdAt:today(), completedAt:null, subtasks:[] });
+  });
+  if(newTasks.length) saveAllDebounced();
+
+  const total = newDelegations.length + newWFs.length + newComms.length + newTasks.length;
+  showToast(total ? `💬 Notes saved · ${total} item${total!==1?'s':''} created` : '💬 Notes saved');
 
   closeModal('modal-team-meeting');
   _completePendingMove();
   renderAll();
 }
-
 function deleteTeamMeeting(id){ teamMeetings=teamMeetings.filter(m=>m.id!==id); saveTeamMeetings(); renderAll(); }
 
 // ── Comms owed modal ──────────────────────────────────────────────
-function openCommsModal(editId){
+function openCommsModal(editId, prefillPersonId){
   const existing = editId ? commsOwed.find(c=>c.id===editId) : null;
+  const _commsPersonId = existing?.personId || prefillPersonId || '';
   const old = document.getElementById('modal-comms'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-comms'; m.className = 'modal-overlay';
@@ -16965,6 +17186,7 @@ function openCommsModal(editId){
         style="resize:none;">${existing?esc(existing.context||''):''}</textarea>
 
       <input type="hidden" id="comms-edit-id" value="${editId||''}"/>
+      <input type="hidden" id="comms-person-id" value="${_commsPersonId}"/>
     </div>
     <div class="modal-actions">
       <button onclick="submitComms()"
@@ -16989,9 +17211,10 @@ function submitComms(){
   if(!what){ showToast('What needs to be communicated?'); return; }
   if(editId){
     const c = commsOwed.find(x=>x.id===editId);
-    if(c){ c.what=what; c.recipient=recipient; c.dueDate=dueDate; c.context=context; }
+    if(c){ c.what=what; c.recipient=recipient; c.dueDate=dueDate; c.context=context; c.personId=document.getElementById('comms-person-id')?.value||c.personId||''; }
   } else {
-    commsOwed.unshift({ id:'co'+Date.now(), what, recipient, dueDate, context, done:false, createdAt:today() });
+    const _cpid = document.getElementById('comms-person-id')?.value||'';
+    commsOwed.unshift({ id:'co'+Date.now(), what, recipient, dueDate, context, personId:_cpid, done:false, createdAt:today() });
   }
   saveCommsOwed();
   closeModal('modal-comms');
@@ -17264,6 +17487,10 @@ function renderMeetingsPage(container){
               style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);
                 background:transparent;color:var(--text3);
                 font:600 11px/1 var(--font-ui);cursor:pointer;">⚙</button>
+            <button onclick="deleteMeetingSeries('${s.id}')"
+              style="padding:5px 7px;border-radius:6px;border:none;
+                background:transparent;color:var(--text4);
+                font-size:14px;cursor:pointer;" title="Delete series">✕</button>
           </div>
         </div>
         <!-- Latest occurrence (always visible if exists) -->
@@ -17716,14 +17943,14 @@ function renderWaitingFor(){
   </div>`;
 }
 
-function openWaitingModal(prefillTaskId, editId){
+function openWaitingModal(prefillTaskId, editId, prefillPersonId){
   _activePickerList = peopleList;
   const linkedTask = prefillTaskId ? tasks.find(t=>t.id===prefillTaskId) : null;
   const existing   = editId ? waitingFor.find(w=>w.id===editId) : null;
 
   // Resolve pre-selected person IDs — handles legacy items that only stored
   // person name string (w.person) without personId/personIds
-  let preselectedIds = '';
+  let preselectedIds = prefillPersonId || '';
   if(existing){
     if(existing.personIds){
       preselectedIds = existing.personIds;
@@ -17902,6 +18129,7 @@ function openIntentionsModal(){
 }
 
 function saveIntentionsFromModal(){
+  _markModalClean();
   weeklyIntentions = {
     week: getWeekKey(),
     wins: [
@@ -18530,6 +18758,7 @@ function openLogContactModal(id, closeParentId){
 }
 
 function submitLogContact(){
+  _markModalClean();
   const id     = document.getElementById('log-contact-id')?.value||'';
   const method = document.getElementById('log-method')?.value||'';
   const note   = document.getElementById('log-note')?.value.trim()||'';
@@ -18675,6 +18904,7 @@ function openAddContactModal(editId){
 }
 
 function submitAddContact(){
+  _markModalClean();
   const name=document.getElementById('contact-name')?.value||'';
   const role=document.getElementById('contact-role')?.value||'';
   const days=parseInt(document.getElementById('contact-days')?.value||'14');
@@ -18772,6 +19002,7 @@ function openAddPersonModal(editId){
 }
 
 function submitAddPerson(){
+  _markModalClean();
   const name=document.getElementById('person-name')?.value||'';
   const role=document.getElementById('person-role')?.value||'';
   const priority=document.getElementById('person-priority')?.value||'Medium';
@@ -18821,8 +19052,9 @@ function openMeetingSeriesModal(editId){
       </div>
       <input type="hidden" id="series-edit-id" value="${editId||''}"/>
     </div>
-    <div class="modal-footer">
-      <button onclick="submitMeetingSeries()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Create Series'}</button>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${existing?`<button onclick="deleteMeetingSeries('${existing.id}');closeModal('modal-series');" style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">Delete</button>`:''}
+      <button onclick="submitMeetingSeries()" style="flex:1;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Create Series'}</button>
     </div>
   </div>`;
   m.onclick=e=>{if(e.target===m)closeModal('modal-series');};
@@ -18834,6 +19066,7 @@ function openMeetingSeriesModal(editId){
 function editMeetingSeries(id){ openMeetingSeriesModal(id); }
 
 function submitMeetingSeries(){
+  _markModalClean();
   const name   = document.getElementById('series-name')?.value.trim()||'';
   const cadence= document.getElementById('series-cadence')?.value||'Weekly';
   const personIds = document.getElementById('series-person-ids')?.value||'';
@@ -21229,52 +21462,57 @@ async function pickContactPhoto(inputId, previewId, hiddenId){
   input.type = 'file'; input.accept = 'image/*';
   input.onchange = async e => {
     const file = e.target.files[0]; if(!file) return;
-
-    // Show uploading state
     const preview = document.getElementById(previewId);
     const hidden  = document.getElementById(hiddenId);
-    if(preview){ preview.style.opacity='0.4'; }
 
-    // Resize to max 256px on canvas before uploading
     const img = new Image();
-    const url = URL.createObjectURL(file);
+    const blobUrl = URL.createObjectURL(file);
     img.onload = async () => {
-      const max = 256;
+      const max = 300;
       const scale = Math.min(max/img.width, max/img.height, 1);
       const w = Math.round(img.width*scale);
       const h = Math.round(img.height*scale);
       const canvas = document.createElement('canvas');
       canvas.width=w; canvas.height=h;
       canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(blobUrl);
 
-      // Show local preview immediately while upload happens
-      if(preview){ preview.src=dataUrl; preview.style.display='block'; preview.style.opacity='0.5'; }
+      // Show preview immediately
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      if(preview){ preview.src=dataUrl; preview.style.display='block'; preview.style.opacity='0.6'; }
 
       try {
-        // Get old fileId so we can delete it from Drive when replacing
-        const oldFileId = hidden ? hidden.dataset.driveFileId || '' : '';
-        const filename  = 'contact_' + Date.now() + '.jpg';
+        // Upload to Supabase Storage
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+        const userId = _sbUserId || 'anon';
+        const path   = 'contact-photos/' + userId + '/' + Date.now() + '.jpg';
 
-        showToast('Uploading photo…');
-        const data = await apiCall('uploadPhoto', { dataUrl, filename, oldFileId });
+        const { error: uploadError } = await _sb.storage
+          .from('contact-photos')
+          .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
 
-        if(data.error) throw new Error(data.error);
+        if(uploadError) throw uploadError;
 
-        // Save the Drive URL (not base64) in the hidden field
-        if(hidden){
-          hidden.value = data.photoUrl;
-          hidden.dataset.driveFileId = data.fileId;
-        }
-        if(preview){ preview.src=data.photoUrl; preview.style.opacity='1'; }
+        const { data: urlData } = _sb.storage
+          .from('contact-photos')
+          .getPublicUrl(path);
+
+        const publicUrl = urlData && urlData.publicUrl;
+        if(!publicUrl) throw new Error('No public URL');
+
+        if(hidden){ hidden.value = publicUrl; }
+        if(preview){ preview.src = publicUrl; preview.style.opacity = '1'; }
         showToast('Photo saved ✓');
+
       } catch(err) {
-        showToast('Photo upload failed — ' + err.message);
-        if(preview){ preview.style.opacity='1'; }
+        // Fallback: store as base64 locally
+        console.warn('[photo] Supabase upload failed, using base64 fallback:', err.message);
+        if(hidden){ hidden.value = dataUrl; }
+        if(preview){ preview.style.opacity = '1'; }
+        showToast('Photo ready — tap Save ✓');
       }
     };
-    img.src = url;
+    img.src = blobUrl;
   };
   input.click();
 }
@@ -21779,17 +22017,24 @@ const ITER_STATE = {
   skipped:  { label:'Skipped',  color:'#888',    icon:'–' },
 };
 
+function getActiveIterations(ini){
+  if(!ini.iterations||!ini.iterations.length) return [];
+  return ini.iterations.filter(it=>it.state==='active');
+}
+// legacy single — returns first active or null
 function getActiveIteration(ini){
-  if(!ini.iterations||!ini.iterations.length) return null;
-  return ini.iterations.find(it=>it.state==='active') || null;
+  return getActiveIterations(ini)[0]||null;
 }
 function getIterationLabel(ini){
   if(!ini.iterations||!ini.iterations.length) return '';
-  const active = getActiveIteration(ini);
-  const total  = ini.iterations.length;
-  if(!active) return total > 0 ? `${total} iter` : '';
-  const idx = ini.iterations.indexOf(active) + 1;
-  return `v${idx} of ${total}`;
+  const total   = ini.iterations.length;
+  const actives = getActiveIterations(ini);
+  if(!actives.length) return total > 0 ? `${total} iter` : '';
+  if(actives.length === 1){
+    const idx = ini.iterations.indexOf(actives[0]) + 1;
+    return `v${idx} of ${total} active`;
+  }
+  return `${actives.length} active of ${total}`;
 }
 
 // Migrate old initiative to have iterations array if missing
@@ -21858,10 +22103,45 @@ function openIterationSheet(iniId, iterId){
         </select>
       </div>
       <div style="flex:1;">
-        <div class="chip-label">Status</div>
+        <div class="chip-label">Phase</div>
         <select id="iter-f-status" class="field-select" style="margin-bottom:0;">
           ${Object.entries(DISC_STATUS).map(([k,v])=>`<option value="${k}" ${(iter?.status||'discovery')===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
+      </div>
+    </div>
+
+    <!-- Workstream tracks -->
+    <div style="padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);margin-bottom:12px;">
+      <div style="font:800 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Workstream Progress</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <div style="flex:2;">
+          <div class="chip-label" style="margin-bottom:3px;">⚙ Engineering</div>
+          <select id="iter-f-eng" class="field-select" style="margin-bottom:0;">
+            ${ENG_STEPS.map(s=>`<option value="${s}" ${(iter?.engStatus||'none')===s?'selected':''}>${ENG_LABELS[s]}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label" style="margin-bottom:3px;">📅 Target</div>
+          <select id="iter-f-eng-q" class="field-select" style="margin-bottom:0;">
+            <option value="">—</option>
+            ${quarters.map(q=>`<option value="${q}" ${iter?.engTargetQuarter===q?'selected':''}>${q}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:2;">
+          <div class="chip-label" style="margin-bottom:3px;">📡 Market</div>
+          <select id="iter-f-mkt" class="field-select" style="margin-bottom:0;">
+            ${MKT_STEPS.map(s=>`<option value="${s}" ${(iter?.mktStatus||'signal-gathering')===s?'selected':''}>${MKT_LABELS[s]}</option>`).join('')}
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div class="chip-label" style="margin-bottom:3px;">📅 Target</div>
+          <select id="iter-f-mkt-q" class="field-select" style="margin-bottom:0;">
+            <option value="">—</option>
+            ${quarters.map(q=>`<option value="${q}" ${iter?.mktTargetQuarter===q?'selected':''}>${q}</option>`).join('')}
+          </select>
+        </div>
       </div>
     </div>
 
@@ -21885,6 +22165,7 @@ function openIterationSheet(iniId, iterId){
 }
 
 function submitIterationSheet(){
+  _markModalClean();
   const iniId  = document.getElementById('iter-f-iniid')?.value||'';
   const iterId = document.getElementById('iter-f-id')?.value||'';
   const ini    = discoveryList.find(i=>i.id===iniId); if(!ini) return;
@@ -21897,27 +22178,27 @@ function submitIterationSheet(){
   const q       = document.getElementById('iter-f-q')?.value||'';
   const status  = document.getElementById('iter-f-status')?.value||'discovery';
   const outcome = document.getElementById('iter-f-outcome')?.value.trim()||'';
+  const engStatus       = document.getElementById('iter-f-eng')?.value||'none';
+  const engTargetQuarter= document.getElementById('iter-f-eng-q')?.value||'';
+  const mktStatus       = document.getElementById('iter-f-mkt')?.value||'signal-gathering';
+  const mktTargetQuarter= document.getElementById('iter-f-mkt-q')?.value||'';
 
   if(iterId){
     const idx = ini.iterations.findIndex(it=>it.id===iterId);
     if(idx>-1){
       // If activating this one, deactivate any current active
-      if(state==='active'){
-        ini.iterations.forEach(it=>{ if(it.state==='active'&&it.id!==iterId) it.state='complete'; });
-      }
-      ini.iterations[idx] = { ...ini.iterations[idx], label, state, goal, hypothesis:hyp, targetQuarter:q, status, outcome,
+      // multiple iterations can be active simultaneously — no auto-close
+      ini.iterations[idx] = { ...ini.iterations[idx], label, state, goal, hypothesis:hyp, targetQuarter:q, status, outcome, engStatus, engTargetQuarter, mktStatus, mktTargetQuarter,
         startedAt: state==='active' && !ini.iterations[idx].startedAt ? today() : ini.iterations[idx].startedAt,
         closedAt:  (state==='complete'||state==='killed') && !ini.iterations[idx].closedAt ? today() : ini.iterations[idx].closedAt
       };
     }
   } else {
-    // New iteration
-    if(state==='active'){
-      ini.iterations.forEach(it=>{ if(it.state==='active') it.state='complete'; });
-    }
+    // New iteration — multiple can be active simultaneously
     ini.iterations.push({
       id: 'iter_'+Date.now(),
       label, state, goal, hypothesis:hyp, targetQuarter:q, status, outcome,
+      engStatus, engTargetQuarter, mktStatus, mktTargetQuarter,
       confidence: 'low',
       startedAt: state==='active' ? today() : null,
       closedAt:  null,
@@ -21952,13 +22233,8 @@ function deleteIteration(iniId, iterId){
 function activateIteration(iniId, iterId){
   const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
   migrateInitiativeIterations(ini);
-  // Close current active
-  ini.iterations.forEach(it=>{
-    if(it.state==='active'){ it.state='complete'; if(!it.closedAt) it.closedAt=today(); }
-  });
   const iter = ini.iterations.find(it=>it.id===iterId);
-  if(iter){ iter.state='active'; iter.startedAt=today(); }
-  ini.status    = iter?.status || ini.status;
+  if(iter){ iter.state='active'; iter.startedAt=iter.startedAt||today(); }
   ini.updatedAt = today();
   saveDiscovery();
   showToast('▶ Iteration activated');
@@ -21989,7 +22265,7 @@ function renderIterationPipeline(ini, compact){
           </div>
         </div>`;
       }).join('')}
-      <span style="font:700 10px/1 var(--font-ui);color:var(--text4);margin-left:4px;">${getIterationLabel(ini)}</span>
+      ${(()=>{ const actives=getActiveIterations(ini); return `<span style="font:700 10px/1 var(--font-ui);color:${actives.length>1?'#E8A838':'var(--text4)'};margin-left:4px;">${getIterationLabel(ini)}</span>`; })()}
       ${iters.find(it=>it.targetQuarter&&it.state!=='complete'&&it.state!=='killed')?
         `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-left:2px;">· ${iters.find(it=>it.targetQuarter&&it.state==='active')?.targetQuarter||iters.find(it=>it.targetQuarter&&it.state==='planned')?.targetQuarter}</span>`:''}
     </div>`;
@@ -22035,6 +22311,19 @@ function renderIterationPipeline(ini, compact){
               ${it.goal?`<div style="font:500 11px/1.4 var(--font-ui);color:${isDone?'var(--text4)':'var(--text3)'};margin-bottom:${it.outcome?'4px':'0'};">🎯 ${esc(it.goal)}</div>`:''}
               ${it.hypothesis&&isActive?`<div style="font:400 11px/1.4 var(--font-body);color:var(--text3);font-style:italic;margin-top:3px;">"${esc(it.hypothesis)}"</div>`:''}
               ${it.outcome?`<div style="font:600 11px/1.4 var(--font-ui);color:${it.state==='killed'?'#EF5350':'#81C784'};margin-top:4px;padding:4px 8px;border-radius:5px;background:${it.state==='killed'?'rgba(239,83,80,0.07)':'rgba(129,199,132,0.07)'};">→ ${esc(it.outcome)}</div>`:''}
+              ${(it.engStatus&&it.engStatus!=='none')||(it.mktStatus&&it.mktStatus!=='signal-gathering')?`
+              <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
+                ${it.engStatus&&it.engStatus!=='none'?`<div style="display:flex;align-items:center;gap:5px;">
+                  <span style="font:700 9px/1 var(--font-ui);color:#64B5F6;width:22px;flex-shrink:0;">ENG</span>
+                  <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden;"><div style="height:100%;background:#64B5F6;width:${discTrackPct(ENG_STEPS,it.engStatus)}%;border-radius:2px;"></div></div>
+                  <span style="font:500 9px/1 var(--font-ui);color:#64B5F6;opacity:0.8;">${ENG_LABELS[it.engStatus]||''}${it.engTargetQuarter?' · '+it.engTargetQuarter:''}</span>
+                </div>`:''}
+                ${it.mktStatus?`<div style="display:flex;align-items:center;gap:5px;">
+                  <span style="font:700 9px/1 var(--font-ui);color:#81C784;width:22px;flex-shrink:0;">MKT</span>
+                  <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden;"><div style="height:100%;background:#81C784;width:${discTrackPct(MKT_STEPS,it.mktStatus)}%;border-radius:2px;"></div></div>
+                  <span style="font:500 9px/1 var(--font-ui);color:#81C784;opacity:0.8;">${MKT_LABELS[it.mktStatus]||''}${it.mktTargetQuarter?' · '+it.mktTargetQuarter:''}</span>
+                </div>`:''}
+              </div>`:``}
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0;">
               ${isPlanned?`<button onclick="event.stopPropagation();activateIteration('${ini.id}','${it.id}')"
@@ -22118,7 +22407,10 @@ function renderDiscoveryWithFilter(container, status){
 function renderDiscoveryCard(ini){
   migrateInitiativeIterations(ini);
   const signals = getInitiativeSignals(ini.id);
-  const owner   = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
+  const _roles   = ini.roles||{};
+  const pmPeople  = (_roles.pm||ini.owner||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const emPeople  = (_roles.em||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const smePeople = (_roles.sme||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
   const lastSig = signals[0];
   const confirmsN    = signals.filter(s=>s.sentiment==='confirms').length;
   const contradictsN = signals.filter(s=>s.sentiment==='contradicts').length;
@@ -22167,7 +22459,8 @@ function renderDiscoveryCard(ini){
       ${confirmsN?`<span style="font-size:10px;color:#81C784;font-family:var(--font-ui);">✓ ${confirmsN}</span>`:''}
       ${contradictsN?`<span style="font-size:10px;color:#EF5350;font-family:var(--font-ui);">✗ ${contradictsN}</span>`:''}
       ${openTaskCt>0?`<span style="font:600 10px/1.4 var(--font-ui);color:var(--accent);">☐ ${openTaskCt}</span>`:''}
-      ${owner?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
+      ${pmPeople.map(p=>`<span style="font:600 10px/1.4 var(--font-ui);color:#BA68C8;">PM: ${esc(p.name)}</span>`).join('')}
+      ${emPeople.map(p=>`<span style="font:600 10px/1.4 var(--font-ui);color:#64B5F6;">EM: ${esc(p.name)}</span>`).join('')}
       ${_discAi.badge || (lastSig?`<span style="font:500 10px/1.4 var(--font-ui);color:var(--text4);">${lastSig.date.slice(5)}</span>`:'')}
       <button onclick="event.stopPropagation();openSignalModal('${ini.id}')"
         style="margin-left:auto;padding:3px 10px;border-radius:12px;border:none;
@@ -22201,8 +22494,12 @@ function renderDiscoveryDetail(container){
 
   const engPct = discTrackPct(ENG_STEPS, ini.engineeringTrack?.status||'none');
   const mktPct = discTrackPct(MKT_STEPS, ini.marketTrack?.status||'signal-gathering');
-  const owner  = ini.owner ? peopleList.find(p=>p.id===ini.owner) : null;
+  const _detailRoles = ini.roles||{};
+  const _pmPeople  = (_detailRoles.pm||ini.owner||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const _emPeople  = (_detailRoles.em||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
+  const _smePeople = (_detailRoles.sme||'').split(',').filter(Boolean).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
   const linkedMeetings  = (ini.linkedMeetingIds||[]).map(id=>meetingLog.find(m=>m.id===id)).filter(Boolean);
+  const linkedOrgs      = (ini.linkedOrgIds||[]).map(id=>clientOrgs.find(o=>o.id===id)).filter(Boolean);
   const linkedPeople    = (ini.linkedPersonIds||[]).map(id=>peopleList.find(p=>p.id===id)).filter(Boolean);
   const linkedTasks     = (ini.linkedTaskIds||[]).map(id=>tasks.find(t=>t.id===id)).filter(Boolean).filter(t=>t.status!=='done');
   const linkedWaiting   = waitingFor.filter(w=>!w.done && w.initiativeId===ini.id);
@@ -22229,9 +22526,9 @@ function renderDiscoveryDetail(container){
       ${ini.problemStatement?`<div style="font-size:12px;color:var(--text3);margin-bottom:4px;">${esc(ini.problemStatement)}</div>`:''}
       <div style="display:flex;align-items:center;gap:var(--sp2);flex-wrap:wrap;">
         <div>${discConfidencePips(ini.confidence||'low')} <span style="font:var(--type-caption);color:var(--text3);">${(ini.confidence||'low')} confidence</span></div>
-        ${owner?`<span style="font:var(--type-caption);color:var(--text4);">👤 ${esc(owner.name)}</span>`:''}
         ${ini.targetSegment?`<span style="font:var(--type-caption);color:var(--text4);">🎯 ${esc(ini.targetSegment)}</span>`:''}
       </div>
+      ${(_pmPeople.length||_emPeople.length||_smePeople.length)?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${_pmPeople.map(p=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;background:rgba(186,104,200,0.1);border:1px solid rgba(186,104,200,0.25);font:600 11px/1 var(--font-ui);color:#BA68C8;">PM: ${esc(p.name)}</span>`).join('')}${_emPeople.map(p=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;background:rgba(100,181,246,0.1);border:1px solid rgba(100,181,246,0.25);font:600 11px/1 var(--font-ui);color:#64B5F6;">EM: ${esc(p.name)}</span>`).join('')}${_smePeople.map(p=>`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;background:rgba(129,199,132,0.1);border:1px solid rgba(129,199,132,0.25);font:600 11px/1 var(--font-ui);color:#81C784;">SME: ${esc(p.name)}</span>`).join('')}</div>`:''}
     </div>
 
     <!-- Scrollable body -->
@@ -22264,12 +22561,7 @@ function renderDiscoveryDetail(container){
         }`;
       })()}
 
-      <!-- Two-track progress -->
-      <div class="disc-section-hdr">PROGRESS TRACKS</div>
-      <div style="padding:4px 14px 12px;display:flex;flex-direction:column;gap:var(--sp2);">
-        ${renderTrackRow('ENG','#64B5F6',ENG_STEPS,ENG_LABELS,ini.engineeringTrack||{},'eng',ini.id)}
-        ${renderTrackRow('MKT','#81C784',MKT_STEPS,MKT_LABELS,ini.marketTrack||{},'mkt',ini.id)}
-      </div>
+
 
       <!-- AI Brief -->
       <div class="disc-section-hdr" style="display:flex;align-items:center;justify-content:space-between;padding-right:14px;">
@@ -22353,6 +22645,14 @@ function renderDiscoveryDetail(container){
       <!-- Linked objects -->
       <div class="disc-section-hdr">LINKED</div>
       <div style="padding:0 14px 10px;display:flex;flex-direction:column;gap:var(--sp2);">
+        <!-- Clients -->
+        <div>
+          <div style="font-size:10px;font-family:var(--font-ui);color:#81C784;font-weight:700;margin-bottom:4px;">CLIENTS</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${linkedOrgs.map(o=>`<span onclick="_clientOrgId='${o.id}';_clientView='detail';setNav('clients');" style="font-size:11px;padding:3px 9px;border-radius:6px;background:rgba(129,199,132,0.1);color:#81C784;border:1px solid rgba(129,199,132,0.25);cursor:pointer;">🏢 ${esc(o.name.slice(0,22))}</span>`).join('')}
+            <button onclick="openLinkOrgModal('${ini.id}')" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px dashed var(--border);background:transparent;color:var(--text4);cursor:pointer;">+ Link client</button>
+          </div>
+        </div>
         <!-- Meetings -->
         <div>
           <div style="font-size:10px;font-family:var(--font-ui);color:var(--text4);margin-bottom:4px;">MEETINGS</div>
@@ -22484,31 +22784,23 @@ function openDiscoveryModal(editId){
         </div>
       </div>
       <input id="disc-f-segment" class="field-input" placeholder="Target segment (e.g. Regional health plans, VP Network Ops)…" value="${ini?esc(ini.targetSegment||''):''}"/>
-      <div class="chip-label">Owner</div>
-      ${buildPersonPickerHTML(ini?.owner||'', 'disc-f-owner')}
-      <div class="chip-label" style="margin-top:10px;">Engineering Track</div>
-      <div style="display:flex;gap:var(--sp2);">
-        <select id="disc-f-eng-status" class="field-select" style="flex:2;">
-          ${ENG_STEPS.map(s=>`<option value="${s}" ${(ini?.engineeringTrack?.status||'none')===s?'selected':''}>${ENG_LABELS[s]}</option>`).join('')}
-        </select>
-        <select id="disc-f-eng-q" class="field-select" style="flex:1;">
-          <option value="">Quarter…</option>
-          ${quarters.map(q=>`<option value="${q}" ${ini?.engineeringTrack?.targetQuarter===q?'selected':''}>${q}</option>`).join('')}
-        </select>
+      <!-- Role-based owners -->
+      <div style="margin-top:10px;padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);">
+        <div style="font:800 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Team Roles</div>
+        <div style="margin-bottom:10px;">
+          <div class="chip-label" style="margin-bottom:4px;">🧭 Product Manager</div>
+          ${buildPersonPickerHTML(ini?.roles?.pm||ini?.owner||'', 'disc-f-pm', true)}
+        </div>
+        <div style="margin-bottom:10px;">
+          <div class="chip-label" style="margin-bottom:4px;">⚙️ Engineering Manager</div>
+          ${buildPersonPickerHTML(ini?.roles?.em||'', 'disc-f-em', true)}
+        </div>
+        <div>
+          <div class="chip-label" style="margin-bottom:4px;">🔬 Subject Matter Experts</div>
+          ${buildPersonPickerHTML(ini?.roles?.sme||'', 'disc-f-sme', true)}
+        </div>
       </div>
-      <input id="disc-f-eng-date" type="date" class="field-input" style="color-scheme:dark;" value="${ini?.engineeringTrack?.targetDate||''}"/>
-      <div class="chip-label">Market Track</div>
-      <div style="display:flex;gap:var(--sp2);">
-        <select id="disc-f-mkt-status" class="field-select" style="flex:2;">
-          ${MKT_STEPS.map(s=>`<option value="${s}" ${(ini?.marketTrack?.status||'signal-gathering')===s?'selected':''}>${MKT_LABELS[s]}</option>`).join('')}
-        </select>
-        <select id="disc-f-mkt-q" class="field-select" style="flex:1;">
-          <option value="">Quarter…</option>
-          ${quarters.map(q=>`<option value="${q}" ${ini?.marketTrack?.targetQuarter===q?'selected':''}>${q}</option>`).join('')}
-        </select>
-      </div>
-      <input id="disc-f-mkt-date" type="date" class="field-input" style="color-scheme:dark;" value="${ini?.marketTrack?.targetDate||''}"/>
-      <input type="hidden" id="disc-f-id" value="${editId||''}"/>
+      <input type="hidden" id="disc-f-id" value="${editId||''}"\/>
     </div>
     <div class="modal-footer" style="display:flex;gap:var(--sp2);">
       ${ini?`<button onclick="deleteDiscoveryInitiative('${ini.id}')" style="padding:12px 16px;border-radius:9px;border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font-family:var(--font-ui);font-size:13px;font-weight:700;cursor:pointer;">Delete</button>`:''}
@@ -22521,6 +22813,7 @@ function openDiscoveryModal(editId){
 }
 
 function submitDiscoveryModal(){
+  _markModalClean();
   const title = document.getElementById('disc-f-title')?.value.trim()||'';
   if(!title){ showToast('Initiative needs a title'); return; }
   const id = document.getElementById('disc-f-id')?.value||'';
@@ -22532,22 +22825,20 @@ function submitDiscoveryModal(){
     status:           document.getElementById('disc-f-status')?.value||'discovery',
     confidence:       document.getElementById('disc-f-confidence')?.value||'low',
     targetSegment:    document.getElementById('disc-f-segment')?.value.trim()||'',
-    owner:            document.getElementById('disc-f-owner')?.value||'',
-    engineeringTrack: {
-      status:        document.getElementById('disc-f-eng-status')?.value||'none',
-      targetQuarter: document.getElementById('disc-f-eng-q')?.value||'',
-      targetDate:    document.getElementById('disc-f-eng-date')?.value||'',
+    roles: {
+      pm:  document.getElementById('disc-f-pm')?.value||'',
+      em:  document.getElementById('disc-f-em')?.value||'',
+      sme: document.getElementById('disc-f-sme')?.value||'',
     },
-    marketTrack: {
-      status:        document.getElementById('disc-f-mkt-status')?.value||'signal-gathering',
-      targetQuarter: document.getElementById('disc-f-mkt-q')?.value||'',
-      targetDate:    document.getElementById('disc-f-mkt-date')?.value||'',
-    },
+    owner: document.getElementById('disc-f-pm')?.value.split(',')[0]||'', // legacy compat
+    engineeringTrack: id ? (discoveryList.find(i=>i.id===id)?.engineeringTrack||{}) : {},
+    marketTrack:      id ? (discoveryList.find(i=>i.id===id)?.marketTrack||{})      : {},
     linkedMeetingIds: id ? (discoveryList.find(i=>i.id===id)?.linkedMeetingIds||[]) : [],
     linkedPersonIds:  id ? (discoveryList.find(i=>i.id===id)?.linkedPersonIds||[])  : [],
     linkedTaskIds:    id ? (discoveryList.find(i=>i.id===id)?.linkedTaskIds||[])    : [],
     openQuestions:    id ? (discoveryList.find(i=>i.id===id)?.openQuestions||[])    : [],
     iterations:       id ? (discoveryList.find(i=>i.id===id)?.iterations||[])       : [],
+    linkedOrgIds:     id ? (discoveryList.find(i=>i.id===id)?.linkedOrgIds||[])      : [],
     prd:              id ? (discoveryList.find(i=>i.id===id)?.prd||'')              : '',
     lastSynthesis:    id ? (discoveryList.find(i=>i.id===id)?.lastSynthesis||null)  : null,
     lastMarketPull:   id ? (discoveryList.find(i=>i.id===id)?.lastMarketPull||null) : null,
@@ -22711,6 +23002,59 @@ function updateTrackStatus(iniId, type, status){
 }
 
 // ── Link modals ──────────────────────────────────────────────────
+function openLinkOrgModal(iniId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.linkedOrgIds) ini.linkedOrgIds = [];
+  const old = document.getElementById('modal-disc-org'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id='modal-disc-org'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:700 14px/1 var(--font-ui);color:#81C784;">🏢 Link Clients</div>
+      <button class="modal-close" onclick="closeModal('modal-disc-org')">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;">
+      ${clientOrgs.length===0
+        ? `<div style="padding:24px;text-align:center;font:500 13px/1.5 var(--font-ui);color:var(--text4);">No client orgs yet — add them in the Clients tab.</div>`
+        : clientOrgs.map(o=>{
+            const linked = (ini.linkedOrgIds||[]).includes(o.id);
+            const h = _CLIENT_HEALTH[o.health||'active'];
+            return `<div onclick="toggleLinkOrg('${iniId}','${o.id}')"
+              style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;background:${linked?'rgba(129,199,132,0.06)':'transparent'};">
+              <div style="width:18px;height:18px;border-radius:4px;flex-shrink:0;
+                border:2px solid ${linked?'#81C784':'var(--border2)'};
+                background:${linked?'#81C784':'transparent'};
+                display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:900;">
+                ${linked?'✓':''}
+              </div>
+              <div style="width:8px;height:8px;border-radius:50%;background:${h.color};flex-shrink:0;"></div>
+              <span style="flex:1;font:600 13px/1 var(--font-ui);color:var(--text);">${esc(o.name)}</span>
+              ${o.segment?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${esc(o.segment)}</span>`:''}
+            </div>`;
+          }).join('')}
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('modal-disc-org');renderAll();" style="width:100%;padding:12px;border-radius:9px;border:none;background:#81C784;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">Done</button>
+    </div>
+  </div>`;
+  m.onclick=e=>{if(e.target===m){closeModal('modal-disc-org');renderAll();}};
+  document.body.appendChild(m); openModal('modal-disc-org');
+}
+
+function toggleLinkOrg(iniId, orgId){
+  const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
+  if(!ini.linkedOrgIds) ini.linkedOrgIds=[];
+  const idx = ini.linkedOrgIds.indexOf(orgId);
+  if(idx>-1){ ini.linkedOrgIds.splice(idx,1); }
+  else       { ini.linkedOrgIds.push(orgId); }
+  saveDiscovery();
+  // Re-render the modal in place
+  const modal = document.getElementById('modal-disc-org');
+  if(modal) { closeModal('modal-disc-org'); openLinkOrgModal(iniId); }
+  const linked = ini.linkedOrgIds.includes(orgId);
+  showToast(linked ? '🏢 Client linked' : 'Client unlinked');
+}
+
 function openLinkMeetingModal(iniId){
   const ini = discoveryList.find(i=>i.id===iniId); if(!ini) return;
   const old = document.getElementById('modal-disc-link'); if(old) old.remove();
@@ -24691,6 +25035,7 @@ let _modalForceClose = false;  // set true to bypass guard (on Save)
 
 // Call this from Save buttons to bypass the guard
 function _markModalClean(){ _modalDirty = false; _modalDirtyId = null; }
+function saveAndClose(id){ _markModalClean(); closeModal(id); }
 
 // Attach input listeners to a modal element so we can detect changes
 function _watchModalInputs(el){
@@ -24707,13 +25052,47 @@ function _watchModalInputs(el){
 
 function openModal(id){
   const el=document.getElementById(id); if(!el) return;
-  _modalDirty = false;   // reset dirty flag every time a modal opens
+  _modalDirty = false;
   _modalDirtyId = id;
   el.style.display="flex";
-  // Watch for changes — slight delay so the modal's innerHTML is populated first
   setTimeout(()=> _watchModalInputs(el), 80);
   if(id==="modal-morning") setTimeout(generateMorningBriefing, 200);
 }
+
+// ── Keyboard-aware bottom sheet nudging ─────────────────────────────
+// When the virtual keyboard opens, shift bottom sheets up so the
+// focused input stays visible above the keyboard.
+(function(){
+  if(!window.visualViewport) return;
+
+  function nudgeSheets(){
+    const vv = window.visualViewport;
+    const kbHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+
+    // .modal-sheet inside .modal-overlay
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      if(overlay.style.display === 'none') return;
+      const sheet = overlay.querySelector('.modal-sheet');
+      if(!sheet) return;
+      sheet.style.transition = 'transform 0.15s ease, max-height 0.15s ease';
+      sheet.style.transform  = kbHeight > 0 ? 'translateY(-' + kbHeight + 'px)' : '';
+      sheet.style.maxHeight  = kbHeight > 0 ? (vv.height - 16) + 'px' : '';
+    });
+
+    // Inline bottom action sheets (e.g. sheet-iteration, _unsaved-sheet)
+    document.querySelectorAll('[id$="-sheet"],[id^="sheet-"]').forEach(wrap => {
+      if(!wrap || wrap.style.display === 'none') return;
+      // The inner rounded div is the first child
+      const inner = wrap.firstElementChild;
+      if(!inner) return;
+      inner.style.transition = 'transform 0.15s ease';
+      inner.style.transform  = kbHeight > 0 ? 'translateY(-' + kbHeight + 'px)' : '';
+    });
+  }
+
+  window.visualViewport.addEventListener('resize', nudgeSheets, {passive:true});
+  window.visualViewport.addEventListener('scroll', nudgeSheets, {passive:true});
+})();
 
 // Modals that should NEVER trigger the unsaved warning (read-only / action modals)
 const _MODAL_NO_DIRTY_CHECK = new Set([
@@ -28695,6 +29074,7 @@ function renderKidsGame(container) {
     {id:2, label:'🎡 Spin'},
     {id:3, label:'🎁 Prizes'},
     {id:4, label:'🎁 Rewards'},
+    {id:5, label:'⚙ Settings'},
   ];
 
   let html = `<div class="kids-wrap">`;
@@ -28711,6 +29091,7 @@ function renderKidsGame(container) {
   else if (kidsActiveTab === 2) html += renderKidsSpin(d);
   else if (kidsActiveTab === 3) html += renderKidsPrizeLog(d);
   else if (kidsActiveTab === 4) html += renderJasonRewardsTab();
+  else if (kidsActiveTab === 5) html += renderKidsSettingsTab(d);
 
   html += `</div>`;
   container.innerHTML = html;
@@ -28917,7 +29298,208 @@ function renderKidsScores(d) {
   });
 
   html += `</div>`; // close kids-scores-row
+  html += renderChallengeSection(d);
   return html;
+}
+
+function renderKidsSettingsTab(d){
+  const sc = d.streakConfig || {};
+  const milestones = sc.milestones || [{days:7,bonus:5},{days:3,bonus:2}];
+  const graceHours = sc.graceHours !== undefined ? sc.graceHours : 0;
+  const streakEnabled = sc.enabled !== false;
+
+  const msRows = milestones.map((ms,i)=>`
+    <div id="streak-ms-${i}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <div style="flex:1;background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:8px 10px;display:flex;align-items:center;gap:6px;">
+        <span style="font:700 12px/1 var(--font-ui);color:var(--text3);white-space:nowrap;">Every</span>
+        <input id="streak-days-${i}" type="number" min="2" max="365" value="${ms.days}"
+          style="width:52px;padding:5px 7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:700 14px/1 var(--font-ui);text-align:center;outline:none;"/>
+        <span style="font:700 12px/1 var(--font-ui);color:var(--text3);white-space:nowrap;">days</span>
+        <span style="font:600 11px/1 var(--font-ui);color:var(--text4);margin:0 4px;">→</span>
+        <span style="font:700 12px/1 var(--font-ui);color:#FF8C00;white-space:nowrap;">+</span>
+        <input id="streak-bonus-${i}" type="number" min="0" max="999" value="${ms.bonus}"
+          style="width:52px;padding:5px 7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:#FF8C00;font:800 14px/1 var(--font-ui);text-align:center;outline:none;"/>
+        <span style="font:700 12px/1 var(--font-ui);color:#FF8C00;white-space:nowrap;">⭐ bonus</span>
+      </div>
+      <button onclick="removeStreakMilestone(${i})"
+        style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`).join('');
+
+  return `<div class="kids-wrap" style="padding:12px 14px;">
+
+    <!-- Streak section -->
+    <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font:800 13px/1 var(--font-ui);color:var(--text);">🔥 Daily Streaks</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:3px;">Bonus points for earning on consecutive days</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="streak-enabled" ${streakEnabled?'checked':''}
+            onchange="saveStreakConfig()"
+            style="width:18px;height:18px;accent-color:#FF8C00;cursor:pointer;"/>
+          <span style="font:700 11px/1 var(--font-ui);color:var(--text3);">On</span>
+        </label>
+      </div>
+
+      <div id="streak-ms-list" style="${streakEnabled?'':'opacity:0.4;pointer-events:none;'}">
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">MILESTONE BONUSES</div>
+        <div id="streak-milestones-wrap">
+          ${msRows}
+        </div>
+        <button onclick="addStreakMilestone()"
+          style="width:100%;padding:8px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--text4);font:700 11px/1 var(--font-ui);cursor:pointer;margin-top:4px;transition:all 0.12s;"
+          onmouseover="this.style.borderColor='#FF8C00';this.style.color='#FF8C00'"
+          onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text4)'">
+          + Add milestone
+        </button>
+
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">DAILY REQUIREMENTS</div>
+          <div style="display:flex;gap:10px;margin-bottom:8px;">
+            <div style="flex:1;background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px;">
+              <div style="font:700 10px/1 var(--font-ui);color:var(--text4);margin-bottom:6px;">MIN PTS/DAY</div>
+              <input id="streak-min-pts" type="number" min="0" max="999"
+                value="${sc.minDailyPts!==undefined?sc.minDailyPts:5}"
+                style="width:100%;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:800 16px/1 var(--font-ui);text-align:center;outline:none;"/>
+            </div>
+            <div style="flex:1;background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:10px;">
+              <div style="font:700 10px/1 var(--font-ui);color:var(--text4);margin-bottom:6px;">MIN CHORES/DAY</div>
+              <input id="streak-min-chores" type="number" min="0" max="99"
+                value="${sc.minDailyChores!==undefined?sc.minDailyChores:2}"
+                style="width:100%;padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:800 16px/1 var(--font-ui);text-align:center;outline:none;"/>
+            </div>
+          </div>
+          <div style="font:500 10px/1.5 var(--font-ui);color:var(--text4);padding:5px 8px;border-radius:6px;background:rgba(255,140,0,0.06);border:1px solid rgba(255,140,0,0.2);margin-bottom:0;">
+            Both thresholds must be met in a single day to count as a streak day.
+          </div>
+        </div>
+
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">GRACE PERIOD</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="flex:1;font:500 12px/1.4 var(--font-ui);color:var(--text3);">Allow streak to continue if earned within</div>
+            <select id="streak-grace" onchange="saveStreakConfig()"
+              style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font:700 12px/1 var(--font-ui);outline:none;">
+              <option value="0" ${graceHours===0?'selected':''}>No grace</option>
+              <option value="6" ${graceHours===6?'selected':''}>6 hrs late</option>
+              <option value="12" ${graceHours===12?'selected':''}>12 hrs late</option>
+              <option value="24" ${graceHours===24?'selected':''}>Next day</option>
+            </select>
+          </div>
+          <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+            e.g. "12 hrs late" means earning at 8am Tuesday still counts for Monday's streak
+          </div>
+        </div>
+      </div>
+
+      <button onclick="saveStreakConfig()"
+        style="width:100%;padding:11px;border-radius:9px;border:none;background:#FF8C00;color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;margin-top:14px;">
+        💾 Save Streak Settings
+      </button>
+    </div>
+
+    <!-- Streak preview -->
+    <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:12px 14px;margin-bottom:14px;">
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">CURRENT STREAKS</div>
+      ${d.players.map((p,i)=>{
+        const streak = p.streak||0;
+        const flames = streak>=3 ? '🔥'.repeat(Math.min(streak,7)) : '';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="font:700 13px/1 var(--font-ui);color:var(--text);width:80px;">${esc(p.name)}</span>
+          <span style="font:800 16px/1 var(--font-ui);color:#FF8C00;">${streak}${streak>0?' day'+(streak!==1?'s':''):''}</span>
+          <span style="font-size:14px;">${flames}</span>
+          <button onclick="resetPlayerStreak(${i})"
+            style="margin-left:auto;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;">Reset</button>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Danger zone -->
+    <div style="background:var(--surface);border-radius:10px;border:1px solid rgba(239,83,80,0.2);padding:12px 14px;">
+      <div style="font:700 10px/1 var(--font-ui);color:#EF5350;letter-spacing:1px;margin-bottom:8px;">STREAK MANAGEMENT</div>
+      <button onclick="resetAllStreaks()" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(239,83,80,0.3);background:rgba(239,83,80,0.06);color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">Reset all streaks to 0</button>
+    </div>
+
+  </div>`;
+}
+
+function saveStreakConfig(){
+  const d = kidsData();
+  if(!d.streakConfig) d.streakConfig = {};
+
+  d.streakConfig.enabled = document.getElementById('streak-enabled')?.checked !== false;
+
+  const grace = document.getElementById('streak-grace');
+  d.streakConfig.graceHours     = grace ? parseInt(grace.value)||0 : 0;
+  const minPtsEl    = document.getElementById('streak-min-pts');
+  const minChoresEl = document.getElementById('streak-min-chores');
+  if(minPtsEl)    d.streakConfig.minDailyPts    = Math.max(0, parseInt(minPtsEl.value)||0);
+  if(minChoresEl) d.streakConfig.minDailyChores = Math.max(0, parseInt(minChoresEl.value)||0);
+
+  // Read milestones from DOM
+  const wrap = document.getElementById('streak-milestones-wrap');
+  if(wrap){
+    const milestones = [];
+    wrap.querySelectorAll('[id^="streak-ms-"]').forEach((row,i)=>{
+      const days  = parseInt(document.getElementById('streak-days-'+i)?.value)||0;
+      const bonus = parseInt(document.getElementById('streak-bonus-'+i)?.value)||0;
+      if(days >= 2) milestones.push({days, bonus});
+    });
+    d.streakConfig.milestones = milestones;
+  }
+
+  // Toggle enabled state visually
+  const list = document.getElementById('streak-ms-list');
+  if(list) list.style.opacity = d.streakConfig.enabled ? '1' : '0.4';
+
+  saveKidsData(d);
+  showToast('🔥 Streak settings saved!');
+}
+
+function addStreakMilestone(){
+  const d = kidsData();
+  if(!d.streakConfig) d.streakConfig = {};
+  const ms = d.streakConfig.milestones || [{days:7,bonus:5},{days:3,bonus:2}];
+  ms.push({days:5, bonus:3});
+  d.streakConfig.milestones = ms;
+  saveKidsData(d);
+  renderKidsGame(document.getElementById('main'));
+  kidsActiveTab = 5;
+  renderKidsGame(document.getElementById('main'));
+}
+
+function removeStreakMilestone(idx){
+  const d = kidsData();
+  if(!d.streakConfig) d.streakConfig = {};
+  const ms = d.streakConfig.milestones || [];
+  ms.splice(idx, 1);
+  d.streakConfig.milestones = ms;
+  saveKidsData(d);
+  kidsActiveTab = 5;
+  renderKidsGame(document.getElementById('main'));
+}
+
+function resetPlayerStreak(playerIdx){
+  const d = kidsData();
+  if(d.players[playerIdx]){
+    d.players[playerIdx].streak = 0;
+    d.players[playerIdx].lastEarnDate = '';
+  }
+  saveKidsData(d);
+  kidsActiveTab = 5;
+  renderKidsGame(document.getElementById('main'));
+  showToast('Streak reset');
+}
+
+function resetAllStreaks(){
+  if(!confirm('Reset all streaks to 0?')) return;
+  const d = kidsData();
+  d.players.forEach(p=>{ p.streak=0; p.lastEarnDate=''; });
+  saveKidsData(d);
+  kidsActiveTab = 5;
+  renderKidsGame(document.getElementById('main'));
+  showToast('All streaks reset');
 }
 
 function renderKidsCats(d) {
@@ -29112,7 +29694,64 @@ function renderKidsSpin(d) {
   return html;
 }
 
+function approveWish(wishId, wheelType){
+  const d = kidsData();
+  if(!d.wishlist) return;
+  const w = d.wishlist.find(x=>x.id===wishId);
+  if(!w) return;
+  w.status = 'approved';
+  // Add to appropriate wheel
+  if(wheelType === 'big'){
+    if(!d.wheelPrizesBig) d.wheelPrizesBig = [];
+    d.wheelPrizesBig.push(w.prize);
+  } else {
+    if(!d.wheelPrizesSmall) d.wheelPrizesSmall = [];
+    d.wheelPrizesSmall.push(w.prize);
+  }
+  saveKidsData(d);
+  showToast(`✓ "${esc(w.prize)}" added to ${wheelType} wheel!`);
+  renderKidsGame(document.getElementById('main'));
+}
+
+function rejectWish(wishId){
+  const d = kidsData();
+  if(!d.wishlist) return;
+  const w = d.wishlist.find(x=>x.id===wishId);
+  if(w) w.status = 'rejected';
+  saveKidsData(d);
+  renderKidsGame(document.getElementById('main'));
+}
+
+function submitWishRequest(playerIdx){
+  const input = document.getElementById('wish-input-'+playerIdx);
+  const val = input?.value.trim();
+  if(!val){ showToast('Type a prize idea first!'); return; }
+  const d = kidsData();
+  if(!d.wishlist) d.wishlist = [];
+  d.wishlist.unshift({ id:'wish'+Date.now(), prize:val, playerIdx, status:'pending', ts:Date.now() });
+  saveKidsData(d);
+  input.value = '';
+  showToast('🌟 Wish sent to parents!');
+  renderKidsPageForKid();
+}
+
 function renderKidsPrizeLog(d) {
+  // ── Prize Wishlist (pending requests from kids) ──
+  const wishlist = (d.wishlist||[]);
+  const pendingWishes = wishlist.filter(w=>w.status==='pending');
+  const wishlistHtml = pendingWishes.length > 0 ? `
+    <div style="margin-bottom:12px;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,140,0,0.3);background:rgba(255,140,0,0.05);">
+      <div style="font:800 11px/1 var(--font-ui);color:#FF8C00;letter-spacing:1px;margin-bottom:8px;">🌟 WISH REQUESTS (${pendingWishes.length})</div>
+      ${pendingWishes.map(w=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 8px;border-radius:7px;background:var(--surface);">
+          <span style="flex:1;font:600 12px/1.3 var(--font-ui);color:var(--text);">${esc(w.prize)}</span>
+          <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${esc(d.players[w.playerIdx]?.name||'')}</span>
+          <button onclick="approveWish('${w.id}','small')" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(129,199,132,0.5);background:rgba(129,199,132,0.1);color:#81C784;font:700 10px/1 var(--font-ui);cursor:pointer;">✓ Small</button>
+          <button onclick="approveWish('${w.id}','big')" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(255,140,0,0.5);background:rgba(255,140,0,0.1);color:#FF8C00;font:700 10px/1 var(--font-ui);cursor:pointer;">🏆 Big</button>
+          <button onclick="rejectWish('${w.id}')" style="padding:3px 7px;border-radius:5px;border:none;background:transparent;color:var(--text4);font:700 11px/1 var(--font-ui);cursor:pointer;">✕</button>
+        </div>`).join('')}
+    </div>` : '';
+
   const showUsed = localStorage.getItem('hub-kids-show-used') !== 'false';
   const showPending = localStorage.getItem('hub-kids-show-pending') !== 'false';
 
@@ -29120,7 +29759,7 @@ function renderKidsPrizeLog(d) {
   const playerBg     = ['rgba(58,111,216,0.1)', 'rgba(155,89,182,0.1)'];
   const playerBorder = ['rgba(58,111,216,0.4)', 'rgba(155,89,182,0.4)'];
 
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+  let html = `${wishlistHtml}<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
     <div class="kids-section-title" style="margin:0;">🎁 Prize Board</div>
     <button class="kids-cat-btn" onclick="openLogPrize()" style="padding:5px 12px;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;">+ Log Prize</button>
   </div>
@@ -29246,7 +29885,50 @@ function kidsAward(playerIdx, catId) {
   if (!cat) return;
   const p = d.players[playerIdx];
   const oldScore = p.score || 0;
-  const newScore = oldScore + cat.pts;
+
+  // ── Streak logic ──────────────────────────────────────────
+  const todayStr2   = new Date().toLocaleDateString('en-CA');
+  const sc2         = d.streakConfig || {};
+  const graceMs     = (sc2.graceHours||0) * 3600000;
+  const yesterday   = new Date(Date.now()-86400000+graceMs).toLocaleDateString('en-CA');
+  const minPts      = sc2.minDailyPts    !== undefined ? sc2.minDailyPts    : 5;
+  const minChores   = sc2.minDailyChores !== undefined ? sc2.minDailyChores : 2;
+  const isChoreType = cat.type === 'chore' || (!cat.type && cat.freq && cat.freq !== 'anytime' && cat.freq !== 'onetime');
+
+  // Accumulate today's running totals
+  if(!p.todayDate || p.todayDate !== todayStr2){
+    p.todayDate   = todayStr2;
+    p.todayPts    = 0;
+    p.todayChores = 0;
+  }
+  if(cat.pts > 0){
+    p.todayPts    = (p.todayPts||0) + cat.pts;
+    if(isChoreType) p.todayChores = (p.todayChores||0) + 1;
+  }
+
+  const thresholdMet = p.todayPts >= minPts && p.todayChores >= minChores;
+  const lastEarn     = p.lastEarnDate || '';
+  let streakBonus    = 0;
+  let streakAdvanced = false;
+
+  if(thresholdMet && lastEarn !== todayStr2){
+    if(lastEarn === yesterday){
+      p.streak = (p.streak||1) + 1;
+    } else {
+      p.streak = 1;
+    }
+    p.lastEarnDate = todayStr2;
+    streakAdvanced = true;
+    const milestones = sc2.milestones || [{days:7,bonus:5},{days:3,bonus:2}];
+    const sorted = [...milestones].sort((a,b)=>b.days-a.days);
+    for(const ms of sorted){
+      if(ms.days >= 2 && p.streak >= ms.days && p.streak % ms.days === 0){
+        streakBonus = ms.bonus;
+        break;
+      }
+    }
+  }
+  const newScore = oldScore + cat.pts + streakBonus;
   p.score = Math.max(0, newScore);
 
   // ── Audit log ─────────────────────────────────────────────────
@@ -29258,14 +29940,17 @@ function kidsAward(playerIdx, catId) {
     catId,
     catName: cat.name,
     emoji:   cat.emoji,
-    pts:     cat.pts,
-    score:   p.score,
-    by:      (typeof currentUser === 'object' && currentUser.role==='kid') ? 'kid' : 'parent'
+    pts:        cat.pts,
+    streakBonus:streakBonus,
+    streak:     p.streak||1,
+    score:      p.score,
+    by:         (typeof currentUser === 'object' && currentUser.role==='kid') ? 'kid' : 'parent'
   });
   if(d.auditLog.length > 200) d.auditLog = d.auditLog.slice(0,200);
 
   // Check for prize milestones
   const milestone = checkPrizeMilestone(oldScore, p.score);
+  checkChallenges(d, playerIdx);
   saveKidsData(d);
 
   if (milestone) {
@@ -29274,9 +29959,132 @@ function kidsAward(playerIdx, catId) {
     launchSpin(playerIdx, d, milestone);
   } else {
     if (cat.pts > 0) playKidsSound('point');
-    showToast(`${cat.emoji} ${p.name}: ${cat.pts > 0 ? '+' : ''}${cat.pts} pts → ${p.score}`);
+    let _streakMsg = '';
+    if(streakBonus > 0)     _streakMsg = ` 🔥 ${p.streak}-day streak! +${streakBonus} bonus!`;
+    else if(streakAdvanced) _streakMsg = ` 🔥 ${p.streak}-day streak!`;
+    else if(!thresholdMet && (p.streak||0) >= 2){
+      const pLeft = Math.max(0, minPts - (p.todayPts||0));
+      const cLeft = Math.max(0, minChores - (p.todayChores||0));
+      const parts = [];
+      if(pLeft > 0) parts.push(pLeft+' more ⭐');
+      if(cLeft > 0) parts.push(cLeft+' more chore'+(cLeft!==1?'s':''));
+      if(parts.length) _streakMsg = ` — need ${parts.join(' & ')} to keep streak 🔥`;
+    }
+    showToast(`${cat.emoji} ${p.name}: +${cat.pts}${streakBonus>0?'+'+streakBonus:''} pts → ${p.score}${_streakMsg}`);
     renderKidsGame(document.getElementById('main'));
   }
+}
+
+// ─── Head-to-Head Challenges ────────────────────────────────
+
+function checkChallenges(d, winnerIdx){
+  if(!d.challenges) return;
+  const p = d.players[winnerIdx];
+  d.challenges.forEach(ch => {
+    if(ch.done) return;
+    const target = ch.targetPts;
+    // Count pts earned since challenge started
+    const log = (d.auditLog||[]).filter(e =>
+      e.playerIdx === winnerIdx &&
+      e.ts >= (ch.startedAt||0) &&
+      e.pts > 0
+    );
+    const earned = log.reduce((s,e)=>s+(e.pts||0)+(e.streakBonus||0),0);
+    if(earned >= target){
+      ch.done = true;
+      ch.winnerId = winnerIdx;
+      ch.wonAt = Date.now();
+      // Give winner a free spin
+      if(!d.players[winnerIdx].challengeSpins) d.players[winnerIdx].challengeSpins = 0;
+      d.players[winnerIdx].challengeSpins++;
+      // Celebrate
+      playKidsSound('milestone-big');
+      launchConfetti(120);
+      setTimeout(()=>{
+        showToast(`🏆 ${esc(p.name)} won the challenge: "${esc(ch.name)}"! Bonus spin earned!`);
+      }, 300);
+    }
+  });
+}
+
+function openCreateChallenge(){
+  const old = document.getElementById('modal-challenge'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-challenge'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:340px;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:800 15px/1 var(--font-ui);color:#FF8C00;">🏆 New Challenge</div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+    </div>
+    <div style="padding:4px 0 12px;">
+      <div class="chip-label">Challenge name</div>
+      <input id="ch-name" class="field-input" placeholder="e.g. Weekend Sprint, Homework Hero…"/>
+      <div class="chip-label">First to earn this many points wins</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        ${[10,20,30,50,75].map(v=>`<button onclick="document.getElementById('ch-pts').value='${v}';document.querySelectorAll('.ch-pts-btn').forEach(b=>b.style.background='var(--surface2)');this.style.background='#FF8C0022';" class="ch-pts-btn" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font:700 12px/1 var(--font-ui);color:var(--text);cursor:pointer;">${v}</button>`).join('')}
+      </div>
+      <input id="ch-pts" type="number" class="field-input" placeholder="Points to win…" min="1" style="margin-bottom:0;"/>
+    </div>
+    <button onclick="submitChallenge()" style="width:100%;padding:13px;border-radius:9px;border:none;background:#FF8C00;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">🏁 Start Challenge</button>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+  openModal('modal-challenge');
+}
+
+function submitChallenge(){
+  const name = document.getElementById('ch-name')?.value.trim() || 'Challenge';
+  const pts  = parseInt(document.getElementById('ch-pts')?.value||'0');
+  if(!pts || pts < 1){ showToast('Set a points target'); return; }
+  const d = kidsData();
+  if(!d.challenges) d.challenges = [];
+  d.challenges.unshift({ id:'ch'+Date.now(), name, targetPts:pts, startedAt:Date.now(), done:false, winnerId:null });
+  saveKidsData(d);
+  document.getElementById('modal-challenge')?.remove();
+  showToast('🏁 Challenge started!');
+  renderKidsGame(document.getElementById('main'));
+}
+
+function renderChallengeSection(d){
+  const active = (d.challenges||[]).filter(c=>!c.done);
+  const recent = (d.challenges||[]).filter(c=>c.done).slice(0,3);
+
+  let html = `<div style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font:800 11px/1 var(--font-ui);color:#FF8C00;letter-spacing:1px;">🏆 HEAD-TO-HEAD</div>
+      <button onclick="openCreateChallenge()" style="padding:4px 10px;border-radius:6px;border:1px solid #FF8C0066;background:#FF8C0015;color:#FF8C00;font:700 10px/1 var(--font-ui);cursor:pointer;">+ New</button>
+    </div>`;
+
+  if(active.length === 0 && recent.length === 0){
+    html += `<div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);font-style:italic;padding:8px 0;">No challenges yet — start one!</div>`;
+  }
+
+  active.forEach(ch => {
+    const progress = d.players.map((p,i) => {
+      const earned = (d.auditLog||[]).filter(e=>e.playerIdx===i&&e.ts>=(ch.startedAt||0)&&e.pts>0).reduce((s,e)=>s+(e.pts||0)+(e.streakBonus||0),0);
+      return { name:p.name, earned, pct: Math.min(100, Math.round(earned/ch.targetPts*100)) };
+    });
+    const pColors = ['#3a6fd8','#9b59b6'];
+    html += `<div style="background:var(--surface2);border:1px solid rgba(255,140,0,0.3);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font:700 13px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">${esc(ch.name)} <span style="font:600 11px/1 var(--font-ui);color:var(--text4);">— first to ${ch.targetPts} pts</span></div>
+      ${progress.map((p,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font:700 11px/1 var(--font-ui);color:${pColors[i]};width:60px;flex-shrink:0;">${esc(p.name)}</span>
+          <div style="flex:1;height:10px;border-radius:5px;background:var(--border);overflow:hidden;">
+            <div style="height:100%;background:${pColors[i]};width:${p.pct}%;border-radius:5px;transition:width 0.4s;"></div>
+          </div>
+          <span style="font:700 11px/1 var(--font-ui);color:${pColors[i]};width:38px;text-align:right;flex-shrink:0;">${p.earned}/${ch.targetPts}</span>
+        </div>`).join('')}
+    </div>`;
+  });
+
+  recent.forEach(ch => {
+    const winner = d.players[ch.winnerId];
+    html += `<div style="opacity:0.6;font:600 11px/1 var(--font-ui);color:var(--text3);padding:4px 0;">🏆 ${esc(ch.name)}: ${winner?esc(winner.name):'?'} won</div>`;
+  });
+
+  html += `</div>`;
+  return html;
 }
 
 function checkPrizeMilestone(oldScore, newScore) {
@@ -30229,6 +31037,20 @@ function renderKidsPageForKid(){
     <div style="flex:1;">
       <div style="font:700 11px/1 var(--font-ui);color:${th.accent};letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Your Stars</div>
       <div style="font:900 40px/1 var(--font-ui);color:#1a1a2e;">${myScore}</div>
+      ${(player.streak||0)>=3?`<div style="font:800 12px/1 var(--font-ui);color:#FF8C00;margin-top:6px;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;background:rgba(255,140,0,0.12);">🔥 ${player.streak}-day streak!</div>`:''}
+      ${(()=>{
+        const sc3=d.streakConfig||{};
+        const minP=sc3.minDailyPts!==undefined?sc3.minDailyPts:5;
+        const minC=sc3.minDailyChores!==undefined?sc3.minDailyChores:2;
+        const todStr=new Date().toLocaleDateString('en-CA');
+        const todP=player.todayDate===todStr?(player.todayPts||0):0;
+        const todC=player.todayDate===todStr?(player.todayChores||0):0;
+        if(todP>=minP&&todC>=minC) return '<div style="font:700 11px/1 var(--font-ui);color:#81C784;margin-top:6px;">✓ Streak earned today!</div>';
+        const parts=[];
+        if(todP<minP) parts.push((minP-todP)+' more ⭐');
+        if(todC<minC) parts.push((minC-todC)+' more chore'+(minC-todC!==1?'s':''));
+        return '<div style="font:600 10px/1.4 var(--font-ui);color:#bbb;margin-top:5px;">Need '+parts.join(' & ')+' for streak 🔥</div>';
+      })()}
     </div>
     <div style="text-align:right;">
       <div style="font:600 11px/1.6 var(--font-ui);color:#666;">🎁 ${nextSmall} more<br><span style="color:#aaa;">for small prize</span></div>
@@ -30320,6 +31142,20 @@ function renderKidsPageForKid(){
               color:${spinType==='big'?'#FF8C00':'#aaa'};">
             🏆 Big Prize<br><span style="font:600 11px/1.5 var(--font-ui);opacity:0.7;">100 stars</span>
           </button>
+        </div>
+
+        <!-- Wish for a prize -->
+        <div style="margin-bottom:16px;padding:12px 14px;border-radius:16px;background:rgba(255,140,0,0.08);border:2px solid rgba(255,140,0,0.2);">
+          <div style="font:800 12px/1 var(--font-ui);color:#FF8C00;margin-bottom:8px;">🌟 Wish for a prize</div>
+          <div style="display:flex;gap:8px;">
+            <input id="wish-input-${playerIdx}" placeholder="What do you wish for…"
+              style="flex:1;padding:10px 12px;border-radius:10px;border:2px solid rgba(255,140,0,0.3);background:white;font:600 14px/1 var(--font-ui);outline:none;"
+              onkeydown="if(event.key==='Enter'){submitWishRequest(${playerIdx});}"/>
+            <button onclick="submitWishRequest(${playerIdx})"
+              style="padding:10px 14px;border-radius:10px;border:none;background:#FF8C00;color:white;font:800 13px/1 var(--font-ui);cursor:pointer;">Send 🌟</button>
+          </div>
+          ${(d.wishlist||[]).filter(w=>w.playerIdx===playerIdx&&w.status==='pending').map(w=>`
+            <div style="margin-top:6px;font:600 11px/1 var(--font-ui);color:#FF8C00;opacity:0.7;">⏳ "${esc(w.prize)}" — waiting for approval</div>`).join('')}
         </div>
 
         ${prizes.length < 2
@@ -30534,8 +31370,8 @@ function kidsPageAward(catId){
     }
   });
 
-  // Star burst from check button position
-  kidsPageStarBurst(cat.pts, cat.emoji);
+  // Category-specific reaction burst
+  kidsPageCategoryBurst(cat);
 
   // Ascending sound
   kidsPageCelebSound(cat.pts);
@@ -30545,6 +31381,58 @@ function kidsPageAward(catId){
 
   // Re-render after celebration — chore now shows as not-due if recurring
   setTimeout(()=> renderKidsPageForKid(), 500);
+}
+
+function kidsPageCategoryBurst(cat){
+  const kp = document.getElementById('kids-page');
+  if(!kp) return;
+  const pts   = cat.pts || 1;
+  const emoji = cat.emoji || '⭐';
+  const name  = (cat.name||'').toLowerCase();
+  let burstEmojis;
+  if(cat.type==='chore'||name.includes('clean')||name.includes('dish')||name.includes('room')||name.includes('tidy')){
+    burstEmojis=['✨','✨','⭐','🧹','✨','🌟'];
+  } else if(name.includes('homework')||name.includes('study')||name.includes('read')||name.includes('school')){
+    burstEmojis=['📚','✏️','⭐','🌟','📝','💡'];
+  } else if(name.includes('exercise')||name.includes('sport')||name.includes('outside')||name.includes('play')){
+    burstEmojis=['⚽','🏃','💪','⭐','🎯','🏆'];
+  } else if(name.includes('kind')||name.includes('help')||name.includes('share')||name.includes('nice')){
+    burstEmojis=['❤️','💛','💚','💙','🌟','🫶'];
+  } else if(name.includes('eat')||name.includes('dinner')||name.includes('food')||name.includes('veggi')){
+    burstEmojis=['🥦','⭐','🌟','✨','🎉','😋'];
+  } else {
+    burstEmojis=[emoji,'⭐','🌟','✨',emoji,'🎉'];
+  }
+  const rect  = kp.getBoundingClientRect();
+  const cx    = rect.width/2;
+  const cy    = rect.height*0.4;
+  const count = Math.min(6+pts, 20);
+  for(let i=0;i<count;i++){
+    setTimeout(()=>{
+      const el    = document.createElement('div');
+      const angle = Math.random()*Math.PI*2;
+      const dist  = 70+Math.random()*150;
+      const dx    = Math.cos(angle)*dist;
+      const dy    = Math.sin(angle)*dist - 40;
+      const size  = 18+Math.random()*20;
+      el.textContent = burstEmojis[Math.floor(Math.random()*burstEmojis.length)];
+      el.style.cssText='position:fixed;left:'+(rect.left+cx)+'px;top:'+(rect.top+cy)+'px;font-size:'+size+'px;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:transform 0.75s cubic-bezier(0.2,0.8,0.4,1),opacity 0.75s ease;';
+      document.body.appendChild(el);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        el.style.transform='translate(calc(-50% + '+dx+'px),calc(-50% + '+dy+'px)) rotate('+(Math.random()*360)+'deg)';
+        el.style.opacity='0';
+      }));
+      setTimeout(()=>el.remove(),850);
+    },i*35);
+  }
+  if(pts>=5){
+    const flash=document.createElement('div');
+    flash.textContent=emoji;
+    flash.style.cssText='position:fixed;left:'+(rect.left+cx)+'px;top:'+(rect.top+cy)+'px;font-size:72px;pointer-events:none;z-index:9999;transform:translate(-50%,-50%) scale(0.1);opacity:1;transition:transform 0.3s cubic-bezier(0.2,0.8,0.4,1.4),opacity 0.3s;';
+    document.body.appendChild(flash);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{flash.style.transform='translate(-50%,-50%) scale(1.3)';flash.style.opacity='0';}));
+    setTimeout(()=>flash.remove(),380);
+  }
 }
 
 function kidsPageStarBurst(pts, emoji){
