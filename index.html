@@ -8545,7 +8545,7 @@ function renderHealthPage(container){
               +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+t.items.length+' items · '+Math.round(cal)+' cal · P:'+Math.round(prot)+'g</div>'
               +'</div>'
               +'<div style="display:flex;gap:4px;">'
-              +['Breakfast','Lunch','Dinner','Snacks'].map(meal=>'<button onclick="logTemplateToMeal(''+t.id+'',''+meal+'')" title="Log to '+meal+'"'
+              +['Breakfast','Lunch','Dinner','Snacks'].map(meal=>'<button onclick="logTemplateToMeal(\'' +t.id+ '\',\'' +meal+ '\')" title="Log to '+meal+'"'
                 +' style="padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 9px/1 var(--font-ui);cursor:pointer;">'+meal.slice(0,1)+'</button>').join('')
               +'</div>'
               +'</div>';
