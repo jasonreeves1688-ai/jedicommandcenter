@@ -2166,6 +2166,7 @@ function selectGateUser(who){
   // Reload nutrition data scoped to the incoming user BEFORE rendering
   // (currentUser hasn't changed yet, so we pre-load based on 'who')
   const _nutU = (who === 'wife') ? 'jenny' : 'jason';
+  myFoods         = loadHubData('hub-my-foods-'+_nutU,          []);
   mealTemplates   = loadHubData('hub-meal-templates-'+_nutU,  []);
   nutritionLog    = loadHubData('hub-nutrition-log-'+_nutU,    []);
   nutritionGoals  = loadHubData('hub-nutrition-goals-'+_nutU,  {calories:2200,protein:150,carbs:220,fat:73,fiber:30,sugar:50,sodium:2300,calcium:1000,iron:18,vitaminC:90});
@@ -3672,7 +3673,7 @@ async function loadAll(){
 
   // Also load from Supabase user_settings for nutrition keys
   try {
-    const nutKeys = ['nutrition_log','nutrition_goals','weight_log','weight_config','water_log','water_goal','food_favourites','activity_burn'].map(k=>k+'_'+nutUserKey());
+    const nutKeys = ['nutrition_log','nutrition_goals','weight_log','weight_config','water_log','water_goal','food_favourites','activity_burn','meal_templates','my_foods'].map(k=>k+'_'+nutUserKey());
     const { data: nutRows } = await _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId).in('key',nutKeys);
     if(nutRows && nutRows.length){
       const nutMap = {};
@@ -3695,6 +3696,10 @@ async function loadAll(){
       if(cloudFavs){ foodFavourites = cloudFavs; localStorage.setItem(nutLocalKey('hub-food-favourites'), JSON.stringify(foodFavourites)); }
       const cloudBurn = _pN('activity_burn', null);
       if(cloudBurn){ activityBurnLog = cloudBurn; localStorage.setItem(nutLocalKey('hub-activity-burn'), JSON.stringify(activityBurnLog)); }
+      const cloudMealTpl = _pN('meal_templates', null);
+      if(cloudMealTpl && cloudMealTpl.length >= mealTemplates.length){ mealTemplates = cloudMealTpl; localStorage.setItem(nutLocalKey('hub-meal-templates'), JSON.stringify(mealTemplates)); }
+      const cloudMyFoods = _pN('my_foods', null);
+      if(cloudMyFoods && cloudMyFoods.length >= myFoods.length){ myFoods = cloudMyFoods; localStorage.setItem(nutLocalKey('hub-my-foods'), JSON.stringify(myFoods)); }
     }
   } catch(e){ console.warn('[nut] Cloud load failed, using local cache:', e.message); }
 
@@ -8306,285 +8311,256 @@ function nutColor(pct){
 
 // ── Main page renderer ────────────────────────────────────────
 function renderHealthPage(container){
+  if(!window._healthTab) window._healthTab = 'nutrition';
+  const tab = window._healthTab;
+  const userName = nutUserKey() === 'jenny' ? 'Jenny' : 'Jason';
+
+  const tabBar = `<div style="display:flex;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;">
+    ${[{id:'nutrition',label:'Today'},{id:'history',label:'History'},{id:'weight',label:'Weight'}].map(t=>`
+      <button onclick="window._healthTab='${t.id}';renderAll();"
+        style="padding:13px 16px 12px;border:none;background:transparent;cursor:pointer;white-space:nowrap;
+          font:${tab===t.id?'700':'400'} 14px/1 var(--font-ui);
+          color:${tab===t.id?'#fff':'var(--text4)'};
+          border-bottom:2px solid ${tab===t.id?'#4CAF50':'transparent'};
+          margin-bottom:-1px;transition:all 0.15s;">${t.label}</button>`).join('')}
+  </div>`;
+
+  if(tab !== 'nutrition'){
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
+        <div class="page-hero" style="flex-shrink:0;">
+          <div class="page-hero-left">
+            <div class="page-hero-accent" style="color:#4CAF50;">Health · ${userName}</div>
+            <div class="page-hero-title">${tab==='history'?'History':'Weight'}</div>
+          </div>
+          ${tab==='weight'?`<button onclick="openWeightEntryModal(null)" class="page-hero-action">+ Log</button>`:''}
+        </div>
+        ${tabBar}
+        ${tab==='history' ? renderNutHistoryTab() : renderWeightTab()}
+      </div>`;
+    return;
+  }
+
+  // ── TODAY / DIARY TAB ────────────────────────────────────
   const todayStr  = nutToday();
+  const goals     = nutritionGoals;
   const entries   = nutGetDay(todayStr);
   const totals    = nutTotals(entries);
-  const goals     = nutritionGoals;
+  const todayBurn = getTodayBurn();
+  const burnActive= todayBurn?.activeCalories || 0;
+  const adjGoal   = goals.calories + burnActive;
+  const calLeft   = Math.max(0, adjGoal - totals.calories);
+  const calOver   = totals.calories > adjGoal ? Math.round(totals.calories - adjGoal) : 0;
+  const calPct    = Math.min(100, Math.round(totals.calories / (adjGoal||1) * 100));
+  const calBarColor = calOver>0 ? '#EF5350' : calPct>85 ? '#E8A838' : '#4CAF50';
+
   const meals     = ['Breakfast','Lunch','Dinner','Snacks'];
+  const byMeal    = {};
+  meals.forEach(m => byMeal[m] = entries.filter(e=>e.meal===m));
 
-  // Macro ring helper — small SVG donut
-  function macroRing(label, val, goal, color, unit){
-    const pct = nutPct(val, goal);
-    const r=18, circ=2*Math.PI*r;
-    const dash = (pct/100)*circ;
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-      <svg width="48" height="48" viewBox="0 0 48 48">
-        <circle cx="24" cy="24" r="${r}" fill="none" stroke="var(--border)" stroke-width="5"/>
-        <circle cx="24" cy="24" r="${r}" fill="none" stroke="${color}" stroke-width="5"
-          stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
-          stroke-linecap="round" transform="rotate(-90 24 24)" style="transition:stroke-dasharray 0.4s;"/>
-        <text x="24" y="27" text-anchor="middle" font-size="9" font-weight="800"
-          font-family="var(--font-ui)" fill="var(--text)">${Math.round(val)}</text>
-      </svg>
-      <div style="font:700 9px/1 var(--font-ui);color:var(--text4);text-align:center;">${label}<br>${unit?unit:'g'}</div>
-    </div>`;
-  }
+  const todayW   = getTodayWater();
+  const wGlasses = todayW.glasses || 0;
+  const wGoal    = waterGoal.glasses || 8;
 
-  // Micro progress bar
-  function microBar(label, val, goal, unit){
-    const pct = nutPct(val, goal);
-    const col = nutColor(pct);
-    return `<div style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-        <span style="font:600 11px/1 var(--font-ui);color:var(--text3);">${label}</span>
-        <span style="font:700 11px/1 var(--font-ui);color:${col};">${Math.round(val)}${unit} <span style="color:var(--text4);font-weight:500;">/ ${goal}${unit}</span></span>
+  // Logging streak — count consecutive days logged back from today
+  const _nutStreak = (()=>{
+    let streak = 0;
+    const d = new Date();
+    while(streak < 365){
+      if(nutGetDay(d.toLocaleDateString('en-CA')).length === 0) break;
+      streak++;
+      d.setDate(d.getDate()-1);
+    }
+    return streak;
+  })();
+
+  // 7-day logged dots
+  const weekDots = Array.from({length:7},(_,i)=>{
+    const d=new Date(); const offset=d.getDay(); d.setDate(d.getDate()-offset+i);
+    const ds=d.toLocaleDateString('en-CA');
+    const logged=nutGetDay(ds).length>0;
+    const isToday=ds===todayStr;
+    const label=['S','M','T','W','T','F','S'][i];
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="font:500 12px/1 var(--font-ui);color:${isToday?'#fff':'var(--text4)'};">${label}</div>
+      <div style="width:26px;height:26px;border-radius:50%;
+        background:${logged?'#4CAF50':isToday?'var(--surface3)':'transparent'};
+        border:2px solid ${logged?'#4CAF50':isToday?'var(--border2)':'var(--border)'};
+        display:flex;align-items:center;justify-content:center;">
+        ${logged?'<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':''}
       </div>
-      <div style="height:5px;border-radius:3px;background:var(--border);overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.4s;"></div>
-      </div>
     </div>`;
-  }
-
-  // Group entries by meal
-  const byMeal = {};
-  meals.forEach(m => byMeal[m] = entries.filter(e => e.meal === m));
-
-  // Calorie summary
-  const todayBurn   = getTodayBurn();
-  const burnActive  = todayBurn?.activeCalories || 0;
-  const burnTotal   = todayBurn?.totalCalories  || 0;
-  const adjustedGoal= goals.calories + burnActive; // add exercise burn back to budget
-  const calPct  = nutPct(totals.calories, adjustedGoal);
-  const calColor= nutColor(calPct);
-  const calLeft = Math.max(0, adjustedGoal - totals.calories);
-  const calOver = totals.calories > adjustedGoal ? Math.round(totals.calories - adjustedGoal) : 0;
-
-  // Recent days (last 7 for mini chart)
-  const days7 = Array.from({length:7}, (_,i) => {
-    const d = new Date(); d.setDate(d.getDate()-i);
-    const ds = d.toLocaleDateString('en-CA');
-    const dayEntries = nutGetDay(ds);
-    const dayTotals = nutTotals(dayEntries);
-    return { ds, cal: dayTotals.calories, label: d.toLocaleDateString('en-US',{weekday:'short'}).slice(0,2) };
-  }).reverse();
-  const maxCal = Math.max(...days7.map(d=>d.cal), goals.calories);
+  }).join('');
 
   container.innerHTML = `
-  <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
 
-    <!-- Header -->
-    <div style="padding:14px 16px 10px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div>
-          <div style="font:900 20px/1 var(--font-ui);color:var(--text);">🥗 Nutrition</div>
-          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})} · ${nutUserKey()==='jenny'?'Jenny':'Jason'}</div>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button onclick="openManualBurnModal()"
-            style="padding:7px 10px;border-radius:8px;border:1px solid rgba(255,138,101,0.4);background:rgba(255,138,101,0.08);color:#FF8A65;font:700 11px/1 var(--font-ui);cursor:pointer;" title="Log calories burned">🔥${getTodayBurn()?Math.round(getTodayBurn().activeCalories)+'':''}</button>
-          <button onclick="openNutGoalsModal()"
-            style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font:700 11px/1 var(--font-ui);cursor:pointer;">Goals</button>
-          <button onclick="openFoodModal(null,null)"
-            style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font:800 12px/1 var(--font-ui);cursor:pointer;">+ Log</button>
-        </div>
-      </div>
-      <!-- Tab bar -->
-      <div style="display:flex;gap:0;margin-top:10px;border-bottom:2px solid var(--border);">
-        <button id="ht-tab-nutrition" onclick="window._healthTab='nutrition';renderAll();"
-          style="flex:1;padding:8px 4px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;border-bottom:2px solid ${!window._healthTab||window._healthTab==='nutrition'?'var(--accent)':'transparent'};color:${!window._healthTab||window._healthTab==='nutrition'?'var(--accent)':'var(--text4)'};margin-bottom:-2px;">🥗 Today</button>
-        <button id="ht-tab-history" onclick="window._healthTab='history';renderAll();"
-          style="flex:1;padding:8px 4px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;border-bottom:2px solid ${window._healthTab==='history'?'var(--accent)':'transparent'};color:${window._healthTab==='history'?'var(--accent)':'var(--text4)'};margin-bottom:-2px;">📅 History</button>
-        <button id="ht-tab-weight" onclick="window._healthTab='weight';renderAll();"
-          style="flex:1;padding:8px 4px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;border-bottom:2px solid ${window._healthTab==='weight'?'var(--accent)':'transparent'};color:${window._healthTab==='weight'?'var(--accent)':'var(--text4)'};margin-bottom:-2px;">⚖️ Weight</button>
-      </div>
-    </div>
-
-    ${window._healthTab==='weight' ? renderWeightTab() : ''}
-    ${window._healthTab==='history' ? renderNutHistoryTab() : ''}
-    <div style="flex:1;overflow-y:auto;padding:12px 14px 32px;display:${window._healthTab==='weight'||window._healthTab==='history'?'none':'flex'};flex-direction:column;">
-
-      <!-- Water tracker -->
-      ${(()=>{
-        const todayW = getTodayWater();
-        const glasses = todayW.glasses||0;
-        const goal    = waterGoal.glasses||8;
-        const pct     = Math.min(100, Math.round(glasses/goal*100));
-        const ozTotal = glasses*(waterGoal.ozPerGlass||8);
-        const liters  = (ozTotal*0.0296).toFixed(1);
-        const bubbles = Array.from({length:goal},(_,i)=>
-          '<div style="flex:1;height:7px;border-radius:4px;background:'+(i<glasses?'#64B5F6':'var(--border)')+'transition:background 0.2s;min-width:0;"></div>'
-        ).join('');
-        return '<div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:11px 14px;margin-bottom:10px;">'
-          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-          +'<div>'
-          +'<div style="font:700 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:1px;margin-bottom:4px;">💧 WATER</div>'
-          +'<div style="font:800 18px/1 var(--font-ui);color:'+(glasses>=goal?'#64B5F6':'var(--text)')+'">'+glasses+' <span style="font-size:13px;font-weight:600;color:var(--text4);">/ '+goal+' glasses</span></div>'
-          +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+ozTotal+' oz · '+liters+'L</div>'
-          +'</div>'
-          +'<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;">'
-          +'<div style="display:flex;gap:5px;">'
-          +'<button onclick="logWater(-1)" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);font:700 18px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>'
-          +'<button onclick="logWater(1)"  style="width:32px;height:32px;border-radius:8px;border:none;background:#64B5F6;color:#fff;font:700 18px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>'
-          +'</div>'
-          +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">'+pct+'% of goal</div>'
-          +'</div>'
-          +'</div>'
-          +'<div style="display:flex;gap:3px;">'+bubbles+'</div>'
-          +'</div>';
-      })()}
-
-      <!-- Calorie hero -->
-      <div style="background:var(--surface);border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <!-- Header -->
+      <div style="padding:16px 16px 12px;flex-shrink:0;background:var(--bg);">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;">
           <div>
-            <div style="font:900 36px/1 var(--font-ui);color:${calColor};">${Math.round(totals.calories).toLocaleString()}</div>
-            <div style="font:600 12px/1 var(--font-ui);color:var(--text3);margin-top:3px;">
-            goal ${goals.calories.toLocaleString()}${burnActive>0?` + ${Math.round(burnActive)} burned = ${adjustedGoal.toLocaleString()}`:''}
+            <div style="font:500 12px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">Health · ${userName}</div>
+            <div style="font:800 26px/1 var(--font-ui);color:var(--text);">Today</div>
           </div>
-          <div style="font:700 12px/1 var(--font-ui);margin-top:3px;color:${calOver>0?'#EF5350':calLeft<200?'#E8A838':'#81C784'};">
-            ${calOver>0?`⚠ ${calOver} over`:`${Math.round(calLeft)} remaining`}
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            ${_nutStreak>=2?`<div style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:12px;background:rgba(76,175,80,0.12);border:1px solid rgba(76,175,80,0.25);">
+              <span style="font-size:13px;">🔥</span>
+              <span style="font:800 13px/1 var(--font-ui);color:#4CAF50;">${_nutStreak} days</span>
+            </div>`:''}
+            <button onclick="openFoodModal(null,null)"
+              style="width:44px;height:44px;border-radius:50%;border:none;background:#4CAF50;color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 4px 12px rgba(76,175,80,0.4);">+</button>
           </div>
-          ${todayBurn?`<div style="font:500 10px/1 var(--font-ui);color:#FF8A65;margin-top:2px;">🔥 ${Math.round(burnActive)} active · ${todayBurn.steps?todayBurn.steps.toLocaleString()+' steps':''}${todayBurn.source==='shortcuts'?' · via Shortcuts':''}</div>`:''}
-          </div>
-          <div style="text-align:center;padding:8px 12px;border-radius:12px;background:${calOver>0?'rgba(239,83,80,0.08)':calLeft<200?'rgba(232,168,56,0.08)':'rgba(129,199,132,0.08)'};border:2px solid ${calOver>0?'rgba(239,83,80,0.3)':calLeft<200?'rgba(232,168,56,0.3)':'rgba(129,199,132,0.3)'};">
-            <div style="font:900 22px/1 var(--font-ui);color:${calOver>0?'#EF5350':calLeft<200?'#E8A838':'#81C784'};">${calOver>0?'−'+calOver:'+'+Math.round(calLeft)}</div>
-            <div style="font:700 9px/1 var(--font-ui);color:var(--text4);margin-top:4px;letter-spacing:0.5px;">NET LEFT</div>
-            <div style="font:600 9px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${calPct}% used</div>
-          </div>
-        </div>
-        <!-- Calculated breakdown banner if auto mode -->
-        ${(()=>{
-          if(nutritionGoals._calcBmr){
-            return '<div style="font:500 10px/1.5 var(--font-ui);color:var(--text4);margin-bottom:8px;padding:6px 8px;border-radius:6px;background:rgba(129,199,132,0.06);border:1px solid rgba(129,199,132,0.15);">🧮 Mifflin-St Jeor · BMR '+nutritionGoals._calcBmr+' · TDEE '+nutritionGoals._calcTdee+' · −'+nutritionGoals._calcDeficit+' cal deficit</div>';
-          }
-          return '';
-        })()}
-        <!-- Macro rings -->
-        <div style="display:flex;justify-content:space-around;padding-top:12px;border-top:1px solid var(--border);">
-          ${macroRing('Protein', totals.protein, goals.protein, '#64B5F6', 'g')}
-          ${macroRing('Carbs', totals.carbs, goals.carbs, '#FFD54F', 'g')}
-          ${macroRing('Fat', totals.fat, goals.fat, '#FF8A65', 'g')}
-          ${macroRing('Fiber', totals.fiber, goals.fiber, '#81C784', 'g')}
         </div>
       </div>
 
-      <!-- 7-day calorie chart -->
-      <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:12px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">7-DAY CALORIES</div>
-        <div style="display:flex;align-items:flex-end;gap:5px;height:48px;">
-          ${days7.map(d => {
-            const h = maxCal > 0 ? Math.round((d.cal/maxCal)*44)+4 : 4;
-            const isToday = d.ds === todayStr;
-            const col = isToday ? 'var(--accent)' : d.cal >= goals.calories ? '#EF5350' : '#64B5F644';
-            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
-              <div style="width:100%;height:${h}px;background:${col};border-radius:3px 3px 0 0;min-height:4px;"></div>
-              <div style="font:600 9px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};">${d.label}</div>
+      ${tabBar}
+
+      <div style="flex:1;overflow-y:auto;">
+
+        <!-- Week dots -->
+        <div style="display:flex;justify-content:space-around;padding:16px 16px 12px;background:var(--bg);">
+          ${weekDots}
+        </div>
+
+        <!-- Calorie card -->
+        <div style="margin:0 16px 16px;padding:16px;border-radius:16px;background:var(--surface);">
+          <div style="font:500 13px/1 var(--font-ui);color:var(--text3);margin-bottom:8px;">Calories</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
+            <span style="font:900 32px/1 var(--font-ui);color:var(--text);">${Math.round(totals.calories).toLocaleString()}</span>
+            <span style="font:500 15px/1 var(--font-ui);color:var(--text3);">/ ${adjGoal.toLocaleString()}${burnActive>0?' 🔥':''}</span>
+            <span style="margin-left:auto;font:600 14px/1 var(--font-ui);color:${calOver>0?'#EF5350':'var(--text3)'};">${calOver>0?calOver+' over':calLeft.toLocaleString()+' left'}</span>
+          </div>
+          <div style="height:6px;border-radius:3px;background:var(--surface3);overflow:hidden;margin-bottom:16px;">
+            <div style="height:100%;width:${calPct}%;background:${calBarColor};border-radius:3px;transition:width 0.5s;"></div>
+          </div>
+          <!-- Macro row -->
+          <div style="display:flex;gap:0;">
+            ${[['Carbs',totals.carbs,goals.carbs,'#4CAF50'],['Fat',totals.fat,goals.fat,'#E57373'],['Protein',totals.protein,goals.protein,'#64B5F6']].map(([ label,val,goal,color],i)=>{
+              const pct=Math.min(100,Math.round(val/(goal||1)*100));
+              return `<div style="flex:1;${i>0?'border-left:1px solid var(--border);padding-left:12px;':''}${i<2?'padding-right:12px;':''}">
+                <div style="font:500 12px/1 var(--font-ui);color:var(--text3);margin-bottom:5px;">${label}</div>
+                <div style="font:800 17px/1 var(--font-ui);color:var(--text);">${Math.round(val)}g <span style="font:500 12px/1 var(--font-ui);color:var(--text4);">/ ${goal}g</span></div>
+                <div style="height:3px;border-radius:2px;background:var(--surface3);margin-top:6px;overflow:hidden;">
+                  <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;"></div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Diary header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px 10px;">
+          <div style="font:700 19px/1 var(--font-ui);color:var(--text);">Diary</div>
+          ${mealTemplates.length?`<button onclick="openMealTemplatesModal(null)" style="font:600 13px/1 var(--font-ui);color:#4CAF50;border:none;background:transparent;cursor:pointer;padding:4px 0;">Templates</button>`:''}
+        </div>
+
+        <!-- Meal rows -->
+        <div style="margin:0 16px;border-radius:16px;background:var(--surface);overflow:hidden;margin-bottom:16px;">
+          ${meals.map((meal,mi)=>{
+            const mealEntries = byMeal[meal]||[];
+            const mealCal  = mealEntries.reduce((s,e)=>s+(e.calories||0),0);
+            const mealCarb = mealEntries.reduce((s,e)=>s+(e.carbs||0),0);
+            const mealFat  = mealEntries.reduce((s,e)=>s+(e.fat||0),0);
+            const mealProt = mealEntries.reduce((s,e)=>s+(e.protein||0),0);
+            const names    = mealEntries.map(e=>e.name);
+            const preview  = names.length>2 ? names.slice(0,2).join(', ')+` and ${names.length-2} more` : names.join(', ');
+            return `<div style="${mi>0?'border-top:1px solid var(--border);':''}">
+              <div style="display:flex;align-items:center;padding:14px 14px;gap:12px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font:700 16px/1 var(--font-ui);color:var(--text);">${meal}</div>
+                  ${mealEntries.length>0?`
+                  <div style="font:400 13px/1.4 var(--font-ui);color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(preview)}</div>
+                  <div style="font:400 12px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${Math.round(mealCal)} cal · C ${Math.round(mealCarb)}g · F ${Math.round(mealFat)}g · P ${Math.round(mealProt)}g</div>
+                  `:''}
+                </div>
+                <button onclick="openFoodModal('${meal}',null)"
+                  style="padding:7px 16px;border-radius:20px;border:none;background:var(--accent-soft);color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">Log</button>
+              </div>
+              ${mealEntries.length>0?`<div style="border-top:1px solid var(--border);">
+                ${mealEntries.map(e=>`
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font:500 14px/1 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.name)}</div>
+                      <div style="font:400 12px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${Math.round(e.calories||0)} cal · ${e.qty||1} ${esc(e.unit||'serving')}</div>
+                    </div>
+                    <button onclick="deleteNutEntry('${e.id}')" style="border:none;background:transparent;color:var(--text4);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;transition:color 0.1s;" onmouseover="this.style.color='#EF5350'" onmouseout="this.style.color='var(--text4)'">×</button>
+                  </div>`).join('')}
+              </div>`:''}
             </div>`;
           }).join('')}
         </div>
-      </div>
 
-      <!-- Weekly average -->
-      ${(()=>{
-        const last7 = Array.from({length:7},(_,i)=>{
-          const d=new Date(); d.setDate(d.getDate()-i);
-          const ds=d.toLocaleDateString('en-CA');
-          const ents=nutGetDay(ds);
-          const tots=nutTotals(ents);
-          return { ds, cal:tots.calories, protein:tots.protein, logged:ents.length>0 };
-        });
-        const loggedDays = last7.filter(d=>d.logged);
-        if(!loggedDays.length) return '';
-        const avgCal  = Math.round(loggedDays.reduce((s,d)=>s+d.cal,0)/loggedDays.length);
-        const avgProt = Math.round(loggedDays.reduce((s,d)=>s+d.protein,0)/loggedDays.length);
-        const goalDiff = avgCal - goals.calories;
-        const diffColor = goalDiff > 100 ? '#EF5350' : goalDiff > 0 ? '#E8A838' : '#81C784';
-        const diffLabel = goalDiff > 0 ? '+'+goalDiff+' above goal' : Math.abs(goalDiff)+' below goal';
-        const projLbs = Math.abs((goalDiff * 7) / 3500).toFixed(2);
-        const projDir = goalDiff > 0 ? 'gain' : 'loss';
-        return '<div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:12px;">'
-          +'<div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">7-DAY AVERAGE ('+loggedDays.length+'/7 days)</div>'
-          +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-          +'<div><div style="font:900 22px/1 var(--font-ui);color:var(--text);">'+avgCal.toLocaleString()+'</div>'
-          +'<div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">avg cal/day</div></div>'
-          +'<div style="text-align:right;">'
-          +'<div style="font:700 12px/1 var(--font-ui);color:'+diffColor+';">'+diffLabel+'</div>'
-          +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">≈ '+projLbs+' lb/wk '+projDir+'</div>'
-          +'<div style="font:600 10px/1 var(--font-ui);color:#64B5F6;margin-top:2px;">Avg protein: '+avgProt+'g</div>'
-          +'</div></div>'
-          +'<div style="height:4px;border-radius:2px;background:var(--border);overflow:hidden;">'
-          +'<div style="height:100%;width:'+Math.min(100,Math.round(avgCal/goals.calories*100))+'%;background:'+diffColor+';border-radius:2px;transition:width 0.4s;"></div>'
-          +'</div></div>';
-      })()}
-
-      <!-- Micros -->
-      <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:12px 14px;margin-bottom:12px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">KEY NUTRIENTS</div>
-        ${microBar('Sugar',   totals.sugar,   goals.sugar,   'g')}
-        ${microBar('Sodium',  totals.sodium,  goals.sodium,  'mg')}
-        ${microBar('Calcium', totals.calcium, goals.calcium, 'mg')}
-        ${microBar('Iron',    totals.iron,    goals.iron,    'mg')}
-        ${microBar('Vitamin C',totals.vitaminC,goals.vitaminC,'mg')}
-      </div>
-
-      <!-- Template quick-log strip -->
-      ${mealTemplates.length ? `
-      <div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);padding:10px 14px;margin-bottom:10px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">🍽 TEMPLATES</div>
-          <button onclick="openMealTemplatesModal(null)"
-            style="font:700 10px/1 var(--font-ui);color:var(--accent);border:none;background:transparent;cursor:pointer;padding:0;">Manage</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
-          ${mealTemplates.slice(0,4).map(t=>{
-            const cal=(t.items||[]).reduce((s,i)=>s+(i.calories||0),0);
-            const prot=(t.items||[]).reduce((s,i)=>s+(i.protein||0),0);
-            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--surface2);">'
-              +'<div style="flex:1;min-width:0;">'
-              +'<div style="font:700 12px/1 var(--font-ui);color:var(--text);">'+esc(t.name)+'</div>'
-              +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+t.items.length+' items · '+Math.round(cal)+' cal · P:'+Math.round(prot)+'g</div>'
-              +'</div>'
-              +'<div style="display:flex;gap:4px;">'
-              +['Breakfast','Lunch','Dinner','Snacks'].map(meal=>'<button onclick="logTemplateToMeal(\'' +t.id+ '\',\'' +meal+ '\')" title="Log to '+meal+'"'
-                +' style="padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 9px/1 var(--font-ui);cursor:pointer;">'+meal.slice(0,1)+'</button>').join('')
-              +'</div>'
-              +'</div>';
-          }).join('')}
-        </div>
-      </div>` : ''}
-
-      <!-- Meals -->
-      ${meals.map(meal => {
-        const mealEntries = byMeal[meal] || [];
-        const mealCal = mealEntries.reduce((s,e)=>s+(e.calories||0),0);
-        return `<div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface2);border-bottom:${mealEntries.length?'1px solid var(--border)':'none'};">
-            <div>
-              <span style="font:700 12px/1 var(--font-ui);color:var(--text);">${meal}</span>
-              ${mealCal>0?`<span style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-left:6px;">${Math.round(mealCal)} cal</span>`:''}
-            </div>
-            <button onclick="openFoodModal('${meal}',null)"
-              style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;">+ Add</button>
-          </div>
-          ${mealEntries.map(e => `
-            <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);">
-              <div style="flex:1;min-width:0;">
-                <div style="font:600 13px/1.2 var(--font-ui);color:var(--text);">${esc(e.name)}</div>
-                <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${e.qty||1} ${esc(e.unit||'serving')} · P:${Math.round(e.protein||0)}g C:${Math.round(e.carbs||0)}g F:${Math.round(e.fat||0)}g</div>
+        <!-- Healthy habits -->
+        <div style="padding:0 16px 16px;">
+          <div style="font:700 19px/1 var(--font-ui);color:var(--text);margin-bottom:10px;">Healthy habits</div>
+          <div style="border-radius:16px;background:var(--surface);overflow:hidden;">
+            <!-- Water -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 14px;border-bottom:1px solid var(--border);">
+              <div>
+                <div style="font:600 15px/1 var(--font-ui);color:var(--text);">Water</div>
+                <div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${wGlasses*(waterGoal.ozPerGlass||8)} oz${wGlasses===0?' · Stay hydrated!':' · '+wGlasses+'/'+wGoal+' glasses'}</div>
               </div>
-              <span style="font:700 12px/1 var(--font-ui);color:var(--text3);">${Math.round(e.calories||0)}</span>
-              <button onclick="deleteNutEntry('${e.id}')"
-                style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px 6px;">✕</button>
-            </div>`).join('')}
-          ${mealEntries.length===0?`<div style="padding:10px 14px;font:500 11px/1 var(--font-ui);color:var(--text4);font-style:italic;">Nothing logged yet</div>`:''}
-        </div>`;
-      }).join('')}
+              <div style="display:flex;align-items:center;gap:10px;">
+                <button onclick="logWater(-1)" style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 18px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+                <span style="font:700 16px/1 var(--font-ui);color:#64B5F6;min-width:18px;text-align:center;">${wGlasses}</span>
+                <button onclick="logWater(1)" style="width:30px;height:30px;border-radius:50%;border:none;background:#64B5F6;color:var(--text);font:700 18px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+              </div>
+            </div>
+            <!-- Exercise -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 14px;border-bottom:1px solid var(--border);">
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 15px/1 var(--font-ui);color:var(--text);">Exercise</div>
+                ${(()=>{
+                  const exs = todayBurn?.exercises||[];
+                  if(!burnActive) return '<div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:2px;">Not logged yet</div>';
+                  const lines = exs.length ? exs.map(x=>`${x.name}${x.minutes?' '+x.minutes+' min':''} · ${x.calories} cal`).join('<br>') : Math.round(burnActive)+' cal burned';
+                  return '<div style="font:400 13px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">'+lines+' 🔥</div>';
+                })()}
+              </div>
+              <button onclick="openManualBurnModal()" style="padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">${burnActive>0?'Edit':'+'}</button>
+            </div>
+            <!-- Steps -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 14px;">
+              <div>
+                <div style="font:600 15px/1 var(--font-ui);color:var(--text);">Steps</div>
+                <div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${todayBurn?.steps ? todayBurn.steps.toLocaleString()+' steps today' : 'Syncing via Apple Health'}</div>
+              </div>
+              <span style="font:600 15px/1 var(--font-ui);color:var(--text3);">›</span>
+            </div>
+          </div>
+        </div>
 
-    </div>
-  </div>`;
+        <!-- Nutrients (collapsed) -->
+        <div style="padding:0 16px 16px;">
+          <details>
+            <summary style="font:700 19px/1 var(--font-ui);color:var(--text);cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              Nutrients <span style="font:400 13px/1 var(--font-ui);color:var(--text4);">expand ›</span>
+            </summary>
+            <div style="border-radius:16px;background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:12px;">
+              ${[['Sugar',totals.sugar,goals.sugar,'g'],['Sodium',totals.sodium,goals.sodium,'mg'],['Fiber',totals.fiber,goals.fiber,'g'],['Calcium',totals.calcium,goals.calcium,'mg'],['Iron',totals.iron,goals.iron,'mg'],['Vitamin C',totals.vitaminC,goals.vitaminC,'mg']].map(([l,v,g,u])=>`
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                    <span style="font:500 13px/1 var(--font-ui);color:var(--text2);">${l}</span>
+                    <span style="font:600 13px/1 var(--font-ui);color:var(--text);">${Math.round(v)}<span style="color:var(--text4);"> / ${g}${u}</span></span>
+                  </div>
+                  <div style="height:4px;border-radius:2px;background:var(--surface3);overflow:hidden;">
+                    <div style="height:100%;width:${Math.min(100,nutPct(v,g))}%;background:rgba(100,181,246,0.7);border-radius:2px;"></div>
+                  </div>
+                </div>`).join('')}
+            </div>
+          </details>
+        </div>
+
+        <!-- Bottom actions -->
+        <div style="display:flex;gap:8px;padding:0 16px 24px;">
+          <button onclick="openCalcSetupModal()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">🧮 Calorie Calculator</button>
+          <button onclick="openNutGoalsModal()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">🎯 Edit Goals</button>
+        </div>
+
+      </div>
+    </div>`;
 }
 
-// ── Nutrition history tab ─────────────────────────────────────
 function renderNutHistoryTab(){
   const goals   = nutritionGoals;
   const todayD  = new Date();
@@ -8655,7 +8631,7 @@ function renderNutHistoryTab(){
       <div style="padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font:700 13px/1 var(--font-ui);color:var(--text);">${new Date(selDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${Math.round(selTotals.calories)} cal · P:${Math.round(selTotals.protein)}g C:${Math.round(selTotals.carbs)}g F:${Math.round(selTotals.fat)}g</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${Math.round(selTotals.calories)} cal · Protein ${Math.round(selTotals.protein)}g · Carbs ${Math.round(selTotals.carbs)}g · Fat ${Math.round(selTotals.fat)}g</div>
         </div>
         ${selDate===nutToday()?`<button onclick="openFoodModal(null,null)" style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 10px/1 var(--font-ui);cursor:pointer;">+ Add</button>`:''}
       </div>
@@ -8671,7 +8647,7 @@ function renderNutHistoryTab(){
                 <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);">
                   <div style="flex:1;min-width:0;">
                     <div style="font:600 13px/1.2 var(--font-ui);color:var(--text);">${esc(e.name)}</div>
-                    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${e.qty||1} ${esc(e.unit||'serving')} · P:${Math.round(e.protein||0)}g C:${Math.round(e.carbs||0)}g F:${Math.round(e.fat||0)}g</div>
+                    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${e.qty||1} ${esc(e.unit||'serving')} · Protein ${Math.round(e.protein||0)}g · Carbs ${Math.round(e.carbs||0)}g · Fat ${Math.round(e.fat||0)}g</div>
                   </div>
                   <span style="font:700 12px/1 var(--font-ui);color:var(--text3);flex-shrink:0;">${Math.round(e.calories||0)}</span>
                 </div>`).join('')}
@@ -8973,6 +8949,17 @@ function openWeightSetupModal(){
       <div class="chip-label">Goal weight (${cfg.unit||'lbs'})</div>
       <input id="wts-goal" type="number" step="0.1" class="field-input"
         placeholder="Your target weight" value="${cfg.goalWeight||''}"/>
+
+      <div class="chip-label">Weekly loss goal</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px;">
+        ${WEEKLY_LOSS_OPTIONS.map(o=>`<button
+          onclick="document.querySelectorAll('.wts-loss-btn').forEach(b=>{b.style.background='var(--surface2)';b.style.borderColor='var(--border)'});this.style.background='rgba(21,101,192,0.12)';this.style.borderColor='rgba(21,101,192,0.4)';document.getElementById('wts-loss').value='${o.val}';"
+          class="wts-loss-btn" style="text-align:left;padding:10px 12px;border-radius:8px;border:1px solid ${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(21,101,192,0.4)':'var(--border)'};background:${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(21,101,192,0.12)':'var(--surface2)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font:700 13px/1 var(--font-ui);color:var(--text);">${o.label}</span>
+          <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${o.sub}</span>
+        </button>`).join('')}
+      </div>
+      <input type="hidden" id="wts-loss" value="${cfg.weeklyLossLbs||1.0}"/>
     </div>
     <button onclick="saveWeightSetup()" style="width:100%;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Setup</button>
   </div>`;
@@ -8982,11 +8969,16 @@ function openWeightSetupModal(){
 
 function saveWeightSetup(){
   _markModalClean();
+  const goalVal  = document.getElementById('wts-goal')?.value;
+  const startVal = document.getElementById('wts-start')?.value;
+  // Merge — preserve calculator fields (heightCm, age, sex, etc.)
   weightConfig = {
+    ...weightConfig,
     unit:        document.getElementById('wts-unit')?.value||'lbs',
-    startWeight: parseFloat(document.getElementById('wts-start')?.value)||null,
+    startWeight: startVal ? parseFloat(startVal) : null,
     startDate:   document.getElementById('wts-start-date')?.value||null,
-    goalWeight:  parseFloat(document.getElementById('wts-goal')?.value)||null,
+    goalWeight:    goalVal  ? parseFloat(goalVal)  : null,
+    weeklyLossLbs: parseFloat(document.getElementById('wts-loss')?.value) || 1.0,
   };
   saveWeightConfig();
   closeModal('modal-wt-setup');
@@ -9193,7 +9185,28 @@ async function searchFoodOFF(){
   const query = document.getElementById('food-search-input')?.value.trim();
   if(!query){ showToast('Enter a food to search'); return; }
   const res = document.getElementById('food-search-results');
-  res.innerHTML = `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">🔍 Searching Open Food Facts…</div>`;
+  res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">\uD83D\uDD0D Searching\u2026</div>';
+
+  // Prepend any matching My Foods
+  const qLow = query.toLowerCase();
+  const myMatches = myFoods.filter(f=>f.name.toLowerCase().includes(qLow));
+  let myFoodsHtml = '';
+  if(myMatches.length){
+    myFoodsHtml = '<div style="font:600 11px/1 var(--font-ui);color:#4CAF50;padding:2px 0 6px;">\uD83E\uDD18 From My Foods</div>'
+      + myMatches.map(f=>{
+          const fj=encodeURIComponent(JSON.stringify({name:f.name,qty:f.qty||1,unit:f.unit||'serving',calories:f.calories||0,protein:f.protein||0,carbs:f.carbs||0,fat:f.fat||0,fiber:f.fiber||0,sugar:f.sugar||0,sodium:f.sodium||0,calcium:f.calcium||0,iron:f.iron||0,vitaminC:f.vitaminC||0}));
+          return '<div onclick="nutFillModalFromOFF(\''+fj+'\')"'
+            +' style="display:flex;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;">'
+            +'<div style="flex:1;min-width:0;">'
+            +'<div style="font:var(--type-label);color:var(--text);">'+esc(f.name)
+            +' <span style="font:600 10px/1 var(--font-ui);padding:2px 5px;border-radius:4px;background:rgba(76,175,80,0.12);color:#4CAF50;">My Foods</span></div>'
+            +'<div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">'+Math.round(f.calories||0)+' cal \u00b7 '+(f.qty||1)+' '+(f.unit||'serving')+'</div>'
+            +'</div>'
+            +'<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">+</div>'
+            +'</div>';
+        }).join('');
+    res.innerHTML = myFoodsHtml;
+  }
 
   try {
     const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&fields=product_name,nutriments,serving_size,serving_quantity,brands&page_size=10`;
@@ -9206,7 +9219,8 @@ async function searchFoodOFF(){
       return;
     }
 
-    res.innerHTML = products.slice(0,8).map((p,i)=>{
+    res.innerHTML = `<div style="font:var(--type-caption);color:var(--text4);padding:4px 0 8px;">${products.length} results</div>`
+      + products.slice(0,8).map((p,i)=>{
       const n = p.nutriments||{};
       const cal  = Math.round(n['energy-kcal_serving']||n['energy-kcal']||0);
       const prot = Math.round((n['proteins_serving']||n['proteins']||0)*10)/10;
@@ -9218,21 +9232,20 @@ async function searchFoodOFF(){
       const cal_c= Math.round((n['calcium_serving']||n['calcium']||0)*1000*10)/10;
       const iron = Math.round((n['iron_serving']||n['iron']||0)*1000*10)/10;
       const vitC = Math.round((n['vitamin-c_serving']||n['vitamin-c']||0)*1000*10)/10;
-      const brand= p.brands?` · ${p.brands.split(',')[0]}`:'';
-      const serv = p.serving_size||'1 serving';
-      const food = { name:p.product_name, qty:1, unit:serv,
+      const brand = p.brands ? p.brands.split(',')[0].trim() : '';
+      const serv  = p.serving_size||'1 serving';
+      const food  = { name:p.product_name, qty:1, unit:serv,
         calories:cal, protein:prot, carbs:carb, fat:fat, fiber, sugar,
         sodium:sod, calcium:cal_c, iron, vitaminC:vitC };
       const foodJson = encodeURIComponent(JSON.stringify(food));
       return `<div onclick="nutFillModalFromOFF('${foodJson}')"
-        style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;
-          background:var(--surface2);border:1px solid var(--border);margin-bottom:5px;cursor:pointer;
-          transition:all 0.1s;" onmouseover="this.style.borderColor='#81C784'" onmouseout="this.style.borderColor='var(--border)'">
+        style="display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;"
+        onmouseover="this.querySelector('.add-btn').style.opacity='1'" onmouseout="this.querySelector('.add-btn').style.opacity='0.6'">
         <div style="flex:1;min-width:0;">
-          <div style="font:600 12px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.product_name)}${esc(brand)}</div>
-          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${serv} · ${cal} cal · P:${prot}g C:${carb}g F:${fat}g</div>
+          <div style="font:var(--type-label);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.product_name)}</div>
+          <div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">${cal} cal · ${serv}${brand?' · '+esc(brand):''}</div>
         </div>
-        <span style="font:700 11px/1 var(--font-ui);color:#81C784;flex-shrink:0;">Add →</span>
+        <div class="add-btn" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;flex-shrink:0;opacity:0.6;transition:opacity 0.15s;">+</div>
       </div>`;
     }).join('');
 
@@ -9306,41 +9319,155 @@ function openBarcodeScanner(){
   startBarcodeScanner();
 }
 
-let _barcodeStream = null;
-let _barcodeInterval = null;
+let _barcodeStream   = null;
+let _barcodeReader   = null;   // ZXing reader instance
+let _barcodeScanning = false;
 
 async function startBarcodeScanner(){
-  try {
-    const video = document.getElementById('barcode-video');
-    _barcodeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', width:{ideal:1280}, height:{ideal:720} } });
-    video.srcObject = _barcodeStream;
+  const video  = document.getElementById('barcode-video');
+  const status = document.getElementById('barcode-status');
 
-    // Use BarcodeDetector if available (Chrome/Android)
-    if('BarcodeDetector' in window){
-      const detector = new BarcodeDetector({ formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39'] });
-      _barcodeInterval = setInterval(async ()=>{
-        if(!video.readyState) return;
-        try {
-          const codes = await detector.detect(video);
-          if(codes.length > 0){
-            clearInterval(_barcodeInterval);
-            lookupBarcode(codes[0].rawValue);
-          }
-        } catch(e){}
-      }, 300);
-    } else {
-      // Fallback: show manual entry prompt
-      const status = document.getElementById('barcode-status');
-      if(status) status.textContent = 'Barcode scanning not supported on this browser — try Chrome on Android';
-    }
+  // Request camera
+  try {
+    _barcodeStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} }
+    });
+    video.srcObject = _barcodeStream;
+    await video.play();
   } catch(e) {
-    const status = document.getElementById('barcode-status');
-    if(status) status.textContent = 'Camera access denied — check browser permissions';
+    if(status) status.textContent = 'Camera access denied — please allow camera in Settings';
+    return;
+  }
+
+  _barcodeScanning = true;
+
+  // Try native BarcodeDetector first (Chrome Android — fastest)
+  if('BarcodeDetector' in window){
+    const detector = new BarcodeDetector({ formats:['ean_13','ean_8','upc_a','upc_e','code_128','code_39'] });
+    const scan = async () => {
+      if(!_barcodeScanning) return;
+      try {
+        const codes = await detector.detect(video);
+        if(codes.length > 0){ _barcodeScanning=false; lookupBarcode(codes[0].rawValue); return; }
+      } catch(e){}
+      requestAnimationFrame(scan);
+    };
+    requestAnimationFrame(scan);
+    return;
+  }
+
+  // Load ZXing-js (works on iOS Safari)
+  if(status) status.textContent = 'Loading scanner…';
+  try {
+    await _loadZXing();
+    if(status) status.textContent = 'Point camera at barcode';
+    _runZXing(video);
+  } catch(e) {
+    if(status) status.textContent = 'Scanner failed to load — try manual barcode entry below';
+    _showManualBarcodeEntry();
   }
 }
 
+function _loadZXing(){
+  return new Promise((resolve, reject) => {
+    if(window.ZXing){ resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js';
+    s.onload  = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function _runZXing(video){
+  try {
+    const hints = new Map();
+    const formats = [
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+    _barcodeReader = new ZXing.BrowserMultiFormatReader(hints, 500);
+
+    // Draw video frames to canvas and decode
+    const canvas = document.getElementById('barcode-canvas');
+    canvas.style.display = 'none';
+    const ctx = canvas.getContext('2d');
+
+    const scan = () => {
+      if(!_barcodeScanning) return;
+      if(video.readyState < 2){ requestAnimationFrame(scan); return; }
+
+      canvas.width  = video.videoWidth  || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      try {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const luminanceSource  = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+        const binaryBitmap     = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
+        const result           = new ZXing.MultiFormatReader().decode(binaryBitmap, hints);
+        if(result){
+          _barcodeScanning = false;
+          // Flash the overlay green
+          const overlay = document.querySelector('#modal-barcode [style*="border:3px solid"]');
+          if(overlay) overlay.style.borderColor = '#4CAF50';
+          setTimeout(()=>{ lookupBarcode(result.getText()); }, 200);
+          return;
+        }
+      } catch(e){
+        // NotFoundException is normal when no barcode in frame — keep scanning
+      }
+
+      requestAnimationFrame(scan);
+    };
+
+    requestAnimationFrame(scan);
+
+  } catch(e) {
+    const status = document.getElementById('barcode-status');
+    if(status) status.textContent = 'Scanner error — try manual entry below';
+    _showManualBarcodeEntry();
+  }
+}
+
+function _showManualBarcodeEntry(){
+  const statusEl = document.getElementById('barcode-status');
+  if(!statusEl) return;
+  statusEl.innerHTML = `
+    <div style="padding:0 20px;">
+      <div style="margin-bottom:8px;font:500 13px/1.4 var(--font-ui);color:var(--text3);">
+        Enter the barcode number from the product:
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input id="barcode-manual-input" type="number" inputmode="numeric"
+          placeholder="e.g. 012345678901"
+          style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:700 16px/1 var(--font-ui);outline:none;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();_submitManualBarcode();}"/>
+        <button onclick="_submitManualBarcode()"
+          style="padding:10px 16px;border-radius:10px;border:none;background:#4CAF50;color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;">Look up</button>
+      </div>
+    </div>`;
+  setTimeout(()=>document.getElementById('barcode-manual-input')?.focus(), 100);
+}
+
+function _submitManualBarcode(){
+  const val = document.getElementById('barcode-manual-input')?.value.trim();
+  if(!val){ showToast('Enter a barcode number'); return; }
+  const status = document.getElementById('barcode-status');
+  if(status) status.innerHTML = `<div style="padding:0 20px;font:500 13px/1 var(--font-ui);color:var(--text4);">Looking up ${val}…</div>`;
+  lookupBarcode(val);
+}
+
 function closeBarcodeScanner(){
-  clearInterval(_barcodeInterval);
+  _barcodeScanning = false;
+  if(_barcodeReader){ try{ _barcodeReader.reset(); }catch(e){} _barcodeReader=null; }
   if(_barcodeStream){ _barcodeStream.getTracks().forEach(t=>t.stop()); _barcodeStream=null; }
   document.getElementById('modal-barcode')?.remove();
 }
@@ -9425,7 +9552,7 @@ function openMealTemplatesModal(prefillMeal){
         <div style="padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
           <div style="flex:1;min-width:0;">
             <div style="font:800 14px/1 var(--font-ui);color:var(--text);">${esc(t.name)}</div>
-            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${t.items.length} item${t.items.length!==1?'s':''} · ${Math.round(totalCal)} cal · P:${Math.round(totalProt)}g C:${Math.round(totalCarb)}g F:${Math.round(totalFat)}g</div>
+            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${t.items.length} item${t.items.length!==1?'s':''} · ${Math.round(totalCal)} cal · Protein ${Math.round(totalProt)}g · Carbs ${Math.round(totalCarb)}g · Fat ${Math.round(totalFat)}g</div>
           </div>
           <button onclick="openCreateTemplateModal('${t.id}')"
             style="padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">edit</button>
@@ -9650,10 +9777,18 @@ async function _tplSearchFood(){
         vitaminC:Math.round((n['vitamin-c_serving']||n['vitamin-c']||0)*1000*10)/10,
       };
       const fj = encodeURIComponent(JSON.stringify(food));
-      return '<div onclick="_tplAddItemFromJson(\''+fj+'\')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);margin-bottom:4px;cursor:pointer;">'
-        +'<div style="flex:1;min-width:0;"><div style="font:600 12px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(p.product_name)+'</div>'
-        +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+food.calories+' cal · P:'+food.protein+'g C:'+food.carbs+'g F:'+food.fat+'g</div></div>'
-        +'<span style="font:700 10px/1 var(--font-ui);color:#81C784;flex-shrink:0;">+ Add</span></div>';
+      return '<div onclick="_tplAddItemFromJson(\''+fj+'\')"'
+        +' style="border-radius:var(--r3);border:1px solid var(--border);margin-bottom:8px;cursor:pointer;overflow:hidden;background:var(--surface);">'
+        +'<div style="display:flex;align-items:flex-start;justify-content:space-between;padding:10px 12px 6px;gap:8px;">'
+        +'<div style="flex:1;min-width:0;"><div style="font:var(--type-label);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(p.product_name)+'</div>'
+        +'<div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">'+(p.serving_size||'1 serving')+'</div></div>'
+        +'<div style="text-align:right;flex-shrink:0;"><div style="font:800 16px/1 var(--font-ui);color:var(--text);">'+food.calories+'</div>'
+        +'<div style="font:var(--type-caption);color:var(--text4);">cal</div></div></div>'
+        +'<div style="display:flex;gap:4px;padding:0 10px 10px;">'
+        +'<div style="flex:1;text-align:center;padding:4px;border-radius:var(--r2);background:rgba(100,181,246,0.12);"><div style="font:800 12px/1 var(--font-ui);color:#64B5F6;">'+food.protein+'g</div><div style="font:500 9px/1 var(--font-ui);color:var(--text4);">Protein</div></div>'
+        +'<div style="flex:1;text-align:center;padding:4px;border-radius:var(--r2);background:rgba(255,213,79,0.12);"><div style="font:800 12px/1 var(--font-ui);color:#FFD54F;">'+food.carbs+'g</div><div style="font:500 9px/1 var(--font-ui);color:var(--text4);">Carbs</div></div>'
+        +'<div style="flex:1;text-align:center;padding:4px;border-radius:var(--r2);background:rgba(255,138,101,0.12);"><div style="font:800 12px/1 var(--font-ui);color:#FF8A65;">'+food.fat+'g</div><div style="font:500 9px/1 var(--font-ui);color:var(--text4);">Fat</div></div>'
+        +'</div></div>';
     }).join('');
   } catch(e) { res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:#EF5350;padding:6px 0;">Search failed</div>'; }
 }
@@ -14998,6 +15133,7 @@ function nutLocalKey(base){ return base + '-' + nutUserKey(); }
 // Load nutrition data scoped to current user
 function loadNutData(){
   const u = nutUserKey();
+  myFoods         = loadHubData('hub-my-foods-'+u,          []);
   mealTemplates   = loadHubData('hub-meal-templates-'+u,  []);
   nutritionLog    = loadHubData('hub-nutrition-log-'+u,    []);
   nutritionGoals  = loadHubData('hub-nutrition-goals-'+u,  {
@@ -15018,6 +15154,7 @@ function loadNutData(){
 }
 
 let mealTemplates   = [];  // loaded per-user by loadNutData()
+let myFoods         = [];  // custom food database — user-created
 let foodFavourites  = [];
 let waterLog        = [];
 let waterGoal       = { glasses:8, ozPerGlass:8 };
@@ -19792,6 +19929,12 @@ function saveMealTemplates(){
     await _sb.from('user_settings').upsert({owner_id:_sbUserId, key:'meal_templates_'+nutUserKey(), value:JSON.stringify(mealTemplates)});
   });
 }
+function saveMyFoods(){
+  localStorage.setItem(nutLocalKey('hub-my-foods'), JSON.stringify(myFoods));
+  _queueSave('my_foods_'+nutUserKey(), async ()=>{
+    await _sb.from('user_settings').upsert({owner_id:_sbUserId, key:'my_foods_'+nutUserKey(), value:JSON.stringify(myFoods)});
+  });
+}
 function saveFoodFavourites(){
   localStorage.setItem(nutLocalKey('hub-food-favourites'), JSON.stringify(foodFavourites));
   _queueSave('food_favourites', async ()=>{
@@ -19837,6 +19980,163 @@ function toggleFoodFavourite(food){
 
 function isFoodFavourite(name){
   return foodFavourites.some(f=>f.name.toLowerCase().trim()===name.toLowerCase().trim());
+}
+
+// ── My Foods — custom food database ─────────────────────────
+
+function openMyFoodsModal(){
+  const old = document.getElementById('modal-my-foods'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-my-foods'; m.className = 'modal-overlay fullscreen';
+
+  const renderList = () => {
+    if(!myFoods.length) return `
+      <div style="padding:40px 20px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🥘</div>
+        <div style="font:700 15px/1.4 var(--font-ui);color:var(--text3);margin-bottom:8px;">No custom foods yet</div>
+        <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);margin-bottom:20px;">Save foods not in the database, or correct inaccurate nutrition info</div>
+        <button onclick="openCreateMyFood(null)"
+          style="padding:12px 24px;border-radius:10px;border:none;background:var(--accent);color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;">+ Create food</button>
+      </div>`;
+    return myFoods.map(f => {
+      const isFav = isFoodFavourite(f.name);
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 14px/1.2 var(--font-ui);color:var(--text);">${esc(f.name)}</div>
+          <div style="font:400 12px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${Math.round(f.calories||0)} cal · ${f.qty||1} ${esc(f.unit||'serving')} · P ${Math.round(f.protein||0)}g C ${Math.round(f.carbs||0)}g F ${Math.round(f.fat||0)}g</div>
+        </div>
+        <button onclick="toggleFoodFavourite(${JSON.stringify(f).replace(/"/g,'&quot;')});renderAll();"
+          style="border:none;background:transparent;font-size:18px;cursor:pointer;padding:2px 4px;opacity:${isFav?'1':'0.4'};">⭐</button>
+        <button onclick="openCreateMyFood('${f.id}')"
+          style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text4);font:600 10px/1 var(--font-ui);cursor:pointer;">edit</button>
+        <button onclick="_logMyFood('${f.id}',null)"
+          style="padding:5px 10px;border-radius:20px;border:none;background:var(--accent-soft);color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;">Log</button>
+      </div>`;
+    }).join('');
+  };
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="font:800 15px/1 var(--font-ui);color:var(--text);">🥘 My Foods</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="openCreateMyFood(null)" style="padding:7px 12px;border-radius:7px;border:none;background:var(--accent);color:#fff;font:800 11px/1 var(--font-ui);cursor:pointer;">+ New</button>
+        <button class="modal-close" onclick="closeModal('modal-my-foods')">✕</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;">
+      <div id="my-foods-list">${renderList()}</div>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-my-foods'); };
+  document.body.appendChild(m);
+}
+
+function openCreateMyFood(editId){
+  const existing = editId ? myFoods.find(f=>f.id===editId) : null;
+  const old = document.getElementById('modal-create-food'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-create-food'; m.className = 'modal-overlay fullscreen';
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="font:800 15px/1 var(--font-ui);color:var(--text);">${existing?'Edit Food':'Create Food'}</div>
+      <button class="modal-close" onclick="closeModal('modal-create-food')">✕</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:8px 14px 16px;">
+
+      <div class="chip-label">Food name</div>
+      <input id="mf-name" class="field-input" placeholder="e.g. Homemade granola, Mom's chili…" value="${esc(existing?.name||'')}"/>
+
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div class="chip-label">Quantity</div>
+          <input id="mf-qty" type="number" step="0.1" min="0" class="field-input" placeholder="1" value="${existing?.qty||1}" style="margin-bottom:0;"/>
+        </div>
+        <div style="flex:2;">
+          <div class="chip-label">Unit / serving size</div>
+          <input id="mf-unit" class="field-input" placeholder="cup, piece, 100g…" value="${esc(existing?.unit||'serving')}" style="margin-bottom:0;"/>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">NUTRITION PER SERVING</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        ${[['mf-calories','Calories','kcal',existing?.calories||''],['mf-protein','Protein','g',existing?.protein||''],['mf-carbs','Carbs','g',existing?.carbs||''],['mf-fat','Fat','g',existing?.fat||''],['mf-fiber','Fiber','g',existing?.fiber||''],['mf-sugar','Sugar','g',existing?.sugar||'']].map(([id,label,unit,val])=>`
+          <div>
+            <div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-bottom:4px;">${label} <span style="opacity:0.6;">(${unit})</span></div>
+            <input id="${id}" type="number" step="0.1" min="0" class="field-input" placeholder="0" value="${val}" style="margin-bottom:0;padding:8px 10px;"/>
+          </div>`).join('')}
+      </div>
+
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">MICRONUTRIENTS (optional)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${[['mf-sodium','Sodium','mg',existing?.sodium||''],['mf-calcium','Calcium','mg',existing?.calcium||''],['mf-iron','Iron','mg',existing?.iron||''],['mf-vitaminC','Vitamin C','mg',existing?.vitaminC||'']].map(([id,label,unit,val])=>`
+          <div>
+            <div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-bottom:4px;">${label} <span style="opacity:0.6;">(${unit})</span></div>
+            <input id="${id}" type="number" step="0.1" min="0" class="field-input" placeholder="0" value="${val}" style="margin-bottom:0;padding:8px 10px;"/>
+          </div>`).join('')}
+      </div>
+
+    </div>
+    <input type="hidden" id="mf-edit-id" value="${editId||''}"/>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${editId?`<button onclick="_deleteMyFood('${editId}')" style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">Delete</button>`:''}
+      <button onclick="saveMyFood()" style="flex:1;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Food</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-create-food'); };
+  document.body.appendChild(m);
+  setTimeout(()=>{ _watchModalInputs(m); document.getElementById('mf-name')?.focus(); }, 80);
+}
+
+function saveMyFood(){
+  _markModalClean();
+  const name = document.getElementById('mf-name')?.value.trim();
+  if(!name){ showToast('Enter a food name'); return; }
+  const editId = document.getElementById('mf-edit-id')?.value||'';
+  const food = {
+    id:        editId||'mf'+Date.now(),
+    name,
+    qty:       parseFloat(document.getElementById('mf-qty')?.value)||1,
+    unit:      document.getElementById('mf-unit')?.value.trim()||'serving',
+    calories:  parseFloat(document.getElementById('mf-calories')?.value)||0,
+    protein:   parseFloat(document.getElementById('mf-protein')?.value)||0,
+    carbs:     parseFloat(document.getElementById('mf-carbs')?.value)||0,
+    fat:       parseFloat(document.getElementById('mf-fat')?.value)||0,
+    fiber:     parseFloat(document.getElementById('mf-fiber')?.value)||0,
+    sugar:     parseFloat(document.getElementById('mf-sugar')?.value)||0,
+    sodium:    parseFloat(document.getElementById('mf-sodium')?.value)||0,
+    calcium:   parseFloat(document.getElementById('mf-calcium')?.value)||0,
+    iron:      parseFloat(document.getElementById('mf-iron')?.value)||0,
+    vitaminC:  parseFloat(document.getElementById('mf-vitaminC')?.value)||0,
+    isCustom:  true,
+    createdAt: Date.now(),
+  };
+  if(editId){ const idx=myFoods.findIndex(f=>f.id===editId); if(idx>-1) myFoods[idx]=food; else myFoods.unshift(food); }
+  else myFoods.unshift(food);
+  saveMyFoods();
+  // Auto-favourite new custom foods
+  if(!isFoodFavourite(food.name)) toggleFoodFavourite(food);
+  closeModal('modal-create-food');
+  showToast('✓ '+food.name+' saved to My Foods');
+  openMyFoodsModal();
+}
+
+function _deleteMyFood(id){
+  if(!confirm('Delete this food?')) return;
+  myFoods = myFoods.filter(f=>f.id!==id);
+  saveMyFoods();
+  closeModal('modal-create-food');
+  showToast('Food deleted');
+  openMyFoodsModal();
+}
+
+function _logMyFood(id, prefillMeal){
+  const food = myFoods.find(f=>f.id===id);
+  if(!food) return;
+  closeModal('modal-my-foods');
+  openFoodModal(prefillMeal||null, null);
+  setTimeout(()=>{ nutFillModal(food); showToast('✓ '+food.name+' ready to log'); }, 150);
 }
 
 // ── Water tracking helpers ───────────────────────────────────
@@ -19885,55 +20185,157 @@ function getTodayBurn(){
 // Manual burn entry (fallback if Shortcut not set up)
 function openManualBurnModal(){
   const existing = getTodayBurn();
+  const exercises = existing?.exercises || [];
   const old = document.getElementById('modal-burn'); if(old) old.remove();
   const m = document.createElement('div');
-  m.id = 'modal-burn'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font:800 14px/1 var(--font-ui);color:#FF8A65;">🔥 Calories Burned</div>
+  m.id = 'modal-burn'; m.className = 'modal-overlay fullscreen';
+
+  const exRows = exercises.map((ex,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:600 13px/1 var(--font-ui);color:var(--text);">${esc(ex.name||'Exercise')}</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${ex.minutes?ex.minutes+' min · ':''} ${ex.calories} cal burned</div>
+      </div>
+      <button onclick="_burnRemoveEx(${i})"
+        style="border:none;background:transparent;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>
+    </div>`).join('');
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="font:800 15px/1 var(--font-ui);color:#FF8A65;">🔥 Log Exercise</div>
       <button class="modal-close" onclick="closeModal('modal-burn')">✕</button>
     </div>
-    <div style="padding:4px 0 12px;">
-      <div class="chip-label">Active calories (from exercise)</div>
-      <input id="burn-active" type="number" min="0" class="field-input"
-        placeholder="e.g. 420" value="${existing?.activeCalories||''}"
-        style="font-size:22px;font-weight:900;text-align:center;" autofocus/>
-      <div class="chip-label">Resting calories (BMR for today)</div>
-      <input id="burn-resting" type="number" min="0" class="field-input"
-        placeholder="e.g. 1800" value="${existing?.restingCalories||Math.round(nutritionGoals._calcBmr||0)||''}"/>
-      <div class="chip-label">Steps</div>
-      <input id="burn-steps" type="number" min="0" class="field-input"
-        placeholder="e.g. 8500" value="${existing?.steps||''}"/>
-      <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(100,181,246,0.08);border:1px solid rgba(100,181,246,0.2);font:500 11px/1.4 var(--font-ui);color:var(--text4);">
-        💡 Tip: Set up the Apple Shortcut to sync this automatically from Health. See ⚙ in the nutrition header.
+    <div style="flex:1;overflow-y:auto;padding:8px 0 12px;">
+
+      <!-- Quick add exercise row -->
+      <div style="padding:0 14px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;">
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">ADD EXERCISE</div>
+        <div class="chip-label">Exercise name</div>
+        <input id="burn-ex-name" class="field-input" placeholder="e.g. Running, Cycling, Weight training…" value=""/>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">
+            <div class="chip-label">Minutes</div>
+            <input id="burn-ex-mins" type="number" min="0" max="999" class="field-input" placeholder="45" style="margin-bottom:0;"/>
+          </div>
+          <div style="flex:1;">
+            <div class="chip-label">Calories burned</div>
+            <input id="burn-ex-cal" type="number" min="0" class="field-input" placeholder="380"
+              style="margin-bottom:0;font-size:20px;font-weight:900;text-align:center;" autofocus/>
+          </div>
+        </div>
+        <button onclick="_burnAddEx()"
+          style="width:100%;padding:10px;margin-top:10px;border-radius:9px;border:none;background:rgba(255,138,101,0.15);color:#FF8A65;font:800 13px/1 var(--font-ui);cursor:pointer;">
+          + Add Exercise
+        </button>
       </div>
+
+      <!-- Logged exercises list -->
+      <div style="padding:0 14px;margin-bottom:14px;">
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">TODAY'S EXERCISE</div>
+        <div id="burn-ex-list">${exRows||'<div style="font:500 12px/1 var(--font-ui);color:var(--text4);font-style:italic;padding:4px 0;">No exercises logged yet</div>'}</div>
+      </div>
+
+      <!-- Steps + resting -->
+      <div style="padding:0 14px;border-top:1px solid var(--border);padding-top:14px;">
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">OTHER ACTIVITY</div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">
+            <div class="chip-label">Steps today</div>
+            <input id="burn-steps" type="number" min="0" class="field-input" style="margin-bottom:0;"
+              placeholder="e.g. 8,500" value="${existing?.steps||''}"/>
+          </div>
+          <div style="flex:1;">
+            <div class="chip-label">Resting cal (BMR)</div>
+            <input id="burn-resting" type="number" min="0" class="field-input" style="margin-bottom:0;"
+              placeholder="auto" value="${existing?.restingCalories||Math.round(nutritionGoals._calcBmr||0)||''}"/>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(100,181,246,0.06);border:1px solid rgba(100,181,246,0.15);font:500 11px/1.4 var(--font-ui);color:var(--text4);">
+          💡 Set up the Apple Shortcut to sync steps &amp; burn automatically from Health.
+        </div>
+      </div>
+
     </div>
-    <button onclick="saveManualBurn()" style="width:100%;padding:13px;border-radius:9px;border:none;background:#FF8A65;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save</button>
+    <div class="modal-footer" style="flex-shrink:0;">
+      <button onclick="saveManualBurn()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:#FF8A65;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Activity</button>
+    </div>
   </div>`;
   m.onclick = e => { if(e.target===m) closeModal('modal-burn'); };
-  document.body.appendChild(m); openModal('modal-burn');
+  document.body.appendChild(m);
+  setTimeout(()=>_watchModalInputs(m), 80);
+}
+
+// Add exercise to today's list in modal
+function _burnAddEx(){
+  const name = document.getElementById('burn-ex-name')?.value.trim()||'Exercise';
+  const mins = parseInt(document.getElementById('burn-ex-mins')?.value)||0;
+  const cal  = parseFloat(document.getElementById('burn-ex-cal')?.value)||0;
+  if(!cal){ showToast('Enter calories burned'); return; }
+
+  // Store temporarily in activityBurnLog working copy
+  const todayStr = nutToday();
+  let entry = activityBurnLog.find(e=>e.date===todayStr);
+  if(!entry){ entry = {date:todayStr,activeCalories:0,restingCalories:0,totalCalories:0,steps:0,exercises:[],source:'manual',updatedAt:Date.now()}; }
+  if(!entry.exercises) entry.exercises = [];
+  entry.exercises.push({name, minutes:mins, calories:cal});
+  entry.activeCalories = entry.exercises.reduce((s,x)=>s+(x.calories||0),0);
+  entry.totalCalories  = entry.activeCalories + (entry.restingCalories||0);
+  const idx = activityBurnLog.findIndex(e=>e.date===todayStr);
+  if(idx>-1) activityBurnLog[idx]=entry; else activityBurnLog.unshift(entry);
+
+  // Reset fields
+  ['burn-ex-name','burn-ex-mins','burn-ex-cal'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+
+  // Refresh list in modal
+  const list = document.getElementById('burn-ex-list');
+  if(list){
+    const exRows = entry.exercises.map((ex,i)=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;margin-bottom:6px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 13px/1 var(--font-ui);color:var(--text);">${esc(ex.name)}</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${ex.minutes?ex.minutes+' min · ':''}${ex.calories} cal burned</div>
+        </div>
+        <button onclick="_burnRemoveEx(${i})" style="border:none;background:transparent;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>
+      </div>`).join('');
+    list.innerHTML = exRows;
+  }
+  showToast('+ '+name+' added');
+  document.getElementById('burn-ex-cal')?.focus();
+}
+
+function _burnRemoveEx(idx){
+  const todayStr = nutToday();
+  const entry = activityBurnLog.find(e=>e.date===todayStr);
+  if(!entry?.exercises) return;
+  entry.exercises.splice(idx, 1);
+  entry.activeCalories = entry.exercises.reduce((s,x)=>s+(x.calories||0),0);
+  entry.totalCalories  = entry.activeCalories + (entry.restingCalories||0);
+  openManualBurnModal(); // refresh
 }
 
 function saveManualBurn(){
   _markModalClean();
-  const active  = parseFloat(document.getElementById('burn-active')?.value)||0;
   const resting = parseFloat(document.getElementById('burn-resting')?.value)||0;
   const steps   = parseInt(document.getElementById('burn-steps')?.value)||0;
   const todayStr = nutToday();
-  const entry = {
-    date: todayStr,
-    activeCalories: active,
-    restingCalories: resting,
-    totalCalories: active + resting,
-    steps,
-    source: 'manual',
-    updatedAt: Date.now(),
-  };
+
+  // Get working entry (may have exercises already added via _burnAddEx)
+  let entry = activityBurnLog.find(e=>e.date===todayStr);
+  if(!entry) entry = {date:todayStr,activeCalories:0,exercises:[],source:'manual'};
+  entry.restingCalories = resting;
+  entry.totalCalories   = entry.activeCalories + resting;
+  entry.steps           = steps;
+  entry.source          = 'manual';
+  entry.updatedAt       = Date.now();
   const idx = activityBurnLog.findIndex(e=>e.date===todayStr);
   if(idx>-1) activityBurnLog[idx]=entry; else activityBurnLog.unshift(entry);
   saveActivityBurnLog();
   closeModal('modal-burn');
-  showToast('🔥 Burn logged');
+  const totalCal = entry.activeCalories;
+  const exCount  = (entry.exercises||[]).length;
+  showToast(`🔥 ${exCount>0?exCount+' exercise'+(exCount!==1?'s':'')+' · ':''}${totalCal} cal burned logged`);
   renderAll();
 }
 
