@@ -9023,7 +9023,7 @@ function openFoodModal(prefillMeal, editId){
           + '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
           + allQuick.map(f=>{
               const foodJson = encodeURIComponent(JSON.stringify({name:f.name,qty:f.qty||1,unit:f.unit||'serving',calories:f.calories||0,protein:f.protein||0,carbs:f.carbs||0,fat:f.fat||0,fiber:f.fiber||0,sugar:f.sugar||0,sodium:f.sodium||0,calcium:f.calcium||0,iron:f.iron||0,vitaminC:f.vitaminC||0}));
-              return '<button onclick="nutFillModalFromOFF(''+foodJson+'')"'
+              return '<button onclick="nutFillModalFromOFF(\'' +foodJson+ '\')"'
                 +' style="padding:5px 10px;border-radius:20px;border:1px solid '+(f._fav?'rgba(255,193,7,0.5)':'var(--border)')+';background:'+(f._fav?'rgba(255,193,7,0.08)':'var(--surface2)')+';font:600 11px/1 var(--font-ui);color:var(--text);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">'
                 +(f._fav?'⭐ ':'')
                 + esc(f.name.slice(0,20))+'<span style="color:var(--text4);font-size:10px;"> '+Math.round(f.calories||0)+'</span>'
@@ -9044,7 +9044,7 @@ function openFoodModal(prefillMeal, editId){
           +'<div style="font:700 11px/1 var(--font-ui);color:var(--text3);">Copy yesterday's '+yMeal+'</div>'
           +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+yEntries.length+' item'+(yEntries.length!==1?'s':'')+' · '+Math.round(yEntries.reduce((s,e)=>s+(e.calories||0),0))+' cal</div>'
           +'</div>'
-          +'<button onclick="copyYesterdayMeal(''+yMeal+'',''+yds+'')"'
+          +'<button onclick="copyYesterdayMeal(\\'' +yMeal+ '\\',\\'' +yds+ '\\')"'
           +' style="padding:6px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">Copy</button>'
           +'</div>';
       })()}
@@ -9065,7 +9065,7 @@ function openFoodModal(prefillMeal, editId){
               +'<div style="font:700 12px/1 var(--font-ui);color:var(--text);">'+esc(t.name)+'</div>'
               +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+t.items.length+' items · '+Math.round(cal)+' cal</div>'
               +'</div>'
-              +'<button onclick="logTemplateToMeal(''+t.id+'',''+(prefillMeal||'Breakfast')+'');closeModal('modal-food');"'
+              +'<button onclick="logTemplateToMeal(\\'' +t.id+ '\\',\\'' +(prefillMeal||'Breakfast')+ '\\');closeModal(\'modal-food\');"'
               +' style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">Log</button>'
               +'</div>';
           }).join('')}
