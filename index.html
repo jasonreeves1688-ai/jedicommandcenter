@@ -111,6 +111,7 @@ html,body{
   margin-top:3px;line-height:1.5;
 }
 .page-hero-action{
+  touch-action:manipulation;
   flex-shrink:0;padding:var(--sp2) var(--sp4);
   border-radius:var(--r2);border:none;
   background:var(--accent);color:#fff;
@@ -1379,7 +1380,7 @@ input,select,textarea{ font-size:16px !important; }
   padding:0; padding-bottom:env(safe-area-inset-bottom);
   display:flex; align-items:stretch; flex-shrink:0;
 }
-#bottom-nav .nav-btn{ flex:1; padding:var(--sp2) 2px; font:600 10px/1 var(--font-ui); letter-spacing:0; text-transform:none; min-width:0; }
+#bottom-nav .nav-btn{ flex:1; padding:var(--sp2) 2px; font:600 10px/1 var(--font-ui); touch-action:manipulation; letter-spacing:0; text-transform:none; min-width:0; }
 
 /* Grid overlay */
 #nav-grid-overlay{
@@ -1438,7 +1439,7 @@ input,select,textarea{ font-size:16px !important; }
 .modal{
   background:var(--surface); border:1px solid var(--border2);
   border-radius:var(--r4) var(--r4) 0 0;
-  width:100%; max-width:540px; max-height:90vh; overflow-y:auto;
+  width:100%; max-width:540px; max-height:min(90vh,90dvh); overflow-y:auto; -webkit-overflow-scrolling:touch;
   box-shadow:var(--shadow-modal);
   animation:slideUp var(--t-med);
   padding-bottom:env(safe-area-inset-bottom);
@@ -1448,7 +1449,7 @@ input,select,textarea{ font-size:16px !important; }
   border-radius:var(--r4) var(--r4) 0 0;
   padding-top:20px;
   position:relative;
-  width:100%; max-width:540px; max-height:90vh;
+  width:100%; max-width:540px; max-height:min(90vh,90dvh);
   box-shadow:var(--shadow-modal);
   animation:slideUp var(--t-med);
   display:flex; flex-direction:column; overflow:hidden;
@@ -1529,7 +1530,7 @@ input,select,textarea{ font-size:16px !important; }
 .sbs-new{ display:flex; flex-direction:column; overflow:hidden; }
 @media(max-width:600px){
   .modal-sidebyside{ grid-template-columns:1fr; grid-template-rows:auto auto 1fr auto; max-width:540px; }
-  .sbs-prev{ border-right:none; border-bottom:1px solid var(--border); max-height:35vh; }
+  .sbs-prev{ border-right:none; border-bottom:1px solid var(--border); max-height:min(35vh,35dvh); }
   .modal-sidebyside .modal-footer,.modal-sidebyside .modal-header{ grid-column:1; }
 }
 
@@ -2424,9 +2425,6 @@ function selectGateUser(who){
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8.2 14 12 15.1 17.5 10 14.8 4.9 17.5 6 12 2 8.2 7.5 7.5"/></svg></span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-health" onclick="setNav('health')">
-        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17s-7-4.5-7-9a4 4 0 018 0 4 4 0 018 0c0 4.5-7 9-7 9z"/></svg></span><span class="nav-label">Health</span>
-      </button>
       <button class="nav-btn" id="nav-home-contacts" onclick="setNav('people')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="6" r="3"/><path d="M2 17c0-3.3 2.7-6 6-6"/><circle cx="14" cy="8" r="2.5"/><path d="M11 17c0-2.8 1.3-5 3-5s3 2.2 3 5"/></svg></span><span class="nav-label">Contacts</span>
       </button>
@@ -2617,8 +2615,8 @@ function selectGateUser(who){
       <button class="nav-btn" id="nav-home-kids" onclick="setNav('kids')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="10 2 12.5 7.5 18 8.2 14 12 15.1 17.5 10 14.8 4.9 17.5 6 12 2 8.2 7.5 7.5"/></svg></span><span class="nav-label">Kids</span>
       </button>
-      <button class="nav-btn" id="nav-games" onclick="setNav('games')">
-        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="10" rx="3"/><line x1="6" y1="9" x2="6" y2="13"/><line x1="4" y1="11" x2="8" y2="11"/><circle cx="13" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Games</span>
+      <button class="nav-btn" id="nav-health" onclick="setNav('health')">
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17s-7-4.5-7-9a4 4 0 018 0 4 4 0 018 0c0 4.5-7 9-7 9z"/></svg></span><span class="nav-label">Health</span>
       </button>
       <button class="nav-btn" id="nav-home-grid-btn" onclick="toggleNavGrid()">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">More</span>
@@ -4721,7 +4719,7 @@ function runSelfTests(){
 
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;
-      width:100%;max-width:540px;max-height:85vh;display:flex;flex-direction:column;
+      width:100%;max-width:540px;max-height:min(85vh,85dvh);display:flex;flex-direction:column;
       padding-bottom:env(safe-area-inset-bottom);">
     <div style="padding:16px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <div style="width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 12px;"></div>
@@ -5727,7 +5725,7 @@ function openMealEdit(ds){
   const m = document.createElement('div');
   m.id = 'modal-meal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:800;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;';
-  m.innerHTML = '<div id="meal-sheet" style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;"></div>';
+  m.innerHTML = '<div id="meal-sheet" style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:min(85vh,85dvh);display:flex;flex-direction:column;overflow:hidden;"></div>';
   m.onclick = e => { if(e.target===m) m.remove(); };
   document.body.appendChild(m);
   renderMealModal(existing, label);
@@ -5914,7 +5912,7 @@ async function openGrocerySuggestModal(mealName){
   const m = document.createElement('div');
   m.id = 'modal-grocery-suggest';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;display:flex;align-items:flex-end;justify-content:center;';
-  m.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
+  m.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:min(88vh,88dvh);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
     + '<div style="padding:16px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--border);">'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;">'
     +     '<div>'
@@ -6078,7 +6076,7 @@ function openRecipeSheet(ds){
   };
 
   m.innerHTML = '<div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;'
-    + 'max-height:88vh;display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
+    + 'max-height:min(88vh,88dvh);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom);">'
     + '<div style="padding:16px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--border);">'
     +   '<div style="display:flex;align-items:center;justify-content:space-between;">'
     +     '<div>'
@@ -7748,7 +7746,7 @@ function renderCalEventSheet(){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:850;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 24px rgba(0,0,0,0.15);
-      max-height:80vh;overflow-y:auto;
+      max-height:min(80vh,80dvh);overflow-y:auto;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -7921,7 +7919,7 @@ function openCalCreateSheet(prefillDate){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:850;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 24px rgba(0,0,0,0.15);
-      max-height:85vh;overflow-y:auto;
+      max-height:min(85vh,85dvh);overflow-y:auto;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -8134,7 +8132,7 @@ function renderFamilyTaskModal(){
   modal.innerHTML = `
   <div style="width:100%;max-width:480px;background:var(--surface);
     border-radius:20px 20px 0 0;padding:20px 20px 40px;
-    max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    max-height:min(90vh,90dvh);overflow-y:auto;" onclick="event.stopPropagation()">
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div style="font:700 17px/1 var(--font-ui);color:var(--text);">${title}</div>
@@ -8996,191 +8994,310 @@ function openFoodModal(prefillMeal, editId){
   const old = document.getElementById('modal-food'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-food'; m.className = 'modal-overlay fullscreen';
-
   const meals = ['Breakfast','Lunch','Dinner','Snacks'];
+  const meal  = prefillMeal || 'Breakfast';
 
-  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-      <div style="font:800 15px/1 var(--font-ui);color:#81C784;">🥗 Log Food</div>
-      <button class="modal-close" onclick="closeModal('modal-food')">✕</button>
+  // Recent history for this meal (last 20 unique foods logged to any meal)
+  const recentFoods = getRecentFoods(20);
+  const myFoodRows  = myFoods.slice(0,5);
+
+  const historyRows = recentFoods.map(e => {
+    const fj = encodeURIComponent(JSON.stringify({name:e.name,qty:e.qty||1,unit:e.unit||'serving',calories:e.calories||0,protein:e.protein||0,carbs:e.carbs||0,fat:e.fat||0,fiber:e.fiber||0,sugar:e.sugar||0,sodium:e.sodium||0,calcium:e.calcium||0,iron:e.iron||0,vitaminC:e.vitaminC||0}));
+    const isFav = isFoodFavourite(e.name);
+    return `<div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:500 15px/1.2 var(--font-ui);color:var(--text);display:flex;align-items:center;gap:6px;">
+          ${esc(e.name)}
+          ${isFav?`<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" fill="#4CAF50"/><polyline points="3,6 5,8 9,4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+        </div>
+        <div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${Math.round(e.calories||0)} cal · ${e.qty||1} ${esc(e.unit||'serving')}</div>
+      </div>
+      <button onclick="nutFillModalFromOFF('${fj}')"
+        style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font:700 22px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+    </div>`;
+  }).join('');
+
+  const myFoodsRows = myFoodRows.map(f => {
+    const fj = encodeURIComponent(JSON.stringify({name:f.name,qty:f.qty||1,unit:f.unit||'serving',calories:f.calories||0,protein:f.protein||0,carbs:f.carbs||0,fat:f.fat||0,fiber:f.fiber||0,sugar:f.sugar||0,sodium:f.sodium||0,calcium:f.calcium||0,iron:f.iron||0,vitaminC:f.vitaminC||0}));
+    return `<div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font:500 15px/1.2 var(--font-ui);color:var(--text);">${esc(f.name)}
+          <span style="font:600 10px/1 var(--font-ui);padding:2px 5px;border-radius:4px;background:rgba(76,175,80,0.12);color:#4CAF50;margin-left:4px;">My Foods</span>
+        </div>
+        <div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${Math.round(f.calories||0)} cal · ${f.qty||1} ${esc(f.unit||'serving')}</div>
+      </div>
+      <button onclick="nutFillModalFromOFF('${fj}')"
+        style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font:700 22px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
+    </div>`;
+  }).join('');
+
+  let _foodLogTab = 'all'; // all | mymeals | myfoods
+
+  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()" style="display:flex;flex-direction:column;background:var(--bg);">
+
+    <!-- Header: back + meal name -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;flex-shrink:0;background:var(--bg);">
+      <button onclick="closeModal('modal-food')" style="border:none;background:transparent;color:var(--text3);font-size:22px;cursor:pointer;padding:0 8px 0 0;">←</button>
+      <div style="font:700 16px/1 var(--font-ui);color:var(--accent);">${meal} ▾</div>
+      <div style="width:32px;"></div>
     </div>
 
-    <div style="flex:1;overflow-y:auto;padding:12px 14px;">
+    <!-- Search bar -->
+    <div style="padding:0 16px 10px;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:24px;background:var(--surface);border:1px solid var(--border);">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="var(--text4)" stroke-width="1.5"/><line x1="11" y1="11" x2="14" y2="14" stroke="var(--text4)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input id="food-search-input" placeholder="Search foods, brands, flavors…"
+          style="flex:1;border:none;background:transparent;font:400 15px/1 var(--font-ui);color:var(--text);outline:none;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();searchFoodOFF();}"/>
+        <button onclick="searchFoodOFF()" style="border:none;background:transparent;color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;padding:0;flex-shrink:0;">Search</button>
+      </div>
+    </div>
 
-      <!-- Recent & favourite foods -->
-      ${(()=>{
-        const favs    = foodFavourites.slice(0,6);
-        const recents = getRecentFoods(8).filter(r=>!favs.some(f=>f.name.toLowerCase().trim()===r.name.toLowerCase().trim())).slice(0,6);
-        const allQuick = [...favs.map(f=>({...f,_fav:true})), ...recents];
-        if(!allQuick.length) return '';
-        return '<div style="margin-bottom:12px;">'
-          + '<div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:7px;">QUICK ADD</div>'
-          + '<div style="display:flex;flex-wrap:wrap;gap:5px;">'
-          + allQuick.map(f=>{
-              const foodJson = encodeURIComponent(JSON.stringify({name:f.name,qty:f.qty||1,unit:f.unit||'serving',calories:f.calories||0,protein:f.protein||0,carbs:f.carbs||0,fat:f.fat||0,fiber:f.fiber||0,sugar:f.sugar||0,sodium:f.sodium||0,calcium:f.calcium||0,iron:f.iron||0,vitaminC:f.vitaminC||0}));
-              return '<button onclick="nutFillModalFromOFF(\'' +foodJson+ '\')"'
-                +' style="padding:5px 10px;border-radius:20px;border:1px solid '+(f._fav?'rgba(255,193,7,0.5)':'var(--border)')+';background:'+(f._fav?'rgba(255,193,7,0.08)':'var(--surface2)')+';font:600 11px/1 var(--font-ui);color:var(--text);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:4px;">'
-                +(f._fav?'⭐ ':'')
-                + esc(f.name.slice(0,20))+'<span style="color:var(--text4);font-size:10px;"> '+Math.round(f.calories||0)+'</span>'
-                +'</button>';
-            }).join('')
-          + '</div></div>';
-      })()}
+    <!-- Tabs: All / My Meals / My Foods -->
+    <div style="display:flex;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button id="ftab-all" onclick="_switchFoodTab('all')"
+        style="padding:10px 14px 9px;border:none;background:transparent;font:700 14px/1 var(--font-ui);color:var(--text);border-bottom:2px solid var(--accent);margin-bottom:-1px;cursor:pointer;">All</button>
+      <button id="ftab-mymeals" onclick="_switchFoodTab('mymeals')"
+        style="padding:10px 14px 9px;border:none;background:transparent;font:400 14px/1 var(--font-ui);color:var(--text4);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">My Meals</button>
+      <button id="ftab-myfoods" onclick="_switchFoodTab('myfoods')"
+        style="padding:10px 14px 9px;border:none;background:transparent;font:400 14px/1 var(--font-ui);color:var(--text4);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;">My Foods</button>
+    </div>
 
-      <!-- Copy yesterday meal section -->
-      ${(()=>{
-        const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
-        const yds = yesterday.toLocaleDateString('en-CA');
-        const yMeal = prefillMeal || 'Breakfast';
-        const yEntries = nutritionLog.filter(e=>e.date===yds&&e.meal===yMeal);
-        if(!yEntries.length) return '';
-        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">'
-          +'<div style="flex:1;min-width:0;">'
-          +'<div style="font:700 11px/1 var(--font-ui);color:var(--text3);">Copy yesterday&#39;s '+yMeal+'</div>'
-          +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+yEntries.length+' item'+(yEntries.length!==1?'s':'')+' · '+Math.round(yEntries.reduce((s,e)=>s+(e.calories||0),0))+' cal</div>'
-          +'</div>'
-          +'<button data-meal="'+yMeal+'" data-date="'+yds+'" onclick="copyYesterdayMeal(this.dataset.meal,this.dataset.date)" style="padding:6px 12px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">Copy</button>'
-          +'</div>';
-      })()}
-
-      <!-- Meal templates quick-access -->
-      ${mealTemplates.length ? `
-      <div style="margin-bottom:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">🍽 TEMPLATES</div>
-          <button onclick="openMealTemplatesModal('${prefillMeal||'Breakfast'}')"
-            style="font:600 10px/1 var(--font-ui);color:var(--accent);border:none;background:transparent;cursor:pointer;padding:0;">See all →</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
-          ${mealTemplates.slice(0,3).map(t=>{
-            const cal = (t.items||[]).reduce((s,i)=>s+(i.calories||0),0);
-            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">'
-              +'<div style="flex:1;min-width:0;">'
-              +'<div style="font:700 12px/1 var(--font-ui);color:var(--text);">'+esc(t.name)+'</div>'
-              +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+t.items.length+' items · '+Math.round(cal)+' cal</div>'
-              +'</div>'
-              +'<button data-tid="'+t.id+'" data-meal="'+(prefillMeal||'Breakfast')+'" onclick="logTemplateToMeal(this.dataset.tid,this.dataset.meal);closeModal(\"modal-food\");" style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">Log</button>'
-              +'</div>';
-          }).join('')}
-        </div>
-      </div>` : `
-      <button onclick="openMealTemplatesModal('${prefillMeal||'Breakfast'}')"
-        style="width:100%;padding:10px;border-radius:8px;border:1px dashed var(--border2);background:transparent;color:var(--text4);font:700 11px/1 var(--font-ui);cursor:pointer;margin-bottom:12px;">
-        🍽 Create meal template →
-      </button>`}
-
-      <!-- Barcode scan button -->
+    <!-- Action tiles -->
+    <div style="display:flex;gap:10px;padding:12px 16px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <button onclick="openBarcodeScanner()"
-        style="width:100%;padding:14px;border-radius:12px;border:2px dashed rgba(129,199,132,0.4);
-          background:rgba(129,199,132,0.06);color:#81C784;font:800 13px/1 var(--font-ui);
-          cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
-        📷 Scan Barcode
+        style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="6" width="4" height="10" rx="0.5"/><rect x="8" y="6" width="2" height="10" rx="0.5"/><rect x="12" y="6" width="4" height="10" rx="0.5"/><rect x="18" y="6" width="2" height="10" rx="0.5"/></svg>
+        <span style="font:600 11px/1 var(--font-ui);color:var(--accent);">Barcode scan</span>
       </button>
-
-      <!-- Food search -->
-      <div style="margin-bottom:6px;">
-        <div style="display:flex;gap:8px;margin-bottom:6px;">
-          <input id="food-search-input" class="field-input"
-            placeholder="Search foods e.g. 'greek yogurt', 'banana'…"
-            style="flex:1;margin:0;"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();searchFoodOFF();}"/>
-          <button onclick="searchFoodOFF()"
-            style="padding:10px 14px;border-radius:9px;border:none;background:#81C784;
-              color:#fff;font:800 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;">
-            🔍 Search
-          </button>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="searchFoodAI()"
-            style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(100,181,246,0.4);background:rgba(100,181,246,0.06);
-              color:#64B5F6;font:700 10px/1 var(--font-ui);cursor:pointer;">
-            ✦ AI estimate instead
-          </button>
-          <div style="font:500 9px/1.3 var(--font-ui);color:var(--text4);flex:2;line-height:1.3;padding:2px 0;">
-            Database search uses Open Food Facts — millions of real products
-          </div>
-        </div>
-      </div>
-      <div id="food-search-results" style="margin-bottom:10px;max-height:240px;overflow-y:auto;"></div>
-
-      <!-- Manual entry -->
-      <div style="background:var(--surface2);border-radius:12px;border:1px solid var(--border);padding:12px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">MANUAL ENTRY</div>
-
-        <div class="chip-label">Food name</div>
-        <input id="food-name" class="field-input" placeholder="e.g. Greek yogurt, Chicken breast…" value="${esc(existing?.name||'')}"/>
-
-        <div style="display:flex;gap:8px;">
-          <div style="flex:2;">
-            <div class="chip-label">Quantity</div>
-            <input id="food-qty" type="number" step="0.1" min="0" class="field-input" placeholder="1" value="${existing?.qty||1}" style="margin-bottom:0;"/>
-          </div>
-          <div style="flex:3;">
-            <div class="chip-label">Unit</div>
-            <select id="food-unit" class="field-select" style="margin-bottom:0;">
-              ${['serving','g','oz','cup','tbsp','tsp','piece','slice','ml','fl oz'].map(u=>`<option value="${u}" ${(existing?.unit||'serving')===u?'selected':''}>${u}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <div style="flex:1;">
-            <div class="chip-label">Meal</div>
-            <select id="food-meal" class="field-select" style="margin-bottom:0;">
-              ${meals.map(m=>`<option value="${m}" ${(existing?.meal||prefillMeal||'Breakfast')===m?'selected':''}>${m}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <!-- Macros -->
-        <div style="margin-top:10px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">MACROS (per entry)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          ${[['food-calories','Calories','kcal'],['food-protein','Protein','g'],['food-carbs','Carbs','g'],['food-fat','Fat','g'],['food-fiber','Fiber','g'],['food-sugar','Sugar','g']].map(([id,label,unit])=>`
-            <div>
-              <div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-bottom:3px;">${label} <span style="opacity:0.6;">(${unit})</span></div>
-              <input id="${id}" type="number" step="0.1" min="0" class="field-input"
-                placeholder="0" value="${existing?.[id.replace('food-','')]||''}" style="margin-bottom:0;padding:8px 10px;"/>
-            </div>`).join('')}
-        </div>
-
-        <!-- Micros -->
-        <div style="margin-top:10px;font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:8px;">MICRONUTRIENTS</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          ${[['food-sodium','Sodium','mg'],['food-calcium','Calcium','mg'],['food-iron','Iron','mg'],['food-vitaminC','Vitamin C','mg']].map(([id,label,unit])=>`
-            <div>
-              <div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-bottom:3px;">${label} <span style="opacity:0.6;">(${unit})</span></div>
-              <input id="${id}" type="number" step="0.1" min="0" class="field-input"
-                placeholder="0" value="${existing?.[id.replace('food-','')]||''}" style="margin-bottom:0;padding:8px 10px;"/>
-            </div>`).join('')}
-        </div>
-      </div>
+      <button onclick="_openQuickAddModal('${meal}')"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="11" y1="7" x2="11" y2="15"/><line x1="7" y1="11" x2="15" y2="11"/></svg>
+        <span style="font:600 11px/1 var(--font-ui);color:var(--accent);">Quick add</span>
+      </button>
+      <button onclick="searchFoodAI()"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><path d="M11 2l2 6h6l-5 3.6 1.9 5.9L11 14l-4.9 3.5 1.9-5.9L3 8h6z"/></svg>
+        <span style="font:600 11px/1 var(--font-ui);color:var(--accent);">AI estimate</span>
+      </button>
+      <button onclick="openMyFoodsModal()"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="12" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="12" width="7" height="7" rx="1.5"/><rect x="12" y="12" width="7" height="7" rx="1.5"/></svg>
+        <span style="font:600 11px/1 var(--font-ui);color:var(--accent);">My Foods</span>
+      </button>
     </div>
 
+    <!-- Search results (hidden until search) -->
+    <div id="food-search-results" style="overflow-y:auto;max-height:min(260px,40vh);display:none;-webkit-overflow-scrolling:touch;"></div>
+
+    <!-- History list -->
+    <div id="food-history-panel" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;">
+        <div style="font:700 17px/1 var(--font-ui);color:var(--text);">History</div>
+        <span style="font:500 12px/1 var(--font-ui);color:var(--text4);">Most Recent</span>
+      </div>
+      <div id="food-list-all">${historyRows||'<div style="padding:16px;font:400 14px/1 var(--font-ui);color:var(--text4);">No recent foods — search above to get started</div>'}</div>
+      <div id="food-list-mymeals" style="display:none;">${mealTemplates.length?mealTemplates.map(t=>{
+        const cal=(t.items||[]).reduce((s,i)=>s+(i.calories||0),0);
+        return '<div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;">'
+          +'<div style="flex:1;min-width:0;"><div style="font:500 15px/1 var(--font-ui);color:var(--text);">'+esc(t.name)+'</div>'
+          +'<div style="font:400 13px/1 var(--font-ui);color:var(--text4);margin-top:3px;">'+t.items.length+' items · '+Math.round(cal)+' cal</div></div>'
+          +'<button data-tid="'+t.id+'" data-meal="'+meal+'" onclick="logTemplateToMeal(this.dataset.tid,this.dataset.meal);closeModal(\'modal-food\');" '
+          +'style="width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font:700 22px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>'
+          +'</div>';
+      }).join(''):'<div style="padding:16px;font:400 14px/1 var(--font-ui);color:var(--text4);">No meal templates yet. Create one from the Templates section.</div>'}</div>
+      <div id="food-list-myfoods" style="display:none;">${myFoodsRows||'<div style="padding:16px;font:400 14px/1 var(--font-ui);color:var(--text4);">No custom foods yet.</div>'}</div>
+    </div>
+
+    <!-- Hidden fields for manual entry (populated when nutFillModal is called) -->
+    <input type="hidden" id="food-name" value="${esc(existing?.name||'')}"/>
+    <input type="hidden" id="food-qty" value="${existing?.qty||1}"/>
+    <input type="hidden" id="food-unit" value="${existing?.unit||'serving'}"/>
+    <input type="hidden" id="food-meal" value="${existing?.meal||meal}"/>
+    <input type="hidden" id="food-calories" value="${existing?.calories||''}"/>
+    <input type="hidden" id="food-protein" value="${existing?.protein||''}"/>
+    <input type="hidden" id="food-carbs" value="${existing?.carbs||''}"/>
+    <input type="hidden" id="food-fat" value="${existing?.fat||''}"/>
+    <input type="hidden" id="food-fiber" value="${existing?.fiber||''}"/>
+    <input type="hidden" id="food-sugar" value="${existing?.sugar||''}"/>
+    <input type="hidden" id="food-sodium" value="${existing?.sodium||''}"/>
+    <input type="hidden" id="food-calcium" value="${existing?.calcium||''}"/>
+    <input type="hidden" id="food-iron" value="${existing?.iron||''}"/>
+    <input type="hidden" id="food-vitaminC" value="${existing?.vitaminC||''}"/>
     <input type="hidden" id="food-edit-id" value="${editId||''}"/>
-    <div class="modal-footer" style="flex-shrink:0;display:flex;gap:8px;">
-      ${editId?`<button onclick="deleteNutEntry('${editId}');closeModal('modal-food');" style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">Delete</button>`:''}
-      <button id="food-fav-btn" onclick="nutToggleFavFromModal()"
-        style="padding:14px 12px;border-radius:var(--r3);border:1px solid rgba(255,193,7,0.4);background:rgba(255,193,7,0.06);color:#FFC107;font:700 13px/1 var(--font-ui);cursor:pointer;">⭐</button>
-      <button onclick="saveNutEntry()" style="flex:1;padding:14px;border-radius:var(--r3);border:none;background:#81C784;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Food</button>
-    </div>
+    <input type="hidden" id="food-fav-btn" value=""/>
+
   </div>`;
 
   m.onclick = e => { if(e.target===m) closeModal('modal-food'); };
   document.body.appendChild(m);
-  setTimeout(()=>{ _watchModalInputs(m); document.getElementById('food-search-input')?.focus(); }, 80);
+  setTimeout(()=>{ document.getElementById('food-search-input')?.focus(); }, 80);
 }
 
-// Populate food modal fields from a nutrition object
-function nutFillModal(food){
-  const fields = ['name','calories','protein','carbs','fat','fiber','sugar','sodium','calcium','iron','vitaminC'];
-  fields.forEach(f => {
-    const el = document.getElementById('food-'+f);
-    if(el) el.value = food[f]||'';
+// Tab switcher for food modal
+function _switchFoodTab(tab){
+  ['all','mymeals','myfoods'].forEach(t=>{
+    const btn  = document.getElementById('ftab-'+t);
+    const list = document.getElementById('food-list-'+t);
+    if(btn){
+      btn.style.fontWeight = t===tab?'700':'400';
+      btn.style.color      = t===tab?'var(--text)':'var(--text4)';
+      btn.style.borderBottomColor = t===tab?'var(--accent)':'transparent';
+    }
+    if(list) list.style.display = t===tab?'block':'none';
   });
+}
+
+// Quick Add modal — just cal/protein/carbs/fat, no search needed
+function _openQuickAddModal(meal){
+  const old = document.getElementById('modal-quick-add'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-quick-add'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:800 15px/1 var(--font-ui);color:var(--text);">Quick Add · ${meal}</div>
+      <button class="modal-close" onclick="closeModal('modal-quick-add')">✕</button>
+    </div>
+    <div style="padding:4px 0 12px;">
+      <div class="chip-label">Food name (optional)</div>
+      <input id="qa-name" class="field-input" placeholder="e.g. Snack, Coffee…"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;">
+        <div>
+          <div class="chip-label">Calories</div>
+          <input id="qa-cal" type="number" min="0" class="field-input" placeholder="0"
+            style="font-size:22px;font-weight:900;text-align:center;" autofocus/>
+        </div>
+        <div>
+          <div class="chip-label">Protein (g)</div>
+          <input id="qa-prot" type="number" step="0.1" min="0" class="field-input" placeholder="0"
+            style="text-align:center;"/>
+        </div>
+        <div>
+          <div class="chip-label">Carbs (g)</div>
+          <input id="qa-carbs" type="number" step="0.1" min="0" class="field-input" placeholder="0"
+            style="text-align:center;"/>
+        </div>
+        <div>
+          <div class="chip-label">Fat (g)</div>
+          <input id="qa-fat" type="number" step="0.1" min="0" class="field-input" placeholder="0"
+            style="text-align:center;"/>
+        </div>
+      </div>
+    </div>
+    <button onclick="_saveQuickAdd('${meal}')"
+      style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Add to ${meal}</button>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-quick-add'); };
+  document.body.appendChild(m); openModal('modal-quick-add');
+  setTimeout(()=>document.getElementById('qa-cal')?.focus(), 80);
+}
+
+function _saveQuickAdd(meal){
+  _markModalClean();
+  const cal  = parseFloat(document.getElementById('qa-cal')?.value)||0;
+  if(!cal){ showToast('Enter calories'); return; }
+  const name = document.getElementById('qa-name')?.value.trim()||'Quick Add';
+  const entry = {
+    id:'nut'+Date.now(), date:nutToday(), meal,
+    name, qty:1, unit:'serving',
+    calories:cal,
+    protein: parseFloat(document.getElementById('qa-prot')?.value)||0,
+    carbs:   parseFloat(document.getElementById('qa-carbs')?.value)||0,
+    fat:     parseFloat(document.getElementById('qa-fat')?.value)||0,
+    fiber:0, sugar:0, sodium:0, calcium:0, iron:0, vitaminC:0,
+    loggedAt:Date.now(),
+  };
+  nutritionLog.unshift(entry);
+  saveNutritionLog();
+  closeModal('modal-quick-add');
+  closeModal('modal-food');
+  showToast('+ '+Math.round(cal)+' cal added to '+meal);
+  renderAll();
+}
+
+// Populate food modal fields from a nutrition object — opens confirm/edit sheet
+function nutFillModal(food){
+  // Store in hidden fields
+  const fields = ['name','calories','protein','carbs','fat','fiber','sugar','sodium','calcium','iron','vitaminC'];
+  fields.forEach(f => { const el=document.getElementById('food-'+f); if(el) el.value=food[f]||''; });
   if(food.qty){ const q=document.getElementById('food-qty'); if(q) q.value=food.qty; }
   if(food.unit){ const u=document.getElementById('food-unit'); if(u) u.value=food.unit; }
-  const res = document.getElementById('food-search-results');
-  if(res) res.innerHTML = `<div style="padding:8px 10px;border-radius:8px;background:rgba(129,199,132,0.1);border:1px solid rgba(129,199,132,0.3);font:600 12px/1 var(--font-ui);color:#81C784;">✓ Found: ${esc(food.name)} — ${food.calories||0} cal. Edit below if needed.</div>`;
+  // Show confirm sheet
+  _openFoodConfirmSheet(food);
+}
+
+function _openFoodConfirmSheet(food){
+  const mealEl = document.getElementById('food-meal');
+  const currentMeal = mealEl?.value || 'Breakfast';
+  const meals = ['Breakfast','Lunch','Dinner','Snacks'];
+  const old = document.getElementById('modal-food-confirm'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-food-confirm'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:min(90vh,90dvh);overflow-y:auto;">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:800 15px/1 var(--font-ui);color:var(--text);">${esc(food.name)}</div>
+      <button class="modal-close" onclick="closeModal('modal-food-confirm')">✕</button>
+    </div>
+    <div style="padding:4px 0 12px;">
+      <!-- Calorie big display -->
+      <div style="text-align:center;padding:16px 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px;">
+        <div style="font:900 40px/1 var(--font-ui);color:var(--text);">${Math.round(food.calories||0)}</div>
+        <div style="font:500 13px/1 var(--font-ui);color:var(--text4);margin-top:4px;">calories · ${food.qty||1} ${esc(food.unit||'serving')}</div>
+      </div>
+      <!-- Macros row -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px;">
+        ${[['Protein','#64B5F6',food.protein],['Carbs','#4CAF50',food.carbs],['Fat','#FF8A65',food.fat]].map(([l,c,v])=>`
+        <div style="flex:1;text-align:center;">
+          <div style="font:800 18px/1 var(--font-ui);color:${c};">${Math.round(v||0)}g</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${l}</div>
+        </div>`).join('')}
+      </div>
+      <!-- Serving adjustment -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <div class="chip-label">Servings</div>
+          <input id="fcs-qty" type="number" step="0.25" min="0.25" class="field-input" value="${food.qty||1}" style="margin-bottom:0;text-align:center;font-size:18px;font-weight:700;"/>
+        </div>
+        <div style="flex:2;">
+          <div class="chip-label">Meal</div>
+          <select id="fcs-meal" class="field-select" style="margin-bottom:0;">
+            ${meals.map(ml=>`<option value="${ml}" ${ml===currentMeal?'selected':''}>${ml}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      <button onclick="nutToggleFavFromModal()" id="food-fav-confirm"
+        style="padding:14px 12px;border-radius:var(--r3);border:1px solid rgba(255,193,7,0.4);background:rgba(255,193,7,0.06);color:#FFC107;font:700 13px/1 var(--font-ui);cursor:pointer;">⭐</button>
+      <button onclick="_saveFoodConfirm()" style="flex:1;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Add to Diary</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-food-confirm'); };
+  document.body.appendChild(m); openModal('modal-food-confirm');
+}
+
+function _saveFoodConfirm(){
+  _markModalClean();
+  const qty  = parseFloat(document.getElementById('fcs-qty')?.value)||1;
+  const meal = document.getElementById('fcs-meal')?.value||'Breakfast';
+  const ratio = qty / (parseFloat(document.getElementById('food-qty')?.value)||1);
+  const scale = f => Math.round((parseFloat(document.getElementById('food-'+f)?.value)||0)*ratio*10)/10;
+  const entry = {
+    id:'nut'+Date.now(), date:nutToday(), meal,
+    name:     document.getElementById('food-name')?.value||'',
+    qty, unit: document.getElementById('food-unit')?.value||'serving',
+    calories: scale('calories'), protein:scale('protein'), carbs:scale('carbs'),
+    fat:scale('fat'), fiber:scale('fiber'), sugar:scale('sugar'),
+    sodium:scale('sodium'), calcium:scale('calcium'), iron:scale('iron'),
+    vitaminC:scale('vitaminC'), loggedAt:Date.now(),
+  };
+  if(!entry.name){ showToast('No food selected'); return; }
+  nutritionLog.unshift(entry);
+  saveNutritionLog();
+  closeModal('modal-food-confirm');
+  closeModal('modal-food');
+  showToast('✓ '+entry.name+' added to '+meal);
+  renderAll();
 }
 
 // ── Open Food Facts text search ──────────────────────────────
@@ -9222,7 +9339,11 @@ async function searchFoodOFF(){
       return;
     }
 
-    res.innerHTML = `<div style="font:var(--type-caption);color:var(--text4);padding:4px 0 8px;">${products.length} results</div>`
+    // Show results panel, hide history
+    res.style.display='block';
+    const hist=document.getElementById('food-history-panel');
+    if(hist) hist.style.display='none';
+    res.innerHTML = `<div style="padding:4px 16px 0;font:500 12px/1 var(--font-ui);color:var(--text4);">${products.length} results</div>`
       + products.slice(0,8).map((p,i)=>{
       const n = p.nutriments||{};
       const cal  = Math.round(n['energy-kcal_serving']||n['energy-kcal']||0);
@@ -9272,7 +9393,10 @@ async function searchFoodAI(){
   if(!query){ showToast('Enter a food to search'); return; }
 
   const res = document.getElementById('food-search-results');
-  res.innerHTML = `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);padding:6px 0;">🔍 Looking up nutrition…</div>`;
+  res.style.display = 'block';
+  const _histPanel = document.getElementById('food-history-panel');
+  if(_histPanel) _histPanel.style.display = 'none';
+  res.innerHTML = `<div style="font:500 12px/1 var(--font-ui);color:var(--text4);padding:6px 16px;">🔍 Looking up nutrition…</div>`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -10024,7 +10148,7 @@ function openCalcSetupModal(){
   const hFt = cfg.heightFt || Math.floor((cfg.heightCm||178)/30.48);
   const hIn = cfg.heightIn !== null && cfg.heightIn !== undefined ? cfg.heightIn : Math.round(((cfg.heightCm||178)/2.54) % 12);
 
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto;">
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:min(90vh,90dvh);overflow-y:auto;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font:800 14px/1 var(--font-ui);color:#81C784;">🧮 Calorie Calculator</div>
       <button class="modal-close" onclick="closeModal('modal-calc-setup')">✕</button>
@@ -10191,7 +10315,7 @@ function openNutGoalsModal(){
   const old = document.getElementById('modal-nut-goals'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-nut-goals'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:85vh;overflow-y:auto;">
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-height:min(85vh,85dvh);overflow-y:auto;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font:800 14px/1 var(--font-ui);color:#81C784;">🎯 Daily Goals</div>
       <button class="modal-close" onclick="closeModal('modal-nut-goals')">✕</button>
@@ -10448,7 +10572,7 @@ function renderCalImportSheet(){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 32px rgba(0,0,0,0.2);
-      max-height:90vh;overflow-y:auto;
+      max-height:min(90vh,90dvh);overflow-y:auto;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -11154,7 +11278,7 @@ function openAssignMeetingToSlot(meetingId){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 24px rgba(0,0,0,0.15);padding:20px 20px 40px;
-      max-height:70vh;overflow-y:auto;
+      max-height:min(70vh,70dvh);overflow-y:auto;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -11664,7 +11788,7 @@ function openMtgTaskPicker(meetingId){
 
   picker.innerHTML = `
     <div style="width:100%;max-width:480px;background:var(--surface);
-      border-radius:20px 20px 0 0;max-height:70vh;display:flex;flex-direction:column;"
+      border-radius:20px 20px 0 0;max-height:min(70vh,70dvh);display:flex;flex-direction:column;"
       onclick="event.stopPropagation()">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);
         display:flex;align-items:center;gap:10px;">
@@ -11800,7 +11924,7 @@ function openTaskMeetingPicker(taskId){
 
   picker.innerHTML = `
     <div style="width:100%;max-width:480px;background:var(--surface);
-      border-radius:20px 20px 0 0;max-height:70vh;display:flex;flex-direction:column;"
+      border-radius:20px 20px 0 0;max-height:min(70vh,70dvh);display:flex;flex-direction:column;"
       onclick="event.stopPropagation()">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);
         display:flex;align-items:center;gap:10px;">
@@ -11989,7 +12113,7 @@ function openFamilyCommentSheet(taskId){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:870;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 32px rgba(0,0,0,0.2);
-      max-height:85vh;display:flex;flex-direction:column;
+      max-height:min(85vh,85dvh);display:flex;flex-direction:column;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -13804,7 +13928,7 @@ function renderJournalSection(){
           <textarea id="journal-${i}-${fieldKey}"
             style="width:100%;margin-top:6px;min-height:60px;background:var(--surface2);
             border:1px solid var(--border);border-radius:5px;padding:7px 9px;
-            font-size:12px;font-family:var(--font-body);color:var(--text2);
+            font-size:16px;font-family:var(--font-body);color:var(--text2);
             resize:none;outline:none;line-height:1.5;"
             placeholder="Edit ${label.toLowerCase()}…"
             onfocus="this.style.borderColor='var(--accent)'"
@@ -14567,7 +14691,7 @@ function renderModalSubtaskList(){
       <button class="subtask-check ${s.done?'done':''}" onclick="_modalSubtasks[${i}].done=!_modalSubtasks[${i}].done;renderModalSubtaskList()">✓</button>
       <input class="subtask-text ${s.done?'done':''}" value="${esc(s.text)}"
         onchange="_modalSubtasks[${i}].text=this.value"
-        style="background:transparent;border:none;outline:none;font-size:13px;font-family:var(--font-body);color:${s.done?'var(--text4)':'var(--text2)'};${s.done?'text-decoration:line-through;':''};flex:1;cursor:text;"/>
+        style="background:transparent;border:none;outline:none;font-size:16px;font-family:var(--font-body);color:${s.done?'var(--text4)':'var(--text2)'};${s.done?'text-decoration:line-through;':''};flex:1;cursor:text;"/>
       <button class="subtask-del" onclick="_modalSubtasks.splice(${i},1);renderModalSubtaskList()" title="Remove">✕</button>
     </div>`).join('');
 }
@@ -14819,7 +14943,7 @@ function renderSwatches(){
         style="width:36px;height:28px;padding:2px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--surface2);"
         oninput="selectColor(this.value)" title="Pick any color"/>
       <input type="text" id="proj-hex-input" value="${selectedProjColor}"
-        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;font-family:var(--font-ui);color:var(--text);outline:none;"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:16px;font-family:var(--font-ui);color:var(--text);outline:none;"
         placeholder="#RRGGBB" oninput="onHexInput(this.value)" onfocus="this.select()"/>
     </div>`;
 }
@@ -17882,7 +18006,7 @@ function openClientOrgModal(editId){
   const old = document.getElementById('modal-client-org'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-client-org'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
     <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
       <span style="font:800 15px/1 var(--font-ui);color:#81C784;">🏢 ${existing?'Edit Org':'New Client Org'}</span>
       <button class="modal-close" onclick="closeModal('modal-client-org')">✕</button>
@@ -17987,7 +18111,7 @@ function openClientConvoModal(orgId, editId){
   const existingInsights = existing?.insights||[];
   const existingFollowUps = existing?.followUps||[];
 
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:92vh;overflow-y:auto;">
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(92vh,92dvh);overflow-y:auto;">
     <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font:800 15px/1 var(--font-ui);color:var(--accent);">💬 ${existing?'Edit':'Log'} Conversation</div>
@@ -18037,9 +18161,9 @@ function openClientConvoModal(orgId, editId){
         </div>
         <input type="hidden" id="cc-new-type" value="feedback"/>
         <input id="cc-new-text" class="field-input" placeholder="What did they say?" autocomplete="off" style="margin-bottom:6px;font-size:16px;"/>
-        <input id="cc-new-quote" class="field-input" placeholder='Their exact words (optional)…' autocomplete="off" style="margin-bottom:6px;font-size:13px;"/>
+        <input id="cc-new-quote" class="field-input" placeholder='Their exact words (optional)…' autocomplete="off" style="margin-bottom:6px;font-size:16px;"/>
         ${discoveryList.filter(i=>!['killed','launched'].includes(i.status)).length?`
-        <select id="cc-new-initiative" class="field-select" style="color-scheme:dark;margin-bottom:8px;font-size:13px;">
+        <select id="cc-new-initiative" class="field-select" style="color-scheme:dark;margin-bottom:8px;font-size:16px;">
           <option value="">Link to initiative (optional)</option>
           ${discoveryList.filter(i=>!['killed','launched'].includes(i.status)).map(i=>`<option value="${i.id}">${esc(i.title.slice(0,40))}</option>`).join('')}
         </select>`:'<input type="hidden" id="cc-new-initiative" value=""/>'}
@@ -18052,7 +18176,7 @@ function openClientConvoModal(orgId, editId){
       <!-- Follow-ups -->
       <div class="chip-label" style="margin-top:8px;">Follow-ups <span style="font:500 11px/1 var(--font-ui);color:var(--text4);letter-spacing:0;">(one per line: "owner: task by date")</span></div>
       <textarea id="cc-followups" class="field-input" placeholder="You: Send proposal by Friday&#10;Sarah: Share requirements doc" rows="3"
-        style="resize:none;font-size:14px;">${existingFollowUps.map(f=>`${f.owner&&f.owner!=='me'?f.owner+': ':''}${f.what}${f.dueDate?' by '+f.dueDate:''}`).join('\n')}</textarea>
+        style="resize:none;font-size:16px;">${existingFollowUps.map(f=>`${f.owner&&f.owner!=='me'?f.owner+': ':''}${f.what}${f.dueDate?' by '+f.dueDate:''}`).join('\n')}</textarea>
 
       <input type="hidden" id="cc-org-id" value="${orgId}"/>
       <input type="hidden" id="cc-edit-id" value="${editId||''}"/>
@@ -18242,7 +18366,7 @@ Be specific and reference which org segments the patterns come from.`,
     const old = document.getElementById('modal-cross-org'); if(old) old.remove();
     const mr = document.createElement('div');
     mr.id = 'modal-cross-org'; mr.className = 'modal-overlay';
-    mr.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
+    mr.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;">
       <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span style="font:800 15px/1 var(--font-ui);color:#64B5F6;">🌐 Cross-Org Synthesis</span>
         <button class="modal-close" onclick="closeModal('modal-cross-org')">✕</button>
@@ -18341,7 +18465,7 @@ function openPhotoEventCapture(){
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;
       padding:20px 16px calc(32px + env(safe-area-inset-bottom));
-      max-height:90vh;overflow-y:auto;">
+      max-height:min(90vh,90dvh);overflow-y:auto;">
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div>
@@ -18936,7 +19060,7 @@ function _openTeamPrep(personId){
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;
       border-top:1px solid var(--border2);padding:20px 16px calc(28px + env(safe-area-inset-bottom));
-      max-height:82vh;overflow-y:auto;">
+      max-height:min(82vh,82dvh);overflow-y:auto;">
     <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
       ${renderAvatar(p.name, p.photo, 40, '#BA68C822', '#BA68C8', false)}
@@ -19093,7 +19217,7 @@ function openTeamMeetingModal(editId, type, prefillPersonId){
   const addRow = (id, placeholder, color, btnLabel) =>
     `<div style="display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);background:var(--surface2);">
       <input id="${id}" class="field-input" placeholder="${placeholder}" autocomplete="off"
-        style="flex:1;margin:0;padding:8px 10px;font-size:14px;"
+        style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
         onkeydown="if(event.key==='Enter'){event.preventDefault();_tm1on1Add('${id}');}"/>
       <input id="${id}-due" type="date" style="width:110px;padding:8px 8px;border-radius:var(--r2);
         border:1px solid var(--border);background:var(--surface);color:var(--text);
@@ -19320,7 +19444,7 @@ function openCommsModal(editId, prefillPersonId){
   const old = document.getElementById('modal-comms'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-comms'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;">
     <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
       <span style="font:800 15px/1 var(--font-ui);color:#BA68C8;">📣 ${existing?'Edit':'New'} Comms</span>
       <button class="modal-close" onclick="closeModal('modal-comms')">✕</button>
@@ -20432,7 +20556,7 @@ function openWfAttachments(id){
     sheet.style.cssText = `position:fixed;bottom:0;left:0;right:0;z-index:860;
       background:var(--surface);border-radius:20px 20px 0 0;
       box-shadow:0 -4px 24px rgba(0,0,0,0.15);padding:20px 20px 40px;
-      max-height:70vh;overflow-y:auto;
+      max-height:min(70vh,70dvh);overflow-y:auto;
       transform:translateY(100%);transition:transform 0.25s ease;`;
     document.body.appendChild(sheet);
   }
@@ -21332,7 +21456,7 @@ function openLogContactModal(id, closeParentId){
   const m = document.createElement('div');
   m.id='modal-log-contact'; m.className='modal-overlay';
   const methods = ['📞 Call','💬 Text','📧 Email','☕ In person','🎥 Video','📝 Note'];
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:60vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(60vh,60dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--text);">✓ Log Contact — ${esc(c.name)}</div>
       <button class="modal-close" onclick="closeModal('modal-log-contact')">✕</button>
@@ -21628,7 +21752,7 @@ function openMeetingSeriesModal(editId){
   const old = document.getElementById('modal-series'); if(old) old.remove();
   const m = document.createElement('div');
   m.id='modal-series'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(80vh,80dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:15px;font-weight:900;color:var(--text);">${existing?'Edit Series':'🔁 New Recurring Series'}</div>
       <button class="modal-close" onclick="closeModal('modal-series')">✕</button>
@@ -22071,7 +22195,7 @@ function mtgShowFollowUpPrompt(rows, onComplete){
 
     m.innerHTML = `<div onclick="event.stopPropagation()"
       style="background:var(--surface);border-radius:18px 18px 0 0;
-        width:100%;max-width:540px;max-height:80vh;display:flex;flex-direction:column;
+        width:100%;max-width:540px;max-height:min(80vh,80dvh);display:flex;flex-direction:column;
         overflow:hidden;box-shadow:0 -8px 40px rgba(0,0,0,0.4);">
       <div style="padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
         <div style="width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 12px;"></div>
@@ -22584,7 +22708,7 @@ function openTbTaskSearch(){
   const title=_tbPickerMode==='slot'?`📌 ${minsToTime(_tbPickerStartMin)} — pick a task`:'➕ Add to schedule';
   const m=document.createElement('div');
   m.id='modal-tb-search'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(80vh,80dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);">${title}</div>
       <button class="modal-close" onclick="closeModal('modal-tb-search')">✕</button>
@@ -22617,7 +22741,7 @@ function openTbTimePicker(date, taskId, isReschedule){
   const old=document.getElementById('modal-tb-time'); if(old) old.remove();
   const m=document.createElement('div');
   m.id='modal-tb-time'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(70vh,70dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="min-width:0;flex:1;">
         <div style="font-family:var(--font-ui);font-size:14px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
@@ -22679,7 +22803,7 @@ function openMeetingBlockEdit(date, startMin, encodedCalId, encodedTitle){
     `<option value="${d}" ${d===durMins?'selected':''}>${d<60?d+'m':Math.floor(d/60)+'h'+(d%60?''+d%60+'m':'')}</option>`
   ).join('');
 
-  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;">
+  m.innerHTML = `<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;">
     <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
       <div>
         <div style="font:800 15px/1 var(--font-ui);color:var(--accent);">✏ Edit Meeting</div>
@@ -22862,7 +22986,7 @@ function openTodayPicker(){
     const m = document.createElement('div');
     m.id = 'modal-today-picker';
     m.className = 'modal-overlay';
-    m.innerHTML = `<div class="modal" style="max-height:80vh;display:flex;flex-direction:column;">
+    m.innerHTML = `<div class="modal" style="max-height:min(80vh,80dvh);display:flex;flex-direction:column;">
       <div class="modal-header">
         <div class="modal-title">📌 Pick Today's Tasks</div>
         <button class="modal-close" onclick="closeModal('modal-today-picker')">✕</button>
@@ -23775,7 +23899,7 @@ function renderMassEdit(container){
             return p?`<span style="font-size:10px;background:rgba(232,168,56,0.1);color:var(--accent);padding:2px 6px;border-radius:var(--r3);white-space:nowrap;cursor:pointer;"
               onclick="meRemovePersonFromTask('${t.id}','${pid}')" title="Click to remove">${esc(p.name)} ✕</span>`:'';
           }).join('')}
-          <select class="me-select" style="font-size:10px;padding:2px 4px;"
+          <select class="me-select" style="font-size:16px;padding:2px 4px;"
             onchange="meAddPersonToTask('${t.id}',this.value);this.value=''">
             <option value="">+ add</option>
             ${peopleList.filter(p=>!(t.personIds||'').split(',').includes(p.id))
@@ -24701,7 +24825,7 @@ function openIterationSheet(iniId, iterId){
 
   const defaultLabel = isNew ? `v${ini.iterations.length + 1}` : iter.label;
 
-  sheet.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px 16px 32px;max-height:80vh;overflow-y:auto;">
+  sheet.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px 16px 32px;max-height:min(80vh,80dvh);overflow-y:auto;">
     <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px;"></div>
     <div style="font:800 15px/1 var(--font-ui);color:var(--text);margin-bottom:16px;">${isNew ? '＋ Plan New Iteration' : '✏ Edit Iteration'}</div>
 
@@ -25328,7 +25452,7 @@ function renderTrackRow(label, color, steps, labels, track, type, iniId){
       <span style="font-size:11px;font-weight:800;font-family:var(--font-ui);color:${color};width:28px;">${label}</span>
       <div class="disc-track-bar" style="height:8px;"><div class="disc-track-fill" style="width:${pct}%;background:${color};"></div></div>
       <select onchange="updateTrackStatus('${iniId}','${type}',this.value)"
-        style="font-size:11px;font-family:var(--font-ui);padding:3px 6px;border-radius:5px;border:1px solid ${color}44;background:var(--surface2);color:${color};cursor:pointer;">
+        style="font-size:16px;font-family:var(--font-ui);padding:3px 6px;border-radius:5px;border:1px solid ${color}44;background:var(--surface2);color:${color};cursor:pointer;">
         ${steps.map(s=>`<option value="${s}" ${(track.status||steps[0])===s?'selected':''}>${labels[s]}</option>`).join('')}
       </select>
       ${track.targetQuarter?`<span style="font-size:10px;color:${color}88;font-family:var(--font-ui);">📅 ${track.targetQuarter}</span>`:''}
@@ -25499,7 +25623,7 @@ function openSignalModal(initiativeId, editId){
   const old = document.getElementById('modal-signal'); if(old) old.remove();
   const m = document.createElement('div');
   m.id='modal-signal'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:85vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(85vh,85dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;color:var(--text);">📡 ${sig?'Edit Signal':'Add Signal'}</div>
       <div style="font:var(--type-caption);color:var(--text4);">${ini?esc(ini.title.slice(0,30)):''}</div>
@@ -25638,7 +25762,7 @@ function openLinkOrgModal(iniId){
   const old = document.getElementById('modal-disc-org'); if(old) old.remove();
   const m = document.createElement('div');
   m.id='modal-disc-org'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:80vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(80vh,80dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font:700 14px/1 var(--font-ui);color:#81C784;">🏢 Link Clients</div>
       <button class="modal-close" onclick="closeModal('modal-disc-org')">✕</button>
@@ -25691,7 +25815,7 @@ function openLinkMeetingModal(iniId){
   const m = document.createElement('div');
   m.id='modal-disc-link'; m.className='modal-overlay';
   const sorted = [...meetingLog].sort((a,b)=>b.date.localeCompare(a.date));
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(70vh,70dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;">Link Meeting</div>
       <button class="modal-close" onclick="closeModal('modal-disc-link')">✕</button>
@@ -25737,7 +25861,7 @@ function openLinkPersonModal(iniId){
   const old = document.getElementById('modal-disc-person'); if(old) old.remove();
   const m = document.createElement('div');
   m.id='modal-disc-person'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+  m.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-height:min(70vh,70dvh);display:flex;flex-direction:column;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font-family:var(--font-ui);font-size:14px;font-weight:900;">Link People</div>
       <button class="modal-close" onclick="closeModal('modal-disc-person')">✕</button>
@@ -26102,7 +26226,7 @@ function openFrictionlessCapture(){
     </div>` : '';
 
   m.innerHTML = `<div onclick="event.stopPropagation()"
-    style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(32px + env(safe-area-inset-bottom));max-height:75vh;overflow-y:auto;">
+    style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px 16px calc(32px + env(safe-area-inset-bottom));max-height:min(75vh,75dvh);overflow-y:auto;">
 
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
 
@@ -26110,7 +26234,7 @@ function openFrictionlessCapture(){
     <div style="margin-bottom:var(--sp3);">
       <textarea id="fc-input" rows="3"
         style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r3);
-               padding:var(--sp3) var(--sp4);font-size:15px;font-family:var(--font-body);color:var(--text);
+               padding:var(--sp3) var(--sp4);font-size:16px;font-family:var(--font-body);color:var(--text);
                resize:none;outline:none;box-sizing:border-box;line-height:1.5;"
         placeholder="What's on your mind…"
         onfocus="this.style.borderColor='var(--accent)'"
@@ -26171,7 +26295,7 @@ function openEmailCapture(){
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;
       padding:20px 16px calc(32px + env(safe-area-inset-bottom));
-      max-height:85vh;overflow-y:auto;">
+      max-height:min(85vh,85dvh);overflow-y:auto;">
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <div>
@@ -26231,7 +26355,7 @@ function openFamilyEmailCapture(){
   m.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;
       padding:20px 16px calc(32px + env(safe-area-inset-bottom));
-      max-height:85vh;overflow-y:auto;">
+      max-height:min(85vh,85dvh);overflow-y:auto;">
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 16px;"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <div>
@@ -27075,7 +27199,7 @@ function openLaterTodayPicker(){
   const m = document.createElement('div');
   m.id = 'modal-later-today';
   m.style.cssText = 'position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.4);';
-  m.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px;max-height:70vh;display:flex;flex-direction:column;">
+  m.innerHTML = `<div onclick="event.stopPropagation()" style="background:var(--surface);border-radius:18px 18px 0 0;padding:16px;max-height:min(70vh,70dvh);display:flex;flex-direction:column;">
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 12px;"></div>
     <div style="font:700 13px/1 var(--font-ui);color:var(--text);margin-bottom:10px;">Add to Later Today</div>
     <input id="later-today-search" class="field-input" placeholder="Search tasks…" autocomplete="off"
@@ -27459,7 +27583,7 @@ function _executeMoveToTeam(sourceType, sourceId){
       chooser.style.cssText = 'position:fixed;inset:0;z-index:9300;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.6);';
       chooser.innerHTML = `<div onclick="event.stopPropagation()"
         style="background:var(--surface);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);
-          width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:0 0 calc(20px + env(safe-area-inset-bottom));
+          width:100%;max-width:480px;max-height:min(85vh,85dvh);overflow-y:auto;padding:0 0 calc(20px + env(safe-area-inset-bottom));
           box-shadow:0 -8px 32px rgba(0,0,0,0.3);">
         <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 12px;opacity:0.6;"></div>
         <div style="padding:0 16px 14px;">
@@ -27550,7 +27674,7 @@ function _executeMoveToClient(sourceType, sourceId){
 
   picker.innerHTML = `<div onclick="event.stopPropagation()"
     style="background:var(--surface);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);
-      width:100%;max-width:480px;max-height:70vh;display:flex;flex-direction:column;
+      width:100%;max-width:480px;max-height:min(70vh,70dvh);display:flex;flex-direction:column;
       padding-bottom:calc(12px + env(safe-area-inset-bottom));
       box-shadow:0 -8px 32px rgba(0,0,0,0.3);">
     <div style="width:36px;height:4px;background:var(--border2);border-radius:2px;margin:10px auto 8px;opacity:0.6;flex-shrink:0;"></div>
@@ -27765,7 +27889,7 @@ function _showUnsavedSheet(modalId){
     <div onclick="event.stopPropagation()" style="
       background:var(--surface);border-radius:18px 18px 0 0;
       border-top:1px solid var(--border2);
-      width:100%;max-width:480px;max-height:85vh;overflow-y:auto;
+      width:100%;max-width:480px;max-height:min(85vh,85dvh);overflow-y:auto;
       padding:0 0 calc(24px + env(safe-area-inset-bottom));
       box-shadow:0 -8px 32px rgba(0,0,0,0.25);
       animation:slideUp 0.2s cubic-bezier(0.34,1.1,0.64,1);
@@ -34351,7 +34475,7 @@ init();
 
 <!-- Kids Game Modals -->
 <div class="modal-overlay" id="modal-kids-cat" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-cat')">
-  <div class="modal-box" style="max-width:380px;max-height:90vh;overflow-y:auto;">
+  <div class="modal-box" style="max-width:380px;max-height:min(90vh,90dvh);overflow-y:auto;">
     <div class="modal-title" id="kids-cat-modal-title">Add Action</div>
 
     <!-- Emoji -->
