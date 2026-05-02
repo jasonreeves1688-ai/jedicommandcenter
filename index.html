@@ -9041,7 +9041,7 @@ function openFoodModal(prefillMeal, editId){
         if(!yEntries.length) return '';
         return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);">'
           +'<div style="flex:1;min-width:0;">'
-          +'<div style="font:700 11px/1 var(--font-ui);color:var(--text3);">Copy yesterday's '+yMeal+'</div>'
+          +'<div style="font:700 11px/1 var(--font-ui);color:var(--text3);">Copy yesterday&#39;s '+yMeal+'</div>'
           +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+yEntries.length+' item'+(yEntries.length!==1?'s':'')+' · '+Math.round(yEntries.reduce((s,e)=>s+(e.calories||0),0))+' cal</div>'
           +'</div>'
           +'<button onclick="copyYesterdayMeal(\\'' +yMeal+ '\\',\\'' +yds+ '\\')"'
