@@ -9064,7 +9064,7 @@ function openFoodModal(prefillMeal, editId){
               +'<div style="font:700 12px/1 var(--font-ui);color:var(--text);">'+esc(t.name)+'</div>'
               +'<div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">'+t.items.length+' items · '+Math.round(cal)+' cal</div>'
               +'</div>'
-              +'<button data-tid="'+t.id+'" data-meal="'+(prefillMeal||'Breakfast')+'" onclick="logTemplateToMeal(this.dataset.tid,this.dataset.meal);closeModal('modal-food');" style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">Log</button>'
+              +'<button data-tid="'+t.id+'" data-meal="'+(prefillMeal||'Breakfast')+'" onclick="logTemplateToMeal(this.dataset.tid,this.dataset.meal);closeModal(\"modal-food\");" style="padding:5px 10px;border-radius:6px;border:none;background:var(--accent);color:#fff;font:800 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;white-space:nowrap;">Log</button>'
               +'</div>';
           }).join('')}
         </div>
