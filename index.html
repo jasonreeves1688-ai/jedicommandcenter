@@ -2168,6 +2168,7 @@ function selectGateUser(who){
   // (currentUser hasn't changed yet, so we pre-load based on 'who')
   const _nutU = (who === 'wife') ? 'jenny' : 'jason';
   myFoods         = loadHubData('hub-my-foods-'+_nutU,          []);
+  challengeConfig = loadHubData('hub-challenge-'+_nutU,         {});
   mealTemplates   = loadHubData('hub-meal-templates-'+_nutU,  []);
   nutritionLog    = loadHubData('hub-nutrition-log-'+_nutU,    []);
   nutritionGoals  = loadHubData('hub-nutrition-goals-'+_nutU,  {calories:2200,protein:150,carbs:220,fat:73,fiber:30,sugar:50,sodium:2300,calcium:1000,iron:18,vitaminC:90});
@@ -2489,20 +2490,20 @@ function selectGateUser(who){
   <div id="sync-bar">
     <div id="sync-dot"></div>
     <div id="sync-label">Synced</div>
-    <div style="margin-left:auto;">
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
       <button class="hbtn" style="padding:2px 8px;font-size:11px;" onclick="syncNow()">↻ SYNC</button>
-    <button id="sign-out-btn"
-      onclick="signOut()"
-      title="Sign out"
-      style="background:transparent;border:1px solid var(--border);cursor:pointer;
-        height:28px;border-radius:20px;padding:0 10px;
-        display:flex;align-items:center;gap:5px;
-        font:600 11px/1 var(--font-ui);color:var(--text3);
-        transition:all var(--t-fast);"
-      onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
-      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
-      <span id="sign-out-label"></span> ↪
-    </button>
+      <button id="sign-out-btn"
+        onclick="signOut()"
+        title="Sign out"
+        style="background:transparent;border:1px solid var(--border);cursor:pointer;
+          height:28px;border-radius:20px;padding:0 10px;
+          display:flex;align-items:center;gap:5px;
+          font:600 11px/1 var(--font-ui);color:var(--text3);
+          transition:all var(--t-fast);"
+        onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">
+        <span id="sign-out-label"></span> ↪
+      </button>
     </div>
   </div>
 
@@ -3674,7 +3675,7 @@ async function loadAll(){
 
   // Also load from Supabase user_settings for nutrition keys
   try {
-    const nutKeys = ['nutrition_log','nutrition_goals','weight_log','weight_config','water_log','water_goal','food_favourites','activity_burn','meal_templates','my_foods'].map(k=>k+'_'+nutUserKey());
+    const nutKeys = ['nutrition_log','nutrition_goals','weight_log','weight_config','water_log','water_goal','food_favourites','activity_burn','meal_templates','my_foods','challenge'].map(k=>k+'_'+nutUserKey());
     const { data: nutRows } = await _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId).in('key',nutKeys);
     if(nutRows && nutRows.length){
       const nutMap = {};
@@ -3701,6 +3702,8 @@ async function loadAll(){
       if(cloudMealTpl && cloudMealTpl.length >= mealTemplates.length){ mealTemplates = cloudMealTpl; localStorage.setItem(nutLocalKey('hub-meal-templates'), JSON.stringify(mealTemplates)); }
       const cloudMyFoods = _pN('my_foods', null);
       if(cloudMyFoods && cloudMyFoods.length >= myFoods.length){ myFoods = cloudMyFoods; localStorage.setItem(nutLocalKey('hub-my-foods'), JSON.stringify(myFoods)); }
+      const cloudChallenge = _pN('challenge', null);
+      if(cloudChallenge && cloudChallenge.startDate){ challengeConfig = cloudChallenge; localStorage.setItem(nutLocalKey('hub-challenge'), JSON.stringify(challengeConfig)); }
     }
   } catch(e){ console.warn('[nut] Cloud load failed, using local cache:', e.message); }
 
@@ -4012,6 +4015,7 @@ async function _sbSaveClientOrgs(){
     id:o.id, owner_id:_sbUserId, name:o.name||'', segment:o.segment||'',
     industry:o.industry||'', health:o.health||'active',
     contact_ids:o.contactIds||'', notes:o.notes||'',
+    logo:o.logo||'',
     created_at:o.createdAt||today(), updated_at:o.updatedAt||today()
   }));
   if(!rows.length) return;
@@ -4046,7 +4050,7 @@ async function _loadClientData(){
     const [orgRows, convoRows] = await Promise.all([sbGet('client_orgs'), sbGet('client_convos')]);
     if(orgRows.length){
       clientOrgs = orgRows.map(o=>({ id:o.id, name:o.name, segment:o.segment||'', industry:o.industry||'',
-        health:o.health||'active', contactIds:o.contact_ids||'', notes:o.notes||'',
+        health:o.health||'active', contactIds:o.contact_ids||'', notes:o.notes||'', logo:o.logo||'',
         createdAt:o.created_at, updatedAt:o.updated_at }));
       localStorage.setItem('hub-client-orgs', JSON.stringify(clientOrgs));
     }
@@ -8056,7 +8060,9 @@ const FAMILY_ASSIGNEES = [
 
 let _familyTaskModal = {
   open: false, editId: null,
-  title:'', dueDate:'', assignees:['anyone'], isPrivate: false
+  title:'', dueDate:'', assignees:['anyone'], isPrivate: false,
+  // Kids chore fields — populated when Ridley/Connor is selected
+  isKidsChore: false, kidsFreq:'daily', kidsPts:2, kidsEmoji:'🧹', kidsDays:[]
 };
 
 function openFamilyTaskModal(editId){
@@ -8064,16 +8070,24 @@ function openFamilyTaskModal(editId){
   if(editId){
     const t = familyTasks.find(x=>x.id===editId);
     if(!t) return;
+    const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo||'anyone'];
+    // Load linked kids chore data if exists
+    const linkedCat = t.kidsChoreId ? (() => { const d = kidsData(); return d.cats.find(c=>c.id===t.kidsChoreId); })() : null;
     _familyTaskModal = {
       open:true, editId,
       title:    t.title,
       dueDate:  t.dueDate||'',
-      // Handle both legacy string and new array format
-      assignees: Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo||'anyone'],
-      isPrivate: false
+      assignees,
+      isPrivate: false,
+      isKidsChore: !!linkedCat || assignees.some(a=>a==='ridley'||a==='connor'),
+      kidsFreq:  linkedCat?.freq || 'daily',
+      kidsPts:   linkedCat?.pts  || 2,
+      kidsEmoji: linkedCat?.emoji || '🧹',
+      kidsDays:  linkedCat?.days  || [],
     };
   } else {
-    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:['anyone'], isPrivate:false};
+    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:['anyone'], isPrivate:false,
+      isKidsChore:false, kidsFreq:'daily', kidsPts:2, kidsEmoji:'🧹', kidsDays:[]};
   }
   renderFamilyTaskModal();
 }
@@ -8108,40 +8122,114 @@ function renderFamilyTaskModal(){
   const title  = m.isPrivate ? (isEdit?'Edit Personal Task':'New Personal Task')
                               : (isEdit?'Edit Family Task':'New Family Task');
 
-  // Multi-select dropdown — native <select multiple> is the most usable on mobile
-  // Each option shows the person's name; selected ones are highlighted by the OS
-  const assigneeSelect = !m.isPrivate ? `
+  const hasKids = !m.isPrivate && (m.assignees||[]).some(a=>a==='ridley'||a==='connor');
+
+  // Build chip assignee picker
+  const assigneeChips = !m.isPrivate ? `
     <div>
-      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
-        letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">Assign to</div>
-      <select id="ftm-assignee" size="5"
-        style="width:100%;border-radius:var(--r3);border:1.5px solid var(--border);
-          background:var(--surface2);color:var(--text);font:500 15px/1.6 var(--font-ui);
-          outline:none;padding:4px;box-sizing:border-box;cursor:pointer;">
-        ${FAMILY_ASSIGNEES.map(a=>`
-          <option value="${a.key}"
-            ${(m.assignees||[]).includes(a.key)?'selected':''}
-            style="padding:8px 12px;font-size:15px;">
-            ${a.label}
-          </option>`).join('')}
-      </select>
-      <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:5px;">
-        Hold Ctrl / Cmd to select multiple people</div>
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;">Assign to</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${FAMILY_ASSIGNEES.map(a => {
+          const sel = (m.assignees||[]).includes(a.key);
+          return `<button type="button" id="ftm-chip-${a.key}"
+            onclick="_ftmToggleAssignee('${a.key}')"
+            style="padding:9px 16px;border-radius:20px;border:2px solid ${sel ? a.color : 'var(--border)'};
+              background:${sel ? a.color+'22' : 'var(--surface2)'};
+              color:${sel ? a.color : 'var(--text3)'};
+              font:${sel?'800':'600'} 13px/1 var(--font-ui);cursor:pointer;
+              transition:all 0.15s;white-space:nowrap;">
+            ${a.label}${sel?' ✓':''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  // Kids chore section — shown when Ridley or Connor selected
+  const FREQ_OPTIONS = [
+    {v:'daily',         l:'Every day'},
+    {v:'weekdays',      l:'Weekdays'},
+    {v:'weekends',      l:'Weekends'},
+    {v:'weekly',        l:'Once a week'},
+    {v:'every2',        l:'Every 2 days'},
+    {v:'every3',        l:'Every 3 days'},
+    {v:'specific_days', l:'Specific days…'},
+    {v:'anytime',       l:'Anytime (behaviour)'},
+    {v:'onetime',       l:'One-time goal'},
+  ];
+  const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const kidsSection = hasKids ? `
+    <div style="border:2px solid rgba(255,140,0,0.4);border-radius:var(--r3);padding:14px;background:rgba(255,140,0,0.04);">
+      <div style="font:800 11px/1 var(--font-ui);color:#FF8C00;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;">⭐ Kids Chore Settings</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div style="flex-shrink:0;">
+            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);margin-bottom:5px;">Emoji</div>
+            <input id="ftm-kids-emoji" value="${m.kidsEmoji||'🧹'}"
+              style="width:52px;padding:8px;border-radius:var(--r2);border:1.5px solid var(--border);
+                background:var(--surface2);color:var(--text);font-size:22px;text-align:center;outline:none;"
+              oninput="_familyTaskModal.kidsEmoji=this.value"/>
+          </div>
+          <div style="flex:1;">
+            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);margin-bottom:5px;">Points earned</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${[1,2,3,5,10].map(n=>`<button type="button" onclick="_ftmSetKidsPts(${n})"
+                id="ftm-pts-${n}"
+                style="padding:7px 12px;border-radius:8px;border:2px solid ${m.kidsPts===n?'var(--accent)':'var(--border)'};
+                  background:${m.kidsPts===n?'var(--accent-soft)':'var(--surface2)'};
+                  color:${m.kidsPts===n?'var(--accent)':'var(--text3)'};
+                  font:700 13px/1 var(--font-ui);cursor:pointer;">${n}⭐</button>`).join('')}
+              <input id="ftm-kids-pts" type="number" min="1" value="${m.kidsPts||2}"
+                style="width:56px;padding:7px 8px;border-radius:8px;border:1.5px solid var(--border);
+                  background:var(--surface2);color:var(--text);font:700 13px/1 var(--font-ui);outline:none;text-align:center;"
+                oninput="_familyTaskModal.kidsPts=parseInt(this.value)||1;_ftmHighlightPts(parseInt(this.value)||1)"/>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);margin-bottom:5px;">Frequency</div>
+          <select id="ftm-kids-freq"
+            style="width:100%;padding:10px 12px;border-radius:var(--r2);border:1.5px solid var(--border);
+              background:var(--surface2);color:var(--text);font:600 14px/1 var(--font-ui);outline:none;"
+            onchange="_familyTaskModal.kidsFreq=this.value;_ftmToggleDays(this.value)">
+            ${FREQ_OPTIONS.map(f=>`<option value="${f.v}" ${m.kidsFreq===f.v?'selected':''}>${f.l}</option>`).join('')}
+          </select>
+        </div>
+
+        <div id="ftm-days-wrap" style="display:${m.kidsFreq==='specific_days'?'block':'none'};">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);margin-bottom:6px;">Which days?</div>
+          <div style="display:flex;gap:6px;">
+            ${DAY_LABELS.map((d,i)=>{
+              const sel=(m.kidsDays||[]).includes(i);
+              return `<button type="button" id="ftm-day-${i}" onclick="_ftmToggleDay(${i})"
+                style="flex:1;padding:7px 2px;border-radius:8px;border:2px solid ${sel?'var(--accent)':'var(--border)'};
+                  background:${sel?'var(--accent-soft)':'var(--surface2)'};
+                  color:${sel?'var(--accent)':'var(--text3)'};
+                  font:${sel?'800':'600'} 10px/1 var(--font-ui);cursor:pointer;">${d}</button>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="font:500 11px/1.4 var(--font-ui);color:rgba(255,140,0,0.7);">
+          This chore will appear in the kids game view for selected kids.
+        </div>
+      </div>
     </div>` : '';
 
   modal.innerHTML = `
   <div style="width:100%;max-width:480px;background:var(--surface);
     border-radius:20px 20px 0 0;padding:20px 20px 40px;
-    max-height:min(90vh,90dvh);overflow-y:auto;" onclick="event.stopPropagation()">
+    max-height:min(92vh,92dvh);overflow-y:auto;" onclick="event.stopPropagation()">
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div style="font:700 17px/1 var(--font-ui);color:var(--text);">${title}</div>
       <button onclick="closeFamilyTaskModal()"
-        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
-          background:transparent;color:var(--text3);font-size:18px;cursor:pointer;">×</button>
+        style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;">×</button>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
 
       <input id="ftm-title" placeholder="What needs to be done?"
         value="${esc(m.title)}"
@@ -8162,7 +8250,8 @@ function renderFamilyTaskModal(){
           oninput="_familyTaskModal.dueDate=this.value"/>
       </div>
 
-      ${assigneeSelect}
+      ${assigneeChips}
+      ${kidsSection}
 
       <button onclick="saveFamilyTaskModal()"
         style="padding:14px;border-radius:var(--r3);background:var(--accent);
@@ -8178,6 +8267,67 @@ function renderFamilyTaskModal(){
   </div>`;
 
   setTimeout(()=>document.getElementById('ftm-title')?.focus(), 100);
+}
+
+// ── Family task modal helpers ──────────────────────────────────
+function _ftmToggleAssignee(key){
+  const m = _familyTaskModal;
+  let a = [...(m.assignees||[])];
+  if(key === 'anyone'){
+    // Anyone clears all others
+    a = a.includes('anyone') ? [] : ['anyone'];
+  } else {
+    // Toggling a specific person removes 'anyone'
+    a = a.filter(x=>x!=='anyone');
+    if(a.includes(key)) a = a.filter(x=>x!==key);
+    else a.push(key);
+    if(a.length===0) a = ['anyone'];
+  }
+  m.assignees = a;
+  m.isKidsChore = a.some(x=>x==='ridley'||x==='connor');
+  renderFamilyTaskModal();
+}
+
+function _ftmSetKidsPts(n){
+  _familyTaskModal.kidsPts = n;
+  const ptsInput = document.getElementById('ftm-kids-pts');
+  if(ptsInput) ptsInput.value = n;
+  _ftmHighlightPts(n);
+}
+
+function _ftmHighlightPts(n){
+  [1,2,3,5,10].forEach(v=>{
+    const btn = document.getElementById('ftm-pts-'+v);
+    if(!btn) return;
+    const sel = v===n;
+    btn.style.borderColor = sel?'var(--accent)':'var(--border)';
+    btn.style.background  = sel?'var(--accent-soft)':'var(--surface2)';
+    btn.style.color       = sel?'var(--accent)':'var(--text3)';
+  });
+}
+
+function _ftmToggleDays(freq){
+  const wrap = document.getElementById('ftm-days-wrap');
+  if(wrap) wrap.style.display = freq==='specific_days' ? 'block' : 'none';
+}
+
+function _ftmToggleDay(i){
+  const m = _familyTaskModal;
+  let days = [...(m.kidsDays||[])];
+  if(days.includes(i)) days=days.filter(d=>d!==i);
+  else days.push(i);
+  days.sort((a,b)=>a-b);
+  m.kidsDays = days;
+  // Update button styles
+  for(let d=0;d<7;d++){
+    const btn=document.getElementById('ftm-day-'+d);
+    if(!btn) continue;
+    const sel=days.includes(d);
+    btn.style.borderColor=sel?'var(--accent)':'var(--border)';
+    btn.style.background =sel?'var(--accent-soft)':'var(--surface2)';
+    btn.style.color      =sel?'var(--accent)':'var(--text3)';
+    btn.style.fontWeight =sel?'800':'600';
+  }
 }
 
 function closeFamilyTaskModal(){
@@ -8206,19 +8356,79 @@ function saveFamilyTaskModal(){
     }
     save();
   } else {
-    // Read all selected options from the multi-select — store as array
-    const sel = document.getElementById('ftm-assignee');
-    const assignedTo = sel && sel.selectedOptions.length
-      ? Array.from(sel.selectedOptions).map(o=>o.value)
-      : ['anyone'];
+    const assignedTo = [...(m.assignees||['anyone'])];
     const _LABEL = {anyone:'Anyone',jason:'Jason',wife:'Jenny',jenny:'Jenny',ridley:'Ridley',connor:'Connor'};
+
+    // ── Kids chore sync ──────────────────────────────────────────
+    // If Ridley or Connor is assigned and kids chore option is on,
+    // create/update matching cat entries in kidsData so the chore
+    // appears in the kids game view
+    const kidsAssigned = assignedTo.filter(a=>a==='ridley'||a==='connor');
+    const hasKidsChore = kidsAssigned.length > 0;
+
+    let kidsChoreId = m.editId
+      ? (familyTasks.find(x=>x.id===m.editId)?.kidsChoreId || null)
+      : null;
+
+    if(hasKidsChore){
+      const kd = kidsData();
+      if(!kd.cats) kd.cats=[];
+
+      // Read values from modal fields (may have been changed by user)
+      const kFreq  = document.getElementById('ftm-kids-freq')?.value  || m.kidsFreq || 'daily';
+      const kPts   = parseInt(document.getElementById('ftm-kids-pts')?.value)  || m.kidsPts  || 2;
+      const kEmoji = document.getElementById('ftm-kids-emoji')?.value || m.kidsEmoji || '🧹';
+      const kDays  = m.kidsDays || [];
+
+      // Map family task assignee keys to player indices
+      const playerMap = {ridley:0, connor:1};
+      const kidsPlayerIdxs = kidsAssigned.map(k=>playerMap[k]).filter(i=>i!==undefined);
+
+      if(kidsChoreId){
+        // Update existing cat
+        const cat = kd.cats.find(c=>c.id===kidsChoreId);
+        if(cat){
+          cat.name = title;
+          cat.emoji= kEmoji;
+          cat.pts  = kPts;
+          cat.freq = kFreq;
+          cat.days = kDays;
+          cat.type = kFreq==='anytime'?'behaviour':kFreq==='onetime'?'onetime':'chore';
+          cat.assignedTo = kidsPlayerIdxs;
+          cat.fromFamilyTask = true;
+        }
+      } else {
+        // Create new cat
+        kidsChoreId = 'kc-ft-' + Date.now();
+        kd.cats.push({
+          id: kidsChoreId,
+          name: title,
+          emoji: kEmoji,
+          pts: kPts,
+          freq: kFreq,
+          days: kDays,
+          type: kFreq==='anytime'?'behaviour':kFreq==='onetime'?'onetime':'chore',
+          assignedTo: kidsPlayerIdxs,
+          fromFamilyTask: true
+        });
+      }
+      saveKidsData(kd);
+    } else if(kidsChoreId) {
+      // Kids were removed from assignees — remove the linked chore
+      const kd = kidsData();
+      kd.cats = (kd.cats||[]).filter(c=>c.id!==kidsChoreId);
+      saveKidsData(kd);
+      kidsChoreId = null;
+    }
+
     if(m.editId){
       const t = familyTasks.find(x=>x.id===m.editId);
       if(t){
         const prevAssign = taskAssignees(t).map(k=>_LABEL[k]||k).join(', ');
         const newAssign  = assignedTo.map(k=>_LABEL[k]||k).join(', ');
         t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo;
-        // Log history events for changes
+        if(kidsChoreId) t.kidsChoreId = kidsChoreId;
+        else delete t.kidsChoreId;
         const author = _commentAuthor();
         if(prevAssign !== newAssign)
           logFamilyTaskHistory(m.editId, author + ' assigned to ' + newAssign);
@@ -8230,8 +8440,8 @@ function saveFamilyTaskModal(){
       const newTask = {id:newId, title, done:false,
         assignedTo, dueDate, createdAt:today(),
         createdBy: isJason?'jason':'jenny', comments:[]};
+      if(kidsChoreId) newTask.kidsChoreId = kidsChoreId;
       familyTasks.unshift(newTask);
-      // Log creation history
       const assignLabel = assignedTo.map(k=>_LABEL[k]||k).join(', ');
       logFamilyTaskHistory(newId, _commentAuthor() + ' created this task' +
         (assignLabel && assignLabel!=='Anyone' ? ' · assigned to ' + assignLabel : ''));
@@ -8251,6 +8461,13 @@ function deleteFamilyTaskFromModal(){
     else wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==m.editId);
     (isJason ? saveJasonHomeTasks : saveWifeHomeTasks)();
   } else {
+    const t = familyTasks.find(x=>x.id===m.editId);
+    // Remove linked kids chore if exists
+    if(t?.kidsChoreId){
+      const kd = kidsData();
+      kd.cats = (kd.cats||[]).filter(c=>c.id!==t.kidsChoreId);
+      saveKidsData(kd);
+    }
     familyTasks = familyTasks.filter(x=>x.id!==m.editId);
     saveFamilyTasks();
   }
@@ -8317,7 +8534,7 @@ function renderHealthPage(container){
   const userName = nutUserKey() === 'jenny' ? 'Jenny' : 'Jason';
 
   const tabBar = `<div style="display:flex;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;">
-    ${[{id:'nutrition',label:'Today'},{id:'history',label:'History'},{id:'weight',label:'Weight'}].map(t=>`
+    ${[{id:'nutrition',label:'Today'},{id:'history',label:'History'},{id:'weight',label:'Weight'},{id:'workouts',label:'💪 Workouts'},{id:'challenge',label:'75 Soft'}].map(t=>`
       <button onclick="window._healthTab='${t.id}';renderAll();"
         style="padding:13px 16px 12px;border:none;background:transparent;cursor:pointer;white-space:nowrap;
           font:${tab===t.id?'700':'400'} 14px/1 var(--font-ui);
@@ -8332,12 +8549,13 @@ function renderHealthPage(container){
         <div class="page-hero" style="flex-shrink:0;">
           <div class="page-hero-left">
             <div class="page-hero-accent" style="color:#4CAF50;">Health · ${userName}</div>
-            <div class="page-hero-title">${tab==='history'?'History':'Weight'}</div>
+            <div class="page-hero-title">${tab==='history'?'History':tab==='challenge'?'75 Soft':tab==='workouts'?'Workouts':'Weight'}</div>
           </div>
           ${tab==='weight'?`<button onclick="openWeightEntryModal(null)" class="page-hero-action">+ Log</button>`:''}
+          ${tab==='workouts'?`<button onclick="openWorkoutPlanModal()" class="page-hero-action" style="background:#7C4DFF;">+ New Plan</button>`:''}
         </div>
         ${tabBar}
-        ${tab==='history' ? renderNutHistoryTab() : renderWeightTab()}
+        ${tab==='history' ? renderNutHistoryTab() : tab==='challenge' ? renderChallengeTab() : tab==='workouts' ? renderWorkoutsTab() : renderWeightTab()}
       </div>`;
     return;
   }
@@ -8676,6 +8894,1061 @@ function renderNutHistoryTab(){
     </div>
 
   </div>`;
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 75 SOFT CHALLENGE
+// Rules: calories ✓ auto, water ✓ auto, exercise manual, read manual
+// ══════════════════════════════════════════════════════════════
+
+function getChallengeDay(dateStr){
+  const cfg = challengeConfig;
+  if(!cfg.startDate) return null;
+  const start = new Date(cfg.startDate+'T00:00:00');
+  const date  = new Date(dateStr+'T00:00:00');
+  const diff  = Math.round((date-start)/(1000*60*60*24));
+  if(diff < 0 || diff >= (cfg.totalDays||75)) return null;
+  return diff + 1; // 1-based day number
+}
+
+function getChallengeLog(dateStr){
+  const cfg = challengeConfig;
+  if(!cfg.log) cfg.log = {};
+  if(!cfg.log[dateStr]) cfg.log[dateStr] = { exercise:false, read:false };
+  return cfg.log[dateStr];
+}
+
+// Auto-check water if daily goal met
+function getChallengeWaterDone(dateStr){
+  const w = waterLog.find(e=>e.date===dateStr);
+  const glasses = w?.glasses||0;
+  const goal    = challengeConfig.waterGoalGlasses || waterGoal.glasses || 8;
+  return glasses >= goal;
+}
+
+// Auto-check calories if logged and within goal
+function getChallengeCalDone(dateStr){
+  const entries = nutGetDay(dateStr);
+  if(!entries.length) return false;
+  const totals  = nutTotals(entries);
+  const goals   = nutritionGoals;
+  const burn    = activityBurnLog.find(e=>e.date===dateStr);
+  const adjGoal = goals.calories + (burn?.activeCalories||0);
+  return totals.calories > 0 && totals.calories <= adjGoal;
+}
+
+function toggleChallengeCheck(dateStr, field){
+  const cfg = challengeConfig;
+  if(!cfg.log) cfg.log = {};
+  if(!cfg.log[dateStr]) cfg.log[dateStr] = { exercise:false, read:false };
+  cfg.log[dateStr][field] = !cfg.log[dateStr][field];
+  saveChallengeConfig();
+  renderAll();
+  window._healthTab = 'challenge';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORKOUTS TAB — AI plan builder + YouTube video finder
+// ═══════════════════════════════════════════════════════════════
+
+// ── MET table — metabolic equivalent values by exercise keyword ──
+// MET × weight_kg × hours = kcal burned
+const _MET_TABLE = [
+  // cardio / aerobic
+  {k:['running','run','jog'],                met:9.8},
+  {k:['sprint','intervals','hiit'],           met:12.0},
+  {k:['cycling','bike','bicycle'],            met:7.5},
+  {k:['rowing','rower'],                      met:7.0},
+  {k:['jump rope','skipping'],                met:11.0},
+  {k:['elliptical','cross trainer'],          met:5.0},
+  {k:['stairmaster','stair','step mill'],     met:9.0},
+  {k:['swimming','swim'],                     met:8.0},
+  {k:['walking','walk'],                      met:3.5},
+  {k:['hiking','hike'],                       met:6.0},
+  // strength
+  {k:['deadlift','squat','barbell'],          met:5.0},
+  {k:['bench press','bench'],                 met:4.5},
+  {k:['overhead press','ohp'],                met:4.0},
+  {k:['pull-up','pullup','chin-up'],          met:4.0},
+  {k:['push-up','pushup'],                    met:3.8},
+  {k:['weight training','strength','lift','resistance','dumbbell','dumbbells'], met:4.0},
+  {k:['kettlebell'],                          met:8.0},
+  // bodyweight / HIIT
+  {k:['burpee','burpees'],                    met:8.0},
+  {k:['box jump'],                            met:7.0},
+  {k:['mountain climber'],                    met:8.0},
+  {k:['plank'],                               met:3.0},
+  {k:['yoga'],                                met:2.5},
+  {k:['pilates'],                             met:3.0},
+  {k:['stretching','flexibility','mobility'], met:2.3},
+  // sports
+  {k:['basketball','football','soccer','tennis'], met:8.0},
+  {k:['boxing','kickboxing'],                 met:7.8},
+  // fallback
+  {k:['circuit','crossfit'],                  met:8.0},
+];
+const _MET_DEFAULT = 4.0; // generic moderate exercise
+
+/**
+ * Estimate calories burned for an exercise.
+ * @param {string} exerciseName
+ * @param {number} durationMinutes
+ * @returns {number} rounded kcal
+ */
+function _estimateCaloriesBurned(exerciseName, durationMinutes){
+  if(!durationMinutes || durationMinutes <= 0) return 0;
+
+  // Weight in kg from weightConfig
+  const wc = weightConfig || {};
+  let weightKg = 80; // fallback 80 kg
+  if(wc.startWeight){
+    // startWeight is in user's unit
+    const unit = wc.unit || 'lbs';
+    weightKg = unit === 'kg' ? parseFloat(wc.startWeight) : parseFloat(wc.startWeight) * 0.453592;
+  }
+  // Use most recent weight log entry if available
+  if(weightLog && weightLog.length > 0){
+    const latest = weightLog[weightLog.length - 1];
+    const unit = wc.unit || 'lbs';
+    weightKg = unit === 'kg' ? parseFloat(latest.weight) : parseFloat(latest.weight) * 0.453592;
+  }
+
+  // Find MET
+  const lc = (exerciseName || '').toLowerCase();
+  let met = _MET_DEFAULT;
+  for(const row of _MET_TABLE){
+    if(row.k.some(k => lc.includes(k))){ met = row.met; break; }
+  }
+
+  const hours = durationMinutes / 60;
+  return Math.round(met * weightKg * hours);
+}
+
+/**
+ * Parse session exercises into a total expected duration.
+ * Falls back to session.duration string if present.
+ */
+function _sessionExpectedMins(session){
+  if(!session) return 45;
+  // Try to read from session.duration string like "45 min" or "45-55 min"
+  if(session.duration){
+    const m = session.duration.match(/\d+/);
+    if(m) return parseInt(m[0]);
+  }
+  // Estimate: sets × reps time per exercise
+  const exCount = (session.exercises || []).length;
+  return exCount > 0 ? Math.max(20, exCount * 4) : 45;
+}
+
+/**
+ * Auto-fill calorie field in burn modal based on exercise name + duration.
+ * Called oninput on the name or mins fields.
+ */
+function _burnAutoEstimate(){
+  const name = document.getElementById('burn-ex-name')?.value || '';
+  const mins = parseInt(document.getElementById('burn-ex-mins')?.value) || 0;
+  if(!name || !mins) return;
+  const est = _estimateCaloriesBurned(name, mins);
+  const calInput = document.getElementById('burn-ex-cal');
+  if(calInput && !calInput._userEdited){
+    calInput.value = est;
+    const hint = document.getElementById('burn-cal-hint');
+    if(hint) hint.textContent = `Estimated from MET · based on your weight`;
+  }
+}
+
+/**
+ * After marking a session done, show a quick sheet to confirm duration
+ * and auto-log the estimated calories to activityBurnLog.
+ */
+function _openSessionBurnSheet(planId, sessionIdx){
+  const plan    = workoutPlans.find(p => p.id === planId); if(!plan) return;
+  const session = plan.sessions[sessionIdx]; if(!session) return;
+
+  const expectedMins = _sessionExpectedMins(session);
+  const exercises    = session.exercises || [];
+
+  // Pre-calculate per-exercise estimates
+  const exEstimates = exercises.map(ex => ({
+    name:     ex.name,
+    sets:     ex.sets || '',
+    reps:     ex.reps || '',
+    mins:     Math.max(3, Math.round(expectedMins / Math.max(exercises.length, 1))),
+    calories: _estimateCaloriesBurned(ex.name, Math.max(3, Math.round(expectedMins / Math.max(exercises.length, 1))))
+  }));
+  const totalEst = exEstimates.reduce((s, e) => s + e.calories, 0) || _estimateCaloriesBurned(session.name || session.type || 'workout', expectedMins);
+
+  const old = document.getElementById('modal-session-burn'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-session-burn'; m.className = 'modal-overlay';
+  m.style.cssText = 'align-items:flex-end;justify-content:center;';
+
+  // Weight context for display
+  const wc = weightConfig || {};
+  const unit = wc.unit || 'lbs';
+  const latestW = weightLog?.length ? weightLog[weightLog.length-1].weight + ' ' + unit : '?';
+
+  m.innerHTML = `
+  <div onclick="event.stopPropagation()"
+    style="width:100%;max-width:520px;background:var(--surface);border-radius:20px 20px 0 0;
+      max-height:min(88vh,88dvh);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font:800 16px/1 var(--font-ui);color:var(--text);">🔥 Log Session Burn</div>
+        <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:4px;">${esc(session.name||'Session')}</div>
+      </div>
+      <button onclick="document.getElementById('modal-session-burn').remove()"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;
+          color:var(--text3);font-size:17px;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Duration -->
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">How long did you work out?</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input id="sburn-mins" type="number" min="1" max="300"
+            value="${expectedMins}"
+            style="width:80px;padding:12px;border-radius:var(--r2);border:2px solid var(--accent);
+              background:var(--surface2);color:var(--text);font:800 22px/1 var(--font-ui);
+              text-align:center;outline:none;"
+            oninput="_sBurnRecalc(${sessionIdx},'${planId}')"/>
+          <span style="font:600 13px/1 var(--font-ui);color:var(--text3);">minutes</span>
+          <div style="flex:1;font:500 10px/1.4 var(--font-ui);color:var(--text4);">Based on ${latestW} · adjust if needed</div>
+        </div>
+      </div>
+
+      <!-- Per-exercise breakdown -->
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">Exercise breakdown</div>
+        <div id="sburn-ex-list" style="display:flex;flex-direction:column;gap:4px;">
+          ${exEstimates.map((ex, i) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:8px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 12px/1.2 var(--font-ui);color:var(--text);">${esc(ex.name)}</div>
+                <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(ex.sets)} ${ex.reps?'× '+esc(ex.reps):''}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div class="sburn-ex-cal" data-idx="${i}" style="font:800 14px/1 var(--font-ui);color:#FF8A65;">${ex.calories}</div>
+                <div style="font:500 9px/1 var(--font-ui);color:var(--text4);">cal</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Total -->
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:14px 16px;border-radius:12px;background:rgba(255,138,101,0.08);border:1px solid rgba(255,138,101,0.3);">
+        <div style="font:700 13px/1 var(--font-ui);color:var(--text3);">Total estimated burn</div>
+        <div>
+          <span id="sburn-total" style="font:900 26px/1 var(--font-ui);color:#FF8A65;">${totalEst}</span>
+          <span style="font:600 13px/1 var(--font-ui);color:var(--text4);"> cal</span>
+        </div>
+      </div>
+
+      <div style="font:500 10px/1.5 var(--font-ui);color:var(--text4);text-align:center;">
+        Calculated using MET values × your body weight (${latestW}).
+        Actual burn varies — this is a science-based estimate.
+      </div>
+
+      <input type="hidden" id="sburn-plan-id" value="${planId}"/>
+      <input type="hidden" id="sburn-session-idx" value="${sessionIdx}"/>
+      <input type="hidden" id="sburn-ex-data" value="${esc(JSON.stringify(exEstimates))}"/>
+
+      <button onclick="_saveSessionBurn()"
+        style="width:100%;padding:14px;border-radius:var(--r3);border:none;
+          background:#FF8A65;color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 16px rgba(255,138,101,0.3);">
+        ✓ Log ${totalEst} cal to Activity
+      </button>
+    </div>
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
+function _sBurnRecalc(sessionIdx, planId){
+  const plan    = workoutPlans.find(p=>p.id===planId); if(!plan) return;
+  const session = plan.sessions[sessionIdx]; if(!session) return;
+  const mins    = parseInt(document.getElementById('sburn-mins')?.value) || 45;
+  const exs     = session.exercises || [];
+  const perEx   = Math.max(2, Math.round(mins / Math.max(exs.length, 1)));
+
+  let total = 0;
+  document.querySelectorAll('.sburn-ex-cal').forEach((el, i) => {
+    const ex   = exs[i]; if(!ex) return;
+    const cal  = _estimateCaloriesBurned(ex.name, perEx);
+    el.textContent = cal;
+    total += cal;
+  });
+  if(!exs.length) total = _estimateCaloriesBurned(session.name||session.type||'workout', mins);
+  const totalEl = document.getElementById('sburn-total');
+  if(totalEl) totalEl.textContent = total;
+
+  // Update save button text
+  const btn = document.querySelector('#modal-session-burn button[onclick="_saveSessionBurn()"]');
+  if(btn) btn.textContent = `✓ Log ${total} cal to Activity`;
+}
+
+function _saveSessionBurn(){
+  const planId     = document.getElementById('sburn-plan-id')?.value;
+  const sessionIdx = parseInt(document.getElementById('sburn-session-idx')?.value);
+  const mins       = parseInt(document.getElementById('sburn-mins')?.value) || 45;
+  const plan       = workoutPlans.find(p=>p.id===planId); if(!plan) return;
+  const session    = plan.sessions[sessionIdx]; if(!session) return;
+  const exs        = session.exercises || [];
+
+  // Build exercise entries
+  const perEx = Math.max(2, Math.round(mins / Math.max(exs.length, 1)));
+  const exerciseEntries = exs.length
+    ? exs.map(ex => ({
+        name:     ex.name,
+        minutes:  perEx,
+        calories: _estimateCaloriesBurned(ex.name, perEx),
+        source:   'workout-plan'
+      }))
+    : [{ name: session.name||'Workout', minutes: mins, calories: _estimateCaloriesBurned(session.name||session.type||'workout', mins), source:'workout-plan' }];
+
+  const totalActive = exerciseEntries.reduce((s,e)=>s+e.calories, 0);
+  const todayStr    = nutToday();
+
+  // Merge into activityBurnLog
+  let entry = activityBurnLog.find(e=>e.date===todayStr);
+  if(!entry){
+    entry = { date:todayStr, activeCalories:0, restingCalories:Math.round(nutritionGoals._calcBmr||0), totalCalories:0, steps:0, exercises:[], source:'manual', updatedAt:Date.now() };
+    activityBurnLog.unshift(entry);
+  }
+  if(!entry.exercises) entry.exercises = [];
+  entry.exercises.push(...exerciseEntries);
+  entry.activeCalories = entry.exercises.reduce((s,e)=>s+(e.calories||0), 0);
+  entry.totalCalories  = entry.activeCalories + (entry.restingCalories||0);
+  entry.updatedAt      = Date.now();
+
+  const idx = activityBurnLog.findIndex(e=>e.date===todayStr);
+  if(idx > -1) activityBurnLog[idx] = entry;
+
+  saveActivityBurnLog();
+  document.getElementById('modal-session-burn')?.remove();
+  showToast(`🔥 ${totalActive} cal logged from ${session.name||'workout'}!`);
+  renderAll();
+}
+
+
+
+function renderWorkoutsTab(){
+  const plans = workoutPlans;
+
+  if(plans.length === 0){
+    return `<div style="flex:1;overflow-y:auto;padding:24px 16px;">
+      <div style="text-align:center;padding:40px 0 24px;">
+        <div style="font-size:52px;margin-bottom:14px;">🏋️</div>
+        <div style="font:800 20px/1.3 var(--font-ui);color:var(--text);margin-bottom:10px;">No workout plans yet</div>
+        <div style="font:500 14px/1.6 var(--font-ui);color:var(--text3);margin-bottom:28px;max-width:280px;margin:0 auto 28px;">
+          Let AI build a personalized plan for your goals, schedule, and equipment.
+        </div>
+        <button onclick="openWorkoutPlanModal()"
+          style="padding:14px 32px;border-radius:50px;border:none;background:#7C4DFF;
+            color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;box-shadow:0 4px 20px rgba(124,77,255,0.4);">
+          ✨ Build My First Plan
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // Show plan list or detail
+  if(_workoutDetailId){
+    const plan = plans.find(p=>p.id===_workoutDetailId);
+    if(plan) return _renderWorkoutDetail(plan);
+  }
+
+  let html = `<div style="flex:1;overflow-y:auto;">`;
+
+  plans.forEach(plan => {
+    const daysDone = (plan.sessions||[]).filter(s=>s.completedOn).length;
+    const total    = (plan.sessions||[]).length;
+    const pct      = total ? Math.round(daysDone/total*100) : 0;
+    const goalColors = {strength:'#FF8A65',cardio:'#64B5F6',hybrid:'#7C4DFF',flexibility:'#81C784',hiit:'#EF5350'};
+    const gc = goalColors[plan.goal] || '#7C4DFF';
+
+    html += `<div onclick="_workoutDetailId='${plan.id}';renderAll();"
+      style="margin:8px 16px;border-radius:14px;border:1px solid var(--border);
+        background:var(--surface);overflow:hidden;cursor:pointer;">
+      <div style="padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
+        <div style="width:44px;height:44px;border-radius:12px;background:${gc}18;border:1px solid ${gc}33;
+          display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">
+          ${plan.goal==='strength'?'💪':plan.goal==='cardio'?'🏃':plan.goal==='hiit'?'⚡':plan.goal==='flexibility'?'🧘':'🏋️'}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font:700 15px/1.3 var(--font-ui);color:var(--text);">${esc(plan.name)}</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+            ${plan.daysPerWeek}x/week · ${plan.durationWeeks} weeks · ${plan.equipment||'any equipment'}
+          </div>
+          <div style="margin-top:8px;height:4px;border-radius:2px;background:var(--border);overflow:hidden;">
+            <div style="height:100%;background:${gc};width:${pct}%;border-radius:2px;transition:width 0.4s;"></div>
+          </div>
+          <div style="font:600 10px/1 var(--font-ui);color:${gc};margin-top:4px;">${daysDone}/${total} sessions done</div>
+        </div>
+        <span style="color:var(--text4);font-size:16px;flex-shrink:0;align-self:center;">›</span>
+      </div>
+    </div>`;
+  });
+
+  html += `<div style="padding:16px;text-align:center;">
+    <button onclick="openWorkoutPlanModal()"
+      style="padding:11px 24px;border-radius:50px;border:1px solid #7C4DFF;
+        background:rgba(124,77,255,0.08);color:#7C4DFF;font:700 13px/1 var(--font-ui);cursor:pointer;">
+      + Build Another Plan
+    </button>
+  </div></div>`;
+  return html;
+}
+
+function _renderWorkoutDetail(plan){
+  const sessions = plan.sessions || [];
+  const goalColors = {strength:'#FF8A65',cardio:'#64B5F6',hybrid:'#7C4DFF',flexibility:'#81C784',hiit:'#EF5350'};
+  const gc = goalColors[plan.goal] || '#7C4DFF';
+
+  let html = `<div style="flex:1;overflow-y:auto;">
+    <!-- Back + header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;background:var(--surface);z-index:10;">
+      <button onclick="_workoutDetailId=null;renderAll();"
+        style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;
+          color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Back</button>
+      <div style="flex:1;min-width:0;">
+        <div style="font:700 15px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(plan.name)}</div>
+        <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${plan.daysPerWeek}x/week · ${plan.durationWeeks} weeks</div>
+      </div>
+      <button onclick="deleteWorkoutPlan('${plan.id}')"
+        style="padding:6px 10px;border-radius:7px;border:1px solid rgba(239,83,80,0.3);background:transparent;
+          color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">Delete</button>
+    </div>
+
+    <!-- Overview card -->
+    <div style="margin:12px 16px;padding:14px 16px;border-radius:12px;background:${gc}0F;border:1px solid ${gc}33;">
+      <div style="font:700 10px/1 var(--font-ui);color:${gc};letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">Plan overview</div>
+      <div style="font:500 13px/1.6 var(--font-body);color:var(--text);">${esc(plan.overview||'')}</div>
+    </div>
+
+    <!-- Sessions -->
+    <div style="padding:0 16px 24px;">
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:10px;">Sessions</div>`;
+
+  sessions.forEach((s, idx) => {
+    const done = !!s.completedOn;
+    html += `<div style="border:1px solid ${done?gc+'55':'var(--border)'};border-radius:12px;
+      background:${done?gc+'08':'var(--surface)'};margin-bottom:10px;overflow:hidden;">
+      <!-- Session header -->
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);">
+        <div style="width:28px;height:28px;border-radius:50%;
+          background:${done?gc:'var(--surface2)'};border:2px solid ${done?gc:'var(--border)'};
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;
+          font:800 12px/1 var(--font-ui);color:${done?'#fff':gc};">
+          ${done?'✓':(idx+1)}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font:700 13px/1.2 var(--font-ui);color:var(--text);">${esc(s.name||'Session '+(idx+1))}</div>
+          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${s.duration||'45 min'} · ${s.type||''}</div>
+        </div>
+        <button onclick="_toggleSessionDone('${plan.id}',${idx})"
+          style="padding:8px 14px;border-radius:8px;border:1px solid ${done?gc+'55':'var(--border)'};
+            background:${done?gc+'15':'transparent'};color:${done?gc:'var(--text3)'};
+            font:700 12px/1 var(--font-ui);cursor:pointer;white-space:nowrap;min-height:44px;flex-shrink:0;">
+          ${done?'✓ Done':'Mark done'}
+        </button>
+      </div>
+      <!-- Exercises list -->
+      <div style="padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+        ${(s.exercises||[]).map(ex => `
+          <div style="display:flex;align-items:center;gap:10px;min-height:44px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);">${esc(ex.name)}</div>
+              <div style="font:500 11px/1.3 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(ex.sets||'')} ${ex.reps?'× '+esc(ex.reps):''}${ex.rest?' · '+esc(ex.rest)+' rest':''}</div>
+            </div>
+            <button onclick="_searchWorkoutVideo('${esc(ex.name).replace(/'/g,'\\\'')}')"
+              style="padding:8px 12px;border-radius:8px;border:1px solid rgba(239,83,80,0.35);
+                background:rgba(239,83,80,0.07);color:#EF5350;
+                font:700 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap;flex-shrink:0;min-height:36px;">
+              ▶ Video
+            </button>
+          </div>`).join('')}
+      </div>
+      <!-- Find all videos for this session -->
+      <div style="padding:0 14px 12px;">
+        <button onclick="_searchSessionVideos('${plan.id}',${idx})"
+          style="width:100%;padding:9px;border-radius:8px;border:1px solid rgba(239,83,80,0.3);
+            background:rgba(239,83,80,0.05);color:#EF5350;font:700 12px/1 var(--font-ui);cursor:pointer;">
+          ▶ Watch full ${esc(s.name||'session')} on YouTube
+        </button>
+      </div>
+    </div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+// ── Plan builder modal ─────────────────────────────────────────
+function openWorkoutPlanModal(){
+  const old = document.getElementById('modal-workout-plan'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-workout-plan'; m.className = 'modal-overlay';
+  m.style.cssText = 'align-items:flex-end;justify-content:center;';
+
+  m.innerHTML = `
+  <div onclick="event.stopPropagation()"
+    style="width:100%;max-width:520px;background:var(--surface);border-radius:20px 20px 0 0;
+      max-height:min(92vh,92dvh);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+      <div style="font:800 17px/1 var(--font-ui);color:var(--text);">✨ Build a Workout Plan</div>
+      <button onclick="this.closest('.modal-overlay').remove()"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:transparent;
+          color:var(--text3);font-size:17px;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">Your main goal</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="wp-goal-chips">
+          ${[{v:'strength',l:'💪 Strength',c:'#FF8A65'},{v:'cardio',l:'🏃 Cardio',c:'#64B5F6'},{v:'hiit',l:'⚡ HIIT',c:'#EF5350'},{v:'flexibility',l:'🧘 Flexibility',c:'#81C784'},{v:'hybrid',l:'🏋️ Hybrid',c:'#7C4DFF'}].map((g,i)=>
+            `<button type="button" class="wp-goal-btn" data-val="${g.v}"
+              onclick="document.querySelectorAll('.wp-goal-btn').forEach(b=>{b.style.borderColor='var(--border)';b.style.background='transparent';b.style.color='var(--text3)'});this.style.borderColor='${g.c}';this.style.background='${g.c}22';this.style.color='${g.c}';document.getElementById('wp-goal').value='${g.v}';"
+              style="padding:10px 16px;border-radius:20px;border:2px solid var(--border);background:transparent;
+                color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;transition:all 0.1s;min-height:44px;">${g.l}</button>`
+          ).join('')}
+        </div>
+        <input type="hidden" id="wp-goal" value="strength"/>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">Days per week</div>
+          <select id="wp-days" class="field-input" style="margin:0;">
+            <option value="2">2 days</option><option value="3">3 days</option>
+            <option value="4" selected>4 days</option><option value="5">5 days</option><option value="6">6 days</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">Duration</div>
+          <select id="wp-weeks" class="field-input" style="margin:0;">
+            <option value="4">4 weeks</option><option value="6">6 weeks</option>
+            <option value="8" selected>8 weeks</option><option value="12">12 weeks</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">Available equipment</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" id="wp-equip-chips">
+          ${['No equipment','Dumbbells','Barbell & rack','Resistance bands','Pull-up bar','Cable machine','Full gym'].map(e=>
+            `<button type="button" class="wp-equip-btn" data-val="${e}"
+              onclick="this.classList.toggle('wp-equip-sel');this.style.borderColor=this.classList.contains('wp-equip-sel')?'#7C4DFF':'var(--border)';this.style.background=this.classList.contains('wp-equip-sel')?'rgba(124,77,255,0.12)':'transparent';this.style.color=this.classList.contains('wp-equip-sel')?'#7C4DFF':'var(--text3)';"
+              style="padding:10px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;
+                color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;transition:all 0.1s;min-height:44px;">${e}</button>`
+          ).join('')}
+        </div>
+      </div>
+
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">Fitness level</div>
+        <div style="display:flex;gap:6px;">
+          ${['Beginner','Intermediate','Advanced'].map((l,i)=>
+            `<button type="button" class="wp-level-btn"
+              onclick="document.querySelectorAll('.wp-level-btn').forEach(b=>{b.style.borderColor='var(--border)';b.style.background='transparent';b.style.color='var(--text3)'});this.style.borderColor='#7C4DFF';this.style.background='rgba(124,77,255,0.12)';this.style.color='#7C4DFF';document.getElementById('wp-level').value='${l}';"
+              style="flex:1;padding:11px 6px;border-radius:8px;border:1.5px solid ${i===1?'#7C4DFF':'var(--border)'};
+                background:${i===1?'rgba(124,77,255,0.12)':'transparent'};
+                color:${i===1?'#7C4DFF':'var(--text3)'};font:700 13px/1 var(--font-ui);cursor:pointer;min-height:44px;">${l}</button>`
+          ).join('')}
+        </div>
+        <input type="hidden" id="wp-level" value="Intermediate"/>
+      </div>
+
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">Any limitations or focus areas? (optional)</div>
+        <textarea id="wp-notes" class="field-input" rows="2" style="resize:none;"
+          placeholder="e.g. bad knees, want bigger arms, recovering from shoulder injury…"></textarea>
+      </div>
+
+      <button onclick="generateWorkoutPlan()" id="wp-generate-btn"
+        style="width:100%;padding:15px;border-radius:var(--r3);border:none;
+          background:linear-gradient(135deg,#7C4DFF,#5C35D4);
+          color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 20px rgba(124,77,255,0.4);">
+        ✨ Generate My Plan with AI
+      </button>
+
+      <div id="wp-status" style="display:none;text-align:center;padding:8px;
+        font:600 13px/1.4 var(--font-ui);color:#7C4DFF;"></div>
+    </div>
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+
+async function generateWorkoutPlan(){
+  const goal     = document.getElementById('wp-goal')?.value || 'strength';
+  const days     = document.getElementById('wp-days')?.value || '4';
+  const weeks    = document.getElementById('wp-weeks')?.value || '8';
+  const level    = document.getElementById('wp-level')?.value || 'Intermediate';
+  const notes    = document.getElementById('wp-notes')?.value.trim() || '';
+  const equipSel = Array.from(document.querySelectorAll('.wp-equip-btn.wp-equip-sel')).map(b=>b.dataset.val);
+  const equipment= equipSel.length ? equipSel.join(', ') : 'No equipment';
+
+  const btn = document.getElementById('wp-generate-btn');
+  const status = document.getElementById('wp-status');
+  if(btn){ btn.disabled=true; btn.textContent='Generating…'; btn.style.opacity='0.7'; }
+  if(status){ status.style.display='block'; status.textContent='🤖 Building your personalised plan…'; }
+
+  const prompt = `Create a ${weeks}-week ${goal} workout plan for a ${level.toLowerCase()} with ${equipment}.
+Schedule: ${days} days per week.
+${notes ? 'Notes: ' + notes : ''}
+
+Return ONLY valid JSON (no markdown, no backticks) in this exact structure:
+{
+  "name": "short plan name",
+  "overview": "2-3 sentence description of the plan approach",
+  "goal": "${goal}",
+  "daysPerWeek": ${days},
+  "durationWeeks": ${weeks},
+  "level": "${level}",
+  "equipment": "${equipment}",
+  "sessions": [
+    {
+      "name": "e.g. Day 1 – Upper Push",
+      "type": "e.g. Strength / Cardio / HIIT",
+      "duration": "e.g. 45-55 min",
+      "exercises": [
+        { "name": "Exercise name", "sets": "3 sets", "reps": "8-12 reps", "rest": "90s" }
+      ]
+    }
+  ]
+}
+
+Include ${parseInt(days) * parseInt(weeks)} total sessions (one per day across ${weeks} weeks). Keep exercise names concise and searchable.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const raw  = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+
+    // Strip markdown fences if present
+    const jsonStr = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    const plan    = JSON.parse(jsonStr);
+
+    plan.id        = 'wp-' + Date.now();
+    plan.createdAt = new Date().toISOString();
+    plan.sessions  = (plan.sessions||[]).map(s=>({...s, completedOn:null}));
+
+    workoutPlans.unshift(plan);
+    saveWorkoutPlans();
+
+    // Close modal and navigate to new plan
+    document.getElementById('modal-workout-plan')?.remove();
+    _workoutDetailId = plan.id;
+    window._healthTab = 'workouts';
+    renderAll();
+    showToast('💪 Plan created: ' + plan.name);
+
+  } catch(e) {
+    console.error('[Workout plan]', e);
+    if(status){ status.style.display='block'; status.textContent='⚠️ Generation failed — try again'; status.style.color='#EF5350'; }
+    if(btn){ btn.disabled=false; btn.textContent='✨ Generate My Plan with AI'; btn.style.opacity='1'; }
+  }
+}
+
+function _toggleSessionDone(planId, idx){
+  const plan = workoutPlans.find(p=>p.id===planId); if(!plan) return;
+  const session = plan.sessions[idx]; if(!session) return;
+
+  if(session.completedOn){
+    // Un-mark done
+    session.completedOn = null;
+    saveWorkoutPlans();
+    renderAll();
+  } else {
+    // Mark done + open burn logging sheet
+    session.completedOn = new Date().toISOString().slice(0,10);
+    saveWorkoutPlans();
+    renderAll();
+    // Small delay so the re-render finishes before sheet appears
+    setTimeout(() => _openSessionBurnSheet(planId, idx), 250);
+  }
+}
+
+function deleteWorkoutPlan(id){
+  workoutPlans = workoutPlans.filter(p=>p.id!==id);
+  saveWorkoutPlans();
+  _workoutDetailId = null;
+  renderAll();
+  showToast('Workout plan deleted');
+}
+
+// ── YouTube video search ───────────────────────────────────────
+// Opens a bottom sheet showing YouTube search results for an exercise
+
+async function _searchWorkoutVideo(exerciseName){
+  _showVideoSheet(exerciseName + ' exercise tutorial form');
+}
+
+async function _searchSessionVideos(planId, sessionIdx){
+  const plan    = workoutPlans.find(p=>p.id===planId); if(!plan) return;
+  const session = plan.sessions[sessionIdx]; if(!session) return;
+  const query   = session.name + ' ' + (plan.goal||'workout') + ' ' + (plan.level||'');
+  _showVideoSheet(query);
+}
+
+function _showVideoSheet(searchQuery){
+  const old = document.getElementById('modal-video-sheet'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-video-sheet'; m.className = 'modal-overlay';
+  m.style.cssText = 'align-items:flex-end;justify-content:center;';
+  m.innerHTML = `
+  <div onclick="event.stopPropagation()"
+    style="width:100%;max-width:540px;background:var(--surface);border-radius:20px 20px 0 0;
+      max-height:min(88vh,88dvh);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom);">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font:700 14px/1 var(--font-ui);color:var(--text);">▶ Find workout videos</div>
+      <button onclick="document.getElementById('modal-video-sheet').remove()"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;
+          color:var(--text3);font-size:16px;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <!-- Search bar -->
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;">
+      <input id="video-search-input" class="field-input" style="margin:0;flex:1;font-size:15px;"
+        value="${esc(searchQuery)}"
+        placeholder="Search YouTube…"
+        onkeydown="if(event.key==='Enter')_runVideoSearch()"/>
+      <button onclick="_runVideoSearch()"
+        style="padding:10px 16px;border-radius:var(--r2);border:none;background:#EF5350;
+          color:#fff;font:700 13px/1 var(--font-ui);cursor:pointer;">Search</button>
+    </div>
+
+    <!-- Results -->
+    <div id="video-results" style="flex:1;overflow-y:auto;padding:8px 0;-webkit-overflow-scrolling:touch;">
+      <div style="text-align:center;padding:24px;font:500 13px/1 var(--font-ui);color:var(--text4);">
+        Loading results…
+      </div>
+    </div>
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+
+  // Auto-run search
+  setTimeout(_runVideoSearch, 100);
+}
+
+async function _runVideoSearch(){
+  const input = document.getElementById('video-search-input');
+  const query = input?.value.trim();
+  if(!query) return;
+
+  const results = document.getElementById('video-results');
+  if(results) results.innerHTML = `<div style="text-align:center;padding:24px;font:500 13px/1 var(--font-ui);color:var(--text4);">🔍 Searching…</div>`;
+
+  try {
+    // Use YouTube's oEmbed + search — since we don't have a YouTube API key,
+    // we use the Invidious public API (open YouTube frontend) which requires no auth
+    const encoded = encodeURIComponent(query + ' workout');
+    const resp = await fetch(`https://inv.tux.pizza/api/v1/search?q=${encoded}&type=video&fields=videoId,title,author,lengthSeconds,viewCount,videoThumbnails`);
+
+    if(!resp.ok) throw new Error('Search API unavailable');
+    const videos = await resp.json();
+
+    if(!Array.isArray(videos) || !videos.length){
+      results.innerHTML = `<div style="padding:20px;text-align:center;">
+        <div style="font:500 13px/1.4 var(--font-ui);color:var(--text4);">No videos found — try a different search</div>
+        <button onclick="_openYouTubeSearch('${esc(query).replace(/'/g,"\\'")}');"
+          style="margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#EF5350;
+            color:#fff;font:700 13px/1 var(--font-ui);cursor:pointer;">Open YouTube directly</button>
+      </div>`;
+      return;
+    }
+
+    const fmtDuration = s => { const m=Math.floor(s/60),sec=s%60; return m+':'+(sec<10?'0':'')+sec; };
+    const fmtViews    = n => n>1000000 ? (n/1000000).toFixed(1)+'M' : n>1000 ? Math.round(n/1000)+'K' : n;
+
+    results.innerHTML = videos.slice(0,10).map(v => {
+      const thumb = (v.videoThumbnails||[]).find(t=>t.quality==='medium')||v.videoThumbnails?.[0];
+      return `<div onclick="_openVideo('${v.videoId}')"
+        style="display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);
+          cursor:pointer;min-height:44px;align-items:center;"
+        onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+        <div style="width:96px;height:54px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--surface2);">
+          ${thumb?`<img src="${thumb.url}" alt="" style="width:100%;height:100%;object-fit:cover;"/>`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;">▶</div>'}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font:600 13px/1.4 var(--font-ui);color:var(--text);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${esc(v.title||'')}</div>
+          <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:4px;">${esc(v.author||'')} · ${fmtDuration(v.lengthSeconds||0)}</div>
+        </div>
+        <div style="width:32px;height:32px;border-radius:50%;background:#EF5350;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex-shrink:0;">▶</div>
+      </div>`;
+    }).join('') + `<div style="padding:14px 16px;text-align:center;">
+      <button onclick="_openYouTubeSearch('${esc(query).replace(/'/g,"\\'")}');"
+        style="padding:11px 20px;border-radius:8px;border:1px solid #EF5350;background:transparent;
+          color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;min-height:44px;">Open in YouTube</button>
+    </div>`;
+
+  } catch(e) {
+    console.warn('[Video search]', e);
+    // Fallback: direct YouTube link
+    results.innerHTML = `<div style="padding:20px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:8px;">▶</div>
+      <div style="font:600 13px/1.4 var(--font-ui);color:var(--text);margin-bottom:4px;">Video search unavailable</div>
+      <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-bottom:16px;">Tap below to search YouTube directly</div>
+      <button onclick="_openYouTubeSearch('${esc(query).replace(/'/g,"\\'")}');"
+        style="padding:12px 28px;border-radius:50px;border:none;background:#EF5350;
+          color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">🔍 Search YouTube</button>
+    </div>`;
+  }
+}
+
+function _openVideo(videoId){
+  window.open('https://www.youtube.com/watch?v=' + videoId, '_blank');
+}
+
+function _openYouTubeSearch(q){
+  window.open('https://www.youtube.com/results?search_query=' + encodeURIComponent(q), '_blank');
+}
+
+function renderChallengeTab(){
+  const cfg      = challengeConfig;
+  const todayStr = nutToday();
+  const active   = !!cfg.startDate;
+  const totalDays= cfg.totalDays || 75;
+
+  if(!active){
+    return `<div style="flex:1;overflow-y:auto;padding:24px 16px;">
+      <div style="text-align:center;padding:32px 0 24px;">
+        <div style="font-size:52px;margin-bottom:12px;">💪</div>
+        <div style="font:800 22px/1.2 var(--font-ui);color:var(--text);margin-bottom:8px;">75 Soft Challenge</div>
+        <div style="font:400 14px/1.6 var(--font-ui);color:var(--text3);margin-bottom:24px;max-width:280px;margin-left:auto;margin-right:auto;">
+          Daily checklist for ${totalDays} days.<br>Water &amp; calories auto-track from your logs.
+        </div>
+        <button onclick="openChallengeSetup()"
+          style="padding:14px 32px;border-radius:50px;border:none;background:#4CAF50;color:#fff;font:800 16px/1 var(--font-ui);cursor:pointer;box-shadow:0 4px 16px rgba(76,175,80,0.3);">
+          Start Challenge
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // Calculate streak and completion
+  const startDate  = new Date(cfg.startDate+'T00:00:00');
+  const todayDate  = new Date(todayStr+'T00:00:00');
+  const daysPassed = Math.round((todayDate-startDate)/(1000*60*60*24));
+  const currentDay = Math.min(daysPassed+1, totalDays);
+  const dayStr     = `Day ${currentDay} of ${totalDays}`;
+
+  // Count perfect days
+  let perfectDays = 0;
+  let streak = 0;
+  let checkingStreak = true;
+  for(let i=0; i<Math.min(daysPassed+1, totalDays); i++){
+    const d = new Date(startDate); d.setDate(d.getDate()+i);
+    const ds = d.toLocaleDateString('en-CA');
+    const log = (cfg.log||{})[ds]||{};
+    const water = getChallengeWaterDone(ds);
+    const cal   = getChallengeCalDone(ds);
+    const perfect = water && cal && log.exercise && log.read;
+    if(perfect) { perfectDays++; if(checkingStreak) streak++; }
+    else checkingStreak = false;
+  }
+
+  const pct = Math.round((currentDay-1)/totalDays*100);
+  const rules = [
+    { key:'calories', label:'Stay within calorie goal', auto:true,  emoji:'🔥', done: getChallengeCalDone(todayStr) },
+    { key:'water',    label:'Hit daily water goal',     auto:true,  emoji:'💧', done: getChallengeWaterDone(todayStr) },
+    { key:'exercise', label:'45 min exercise',          auto:false, emoji:'🏃', done: (getChallengeLog(todayStr).exercise||false) },
+    { key:'read',     label:'Read 10 pages',            auto:false, emoji:'📖', done: (getChallengeLog(todayStr).read||false) },
+  ];
+  const todayDone = rules.filter(r=>r.done).length;
+  const allDone   = todayDone === rules.length;
+
+  // Last 7 days mini calendar
+  const last7 = Array.from({length:7},(_,i)=>{
+    const d=new Date(todayDate); d.setDate(d.getDate()-(6-i));
+    const ds=d.toLocaleDateString('en-CA');
+    const dayNum=getChallengeDay(ds);
+    if(!dayNum) return null;
+    const log=(cfg.log||{})[ds]||{};
+    const water=getChallengeWaterDone(ds);
+    const cal=getChallengeCalDone(ds);
+    const checks=[water,cal,log.exercise,log.read].filter(Boolean).length;
+    const isToday=ds===todayStr;
+    return { ds, dayNum, checks, isToday };
+  }).filter(Boolean);
+
+  return `<div style="flex:1;overflow-y:auto;padding:0 0 32px;">
+
+    <!-- Progress header -->
+    <div style="padding:14px 16px 0;">
+      <div style="background:var(--surface);border-radius:16px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font:700 13px/1 var(--font-ui);color:var(--text3);">${dayStr}</div>
+            <div style="font:900 28px/1.1 var(--font-ui);color:var(--text);margin-top:4px;">
+              ${allDone?'✅ Perfect day!':todayDone+'/4 done today'}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font:900 28px/1 var(--font-ui);color:#4CAF50;">${perfectDays}</div>
+            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">perfect days</div>
+          </div>
+        </div>
+        <!-- Overall progress bar -->
+        <div style="height:8px;border-radius:4px;background:var(--surface3);overflow:hidden;margin-bottom:6px;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4CAF50,#81C784);border-radius:4px;transition:width 0.5s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font:500 11px/1 var(--font-ui);color:var(--text4);">
+          <span>Day 1</span>
+          <span>${pct}% complete</span>
+          <span>Day ${totalDays}</span>
+        </div>
+        ${streak>=3?`<div style="margin-top:10px;padding:6px 10px;border-radius:8px;background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2);font:700 12px/1 var(--font-ui);color:#FF8C00;display:inline-flex;align-items:center;gap:5px;">🔥 ${streak}-day streak</div>`:''}
+      </div>
+
+      <!-- Last 7 days dots -->
+      <div style="background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font:600 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Last 7 days</div>
+        <div style="display:flex;gap:6px;">
+          ${last7.map(d=>{
+            const col = d.checks===4?'#4CAF50':d.checks>=2?'#E8A838':d.checks>0?'#EF9A9A':'var(--surface3)';
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;aspect-ratio:1;border-radius:8px;background:${col};
+                ${d.isToday?'box-shadow:0 0 0 2px var(--bg),0 0 0 3px #4CAF50;':''}
+                display:flex;align-items:center;justify-content:center;">
+                <span style="font:700 10px/1 var(--font-ui);color:${d.checks>0?'#fff':'var(--text4)'};">${d.checks>0?d.checks+'✓':''}</span>
+              </div>
+              <span style="font:500 9px/1 var(--font-ui);color:${d.isToday?'var(--accent)':'var(--text4)'};">${d.isToday?'Today':'D'+d.dayNum}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Today's checklist -->
+      <div style="background:var(--surface);border-radius:16px;overflow:hidden;margin-bottom:12px;">
+        <div style="padding:12px 14px 10px;border-bottom:1px solid var(--border);">
+          <div style="font:700 14px/1 var(--font-ui);color:var(--text);">Today's checklist</div>
+        </div>
+        ${rules.map(r=>`
+          <div style="display:flex;align-items:center;gap:14px;padding:14px;border-bottom:1px solid var(--border);"
+            ${!r.auto?`onclick="toggleChallengeCheck('${todayStr}','${r.key}')" style="cursor:pointer;"`:''}>
+            <div style="width:28px;height:28px;border-radius:50%;
+              background:${r.done?'#4CAF50':'var(--surface2)'};
+              border:2px solid ${r.done?'#4CAF50':'var(--border2)'};
+              display:flex;align-items:center;justify-content:center;flex-shrink:0;
+              transition:all 0.2s;">
+              ${r.done?`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polyline points="2,7 5.5,10.5 12,3.5" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:${r.done?'600':'500'} 15px/1 var(--font-ui);color:${r.done?'var(--text)':'var(--text2)'};
+                ${r.done?'text-decoration:none;':''}">
+                ${r.emoji} ${r.label}
+              </div>
+              ${r.auto?`<div style="font:400 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Auto-tracked from your logs</div>`
+                      :`<div style="font:400 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">Tap to mark ${r.done?'incomplete':'complete'}</div>`}
+            </div>
+          </div>`).join('')}
+        <div style="padding:12px 14px;text-align:center;">
+          <button onclick="openChallengeSetup()"
+            style="font:500 12px/1 var(--font-ui);color:var(--text4);border:none;background:transparent;cursor:pointer;">
+            ⚙ Challenge settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openChallengeSetup(){
+  const cfg = challengeConfig;
+  const old = document.getElementById('modal-challenge-setup'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-challenge-setup'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="font:800 15px/1 var(--font-ui);color:#4CAF50;">💪 Challenge Setup</div>
+      <button class="modal-close" onclick="closeModal('modal-challenge-setup')">✕</button>
+    </div>
+    <div style="padding:4px 0 12px;">
+      <div class="chip-label">Challenge length (days)</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        ${[30,45,75,100].map(n=>`
+          <button onclick="document.querySelectorAll('.cs-day-btn').forEach(b=>b.style.background='var(--surface2)');this.style.background='rgba(76,175,80,0.15)';document.getElementById('cs-days').value='${n}'"
+            class="cs-day-btn" style="flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--border);background:${(cfg.totalDays||75)===n?'rgba(76,175,80,0.15)':'var(--surface2)'};font:700 13px/1 var(--font-ui);color:var(--text);cursor:pointer;">${n}</button>`).join('')}
+      </div>
+      <input type="hidden" id="cs-days" value="${cfg.totalDays||75}"/>
+
+      <div class="chip-label">Start date</div>
+      <input id="cs-start" type="date" class="field-input" value="${cfg.startDate||nutToday()}" style="color-scheme:dark;"/>
+
+      <div class="chip-label">Water goal for challenge (glasses/day)</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <input id="cs-water" type="number" min="1" max="20" class="field-input"
+          value="${cfg.waterGoalGlasses||waterGoal.glasses||8}"
+          style="width:80px;text-align:center;font-size:20px;font-weight:800;"/>
+        <span style="font:500 13px/1 var(--font-ui);color:var(--text3);">glasses · defaults to your water goal</span>
+      </div>
+
+      ${cfg.startDate ? `
+      <div style="margin-top:14px;padding:10px 12px;border-radius:8px;background:rgba(239,83,80,0.06);border:1px solid rgba(239,83,80,0.2);">
+        <div style="font:700 12px/1 var(--font-ui);color:#EF5350;margin-bottom:4px;">Restart challenge</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);">Saving new dates will restart your progress log.</div>
+      </div>` : ''}
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;">
+      ${cfg.startDate?`<button onclick="abandonChallenge()" style="padding:13px 16px;border-radius:var(--r3);border:1px solid rgba(239,83,80,0.4);background:transparent;color:#EF5350;font:700 13px/1 var(--font-ui);cursor:pointer;">Abandon</button>`:''}
+      <button onclick="saveChallengeSetup()" style="flex:1;padding:14px;border-radius:var(--r3);border:none;background:#4CAF50;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ ${cfg.startDate?'Save':'Start Challenge'}</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) closeModal('modal-challenge-setup'); };
+  document.body.appendChild(m); openModal('modal-challenge-setup');
+}
+
+function saveChallengeSetup(){
+  _markModalClean();
+  const newStart = document.getElementById('cs-start')?.value;
+  const prevStart = challengeConfig.startDate;
+  challengeConfig = {
+    ...challengeConfig,
+    totalDays:       parseInt(document.getElementById('cs-days')?.value)||75,
+    startDate:       newStart,
+    waterGoalGlasses:parseInt(document.getElementById('cs-water')?.value)||8,
+    // Reset log only if start date changed
+    log: (newStart !== prevStart) ? {} : (challengeConfig.log||{}),
+  };
+  saveChallengeConfig();
+  closeModal('modal-challenge-setup');
+  showToast('💪 Challenge '+(prevStart?'updated':'started')+'!');
+  window._healthTab = 'challenge';
+  renderAll();
+}
+
+function abandonChallenge(){
+  if(!confirm('Abandon this challenge? Your progress log will be cleared.')) return;
+  challengeConfig = { ...challengeConfig, startDate:null, log:{} };
+  saveChallengeConfig();
+  closeModal('modal-challenge-setup');
+  showToast('Challenge abandoned');
+  window._healthTab = 'challenge';
+  renderAll();
 }
 
 
@@ -9305,22 +10578,25 @@ async function searchFoodOFF(){
   const query = document.getElementById('food-search-input')?.value.trim();
   if(!query){ showToast('Enter a food to search'); return; }
   const res = document.getElementById('food-search-results');
-  res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">\uD83D\uDD0D Searching\u2026</div>';
+  res.style.display = 'block';
+  const hist = document.getElementById('food-history-panel');
+  if(hist) hist.style.display = 'none';
+  res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:8px 16px;">🔍 Searching…</div>';
 
-  // Prepend any matching My Foods
+  // Always prepend matching My Foods first
   const qLow = query.toLowerCase();
   const myMatches = myFoods.filter(f=>f.name.toLowerCase().includes(qLow));
   let myFoodsHtml = '';
   if(myMatches.length){
-    myFoodsHtml = '<div style="font:600 11px/1 var(--font-ui);color:#4CAF50;padding:2px 0 6px;">\uD83E\uDD18 From My Foods</div>'
+    myFoodsHtml = '<div style="font:600 11px/1 var(--font-ui);color:#4CAF50;padding:6px 16px 4px;">🤘 From My Foods</div>'
       + myMatches.map(f=>{
           const fj=encodeURIComponent(JSON.stringify({name:f.name,qty:f.qty||1,unit:f.unit||'serving',calories:f.calories||0,protein:f.protein||0,carbs:f.carbs||0,fat:f.fat||0,fiber:f.fiber||0,sugar:f.sugar||0,sodium:f.sodium||0,calcium:f.calcium||0,iron:f.iron||0,vitaminC:f.vitaminC||0}));
           return '<div onclick="nutFillModalFromOFF(\''+fj+'\')"'
-            +' style="display:flex;align-items:center;padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;">'
+            +' style="display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;">'
             +'<div style="flex:1;min-width:0;">'
             +'<div style="font:var(--type-label);color:var(--text);">'+esc(f.name)
             +' <span style="font:600 10px/1 var(--font-ui);padding:2px 5px;border-radius:4px;background:rgba(76,175,80,0.12);color:#4CAF50;">My Foods</span></div>'
-            +'<div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">'+Math.round(f.calories||0)+' cal \u00b7 '+(f.qty||1)+' '+(f.unit||'serving')+'</div>'
+            +'<div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">'+Math.round(f.calories||0)+' cal · '+(f.qty||1)+' '+(f.unit||'serving')+'</div>'
             +'</div>'
             +'<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">+</div>'
             +'</div>';
@@ -9329,52 +10605,58 @@ async function searchFoodOFF(){
   }
 
   try {
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&fields=product_name,nutriments,serving_size,serving_quantity,brands&page_size=10`;
-    const r = await fetch(url);
+    // Use v2 search API — more reliable than old CGI endpoint
+    const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&fields=product_name,nutriments,serving_size,serving_quantity,brands&page_size=10&json=true`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'ReevesHQ/1.0' } });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
     const products = (data.products||[]).filter(p=>p.product_name&&p.nutriments);
 
     if(!products.length){
-      res.innerHTML = `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">No results — try AI estimate or manual entry</div>`;
+      res.innerHTML = myFoodsHtml + `<div style="padding:10px 16px;font:500 12px/1.4 var(--font-ui);color:var(--text4);">No database results — try the AI estimate button below ✨</div>`;
       return;
     }
 
-    // Show results panel, hide history
-    res.style.display='block';
-    const hist=document.getElementById('food-history-panel');
-    if(hist) hist.style.display='none';
-    res.innerHTML = `<div style="padding:4px 16px 0;font:500 12px/1 var(--font-ui);color:var(--text4);">${products.length} results</div>`
-      + products.slice(0,8).map((p,i)=>{
-      const n = p.nutriments||{};
-      const cal  = Math.round(n['energy-kcal_serving']||n['energy-kcal']||0);
-      const prot = Math.round((n['proteins_serving']||n['proteins']||0)*10)/10;
-      const carb = Math.round((n['carbohydrates_serving']||n['carbohydrates']||0)*10)/10;
-      const fat  = Math.round((n['fat_serving']||n['fat']||0)*10)/10;
-      const fiber= Math.round((n['fiber_serving']||n['fiber']||0)*10)/10;
-      const sugar= Math.round((n['sugars_serving']||n['sugars']||0)*10)/10;
-      const sod  = Math.round((n['sodium_serving']||n['sodium']||0)*1000*10)/10;
-      const cal_c= Math.round((n['calcium_serving']||n['calcium']||0)*1000*10)/10;
-      const iron = Math.round((n['iron_serving']||n['iron']||0)*1000*10)/10;
-      const vitC = Math.round((n['vitamin-c_serving']||n['vitamin-c']||0)*1000*10)/10;
-      const brand = p.brands ? p.brands.split(',')[0].trim() : '';
-      const serv  = p.serving_size||'1 serving';
-      const food  = { name:p.product_name, qty:1, unit:serv,
-        calories:cal, protein:prot, carbs:carb, fat:fat, fiber, sugar,
-        sodium:sod, calcium:cal_c, iron, vitaminC:vitC };
-      const foodJson = encodeURIComponent(JSON.stringify(food));
-      return `<div onclick="nutFillModalFromOFF('${foodJson}')"
-        style="display:flex;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;"
-        onmouseover="this.querySelector('.add-btn').style.opacity='1'" onmouseout="this.querySelector('.add-btn').style.opacity='0.6'">
-        <div style="flex:1;min-width:0;">
-          <div style="font:var(--type-label);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.product_name)}</div>
-          <div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">${cal} cal · ${serv}${brand?' · '+esc(brand):''}</div>
-        </div>
-        <div class="add-btn" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;flex-shrink:0;opacity:0.6;transition:opacity 0.15s;">+</div>
-      </div>`;
-    }).join('');
+    res.innerHTML = myFoodsHtml
+      + `<div style="padding:6px 16px 2px;font:500 11px/1 var(--font-ui);color:var(--text4);">${products.length} results from Open Food Facts</div>`
+      + products.slice(0,8).map((p)=>{
+        const n = p.nutriments||{};
+        // v2 API uses _serving suffix for per-serving values
+        const cal  = Math.round(n['energy-kcal_serving']  || n['energy-kcal_100g']  || n['energy-kcal']  || 0);
+        const prot = Math.round((n['proteins_serving']    || n['proteins_100g']    || n['proteins']    || 0)*10)/10;
+        const carb = Math.round((n['carbohydrates_serving']||n['carbohydrates_100g']||n['carbohydrates']|| 0)*10)/10;
+        const fat  = Math.round((n['fat_serving']         || n['fat_100g']         || n['fat']         || 0)*10)/10;
+        const fiber= Math.round((n['fiber_serving']       || n['fiber_100g']       || n['fiber']       || 0)*10)/10;
+        const sugar= Math.round((n['sugars_serving']      || n['sugars_100g']      || n['sugars']      || 0)*10)/10;
+        const sod  = Math.round((n['sodium_serving']      || n['sodium_100g']      || n['sodium']      || 0)*1000*10)/10;
+        const cal_c= Math.round((n['calcium_serving']     || n['calcium_100g']     || n['calcium']     || 0)*1000*10)/10;
+        const iron = Math.round((n['iron_serving']        || n['iron_100g']        || n['iron']        || 0)*1000*10)/10;
+        const vitC = Math.round((n['vitamin-c_serving']   || n['vitamin-c_100g']   || n['vitamin-c']   || 0)*1000*10)/10;
+        const brand = p.brands ? p.brands.split(',')[0].trim() : '';
+        const serv  = p.serving_size || '1 serving';
+        const food  = { name:p.product_name, qty:1, unit:serv,
+          calories:cal, protein:prot, carbs:carb, fat:fat, fiber, sugar,
+          sodium:sod, calcium:cal_c, iron, vitaminC:vitC };
+        const foodJson = encodeURIComponent(JSON.stringify(food));
+        return `<div onclick="nutFillModalFromOFF('${foodJson}')"
+          style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;gap:12px;"
+          onmouseover="this.querySelector('.add-btn').style.opacity='1'" onmouseout="this.querySelector('.add-btn').style.opacity='0.6'">
+          <div style="flex:1;min-width:0;">
+            <div style="font:var(--type-label);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.product_name)}</div>
+            <div style="font:var(--type-caption);color:var(--text4);margin-top:2px;">${cal} cal · ${esc(serv)}${brand?' · '+esc(brand):''}</div>
+          </div>
+          <div class="add-btn" style="width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;flex-shrink:0;opacity:0.6;transition:opacity 0.15s;">+</div>
+        </div>`;
+      }).join('');
 
   } catch(e) {
-    res.innerHTML = `<div style="font:500 11px/1 var(--font-ui);color:#EF5350;padding:6px 0;">Search failed — check connection or try AI estimate</div>`;
+    console.warn('[Food search]', e);
+    // Show My Foods matches if any, then fallback message
+    res.innerHTML = myFoodsHtml + `
+      <div style="padding:12px 16px;background:rgba(239,83,80,0.06);border-radius:8px;margin:8px 16px;">
+        <div style="font:600 12px/1.4 var(--font-ui);color:#EF5350;margin-bottom:6px;">⚠️ Food database unreachable</div>
+        <div style="font:500 11px/1.5 var(--font-ui);color:var(--text4);">Open Food Facts may be temporarily down. Try the <strong>AI Estimate</strong> button instead — it works offline.</div>
+      </div>`;
   }
 }
 
@@ -9884,24 +11166,25 @@ async function _tplSearchFood(){
   const res = document.getElementById('tpl-search-results');
   res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">🔍 Searching…</div>';
   try {
-    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(query)+'&search_simple=1&action=process&json=1&fields=product_name,nutriments,serving_size,serving_quantity,brands&page_size=6';
-    const r = await fetch(url);
+    const url = 'https://world.openfoodfacts.org/api/v2/search?search_terms='+encodeURIComponent(query)+'&fields=product_name,nutriments,serving_size,serving_quantity,brands&page_size=6&json=true';
+    const r = await fetch(url, { headers: { 'User-Agent': 'ReevesHQ/1.0' } });
+    if(!r.ok) throw new Error('HTTP '+r.status);
     const data = await r.json();
     const products = (data.products||[]).filter(p=>p.product_name&&p.nutriments);
-    if(!products.length){ res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">No results</div>'; return; }
+    if(!products.length){ res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:6px 0;">No results — try the main search AI estimate</div>'; return; }
     res.innerHTML = products.slice(0,6).map(p=>{
       const n=p.nutriments||{};
       const food = {name:p.product_name, qty:1, unit:p.serving_size||'serving',
-        calories:Math.round(n['energy-kcal_serving']||n['energy-kcal']||0),
-        protein: Math.round((n['proteins_serving']||n['proteins']||0)*10)/10,
-        carbs:   Math.round((n['carbohydrates_serving']||n['carbohydrates']||0)*10)/10,
-        fat:     Math.round((n['fat_serving']||n['fat']||0)*10)/10,
-        fiber:   Math.round((n['fiber_serving']||n['fiber']||0)*10)/10,
-        sugar:   Math.round((n['sugars_serving']||n['sugars']||0)*10)/10,
-        sodium:  Math.round((n['sodium_serving']||n['sodium']||0)*1000*10)/10,
-        calcium: Math.round((n['calcium_serving']||n['calcium']||0)*1000*10)/10,
-        iron:    Math.round((n['iron_serving']||n['iron']||0)*1000*10)/10,
-        vitaminC:Math.round((n['vitamin-c_serving']||n['vitamin-c']||0)*1000*10)/10,
+        calories:Math.round(n['energy-kcal_serving']||n['energy-kcal_100g']||n['energy-kcal']||0),
+        protein: Math.round((n['proteins_serving']||n['proteins_100g']||n['proteins']||0)*10)/10,
+        carbs:   Math.round((n['carbohydrates_serving']||n['carbohydrates_100g']||n['carbohydrates']||0)*10)/10,
+        fat:     Math.round((n['fat_serving']||n['fat_100g']||n['fat']||0)*10)/10,
+        fiber:   Math.round((n['fiber_serving']||n['fiber_100g']||n['fiber']||0)*10)/10,
+        sugar:   Math.round((n['sugars_serving']||n['sugars_100g']||n['sugars']||0)*10)/10,
+        sodium:  Math.round((n['sodium_serving']||n['sodium_100g']||n['sodium']||0)*1000*10)/10,
+        calcium: Math.round((n['calcium_serving']||n['calcium_100g']||n['calcium']||0)*1000*10)/10,
+        iron:    Math.round((n['iron_serving']||n['iron_100g']||n['iron']||0)*1000*10)/10,
+        vitaminC:Math.round((n['vitamin-c_serving']||n['vitamin-c_100g']||n['vitamin-c']||0)*1000*10)/10,
       };
       const fj = encodeURIComponent(JSON.stringify(food));
       return '<div onclick="_tplAddItemFromJson(\''+fj+'\')"'
@@ -9917,7 +11200,7 @@ async function _tplSearchFood(){
         +'<div style="flex:1;text-align:center;padding:4px;border-radius:var(--r2);background:rgba(255,138,101,0.12);"><div style="font:800 12px/1 var(--font-ui);color:#FF8A65;">'+food.fat+'g</div><div style="font:500 9px/1 var(--font-ui);color:var(--text4);">Fat</div></div>'
         +'</div></div>';
     }).join('');
-  } catch(e) { res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:#EF5350;padding:6px 0;">Search failed</div>'; }
+  } catch(e) { res.innerHTML = '<div style="font:500 11px/1 var(--font-ui);color:#EF5350;padding:6px 0;">⚠️ Database unreachable — try AI estimate in main search</div>'; }
 }
 
 async function _tplScanBarcode(){
@@ -15261,6 +16544,7 @@ function nutLocalKey(base){ return base + '-' + nutUserKey(); }
 function loadNutData(){
   const u = nutUserKey();
   myFoods         = loadHubData('hub-my-foods-'+u,          []);
+  challengeConfig = loadHubData('hub-challenge-'+u,         {});
   mealTemplates   = loadHubData('hub-meal-templates-'+u,  []);
   nutritionLog    = loadHubData('hub-nutrition-log-'+u,    []);
   nutritionGoals  = loadHubData('hub-nutrition-goals-'+u,  {
@@ -15282,6 +16566,10 @@ function loadNutData(){
 
 let mealTemplates   = [];  // loaded per-user by loadNutData()
 let myFoods         = [];  // custom food database — user-created
+let challengeConfig = {};  // 75 soft challenge config — loaded per user
+let workoutPlans = JSON.parse(localStorage.getItem('hub-workout-plans') || '[]');
+let _workoutDetailId = null;
+function saveWorkoutPlans(){ localStorage.setItem('hub-workout-plans', JSON.stringify(workoutPlans)); }
 let foodFavourites  = [];
 let waterLog        = [];
 let waterGoal       = { glasses:8, ozPerGlass:8 };
@@ -16121,12 +17409,15 @@ function renderTodayUnified(container){
 
   // ── Proactive AI suggestion card ───────────────────────────────
   if(_proactiveSuggestion.text && _proactiveSuggestion.date === todayStr && !_proactiveSuggestion.dismissed){
-    html += `<div class="today-card" style="border-color:rgba(186,104,200,0.3);background:rgba(186,104,200,0.04);">
-      <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;">
-        <span style="font-size:22px;flex-shrink:0;">🤖</span>
-        <div style="flex:1;font:500 13px/1.6 var(--font-ui);color:var(--text);">${_proactiveSuggestion.text}</div>
+    html += `<div class="today-card" style="border-color:rgba(186,104,200,0.4);background:rgba(186,104,200,0.06);">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;">
+        <span style="font-size:28px;flex-shrink:0;line-height:1.2;">🤖</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font:700 10px/1 var(--font-ui);color:rgba(186,104,200,0.9);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">AI Suggestion</div>
+          <div style="font:500 15px/1.6 var(--font-ui);color:var(--text);">${_proactiveSuggestion.text}</div>
+        </div>
         <button onclick="dismissProactiveSuggestion()"
-          style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;flex-shrink:0;padding:2px;">✕</button>
+          style="border:none;background:transparent;color:var(--text4);font-size:16px;cursor:pointer;flex-shrink:0;padding:4px;line-height:1;">✕</button>
       </div>
     </div>`;
   }
@@ -17660,11 +18951,20 @@ function renderClientsPage(container){
         style="display:flex;align-items:center;gap:12px;padding:12px 14px;
           border-bottom:1px solid var(--border);cursor:pointer;
           background:${isStale&&o.health==='active'?'rgba(255,138,101,0.03)':'transparent'};">
-      <!-- Health indicator -->
-      <div style="width:8px;height:8px;border-radius:50%;background:${h.color};flex-shrink:0;margin-top:2px;"></div>
+      <!-- Logo / avatar -->
+      ${o.logo
+        ? `<div style="width:38px;height:38px;border-radius:8px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--surface2);">
+            <img src="${o.logo}" alt="" style="width:38px;height:38px;object-fit:contain;border-radius:7px;display:block;"/>
+           </div>`
+        : `<div style="width:38px;height:38px;border-radius:8px;background:${h.color}18;border:1px solid ${h.color}33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span style="font:800 15px/1 var(--font-ui);color:${h.color};">${esc(o.name.slice(0,1).toUpperCase())}</span>
+           </div>`}
       <!-- Content -->
       <div style="flex:1;min-width:0;">
-        <div style="font:700 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.name)}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font:700 14px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(o.name)}</span>
+          <span style="font:700 9px/1 var(--font-ui);color:${h.color};flex-shrink:0;">${h.dot}</span>
+        </div>
         <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
           ${o.segment?`<span style="font:600 10px/1 var(--font-ui);color:var(--text4);">${esc(o.segment)}</span>`:''}
           ${contactCount>0?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">· ${contactCount} contact${contactCount!==1?'s':''}</span>`:''}
@@ -17825,6 +19125,13 @@ function renderClientDetail(container){
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
         <button onclick="_clientView='list';renderAll();"
           style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text3);font:700 12px/1 var(--font-ui);cursor:pointer;">‹ Back</button>
+        ${org.logo
+          ? `<div style="width:40px;height:40px;border-radius:9px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);background:var(--surface2);">
+              <img src="${org.logo}" alt="${esc(org.name)}" style="width:40px;height:40px;object-fit:contain;border-radius:8px;display:block;"/>
+             </div>`
+          : `<div style="width:40px;height:40px;border-radius:9px;background:${h.color}18;border:1px solid ${h.color}33;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <span style="font:800 18px/1 var(--font-ui);color:${h.color};">${esc(org.name.slice(0,1).toUpperCase())}</span>
+             </div>`}
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font:800 16px/1.2 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(org.name)}</span>
@@ -18012,8 +19319,35 @@ function openClientOrgModal(editId){
       <button class="modal-close" onclick="closeModal('modal-client-org')">✕</button>
     </div>
     <div class="field-group">
-      <input id="co-name" class="field-input" placeholder="Organization name…" autocomplete="off"
-        value="${existing?esc(existing.name):''}"/>
+
+      <!-- Logo + Name row -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+        <!-- Logo picker -->
+        <div style="flex-shrink:0;">
+          <div onclick="document.getElementById('co-logo-file').click()"
+            style="width:60px;height:60px;border-radius:12px;
+              background:${existing?.logo?'transparent':'var(--surface2)'};
+              border:2px ${existing?.logo?'solid var(--border)':'dashed var(--border)'};
+              display:flex;align-items:center;justify-content:center;
+              cursor:pointer;overflow:hidden;position:relative;">
+            <img id="co-logo-preview" src="${existing?.logo||''}" alt=""
+              style="width:60px;height:60px;object-fit:contain;border-radius:10px;
+                display:${existing?.logo?'block':'none'};"/>
+            <span id="co-logo-placeholder" style="font-size:24px;${existing?.logo?'display:none':''}">🏢</span>
+          </div>
+          <div style="font:500 9px/1 var(--font-ui);color:var(--text4);text-align:center;margin-top:4px;">Logo</div>
+          <input type="file" id="co-logo-file" accept="image/*" style="display:none;"
+            onchange="_coLogoChanged(this)"/>
+        </div>
+        <!-- Name field -->
+        <div style="flex:1;min-width:0;">
+          <input id="co-name" class="field-input" placeholder="Organization name…" autocomplete="off"
+            value="${existing?esc(existing.name):''}"/>
+          <input type="hidden" id="co-logo" value="${existing?.logo||''}"/>
+          ${existing?.logo?`<button type="button" onclick="document.getElementById('co-logo').value='';document.getElementById('co-logo-preview').style.display='none';document.getElementById('co-logo-placeholder').style.display='';this.style.display='none';"
+            style="margin-top:4px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text4);font:500 10px/1 var(--font-ui);cursor:pointer;">Remove logo</button>`:''}
+        </div>
+      </div>
 
       <div style="display:flex;gap:8px;">
         <div style="flex:1;">
@@ -18065,6 +19399,31 @@ function openClientOrgModal(editId){
   setTimeout(()=>{ _watchModalInputs(m); document.getElementById('co-name')?.focus(); }, 80);
 }
 
+// Handle logo file selection — compress to max 200px, store as base64
+function _coLogoChanged(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 200;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/png', 0.85);
+      document.getElementById('co-logo').value = dataUrl;
+      const preview = document.getElementById('co-logo-preview');
+      const placeholder = document.getElementById('co-logo-placeholder');
+      if(preview){ preview.src = dataUrl; preview.style.display = 'block'; }
+      if(placeholder) placeholder.style.display = 'none';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function submitClientOrg(){
   _markModalClean();
   const name       = document.getElementById('co-name')?.value.trim()||'';
@@ -18073,13 +19432,14 @@ function submitClientOrg(){
   const health     = document.getElementById('co-health')?.value||'active';
   const contactIds = document.getElementById('co-contact-ids')?.value||'';
   const notes      = document.getElementById('co-notes')?.value.trim()||'';
+  const logo       = document.getElementById('co-logo')?.value||'';
   const editId     = document.getElementById('co-edit-id')?.value||'';
   if(!name){ showToast('Organization name required'); return; }
   if(editId){
     const o = clientOrgs.find(x=>x.id===editId);
-    if(o){ o.name=name; o.segment=segment; o.industry=industry; o.health=health; o.contactIds=contactIds; o.notes=notes; o.updatedAt=today(); }
+    if(o){ o.name=name; o.segment=segment; o.industry=industry; o.health=health; o.contactIds=contactIds; o.notes=notes; o.logo=logo; o.updatedAt=today(); }
   } else {
-    clientOrgs.unshift({ id:'co'+Date.now(), name, segment, industry, health, contactIds, notes, createdAt:today(), updatedAt:today() });
+    clientOrgs.unshift({ id:'co'+Date.now(), name, segment, industry, health, contactIds, notes, logo, createdAt:today(), updatedAt:today() });
   }
   saveClientOrgs(); closeModal('modal-client-org');
   showToast(`🏢 ${editId?'Updated':'Added'}: ${name}`);
@@ -19009,8 +20369,11 @@ function renderTeamPage(container){
           style="flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);background:transparent;
             color:#BA68C8;font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ Comms</button>
         <button onclick="event.stopPropagation();openTeamMeetingModal(null,'1on1','${p.id}')"
-          style="flex:1;padding:9px 4px;border:none;background:transparent;
+          style="flex:1;padding:9px 4px;border:none;border-right:1px solid var(--border);background:transparent;
             color:var(--text3);font:700 10px/1.3 var(--font-ui);cursor:pointer;">+ 1:1 Note</button>
+        <button onclick="event.stopPropagation();openHandwrittenScan({personId:'${p.id}'})"
+          style="flex:1;padding:9px 4px;border:none;background:transparent;
+            color:#BA68C8;font:700 10px/1.3 var(--font-ui);cursor:pointer;">✍️ Scan</button>
       </div>
     </div>`;
   }).join('');
@@ -19636,6 +20999,498 @@ function pageHeader(container, section, eyebrow, title, sub){
   container.insertBefore(div, container.firstChild);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// HANDWRITTEN NOTES → MEETING
+// Photo of handwritten notes → Claude Vision → structured meeting
+// Available from: Meetings page + Team page
+// ═══════════════════════════════════════════════════════════════
+
+let _hwState = { step:'pick', imageData:null, imagePreview:null, extracted:null, prefillPersonId:null };
+
+function openHandwrittenScan(opts={}){
+  _hwState = { step:'camera', imageData:null, imagePreview:null, extracted:null,
+               prefillPersonId: opts.personId||null, stream:null };
+  _renderHWScanSheet();
+}
+
+function _renderHWScanSheet(){
+  const old = document.getElementById('modal-hw-scan'); if(old) old.remove();
+  const s = _hwState;
+  const m = document.createElement('div');
+  m.id = 'modal-hw-scan';
+  m.style.cssText = s.step === 'camera'
+    ? 'position:fixed;inset:0;z-index:1150;display:flex;flex-direction:column;background:#000;'
+    : 'position:fixed;inset:0;z-index:1150;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.6);';
+
+  let body = '';
+
+  if(s.step === 'camera'){
+    body = `
+      <!-- Live viewfinder — fills screen, no file picker -->
+      <div style="position:relative;flex:1;overflow:hidden;background:#000;">
+        <video id="hw-video" autoplay playsinline muted
+          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+        <!-- Alignment guide overlay -->
+        <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+          <div style="width:88%;aspect-ratio:4/3;border:3px solid rgba(255,255,255,0.55);
+            border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);"></div>
+        </div>
+        <!-- Top bar -->
+        <div style="position:absolute;top:0;left:0;right:0;padding:env(safe-area-inset-top,16px) 16px 12px;
+          background:linear-gradient(to bottom,rgba(0,0,0,0.55),transparent);
+          display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font:700 15px/1 var(--font-ui);color:#fff;">✍️ Scan Notes</div>
+            <div style="font:500 11px/1.4 var(--font-ui);color:rgba(255,255,255,0.7);margin-top:4px;">Position your notes in the frame</div>
+          </div>
+          <button onclick="_hwStopStream();document.getElementById('modal-hw-scan').remove();"
+            style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);
+              background:rgba(0,0,0,0.4);color:#fff;font-size:18px;cursor:pointer;line-height:1;">×</button>
+        </div>
+        <!-- Capture button at bottom -->
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 28px);
+          background:linear-gradient(to top,rgba(0,0,0,0.6),transparent);
+          display:flex;justify-content:center;align-items:center;gap:20px;">
+          <div style="width:44px;"></div>
+          <button onclick="_hwCapture()"
+            style="width:72px;height:72px;border-radius:50%;border:5px solid #fff;
+              background:rgba(255,255,255,0.15);cursor:pointer;
+              display:flex;align-items:center;justify-content:center;
+              transition:transform 0.1s;"
+            ontouchstart="this.style.transform='scale(0.9)'"
+            ontouchend="this.style.transform='scale(1)'">
+            <div style="width:54px;height:54px;border-radius:50%;background:#fff;"></div>
+          </button>
+          <!-- Flash toggle -->
+          <button id="hw-flash-btn" onclick="_hwToggleFlash(this)"
+            style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);
+              background:rgba(0,0,0,0.3);color:#fff;font-size:20px;cursor:pointer;line-height:1;">
+            🔦
+          </button>
+        </div>
+        <!-- Canvas used to grab frames (hidden) -->
+        <canvas id="hw-canvas" style="display:none;"></canvas>
+        <div id="hw-cam-error" style="display:none;position:absolute;inset:0;
+          background:rgba(0,0,0,0.8);display:none;align-items:center;justify-content:center;
+          padding:32px;text-align:center;">
+          <div>
+            <div style="font-size:36px;margin-bottom:12px;">📷</div>
+            <div style="font:700 15px/1.4 var(--font-ui);color:#fff;margin-bottom:10px;">Camera access needed</div>
+            <div style="font:500 12px/1.5 var(--font-ui);color:rgba(255,255,255,0.7);margin-bottom:20px;">Allow camera access in your browser settings, then try again.</div>
+            <button onclick="document.getElementById('modal-hw-scan').remove();"
+              style="padding:12px 28px;border-radius:50px;border:2px solid #fff;background:transparent;
+                color:#fff;font:700 14px/1 var(--font-ui);cursor:pointer;">Close</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  else if(s.step === 'scanning'){
+    body = `
+      <div style="text-align:center;padding:40px 20px;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        ${s.imagePreview ? `<img src="${s.imagePreview}" style="width:100%;max-height:200px;object-fit:contain;border-radius:12px;margin-bottom:24px;"/>` : ''}
+        <div style="width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);
+          border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:16px;"></div>
+        <div style="font:700 15px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">Reading your notes…</div>
+        <div style="font:500 12px/1.5 var(--font-ui);color:var(--text3);">Claude is extracting action items, decisions, and waiting-fors</div>
+      </div>`;
+  }
+
+  else if(s.step === 'review' && s.extracted){
+    const ex = s.extracted;
+    // Build series/1:1 picker
+    const seriesOptions = meetingSeries.map(s=>
+      `<option value="series:${s.id}">${esc(s.name)} (${s.cadence||'Recurring'})</option>`
+    ).join('');
+    const oneOnOneOptions = peopleList.filter(p=>p.isDirectReport).map(p=>
+      `<option value="1on1:${p.id}">${esc(p.name)} 1:1</option>`
+    ).join('');
+
+    const myCommitLines = (ex.myCommits||'').split('\n').filter(s=>s.trim());
+    const theirCommitLines = (ex.theirCommits||'').split('\n').filter(s=>s.trim());
+    const wfLines = (ex.waitingFors||'').split('\n').filter(s=>s.trim());
+
+    body = `
+      ${s.imagePreview ? `<img src="${s.imagePreview}" style="width:100%;max-height:120px;object-fit:contain;border-radius:8px;margin-bottom:0;opacity:0.8;flex-shrink:0;"/>` : ''}
+      <div style="flex:1;overflow-y:auto;padding:16px 18px;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font:800 15px/1 var(--font-ui);color:var(--text);">Review extracted meeting</div>
+          <button onclick="_hwState.step='pick';_renderHWScanSheet();"
+            style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+              background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">Rescan</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          <!-- Title + Date row -->
+          <div style="display:flex;gap:10px;">
+            <div style="flex:2;">
+              <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Meeting title</div>
+              <input id="hw-title" class="field-input" value="${esc(ex.title||'')}" placeholder="Meeting title…" style="margin:0;font-size:15px;"/>
+            </div>
+            <div style="flex:1;">
+              <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Date</div>
+              <input id="hw-date" type="date" class="field-input" value="${ex.date||today()}" style="margin:0;"/>
+            </div>
+          </div>
+
+          <!-- Add to series/1:1 -->
+          <div>
+            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Add to series or 1:1</div>
+            <select id="hw-series" class="field-input" style="margin:0;">
+              <option value="">— Standalone meeting —</option>
+              ${oneOnOneOptions}
+              ${seriesOptions ? `<optgroup label="──── Series ────">${seriesOptions}</optgroup>` : ''}
+            </select>
+          </div>
+
+          <!-- Attendees -->
+          <div>
+            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">People</div>
+            ${buildPersonPickerHTML(_hwState.prefillPersonId||ex.personIds||'', 'hw-person-ids')}
+          </div>
+
+          <!-- Decisions -->
+          ${ex.decisions ? `<div>
+            <div style="font:700 10px/1 var(--font-ui);color:var(--green);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">✅ Decisions</div>
+            <textarea id="hw-decisions" class="field-input" rows="3" style="margin:0;resize:vertical;">${esc(ex.decisions)}</textarea>
+          </div>` : ''}
+
+          <!-- My action items -->
+          ${myCommitLines.length > 0 ? `<div>
+            <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">⚡ My action items (${myCommitLines.length})</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${myCommitLines.map((line,i)=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+                  border-radius:8px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;">
+                  <input type="checkbox" class="hw-commit-check" data-idx="${i}" checked
+                    style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
+                  <span style="font:500 13px/1.3 var(--font-ui);color:var(--text);flex:1;">${esc(line.replace(/^[-•*]\s*/,''))}</span>
+                </label>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Their commitments / waiting-for -->
+          ${theirCommitLines.length > 0 ? `<div>
+            <div style="font:700 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">⏳ Waiting for them (${theirCommitLines.length})</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${theirCommitLines.map((line,i)=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+                  border-radius:8px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;">
+                  <input type="checkbox" class="hw-wf-check" data-idx="${i}" checked
+                    style="width:16px;height:16px;accent-color:#64B5F6;cursor:pointer;flex-shrink:0;"/>
+                  <span style="font:500 13px/1.3 var(--font-ui);color:var(--text);flex:1;">${esc(line.replace(/^[-•*]\s*/,''))}</span>
+                </label>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Waiting fors as separate section if detected -->
+          ${wfLines.length > 0 ? `<div>
+            <div style="font:700 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;">⏳ Additional waiting-fors</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${wfLines.map((line,i)=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+                  border-radius:8px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;">
+                  <input type="checkbox" class="hw-wfx-check" data-idx="${i}" checked
+                    style="width:16px;height:16px;accent-color:#64B5F6;cursor:pointer;flex-shrink:0;"/>
+                  <span style="font:500 13px/1.3 var(--font-ui);color:var(--text);flex:1;">${esc(line.replace(/^[-•*]\s*/,''))}</span>
+                </label>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Raw notes -->
+          <div>
+            <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">📋 Raw notes (full transcript)</div>
+            <textarea id="hw-notes" class="field-input" rows="5" style="margin:0;resize:vertical;font-family:var(--font-body);line-height:1.6;">${esc(ex.rawNotes||ex.notes||'')}</textarea>
+          </div>
+
+          <button onclick="_hwSave()"
+            style="width:100%;padding:14px;border-radius:var(--r3);border:none;
+              background:var(--accent);color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;
+              box-shadow:0 4px 16px rgba(21,101,192,0.3);">
+            ✓ Save Meeting + Create Tasks
+          </button>
+        </div>
+      </div>`;
+  }
+
+  m.innerHTML = `
+  <div onclick="event.stopPropagation()"
+    style="width:100%;${s.step==='camera' ? 'height:100%;' : 'max-height:min(94vh,94dvh);border-radius:20px 20px 0 0;'}
+      display:flex;flex-direction:column;background:${s.step==='camera'?'#000':'var(--surface)'};
+      ${s.step!=='camera' ? 'overflow:hidden;padding-bottom:env(safe-area-inset-bottom);' : ''}">
+    ${s.step !== 'camera' ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:14px 18px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font:800 15px/1 var(--font-ui);color:var(--text);">✍️ Scan Handwritten Notes</div>
+      <button onclick="_hwStopStream();document.getElementById('modal-hw-scan').remove()"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:17px;cursor:pointer;line-height:1;">×</button>
+    </div>` : ''}
+    ${body}
+  </div>`;
+  m.onclick = e => { if(e.target===m){ _hwStopStream(); m.remove(); } };
+  document.body.appendChild(m);
+
+  // Start camera stream after DOM is ready
+  if(s.step === 'camera'){
+    requestAnimationFrame(()=> _hwStartCamera());
+  }
+}
+
+async function _hwStartCamera(){
+  const video = document.getElementById('hw-video');
+  const errEl = document.getElementById('hw-cam-error');
+  if(!video) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'environment', width:{ideal:1920}, height:{ideal:1440} },
+      audio: false
+    });
+    _hwState.stream = stream;
+    video.srcObject = stream;
+  } catch(e) {
+    console.warn('[HW cam]', e);
+    if(errEl){ errEl.style.display='flex'; }
+  }
+}
+
+function _hwStopStream(){
+  if(_hwState.stream){
+    _hwState.stream.getTracks().forEach(t => t.stop());
+    _hwState.stream = null;
+  }
+}
+
+function _hwCapture(){
+  const video  = document.getElementById('hw-video');
+  const canvas = document.getElementById('hw-canvas');
+  if(!video || !canvas) return;
+
+  // Flash feedback
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#fff;opacity:0.7;z-index:9999;pointer-events:none;';
+  document.body.appendChild(overlay);
+  setTimeout(()=> overlay.remove(), 120);
+
+  // Grab frame from video into canvas, compress
+  const w = video.videoWidth  || 1280;
+  const h = video.videoHeight || 960;
+  const maxW = 1400;
+  const scale = Math.min(maxW / w, 1);
+  canvas.width  = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+
+  // Stop stream immediately — camera light off, no photo saved anywhere
+  _hwStopStream();
+
+  _hwState.imageData    = dataUrl.split(',')[1];
+  _hwState.imagePreview = dataUrl;
+  _hwState.step         = 'scanning';
+  _renderHWScanSheet();
+  _hwRunScan();
+}
+
+let _hwTorchOn = false;
+function _hwToggleFlash(btn){
+  const stream = _hwState.stream;
+  if(!stream) return;
+  const track = stream.getVideoTracks()[0];
+  if(!track || !track.getCapabilities) return;
+  const caps = track.getCapabilities();
+  if(!caps.torch){ showToast('Flash not available on this device'); return; }
+  _hwTorchOn = !_hwTorchOn;
+  track.applyConstraints({ advanced:[{ torch: _hwTorchOn }] }).catch(()=>{});
+  btn.textContent = _hwTorchOn ? '💡' : '🔦';
+}
+
+async function _hwRunScan(){
+  try{
+    const raw = await aiCallVision([{
+      role: 'user',
+      content: [
+        {
+          type:  'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: _hwState.imageData }
+        },
+        {
+          type: 'text',
+          text: `You are reading handwritten meeting notes. Extract everything into clean structured data.
+
+Today is ${today()}.
+
+Return ONLY valid JSON (no markdown, no backticks) with these exact keys:
+{
+  "title": "Meeting title if visible, else infer from context",
+  "date": "YYYY-MM-DD if visible, else today",
+  "personIds": "",
+  "attendees": "Names of attendees if visible, comma separated",
+  "decisions": "Key decisions made — one per line",
+  "myCommits": "Action items I am responsible for — one per line, no bullets",
+  "theirCommits": "Action items others are responsible for — format as 'Name: what they will do', one per line",
+  "waitingFors": "Things I am waiting on from others — one per line",
+  "rawNotes": "Full verbatim transcript of all handwritten text, preserving structure as much as possible. Use newlines between sections."
+}
+
+Rules:
+- myCommits = first-person tasks (I will, I need to, Action: Jason, etc.)
+- theirCommits = tasks assigned to others
+- waitingFors = things blocked on someone else
+- rawNotes = everything, verbatim
+- If a field has nothing, use empty string ""
+- Dates without year: assume ${new Date().getFullYear()}`
+        }
+      ]
+    }], 2000, 'claude-sonnet-4-20250514');
+
+    const clean = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    const extracted = JSON.parse(clean);
+    _hwState.extracted = extracted;
+    _hwState.step = 'review';
+  } catch(e) {
+    console.error('[HW scan]', e);
+    showToast('Could not read notes — try a clearer photo');
+    _hwState.step = 'pick';
+  }
+  _renderHWScanSheet();
+}
+
+function _hwSave(){
+  _hwStopStream(); // safety — ensure camera is off before saving
+  const ex        = _hwState.extracted || {};
+  const title     = document.getElementById('hw-title')?.value.trim() || ex.title || 'Meeting';
+  const dateVal   = document.getElementById('hw-date')?.value || today();
+  const decisions = document.getElementById('hw-decisions')?.value.trim() || '';
+  const notes     = document.getElementById('hw-notes')?.value.trim() || '';
+  const personIds = document.getElementById('hw-person-ids')?.value || '';
+
+  // Collect checked action items
+  const myCommitChecks = Array.from(document.querySelectorAll('.hw-commit-check:checked'));
+  const myCommits = myCommitChecks
+    .map(cb => (ex.myCommits||'').split('\n').filter(s=>s.trim())[parseInt(cb.dataset.idx)]||'')
+    .filter(Boolean).map(s=>s.replace(/^[-•*]\s*/,'')).join('\n');
+
+  const theirChecks = Array.from(document.querySelectorAll('.hw-wf-check:checked'));
+  const theirCommits = theirChecks
+    .map(cb => (ex.theirCommits||'').split('\n').filter(s=>s.trim())[parseInt(cb.dataset.idx)]||'')
+    .filter(Boolean).map(s=>s.replace(/^[-•*]\s*/,'')).join('\n');
+
+  const wfChecks = Array.from(document.querySelectorAll('.hw-wfx-check:checked'));
+  const wfExtra = wfChecks
+    .map(cb => (ex.waitingFors||'').split('\n').filter(s=>s.trim())[parseInt(cb.dataset.idx)]||'')
+    .filter(Boolean).map(s=>s.replace(/^[-•*]\s*/,''));
+
+  // Series / 1:1 assignment
+  const seriesSel = document.getElementById('hw-series')?.value || '';
+  let seriesId = null, teamMeetingType = null, teamPersonId = null;
+  if(seriesSel.startsWith('series:')){
+    seriesId = seriesSel.replace('series:','');
+  } else if(seriesSel.startsWith('1on1:')){
+    teamPersonId = seriesSel.replace('1on1:','');
+    teamMeetingType = '1on1';
+  }
+
+  const meetingId = 'mtg-hw-' + Date.now();
+
+  // ── Save to meetingLog ─────────────────────────────────────────
+  meetingLog.unshift({
+    id:          meetingId,
+    title,
+    date:        dateVal,
+    personIds,
+    decisions,
+    notes,              // raw transcript stored here
+    myCommits,
+    theirCommits,
+    seriesId,
+    source:      'handwritten-scan',
+    createdAt:   today()
+  });
+  saveMeetings();
+
+  // ── Create tasks from my action items ─────────────────────────
+  let tasksCreated = 0;
+  if(myCommits){
+    myCommits.split('\n').filter(s=>s.trim()).forEach(line=>{
+      const cleanLine = line.replace(/^[-•*]\s*/,'').trim();
+      if(!cleanLine) return;
+      const pid = (projects.find(p=>p.domain==='work')||projects[0]||{id:''}).id;
+      tasks.push({
+        id:        't-hw-' + Date.now() + Math.random().toString(36).slice(2,5),
+        projectId: pid,
+        title:     cleanLine,
+        priority:  'medium',
+        status:    'todo',
+        notes:     `From meeting: ${title} (${dateVal})`,
+        source:    'meeting:' + meetingId,
+        dueDate:   '', recur:'none', effort:'', estimate:'', energy:'medium',
+        createdAt: today(), completedAt:null, subtasks:[]
+      });
+      tasksCreated++;
+    });
+    saveAllDebounced();
+  }
+
+  // ── Create waiting-fors ────────────────────────────────────────
+  let wfsCreated = 0;
+  const allWFLines = [
+    ...(theirCommits ? theirCommits.split('\n').filter(s=>s.trim()) : []),
+    ...wfExtra
+  ];
+  allWFLines.forEach(line => {
+    const cleanLine = line.replace(/^[-•*]\s*/,'').trim();
+    if(!cleanLine) return;
+    // Try to extract person name from "Name: task" format
+    const colonIdx = cleanLine.indexOf(':');
+    let wfPersonId = personIds.split(',')[0] || '';
+    let wfWhat = cleanLine;
+    if(colonIdx > 0 && colonIdx < 25){
+      const nameGuess = cleanLine.slice(0, colonIdx).trim();
+      const matched = peopleList.find(p=>p.name.toLowerCase().startsWith(nameGuess.toLowerCase()));
+      if(matched){ wfPersonId = matched.id; wfWhat = cleanLine.slice(colonIdx+1).trim(); }
+    }
+    waitingFor.unshift({
+      id:        'wf-hw-' + Date.now() + Math.random().toString(36).slice(2,5),
+      what:      wfWhat,
+      personId:  wfPersonId,
+      personIds: wfPersonId,
+      dueDate:   '',
+      done:      false,
+      notes:     `From meeting: ${title} (${dateVal})`,
+      source:    'meeting:' + meetingId,
+      createdAt: today()
+    });
+    wfsCreated++;
+  });
+  if(wfsCreated > 0) saveWaitingFor();
+
+  // ── Also save as team meeting if 1:1 ──────────────────────────
+  if(teamMeetingType === '1on1' && teamPersonId){
+    teamMeetings.unshift({
+      id:        'tm-hw-' + Date.now(),
+      type:      '1on1',
+      personIds: teamPersonId,
+      date:      dateVal,
+      decisions, notes, myCommits, theirCommits,
+      source:    'handwritten-scan',
+      createdAt: today()
+    });
+    saveTeamMeetings();
+  }
+
+  document.getElementById('modal-hw-scan')?.remove();
+  renderAll();
+
+  const summary = [
+    tasksCreated ? `${tasksCreated} task${tasksCreated!==1?'s':''}` : '',
+    wfsCreated   ? `${wfsCreated} waiting-for${wfsCreated!==1?'s':''}` : ''
+  ].filter(Boolean).join(' + ');
+  showToast(`✍️ Meeting saved${summary ? ' — created ' + summary : ''}`);
+}
+
 function renderMeetingsPage(container){
 
   // ── Shared: occurrence row used in both tabs ──────────────────
@@ -19903,13 +21758,21 @@ function renderMeetingsPage(container){
     <!-- Header -->
     <div style="padding:12px 14px 0;display:flex;align-items:center;justify-content:space-between;">
       <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Meetings</div>
-      <button onclick="${isRecurring?'openMeetingSeriesModal()':'openMeetingCapture()'}"
-        style="padding:6px 14px;border-radius:7px;border:${isRecurring?'1px solid rgba(232,168,56,0.4)':'none'};
-          background:${isRecurring?'rgba(232,168,56,0.08)':'var(--accent)'};
-          color:${isRecurring?'var(--accent)':'#fff'};
-          font:700 12px/1 var(--font-ui);cursor:pointer;">
-        ${isRecurring?'🔁 New Series':'+ One-off'}
-      </button>
+      <div style="display:flex;gap:6px;">
+        <button onclick="openHandwrittenScan()"
+          style="padding:6px 12px;border-radius:7px;border:1px solid rgba(186,104,200,0.4);
+            background:rgba(186,104,200,0.07);color:#BA68C8;
+            font:700 12px/1 var(--font-ui);cursor:pointer;">
+          ✍️ Scan Notes
+        </button>
+        <button onclick="${isRecurring?'openMeetingSeriesModal()':'openMeetingCapture()'}"
+          style="padding:6px 14px;border-radius:7px;border:${isRecurring?'1px solid rgba(232,168,56,0.4)':'none'};
+            background:${isRecurring?'rgba(232,168,56,0.08)':'var(--accent)'};
+            color:${isRecurring?'var(--accent)':'#fff'};
+            font:700 12px/1 var(--font-ui);cursor:pointer;">
+          ${isRecurring?'🔁 New Series':'+ One-off'}
+        </button>
+      </div>
     </div>
 
     <!-- Tab bar -->
@@ -20054,6 +21917,12 @@ function saveMealTemplates(){
   localStorage.setItem(nutLocalKey('hub-meal-templates'), JSON.stringify(mealTemplates));
   _queueSave('meal_templates_'+nutUserKey(), async ()=>{
     await _sb.from('user_settings').upsert({owner_id:_sbUserId, key:'meal_templates_'+nutUserKey(), value:JSON.stringify(mealTemplates)});
+  });
+}
+function saveChallengeConfig(){
+  localStorage.setItem(nutLocalKey('hub-challenge'), JSON.stringify(challengeConfig));
+  _queueSave('challenge_'+nutUserKey(), async ()=>{
+    await _sb.from('user_settings').upsert({owner_id:_sbUserId, key:'challenge_'+nutUserKey(), value:JSON.stringify(challengeConfig)});
   });
 }
 function saveMyFoods(){
@@ -20338,17 +22207,22 @@ function openManualBurnModal(){
       <div style="padding:0 14px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;">
         <div style="font:700 11px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:10px;">ADD EXERCISE</div>
         <div class="chip-label">Exercise name</div>
-        <input id="burn-ex-name" class="field-input" placeholder="e.g. Running, Cycling, Weight training…" value=""/>
+        <input id="burn-ex-name" class="field-input" placeholder="e.g. Running, Cycling, Weight training…" value=""
+          oninput="_burnAutoEstimate()"/>
         <div style="display:flex;gap:8px;">
           <div style="flex:1;">
             <div class="chip-label">Minutes</div>
-            <input id="burn-ex-mins" type="number" min="0" max="999" class="field-input" placeholder="45" style="margin-bottom:0;"/>
+            <input id="burn-ex-mins" type="number" min="0" max="999" class="field-input" placeholder="45" style="margin-bottom:0;"
+              oninput="_burnAutoEstimate()"/>
           </div>
           <div style="flex:1;">
             <div class="chip-label">Calories burned</div>
             <input id="burn-ex-cal" type="number" min="0" class="field-input" placeholder="380"
-              style="margin-bottom:0;font-size:20px;font-weight:900;text-align:center;" autofocus/>
+              style="margin-bottom:0;font-size:20px;font-weight:900;text-align:center;" autofocus
+              oninput="this._userEdited=true;document.getElementById('burn-cal-hint').textContent=''"/>
           </div>
+        </div>
+        <div id="burn-cal-hint" style="font:500 10px/1 var(--font-ui);color:#FF8A65;margin-top:4px;text-align:right;"></div>
         </div>
         <button onclick="_burnAddEx()"
           style="width:100%;padding:10px;margin-top:10px;border-radius:9px;border:none;background:rgba(255,138,101,0.15);color:#FF8A65;font:800 13px/1 var(--font-ui);cursor:pointer;">
@@ -21558,74 +23432,147 @@ function openAddContactModal(editId){
   const old = document.getElementById('modal-contact');
   if(old) old.remove();
   const m = document.createElement('div');
-  m.id='modal-contact'; m.className='modal-overlay fullscreen';
-  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">👥 Relationship Contacts</div>
-      <button class="modal-close" onclick="closeModal('modal-contact')">✕</button>
+  m.id='modal-contact'; m.className='modal-overlay';
+  m.style.cssText='align-items:flex-end;justify-content:center;';
+
+  m.innerHTML=`
+  <div id="contact-sheet" onclick="event.stopPropagation()"
+    style="width:100%;max-width:520px;background:var(--surface);
+      border-radius:20px 20px 0 0;
+      max-height:min(92vh,92dvh);
+      display:flex;flex-direction:column;
+      transition:transform 0.2s ease;will-change:transform;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font:700 16px/1 var(--font-ui);color:var(--text);">
+        ${existing ? '✏️ Edit Contact' : '👥 Add Contact'}
+      </div>
+      <button onclick="closeModal('modal-contact')"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:17px;cursor:pointer;line-height:1;">×</button>
     </div>
-    <div class="modal-body">
-      <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">${existing?'EDIT CONTACT':'ADD CONTACT'}</div>
-      <div style="display:flex;align-items:center;gap:var(--sp3);margin-bottom:var(--sp2);">
+
+    <!-- Form — always visible above keyboard -->
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;flex-shrink:0;">
+
+      <!-- Photo + Name row -->
+      <div style="display:flex;align-items:center;gap:12px;">
         <div onclick="pickContactPhoto('','contact-photo-preview','contact-photo')"
-          style="width:60px;height:60px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;position:relative;">
-          <img id="contact-photo-preview" src="${existing?.photo||''}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
-          <span style="font-size:22px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
+          style="width:52px;height:52px;border-radius:50%;background:var(--surface2);
+            border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;
+            cursor:pointer;flex-shrink:0;overflow:hidden;">
+          <img id="contact-photo-preview" src="${existing?.photo||''}" alt=""
+            style="width:52px;height:52px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
+          <span style="font-size:20px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
         </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font:var(--type-caption);color:var(--text3);margin-bottom:4px;">Tap photo to change</div>
-          <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}" style="margin:0;"/>
-        </div>
+        <input id="contact-name" class="field-input" placeholder="Name…" autocomplete="off"
+          value="${existing?esc(existing.name):''}"
+          style="flex:1;margin:0;font-size:16px;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('contact-days').focus();}"/>
       </div>
       <input type="hidden" id="contact-photo" value="${existing?.photo||''}"/>
-      <div style="margin-bottom:var(--sp2);">
-        <div class="chip-label">Category</div>
+
+      <!-- Category chips -->
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+          text-transform:uppercase;margin-bottom:8px;">Category</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
           ${['Family','Friend','Mentor','Colleague','Professional','Other'].map(cat=>{
             const colors={'Family':'#81C784','Friend':'#64B5F6','Mentor':'#E8A838','Colleague':'#BA68C8','Professional':'#FF8A65','Other':'#888'};
             const c=colors[cat];
-            const cur=existing?.role||'Friend';
-            const sel=cur===cat;
-            return `<button type="button"
+            const sel=(existing?.role||'Friend')===cat;
+            return `<button type="button" class="cat-chip"
               onclick="document.querySelectorAll('.cat-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('contact-role').value='${cat}';"
-              class="cat-chip"
-              style="padding:6px 12px;border-radius:20px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;transition:all 0.1s;">${cat}</button>`;
+              style="padding:10px 14px;border-radius:20px;border:2px solid ${sel?c:'var(--border)'};
+                background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};
+                font:700 13px/1 var(--font-ui);cursor:pointer;transition:all 0.1s;min-height:44px;">${cat}</button>`;
           }).join('')}
         </div>
         <input type="hidden" id="contact-role" value="${existing?.role||'Friend'}"/>
       </div>
-      <div style="display:flex;align-items:center;gap:var(--sp2);">
-        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);white-space:nowrap;">Nudge every</span>
-        <input id="contact-days" type="number" class="field-input" value="${existing?existing.nudgeDays:14}" min="1" max="365" style="flex:1;"/>
-        <span style="font-size:13px;color:var(--text3);font-family:var(--font-ui);">days</span>
+
+      <!-- Nudge frequency -->
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font:600 13px/1 var(--font-ui);color:var(--text3);white-space:nowrap;">Nudge every</span>
+        <input id="contact-days" type="number" class="field-input"
+          value="${existing?existing.nudgeDays:14}" min="1" max="365"
+          style="width:70px;flex:none;font-size:16px;text-align:center;"/>
+        <span style="font:600 13px/1 var(--font-ui);color:var(--text3);">days</span>
       </div>
+
       <input type="hidden" id="contact-edit-id" value="${editId||''}"/>
-      <button onclick="submitAddContact()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Contact'}</button>
-      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">ALL CONTACTS (${contactsList.length})</div>
-        ${contactsList.length===0
-          ? `<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);font-style:italic;padding:8px 0;">No contacts yet.</div>`
-          : contactsList.map(c=>{
-              const nudges = getPeopleNudges();
-              const isNudge = nudges.find(n=>n.id===c.id);
-              return `<div class="people-list-item">
-                ${renderAvatar(c.name, c.photo, 36, isNudge?'rgba(232,168,56,0.2)':'var(--surface2)', isNudge?'var(--accent)':'var(--text3)', false)}
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(c.name)}</div>
-                  <div style="font:var(--type-caption);color:var(--text4);">${c.role?esc(c.role)+' · ':''}every ${c.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}</div>
-                </div>
-                <button onclick="openAddContactModal('${c.id}')" style="padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;margin-right:4px;">edit</button>
-                <button onclick="deleteContact('${c.id}');openAddContactModal();" style="padding:5px 7px;border-radius:5px;border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
-              </div>`;
-            }).join('')
-        }
+
+      <!-- Save button -->
+      <button onclick="submitAddContact()"
+        style="width:100%;padding:14px;border-radius:var(--r3);border:none;
+          background:var(--accent);color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;
+          box-shadow:0 4px 16px rgba(21,101,192,0.25);">
+        ${existing ? '✓ Save Changes' : '+ Add Contact'}
+      </button>
+    </div>
+
+    <!-- Contacts list — scrollable, below the form -->
+    <div style="flex:1;overflow-y:auto;border-top:1px solid var(--border);
+      padding-bottom:env(safe-area-inset-bottom);">
+      <div style="padding:10px 20px 6px;font:700 10px/1 var(--font-ui);
+        color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">
+        All Contacts (${contactsList.length})
       </div>
+      ${contactsList.length===0
+        ? `<div style="padding:12px 20px;font:500 13px/1 var(--font-ui);color:var(--text4);font-style:italic;">No contacts yet.</div>`
+        : contactsList.map(c=>{
+            const nudges = getPeopleNudges();
+            const isNudge = nudges.find(n=>n.id===c.id);
+            return `<div style="display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--border);">
+              ${renderAvatar(c.name, c.photo, 34, isNudge?'rgba(232,168,56,0.2)':'var(--surface2)', isNudge?'var(--accent)':'var(--text3)', false)}
+              <div style="flex:1;min-width:0;">
+                <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);">${esc(c.name)}</div>
+                <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+                  ${c.role?esc(c.role)+' · ':''}every ${c.nudgeDays}d${isNudge?' · <span style="color:var(--accent);">reach out</span>':''}
+                </div>
+              </div>
+              <button onclick="openAddContactModal('${c.id}')"
+                style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);
+                  background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">edit</button>
+              <button onclick="deleteContact('${c.id}');openAddContactModal();"
+                style="padding:5px 8px;border-radius:5px;border:none;background:transparent;
+                  color:var(--text4);font-size:14px;cursor:pointer;">✕</button>
+            </div>`;
+          }).join('')
+      }
     </div>
   </div>`;
+
   m.onclick=e=>{ if(e.target===m) closeModal('modal-contact'); };
   document.body.appendChild(m);
   openModal('modal-contact');
-  setTimeout(()=>document.getElementById('contact-name').focus(),150);
+
+  // ── Keyboard-aware: shift sheet up when iOS keyboard opens ────
+  const sheet = document.getElementById('contact-sheet');
+  function _contactSheetKeyboardAdjust(){
+    if(!window.visualViewport) return;
+    const vv = window.visualViewport;
+    // Distance between bottom of visual viewport and bottom of layout viewport
+    const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+    if(keyboardHeight > 50){
+      sheet.style.transform = `translateY(-${keyboardHeight}px)`;
+    } else {
+      sheet.style.transform = 'translateY(0)';
+    }
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', _contactSheetKeyboardAdjust);
+    window.visualViewport.addEventListener('scroll', _contactSheetKeyboardAdjust);
+    // Clean up when modal closes
+    m._removeKeyboardListeners = ()=>{
+      window.visualViewport.removeEventListener('resize', _contactSheetKeyboardAdjust);
+      window.visualViewport.removeEventListener('scroll', _contactSheetKeyboardAdjust);
+    };
+  }
+
+  setTimeout(()=>document.getElementById('contact-name')?.focus(), 200);
 }
 
 function submitAddContact(){
@@ -23270,24 +25217,41 @@ const WEATHER_CONDITION = {
 };
 
 function weatherClothingAdvice(maxF, minF, wmoCode){
-  const rain = [51,53,55,61,63,65,80,81,82].includes(wmoCode);
-  const snow = [71,73,75,77,85,86].includes(wmoCode);
+  const rain  = [51,53,55,61,63,65,80,81,82].includes(wmoCode);
+  const snow  = [71,73,75,77,85,86].includes(wmoCode);
   const storm = [95,96,99].includes(wmoCode);
 
-  let layers = [];
-  if(maxF >= 85)       layers = ['T-shirt','shorts','sandals'];
-  else if(maxF >= 75)  layers = ['T-shirt','light pants or shorts'];
-  else if(maxF >= 65)  layers = ['Light jacket','jeans'];
-  else if(maxF >= 55)  layers = ['Hoodie or sweater','jeans'];
-  else if(maxF >= 40)  layers = ['Warm jacket','jeans','closed shoes'];
-  else if(maxF >= 25)  layers = ['Heavy coat','warm layers','hat & gloves'];
-  else                 layers = ['Heavy coat','thermal layers','hat','gloves','boots'];
+  // Returns { vibe, vibeColor, vibeEmoji, items[] }
+  let vibe, vibeColor, vibeEmoji, items;
 
-  if(rain || storm)  layers.push('rain jacket');
-  if(snow)           layers.push('snow boots','waterproof coat');
-  if(maxF < 32)      layers.push('extra layer');
+  if(maxF >= 85){
+    vibe='Hot'; vibeColor='#EF5350'; vibeEmoji='🥵';
+    items=['T-shirt','Shorts','Sandals'];
+  } else if(maxF >= 75){
+    vibe='Warm'; vibeColor='#FF8C00'; vibeEmoji='😎';
+    items=['T-shirt','Light pants or shorts'];
+  } else if(maxF >= 65){
+    vibe='Mild'; vibeColor='#66BB6A'; vibeEmoji='🙂';
+    items=['Light jacket','Jeans'];
+  } else if(maxF >= 55){
+    vibe='Cool'; vibeColor='#42A5F5'; vibeEmoji='🧥';
+    items=['Hoodie or sweater','Jeans'];
+  } else if(maxF >= 40){
+    vibe='Cold'; vibeColor='#2196F3'; vibeEmoji='🥶';
+    items=['Warm jacket','Jeans','Closed shoes'];
+  } else if(maxF >= 25){
+    vibe='Very cold'; vibeColor='#7C4DFF'; vibeEmoji='❄️';
+    items=['Heavy coat','Warm layers','Hat & gloves'];
+  } else {
+    vibe='Freezing'; vibeColor='#9C27B0'; vibeEmoji='🧊';
+    items=['Heavy coat','Thermal layers','Hat','Gloves','Boots'];
+  }
 
-  return layers.join(' · ');
+  if(rain || storm) items.push('Rain jacket');
+  if(snow)          items = ['Snow boots','Waterproof coat', ...items];
+  if(maxF < 32)     items.push('Extra layer');
+
+  return { vibe, vibeColor, vibeEmoji, items };
 }
 
 async function fetchWeather(){
@@ -23341,48 +25305,77 @@ async function fetchWeather(){
 
 function renderWeatherCard(weatherData, selectedDate){
   if(!weatherData || !weatherData.daily.length) return '';
-  const days = weatherData.daily.slice(0, 5); // show 5 days
+  const days = weatherData.daily.slice(0, 7); // 7-day forecast
   const todayStr = today();
   const activeDateStr = selectedDate || todayStr;
   const activeDay = days.find(d => d.date === activeDateStr) || days[0];
+  const c = activeDay.clothing; // { vibe, vibeColor, vibeEmoji, items }
 
   let html = '<div style="margin:0 16px 10px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border);overflow:hidden;">';
+
+  // Header
   html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">'
     + '<span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">🌤 Weather</span>'
     + '<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">Shawnee, KS</span>'
     + '</div>';
 
-  // 5-day strip — each day is clickable
-  html += '<div style="display:flex;border-top:1px solid var(--border);overflow-x:auto;">';
+  // 7-day strip — each day clickable
+  html += '<div style="display:flex;border-top:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;">';
   days.forEach((d, i) => {
     const isToday    = d.date === todayStr;
     const isSelected = d.date === activeDateStr;
     const dayLabel   = isToday ? 'Today' : new Date(d.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
     const icon = (d.label.split(' ')[0]) || '🌡';
     html += '<div onclick="weatherSelectDay(\'' + d.date + '\')"'
-      + ' style="flex:1;min-width:52px;text-align:center;padding:8px 4px;cursor:pointer;transition:background 0.15s;'
-      + (isSelected ? 'background:var(--accent-soft);' : 'background:transparent;')
+      + ' style="flex:1;min-width:40px;text-align:center;padding:10px 3px;min-height:72px;cursor:pointer;transition:background 0.15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;'
+      + (isSelected ? 'background:var(--accent-soft);' : '')
       + (i < days.length-1 ? 'border-right:1px solid var(--border);' : '')
       + '">'
-      + '<div style="font:700 10px/1 var(--font-ui);color:' + (isSelected?'var(--accent)':'var(--text3)') + ';margin-bottom:4px;">' + dayLabel + '</div>'
-      + '<div style="font-size:18px;line-height:1;margin-bottom:4px;">' + icon + '</div>'
-      + '<div style="font:700 12px/1 var(--font-ui);color:var(--text);">' + d.maxF + '°</div>'
+      + '<div style="font:' + (isToday?'800':'600') + ' 10px/1 var(--font-ui);color:' + (isSelected?'var(--accent)':'var(--text3)') + ';">' + dayLabel + '</div>'
+      + '<div style="font-size:15px;line-height:1;">' + icon + '</div>'
+      + '<div style="font:700 11px/1 var(--font-ui);color:var(--text);">' + d.maxF + '°</div>'
       + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">' + d.minF + '°</div>'
-      + (d.rain >= 30 ? '<div style="font:600 9px/1 var(--font-ui);color:#64B5F6;margin-top:3px;">' + d.rain + '%💧</div>' : '')
+      + (d.rain >= 30 ? '<div style="font:600 10px/1 var(--font-ui);color:#64B5F6;">' + d.rain + '%</div>' : '')
       + '</div>';
   });
   html += '</div>';
 
-  // Selected day clothing advice
+  // ── Clothing advice — redesigned ──────────────────────────────
   const dayLabelFull = activeDay.date === todayStr
-    ? 'today'
+    ? 'Today'
     : new Date(activeDay.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'long'});
-  html += '<div id="weather-clothing-row" style="padding:8px 14px 10px;border-top:1px solid var(--border);">'
-    + '<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.5px;margin-bottom:5px;">👕 Kids should wear ' + dayLabelFull + '</div>'
-    + '<div style="font:500 11px/1.5 var(--font-ui);color:var(--text2);">' + activeDay.label + ' · ' + activeDay.maxF + '° / ' + activeDay.minF + '° · ' + activeDay.clothing + '</div>'
+
+  html += '<div style="padding:12px 14px 14px;border-top:1px solid var(--border);">';
+
+  // Row 1: label + vibe badge
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+    + '<div style="font:700 11px/1 var(--font-ui);color:var(--text3);">👕 Kids wear ' + dayLabelFull + '</div>'
+    + '<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:' + c.vibeColor + '18;border:1px solid ' + c.vibeColor + '44;">'
+    +   '<span style="font-size:14px;">' + c.vibeEmoji + '</span>'
+    +   '<span style="font:800 11px/1 var(--font-ui);color:' + c.vibeColor + ';">' + c.vibe + '</span>'
+    +   '<span style="font:600 11px/1 var(--font-ui);color:' + c.vibeColor + ';opacity:0.75;">' + activeDay.maxF + '° / ' + activeDay.minF + '°</span>'
+    + '</div>'
     + '</div>';
 
+  // Row 2: clothing item chips
+  html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+  c.items.forEach(item => {
+    // Color-code rain/snow/cold items differently
+    const isExtra = ['Rain jacket','Snow boots','Waterproof coat','Extra layer'].includes(item);
+    const chipBg   = isExtra ? 'rgba(100,181,246,0.12)' : 'var(--surface)';
+    const chipBdr  = isExtra ? '1px solid rgba(100,181,246,0.4)' : '1px solid var(--border)';
+    const chipCol  = isExtra ? '#64B5F6' : 'var(--text)';
+    html += '<div style="padding:5px 10px;border-radius:20px;background:' + chipBg + ';border:' + chipBdr + ';font:600 12px/1 var(--font-ui);color:' + chipCol + ';white-space:nowrap;">'
+      + item
+      + '</div>';
+  });
   html += '</div>';
+
+  // Row 3: condition label
+  html += '<div style="margin-top:8px;font:500 11px/1 var(--font-ui);color:var(--text4);">' + activeDay.label + '</div>';
+
+  html += '</div>'; // clothing section
+  html += '</div>'; // card
   return html;
 }
 
@@ -27860,6 +29853,9 @@ function closeModal(id){
   const el = document.getElementById(id);
   if(!el) return;
 
+  // Clean up any keyboard viewport listeners (e.g. contact sheet)
+  if(el._removeKeyboardListeners) { el._removeKeyboardListeners(); el._removeKeyboardListeners=null; }
+
   // Skip guard for read-only modals or if forced (after save)
   const skip = _MODAL_NO_DIRTY_CHECK.has(id) || !_modalDirty || _modalDirtyId !== id;
   if(skip){
@@ -31935,6 +33931,7 @@ function kidsScoresCatSection(playerIdx, earnCats, auditLog){
 
 function _kidsWeeklyChart(d){
   // Build a 7-day points-per-day bar chart from auditLog
+  // Supports negative values (deductions shown below baseline in red)
   const log = d.auditLog || [];
   const players = d.players || [];
   const DAYS = 7;
@@ -31947,16 +33944,15 @@ function _kidsWeeklyChart(d){
   for(let i = DAYS-1; i >= 0; i--){
     const d2 = new Date(now - i * MS_DAY);
     dayLabels.push(i === 0 ? 'Today' : d2.toLocaleDateString('en-US',{weekday:'short'}));
-    // midnight local time for that day
     const m = new Date(d2); m.setHours(0,0,0,0);
     dayStarts.push(m.getTime());
   }
 
-  // Sum pts per player per day (only positive pts for "earned" view)
+  // Sum pts per player per day (positive AND negative)
   const playerColors = [playerColor(0), playerColor(1)];
   const totals = players.map(()=> Array(DAYS).fill(0));
   log.forEach(e=>{
-    if(!e.ts || !e.pts || e.pts <= 0) return;
+    if(!e.ts || e.pts === undefined || e.pts === null) return;
     for(let di = 0; di < DAYS; di++){
       const start = dayStarts[di];
       const end   = di < DAYS-1 ? dayStarts[di+1] : now + MS_DAY;
@@ -31966,47 +33962,89 @@ function _kidsWeeklyChart(d){
     }
   });
 
-  // Max value for scaling (min 10 so empty chart still looks ok)
+  // Max absolute value for scaling (min 10 so empty chart still looks ok)
   const allVals = totals.flat();
-  const maxVal  = Math.max(10, ...allVals);
+  const maxPos  = Math.max(10, ...allVals.map(v => Math.max(0, v)));
+  const maxNeg  = Math.max(0,  ...allVals.map(v => Math.max(0, -v)));
+  const maxAbs  = Math.max(maxPos, maxNeg, 10);
 
-  // Weekly totals per player
+  // Weekly totals per player (net)
   const weekTotals = totals.map(t => t.reduce((a,b)=>a+b,0));
+
+  const CHART_H = 70; // total chart height px
+  const POS_H   = maxNeg > 0 ? Math.round(CHART_H * maxPos / (maxPos + maxNeg)) : CHART_H;
+  const NEG_H   = CHART_H - POS_H;
 
   let html = '<div style="margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 14px 10px;">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
   html += '<span style="font:700 10px/1 var(--font-ui);letter-spacing:1px;color:var(--text3);text-transform:uppercase;">This week</span>';
   html += '<div style="display:flex;gap:12px;">';
   players.forEach((p,i)=>{
-    html += '<span style="font:700 11px/1 var(--font-ui);color:' + playerColors[i] + ';">' + esc(p.name.split(' ')[0]) + ' <span style=\"opacity:0.7;\">' + weekTotals[i] + ' pts</span></span>';
+    const net = weekTotals[i];
+    const col = net < 0 ? '#EF5350' : playerColors[i];
+    html += '<span style="font:700 11px/1 var(--font-ui);color:' + col + ';">' + esc(p.name.split(' ')[0]) + ' <span style="opacity:0.7;">' + (net >= 0 ? '+' : '') + net + ' pts</span></span>';
   });
   html += '</div></div>';
 
-  // Chart grid + bars
-  html += '<div style="display:flex;align-items:flex-end;gap:4px;height:60px;">';
+  // Chart grid + bars (with baseline)
+  html += '<div style="position:relative;">';
+  // Positive zone
+  html += '<div style="display:flex;align-items:flex-end;gap:4px;height:' + POS_H + 'px;">';
   for(let di = 0; di < DAYS; di++){
-    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">';
-    // Bars for each player side by side
-    html += '<div style="width:100%;display:flex;gap:2px;align-items:flex-end;height:50px;">';
+    html += '<div style="flex:1;display:flex;gap:2px;align-items:flex-end;height:100%;">';
     players.forEach((_p,pi)=>{
       const val = totals[pi][di];
-      const pct = val > 0 ? Math.max(4, Math.round((val/maxVal)*50)) : 2;
-      const alpha = val > 0 ? '1' : '0.15';
-      html += '<div style="flex:1;background:' + playerColors[pi] + ';opacity:' + alpha + ';border-radius:3px 3px 0 0;height:' + pct + 'px;align-self:flex-end;" title="' + (_p.name) + ': ' + val + ' pts"></div>';
+      if(val > 0){
+        const h = Math.max(3, Math.round((val/maxAbs)*POS_H));
+        html += '<div style="flex:1;background:' + playerColors[pi] + ';border-radius:3px 3px 0 0;height:' + h + 'px;align-self:flex-end;" title="' + esc(_p.name) + ': +' + val + ' pts"></div>';
+      } else {
+        html += '<div style="flex:1;height:2px;align-self:flex-end;"></div>';
+      }
     });
     html += '</div>';
-    // Day label
-    const isToday = di === DAYS-1;
-    html += '<div style="font:' + (isToday?'700':'500') + ' 9px/1 var(--font-ui);color:' + (isToday?'var(--text2)':'var(--text4)') + ';text-align:center;margin-top:3px;">' + dayLabels[di] + '</div>';
+  }
+  html += '</div>';
+
+  // Baseline divider
+  html += '<div style="height:2px;background:var(--border2);border-radius:1px;margin:0;"></div>';
+
+  // Negative zone (flipped — bars grow downward)
+  if(maxNeg > 0){
+    html += '<div style="display:flex;align-items:flex-start;gap:4px;height:' + NEG_H + 'px;">';
+    for(let di = 0; di < DAYS; di++){
+      html += '<div style="flex:1;display:flex;gap:2px;align-items:flex-start;height:100%;">';
+      players.forEach((_p,pi)=>{
+        const val = totals[pi][di];
+        if(val < 0){
+          const h = Math.max(3, Math.round((-val/maxAbs)*NEG_H));
+          html += '<div style="flex:1;background:#EF5350;border-radius:0 0 3px 3px;height:' + h + 'px;align-self:flex-start;opacity:0.85;" title="' + esc(_p.name) + ': ' + val + ' pts"></div>';
+        } else {
+          html += '<div style="flex:1;height:2px;"></div>';
+        }
+      });
+      html += '</div>';
+    }
     html += '</div>';
   }
-  html += '</div>'; // bars row
+
+  // Day labels below
+  html += '<div style="display:flex;gap:4px;margin-top:4px;">';
+  for(let di = 0; di < DAYS; di++){
+    const isToday = di === DAYS-1;
+    html += '<div style="flex:1;font:' + (isToday?'700':'500') + ' 9px/1 var(--font-ui);color:' + (isToday?'var(--text2)':'var(--text4)') + ';text-align:center;">' + dayLabels[di] + '</div>';
+  }
+  html += '</div>';
+
+  html += '</div>'; // position:relative wrapper
 
   // Legend
   html += '<div style="display:flex;gap:12px;margin-top:8px;">';
   players.forEach((p,i)=>{
     html += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:' + playerColors[i] + ';"></div><span style="font:500 9px/1 var(--font-ui);color:var(--text4);">' + esc(p.name.split(' ')[0]) + '</span></div>';
   });
+  if(maxNeg > 0){
+    html += '<div style="display:flex;align-items:center;gap:4px;"><div style="width:8px;height:8px;border-radius:2px;background:#EF5350;"></div><span style="font:500 9px/1 var(--font-ui);color:var(--text4);">Deductions</span></div>';
+  }
   html += '</div>';
 
   html += '</div>'; // card
@@ -32042,8 +34080,8 @@ function renderKidsScores(d) {
     const loseCats = cats.filter(c => c.pts < 0);
 
     html += `<div class="kids-player-card player-${i}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-        <div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="min-width:0;">
           <div class="kids-player-name">${esc(p.name)}</div>
           <div class="kids-score-big">${score}</div>
           <div style="font-size:11px;font-family:var(--font-ui);color:rgba(255,255,255,0.5);margin-top:2px;">
@@ -32051,7 +34089,10 @@ function renderKidsScores(d) {
             ${nextBig > 0 ? `🏆 ${nextBig} pts to big prize` : '🌟 Big prize milestone!'}
           </div>
         </div>
-        <button onclick="openKidsEditPts(${i})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-family:var(--font-ui);font-size:10px;cursor:pointer;flex-shrink:0;">✏ Edit</button>
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+          <button onclick="openKidsManualPoints(${i})" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.85);font-family:var(--font-ui);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;">⭐ +/− Pts</button>
+          <button onclick="openKidsEditPts(${i})" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);font-family:var(--font-ui);font-size:10px;cursor:pointer;white-space:nowrap;">✏ Set Total</button>
+        </div>
       </div>
       <div class="kids-prize-bar-wrap">
         <div class="kids-prize-label">PROGRESS TO NEXT PRIZE</div>
@@ -32724,10 +34765,28 @@ function kidsAward(playerIdx, catId) {
   });
   if(d.auditLog.length > 200) d.auditLog = d.auditLog.slice(0,200);
 
+  // ── Bonus Day check ───────────────────────────────────────────
+  // Only fires for positive point awards
+  let bonusDayResult = null;
+  if(cat.pts > 0){
+    bonusDayResult = _maybeTriggerBonusDay(playerIdx, d);
+  }
+
   // Check for prize milestones
   const milestone = checkPrizeMilestone(oldScore, p.score);
   checkChallenges(d, playerIdx);
   saveKidsData(d);
+
+  if(bonusDayResult){
+    if(milestone){
+      // Milestone overlay will show first — queue the bonus day to fire
+      // AFTER the kid dismisses the celebration, not on a fixed timer
+      window._pendingBonusDay = { playerName: p.name, result: bonusDayResult };
+    } else {
+      // No milestone — show bonus day after a short beat
+      setTimeout(()=> _showBonusDayToast(p.name, bonusDayResult), 200);
+    }
+  }
 
   if (milestone) {
     _pendingCelebration = {playerIdx, milestone, d};
@@ -32759,7 +34818,6 @@ function checkChallenges(d, winnerIdx){
   d.challenges.forEach(ch => {
     if(ch.done) return;
     const target = ch.targetPts;
-    // Count pts earned since challenge started
     const log = (d.auditLog||[]).filter(e =>
       e.playerIdx === winnerIdx &&
       e.ts >= (ch.startedAt||0) &&
@@ -32767,17 +34825,42 @@ function checkChallenges(d, winnerIdx){
     );
     const earned = log.reduce((s,e)=>s+(e.pts||0)+(e.streakBonus||0),0);
     if(earned >= target){
-      ch.done = true;
+      ch.done    = true;
       ch.winnerId = winnerIdx;
-      ch.wonAt = Date.now();
-      // Give winner a free spin
-      if(!d.players[winnerIdx].challengeSpins) d.players[winnerIdx].challengeSpins = 0;
-      d.players[winnerIdx].challengeSpins++;
-      // Celebrate
+      ch.wonAt   = Date.now();
+
+      // ── Give winner a free spin ────────────────────────────────
+      if(!p.challengeSpins) p.challengeSpins = 0;
+      p.challengeSpins++;
+
+      // ── Award stake to prize log ───────────────────────────────
+      if(ch.stake){
+        if(!p.prizeLog) p.prizeLog = [];
+        p.prizeLog.push({
+          prize:     ch.stake,
+          type:      'challenge',
+          challengeName: ch.name,
+          ts:        Date.now(),
+          used:      false
+        });
+      }
+
+      // ── Add trophy ─────────────────────────────────────────────
+      if(!p.trophies) p.trophies = [];
+      p.trophies.push({
+        id:            'tr-' + ch.id,
+        challengeName: ch.name,
+        stake:         ch.stake || '',
+        targetPts:     ch.targetPts,
+        wonAt:         Date.now()
+      });
+
+      // ── Celebrate ─────────────────────────────────────────────
       playKidsSound('milestone-big');
-      launchConfetti(120);
+      launchConfetti(150);
       setTimeout(()=>{
-        showToast(`🏆 ${esc(p.name)} won the challenge: "${esc(ch.name)}"! Bonus spin earned!`);
+        const stakeMsg = ch.stake ? ` You won: "${ch.stake}"!` : '';
+        showToast(`🏆 ${esc(p.name)} won "${esc(ch.name)}"!${stakeMsg} Trophy earned! 🎉`);
       }, 300);
     }
   });
@@ -32787,7 +34870,7 @@ function openCreateChallenge(){
   const old = document.getElementById('modal-challenge'); if(old) old.remove();
   const m = document.createElement('div');
   m.id = 'modal-challenge'; m.className = 'modal-overlay';
-  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:340px;">
+  m.innerHTML = `<div class="modal" onclick="event.stopPropagation()" style="max-width:360px;">
     <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
       <div style="font:800 15px/1 var(--font-ui);color:#FF8C00;">🏆 New Challenge</div>
       <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
@@ -32795,11 +34878,19 @@ function openCreateChallenge(){
     <div style="padding:4px 0 12px;">
       <div class="chip-label">Challenge name</div>
       <input id="ch-name" class="field-input" placeholder="e.g. Weekend Sprint, Homework Hero…"/>
+
       <div class="chip-label">First to earn this many points wins</div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         ${[10,20,30,50,75].map(v=>`<button onclick="document.getElementById('ch-pts').value='${v}';document.querySelectorAll('.ch-pts-btn').forEach(b=>b.style.background='var(--surface2)');this.style.background='#FF8C0022';" class="ch-pts-btn" style="flex:1;padding:8px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);font:700 12px/1 var(--font-ui);color:var(--text);cursor:pointer;">${v}</button>`).join('')}
       </div>
-      <input id="ch-pts" type="number" class="field-input" placeholder="Points to win…" min="1" style="margin-bottom:0;"/>
+      <input id="ch-pts" type="number" class="field-input" placeholder="Points to win…" min="1"/>
+
+      <div class="chip-label">🎁 What does the winner get? <span style="font-weight:500;color:var(--text4);">(the stake)</span></div>
+      <input id="ch-stake" class="field-input" placeholder="e.g. Pick Friday's movie, Extra screen time, Ice cream trip…"
+        style="margin-bottom:0;"/>
+      <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:5px;">
+        This gets added to the winner's prize log and earns them a trophy 🏆
+      </div>
     </div>
     <button onclick="submitChallenge()" style="width:100%;padding:13px;border-radius:9px;border:none;background:#FF8C00;color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">🏁 Start Challenge</button>
   </div>`;
@@ -32809,16 +34900,175 @@ function openCreateChallenge(){
 }
 
 function submitChallenge(){
-  const name = document.getElementById('ch-name')?.value.trim() || 'Challenge';
-  const pts  = parseInt(document.getElementById('ch-pts')?.value||'0');
+  const name  = document.getElementById('ch-name')?.value.trim() || 'Challenge';
+  const pts   = parseInt(document.getElementById('ch-pts')?.value||'0');
+  const stake = document.getElementById('ch-stake')?.value.trim() || '';
   if(!pts || pts < 1){ showToast('Set a points target'); return; }
   const d = kidsData();
   if(!d.challenges) d.challenges = [];
-  d.challenges.unshift({ id:'ch'+Date.now(), name, targetPts:pts, startedAt:Date.now(), done:false, winnerId:null });
+  d.challenges.unshift({ id:'ch'+Date.now(), name, targetPts:pts, stake, startedAt:Date.now(), done:false, winnerId:null });
   saveKidsData(d);
   document.getElementById('modal-challenge')?.remove();
   showToast('🏁 Challenge started!');
   renderKidsGame(document.getElementById('main'));
+}
+
+// ─── Bonus Day System ──────────────────────────────────────────
+// Random bonus days give kids opportunities for extra pts
+// Triggers randomly on award actions (avg ~1 per day of activity)
+
+const BONUS_DAY_CHANCES = [
+  { id:'double_next',   label:'⚡ Double Points!',      desc:'Your next action earns DOUBLE points!',  multiplier:2,  pts:0  },
+  { id:'bonus_5',       label:'🎉 Bonus +5 Stars!',      desc:'You get a surprise 5 bonus stars!',      multiplier:1,  pts:5  },
+  { id:'bonus_3',       label:'✨ Bonus +3 Stars!',      desc:'Lucky! 3 bonus stars just appeared!',   multiplier:1,  pts:3  },
+  { id:'streak_shield', label:'🛡️ Streak Shield!',       desc:'Your streak is protected today!',        multiplier:1,  pts:0  },
+  { id:'bonus_10',      label:'🌟 Jackpot! +10 Stars!',  desc:'Incredible! 10 surprise bonus stars!',  multiplier:1,  pts:10 },
+];
+
+// ~1-in-12 chance per award action — feels random but not overwhelming
+const BONUS_DAY_ODDS = 12;
+
+function _maybeTriggerBonusDay(playerIdx, d){
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const p = d.players[playerIdx];
+
+  // Don't trigger more than once per player per day (natural cap)
+  // Exception: if a catch-up is explicitly pending, allow it even on the same day
+  const catchUpPending = !!p._bonusCatchUpPending;
+  if(!catchUpPending && p._bonusDayDate === todayStr) return null;
+
+  // ── Fairness check ────────────────────────────────────────────
+  // Track lifetime bonus counts per player so neither falls behind.
+  // If this player is owed a catch-up bonus (their count < another player's),
+  // fire guaranteed — bypassing the random roll.
+  if(!d._bonusCounts) d._bonusCounts = {};
+  const myCount      = d._bonusCounts[playerIdx] || 0;
+  const otherCounts  = d.players.map((_p, i) => i === playerIdx ? -1 : (d._bonusCounts[i] || 0));
+  const maxOther     = Math.max(...otherCounts.filter(c => c >= 0), 0);
+  const isCatchUp    = myCount < maxOther || catchUpPending;
+
+  // Roll randomly unless catch-up is needed
+  if(!isCatchUp && Math.random() > 1 / BONUS_DAY_ODDS) return null;
+
+  // ── Pick a random bonus (independent of catch-up — keeps it fun) ──
+  const weights = [30, 30, 25, 20, 10];
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random() * total;
+  let bonus = BONUS_DAY_CHANCES[0];
+  for(let i = 0; i < BONUS_DAY_CHANCES.length; i++){
+    r -= weights[i];
+    if(r <= 0){ bonus = BONUS_DAY_CHANCES[i]; break; }
+  }
+
+  // ── Apply bonus ───────────────────────────────────────────────
+  p._bonusDayDate = todayStr;
+  delete p._bonusCatchUpPending; // consumed
+  d._bonusCounts[playerIdx] = myCount + 1;
+
+  if(bonus.pts > 0){
+    p.score = (p.score || 0) + bonus.pts;
+    d.auditLog.unshift({
+      ts: Date.now(), playerIdx, playerName: p.name,
+      catId: 'bonus_day', catName: bonus.label,
+      emoji: '🎲', pts: bonus.pts, score: p.score,
+      by: 'system', isBonusDay: true,
+      isCatchUp  // flag so audit log can show "catch-up" if ever needed
+    });
+  }
+  if(bonus.id === 'double_next') p._doublePending = true;
+  if(bonus.id === 'streak_shield') p._streakShield = todayStr;
+
+  // ── Queue a catch-up for any player now falling behind ────────
+  // We don't fire it immediately (would feel weird) — just flag them
+  // so their next kidsAward call fires guaranteed.
+  d.players.forEach((_p, i) => {
+    if(i === playerIdx) return;
+    const theirCount = d._bonusCounts[i] || 0;
+    const newMyCount = d._bonusCounts[playerIdx];
+    if(theirCount < newMyCount){
+      _p._bonusCatchUpPending = true;
+    }
+  });
+
+  return bonus;
+}
+
+function _showBonusDayToast(playerName, bonus){
+  // Show a special full-screen flash for bonus days
+  const old = document.getElementById('bonus-day-flash');
+  if(old) old.remove();
+  const el = document.createElement('div');
+  el.id = 'bonus-day-flash';
+  el.style.cssText = `
+    position:fixed;inset:0;z-index:3000;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.82);
+    animation:celebPop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  `;
+  el.innerHTML = `
+    <div style="font-size:64px;margin-bottom:12px;animation:celebPop 0.4s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;">🎲</div>
+    <div style="font:900 22px/1.2 var(--font-ui);color:#FFD166;text-align:center;margin-bottom:8px;">${esc(bonus.label)}</div>
+    <div style="font:600 14px/1.5 var(--font-ui);color:rgba(255,255,255,0.8);text-align:center;max-width:280px;margin-bottom:6px;">${esc(playerName)}: ${esc(bonus.desc)}</div>
+    <div style="font:500 11px/1 var(--font-ui);color:rgba(255,255,255,0.4);margin-bottom:24px;">Bonus Day!</div>
+    <button onclick="this.parentElement.remove()" style="padding:12px 32px;border-radius:50px;border:none;background:#FFD166;color:#1a1f2e;font:800 14px/1 var(--font-ui);cursor:pointer;">Awesome! 🎉</button>
+  `;
+  el.onclick = e => { if(e.target===el) el.remove(); };
+  document.body.appendChild(el);
+  launchConfetti(80);
+  setTimeout(()=>{ if(el.parentElement) el.remove(); }, 6000);
+}
+
+// ── Manual points add (parent adds ad-hoc points/deductions) ──
+function openKidsManualPoints(playerIdx){
+  const d = kidsData();
+  const p = d.players[playerIdx];
+  const old = document.getElementById('modal-manual-pts'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-manual-pts'; m.className = 'modal-overlay';
+  m.innerHTML = `<div class="modal-box" onclick="event.stopPropagation()" style="max-width:340px;padding:20px;">
+    <div class="modal-title">⭐ Add / Remove Points</div>
+    <div style="font:600 12px/1.4 var(--font-ui);color:var(--text3);margin-bottom:14px;">For ${esc(p.name)} — positive to add, negative to deduct</div>
+    <div class="field-group">
+      <label class="field-label">Points (e.g. 5 or -3)</label>
+      <input class="field-input" id="mpts-val" type="number" placeholder="e.g. 5"/>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Reason</label>
+      <input class="field-input" id="mpts-reason" placeholder="e.g. Helped without asking, argued at dinner…"/>
+    </div>
+    <div style="display:flex;gap:var(--sp2);margin-top:16px;">
+      <button class="hbtn" style="flex:1;background:transparent;" onclick="document.getElementById('modal-manual-pts').remove()">Cancel</button>
+      <button class="hbtn primary" style="flex:1;" onclick="_saveManualPoints(${playerIdx})">Save</button>
+    </div>
+  </div>`;
+  m.onclick = e => { if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+  openModal('modal-manual-pts');
+  setTimeout(()=>document.getElementById('mpts-val')?.focus(), 200);
+}
+
+function _saveManualPoints(playerIdx){
+  const val = parseInt(document.getElementById('mpts-val')?.value||'');
+  const reason = (document.getElementById('mpts-reason')?.value||'').trim() || 'Manual adjustment';
+  if(isNaN(val) || val === 0){ showToast('Enter a non-zero number'); return; }
+  const d = kidsData();
+  const p = d.players[playerIdx];
+  const oldScore = p.score || 0;
+  p.score = Math.max(0, oldScore + val);
+  if(!d.auditLog) d.auditLog = [];
+  const byName = (typeof currentUser === 'object' && currentUser.name) ? currentUser.name : 'Parent';
+  d.auditLog.unshift({
+    ts: Date.now(), playerIdx, playerName: p.name,
+    catId: 'manual', catName: reason,
+    emoji: val >= 0 ? '✏️' : '📉',
+    pts: val, score: p.score,
+    by: 'parent-manual', byName, isManual: true
+  });
+  if(d.auditLog.length > 200) d.auditLog = d.auditLog.slice(0,200);
+  saveKidsData(d);
+  document.getElementById('modal-manual-pts')?.remove();
+  renderKidsGame(document.getElementById('main'));
+  showToast(`${val >= 0 ? '✅' : '📉'} ${p.name}: ${val >= 0 ? '+' : ''}${val} pts (by ${byName})`);
 }
 
 function renderChallengeSection(d){
@@ -32826,13 +35076,13 @@ function renderChallengeSection(d){
   const recent = (d.challenges||[]).filter(c=>c.done).slice(0,3);
 
   let html = `<div style="margin-bottom:14px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;">
       <div style="font:800 11px/1 var(--font-ui);color:#FF8C00;letter-spacing:1px;">🏆 HEAD-TO-HEAD</div>
-      <button onclick="openCreateChallenge()" style="padding:4px 10px;border-radius:6px;border:1px solid #FF8C0066;background:#FF8C0015;color:#FF8C00;font:700 10px/1 var(--font-ui);cursor:pointer;">+ New</button>
+      <button onclick="openCreateChallenge()" style="padding:6px 14px;border-radius:8px;border:1px solid #FF8C0066;background:#FF8C0015;color:#FF8C00;font:700 11px/1 var(--font-ui);cursor:pointer;">+ New</button>
     </div>`;
 
   if(active.length === 0 && recent.length === 0){
-    html += `<div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);font-style:italic;padding:8px 0;">No challenges yet — start one!</div>`;
+    html += `<div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);font-style:italic;padding:10px 2px;">No challenges yet — start one!</div>`;
   }
 
   active.forEach(ch => {
@@ -32840,24 +35090,29 @@ function renderChallengeSection(d){
       const earned = (d.auditLog||[]).filter(e=>e.playerIdx===i&&e.ts>=(ch.startedAt||0)&&e.pts>0).reduce((s,e)=>s+(e.pts||0)+(e.streakBonus||0),0);
       return { name:p.name, earned, pct: Math.min(100, Math.round(earned/ch.targetPts*100)) };
     });
-    const pColors = ['#3a6fd8','#9b59b6'];
-    html += `<div style="background:var(--surface2);border:1px solid rgba(255,140,0,0.3);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
-      <div style="font:700 13px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">${esc(ch.name)} <span style="font:600 11px/1 var(--font-ui);color:var(--text4);">— first to ${ch.targetPts} pts</span></div>
+    const pColors = [playerColor(0), playerColor(1)];
+    html += `<div style="background:var(--surface2);border:1px solid rgba(255,140,0,0.3);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="font:700 13px/1.3 var(--font-ui);color:var(--text);margin-bottom:4px;">${esc(ch.name)} <span style="font:600 11px/1 var(--font-ui);color:var(--text4);">— first to ${ch.targetPts} pts</span></div>
+      ${ch.stake ? `<div style="font:600 11px/1 var(--font-ui);color:#FF8C00;margin-bottom:10px;">🎁 Winner gets: ${esc(ch.stake)}</div>` : '<div style="margin-bottom:10px;"></div>'}
       ${progress.map((p,i)=>`
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-          <span style="font:700 11px/1 var(--font-ui);color:${pColors[i]};width:60px;flex-shrink:0;">${esc(p.name)}</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font:700 12px/1 var(--font-ui);color:${pColors[i]};width:64px;flex-shrink:0;">${esc(p.name)}</span>
           <div style="flex:1;height:10px;border-radius:5px;background:var(--border);overflow:hidden;">
             <div style="height:100%;background:${pColors[i]};width:${p.pct}%;border-radius:5px;transition:width 0.4s;"></div>
           </div>
-          <span style="font:700 11px/1 var(--font-ui);color:${pColors[i]};width:38px;text-align:right;flex-shrink:0;">${p.earned}/${ch.targetPts}</span>
+          <span style="font:800 12px/1 var(--font-ui);color:${pColors[i]};width:48px;text-align:right;flex-shrink:0;">${p.earned} / ${ch.targetPts}</span>
         </div>`).join('')}
     </div>`;
   });
 
-  recent.forEach(ch => {
-    const winner = d.players[ch.winnerId];
-    html += `<div style="opacity:0.6;font:600 11px/1 var(--font-ui);color:var(--text3);padding:4px 0;">🏆 ${esc(ch.name)}: ${winner?esc(winner.name):'?'} won</div>`;
-  });
+  if(recent.length > 0){
+    html += `<div style="margin-top:4px;">`;
+    recent.forEach(ch => {
+      const winner = d.players[ch.winnerId];
+      html += `<div style="opacity:0.6;font:600 11px/1.5 var(--font-ui);color:var(--text3);padding:5px 2px;">🏆 ${esc(ch.name)}: ${winner?esc(winner.name):'?'} won</div>`;
+    });
+    html += `</div>`;
+  }
 
   html += `</div>`;
   return html;
@@ -32905,6 +35160,14 @@ function launchSpin(playerIdx, d, milestone) {
 function goToSpinAfterCelebration() {
   const cel = _pendingCelebration;
   closeCelebrationOnly();
+
+  // Fire any bonus day queued behind the milestone
+  if(window._pendingBonusDay){
+    const { playerName, result } = window._pendingBonusDay;
+    window._pendingBonusDay = null;
+    setTimeout(()=> _showBonusDayToast(playerName, result), 400);
+  }
+
   if (!cel) return;
 
   // Kids page — switch to spin tab and re-render
@@ -33241,6 +35504,12 @@ function closeCelebrationOnly() {
 function closeCelebration() {
   closeCelebrationOnly();
   renderKidsGame(document.getElementById('main'));
+  // Fire any bonus day that was queued behind this milestone celebration
+  if(window._pendingBonusDay){
+    const { playerName, result } = window._pendingBonusDay;
+    window._pendingBonusDay = null;
+    setTimeout(()=> _showBonusDayToast(playerName, result), 400);
+  }
 }
 
 function launchConfetti(count) {
@@ -33488,11 +35757,35 @@ function openKidsEditPts(playerIdx) {
 function saveKidsEditPts() {
   const val = parseInt(document.getElementById('kids-edit-pts-input').value);
   if (isNaN(val)) { showToast('Enter a number'); return; }
+  const reason = (document.getElementById('kids-edit-pts-reason')?.value || '').trim() || 'Manual adjustment';
   const d = kidsData();
-  d.players[kidsEditPtsPlayer].score = Math.max(0, val);
+  const p = d.players[kidsEditPtsPlayer];
+  const oldScore = p.score || 0;
+  const diff = val - oldScore;
+  p.score = Math.max(0, val);
+
+  // Audit log entry so every manual change is traceable
+  if(!d.auditLog) d.auditLog = [];
+  const byName = (typeof currentUser === 'object' && currentUser.name) ? currentUser.name : 'Parent';
+  d.auditLog.unshift({
+    ts:          Date.now(),
+    playerIdx:   kidsEditPtsPlayer,
+    playerName:  p.name,
+    catId:       'manual',
+    catName:     reason,
+    emoji:       diff >= 0 ? '✏️' : '📉',
+    pts:         diff,
+    score:       p.score,
+    by:          'parent-manual',
+    byName:      byName,
+    isManual:    true
+  });
+  if(d.auditLog.length > 200) d.auditLog = d.auditLog.slice(0,200);
+
   saveKidsData(d);
   closeModal('modal-kids-edit-pts');
   renderKidsGame(document.getElementById('main'));
+  showToast(`✏️ ${p.name}'s points set to ${p.score} by ${byName}`);
 }
 
 let _editingWheelPrizeType = 'small';
@@ -33774,6 +36067,8 @@ function renderKidsPageForKid(){
     _tabContent = kidsGamesTabHTML(th);
   } else if(view==='spin'){
     _tabContent = '<div id="kp-spin-wrap"></div>';
+  } else if(view==='prizes'){
+    _tabContent = kidsPrizesTabHTML(player, th);
   } else {
     _tabContent = (dueCats.length > 0
         ? '<div style="font:700 11px/1 var(--font-ui);letter-spacing:1.2px;color:'+th.accent+';text-transform:uppercase;margin-bottom:12px;padding-left:2px;">Tap when you\'re done! 👇</div>'
@@ -33862,6 +36157,13 @@ function renderKidsPageForKid(){
         background:${view==='chores'?th.cardBg:'white'};
         color:${view==='chores'?th.accent:'#aaa'};">
       🏠 My Chores
+    </button>
+    <button onclick="kidsPageSetView('prizes')"
+      style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
+        border:3px solid ${view==='prizes'?th.accent:'#ddd'};
+        background:${view==='prizes'?th.cardBg:'white'};
+        color:${view==='prizes'?th.accent:'#aaa'};">
+      🏆 Prizes
     </button>
     <button onclick="kidsPageSetView('games')"
       style="flex:1;padding:12px;border-radius:16px;font:700 14px/1 var(--font-ui);cursor:pointer;
@@ -34004,6 +36306,102 @@ function kidsPageSetSpinType(type){
   renderKidsPageForKid();
 }
 
+
+function kidsPrizesTabHTML(player, th){
+  const prizeLog  = (player.prizeLog  || []).slice().reverse(); // oldest first for display
+  const trophies  = (player.trophies  || []).slice().reverse();
+  const unclaimed = prizeLog.filter(p => !p.used);
+  const claimed   = prizeLog.filter(p =>  p.used);
+
+  let html = '';
+
+  // ── Trophies section ──────────────────────────────────────────
+  html += `<div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <span style="font-size:22px;">🏆</span>
+      <span style="font:800 14px/1 var(--font-ui);color:#FF8C00;letter-spacing:0.5px;text-transform:uppercase;">Head-to-Head Trophies</span>
+      ${trophies.length > 0 ? `<span style="font:700 12px/1 var(--font-ui);color:white;background:#FF8C00;padding:2px 8px;border-radius:20px;">${trophies.length}</span>` : ''}
+    </div>`;
+
+  if(trophies.length === 0){
+    html += `<div style="text-align:center;padding:28px 20px;border-radius:20px;background:rgba(255,140,0,0.06);border:2px dashed rgba(255,140,0,0.25);">
+      <div style="font-size:40px;margin-bottom:10px;">🏅</div>
+      <div style="font:700 15px/1.4 var(--font-ui);color:#aaa;">No trophies yet</div>
+      <div style="font:500 12px/1.5 var(--font-ui);color:#ccc;margin-top:6px;">Win a Head-to-Head challenge to earn one!</div>
+    </div>`;
+  } else {
+    html += `<div style="display:flex;flex-direction:column;gap:10px;">`;
+    trophies.forEach(t => {
+      const date = new Date(t.wonAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+      html += `<div style="border-radius:20px;border:3px solid rgba(255,140,0,0.5);
+          background:linear-gradient(135deg,rgba(255,140,0,0.12),rgba(255,215,0,0.08));
+          padding:16px 18px;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:40px;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(255,140,0,0.4));">🏆</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font:800 16px/1.2 var(--font-ui);color:#1a1a2e;">${esc(t.challengeName)}</div>
+          ${t.stake ? `<div style="font:700 13px/1.3 var(--font-ui);color:#FF8C00;margin-top:4px;">🎁 ${esc(t.stake)}</div>` : ''}
+          <div style="font:600 10px/1 var(--font-ui);color:#aaa;margin-top:5px;">Won ${date} · ${t.targetPts} pts challenge</div>
+        </div>
+        <div style="font:900 22px/1 var(--font-ui);color:#FFD700;
+            text-shadow:0 2px 6px rgba(255,215,0,0.5);flex-shrink:0;">★</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // ── Unclaimed prizes section ──────────────────────────────────
+  html += `<div style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <span style="font-size:22px;">🎁</span>
+      <span style="font:800 14px/1 var(--font-ui);color:${th.accent};letter-spacing:0.5px;text-transform:uppercase;">Prizes to Claim</span>
+      ${unclaimed.length > 0 ? `<span style="font:700 12px/1 var(--font-ui);color:white;background:${th.accent};padding:2px 8px;border-radius:20px;">${unclaimed.length}</span>` : ''}
+    </div>`;
+
+  if(unclaimed.length === 0){
+    html += `<div style="text-align:center;padding:24px 20px;border-radius:20px;background:rgba(0,0,0,0.03);border:2px dashed #ddd;">
+      <div style="font-size:36px;margin-bottom:8px;">🌟</div>
+      <div style="font:600 14px/1.4 var(--font-ui);color:#bbb;">No prizes waiting — keep earning stars!</div>
+    </div>`;
+  } else {
+    html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+    unclaimed.forEach((p, idx) => {
+      const isChallenge = p.type === 'challenge';
+      const label = isChallenge ? `🏆 ${esc(p.challengeName||'')}` : (p.type === 'big' ? '🌟 Big Prize' : '🎁 Small Prize');
+      html += `<div style="border-radius:16px;border:2px solid ${isChallenge?'rgba(255,140,0,0.4)':th.choreBorder};
+          background:${isChallenge?'rgba(255,140,0,0.06)':th.cardBg};
+          padding:14px 16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;flex-shrink:0;">${isChallenge?'🏆':'🎁'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font:800 16px/1.2 var(--font-ui);color:#1a1a2e;">${esc(p.prize)}</div>
+          <div style="font:600 10px/1 var(--font-ui);color:#aaa;margin-top:4px;">${label}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // ── Claimed prizes history ────────────────────────────────────
+  if(claimed.length > 0){
+    html += `<div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:16px;">✅</span>
+        <span style="font:700 12px/1 var(--font-ui);color:#bbb;letter-spacing:0.5px;text-transform:uppercase;">Already Claimed</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;opacity:0.55;">`;
+    claimed.slice(-5).forEach(p => {
+      html += `<div style="border-radius:12px;border:1.5px solid #eee;background:#fafafa;
+          padding:10px 14px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;flex-shrink:0;">✓</span>
+        <span style="font:600 14px/1 var(--font-ui);color:#999;text-decoration:line-through;">${esc(p.prize)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  return html;
+}
 
 function kidsGamesTabHTML(th){
   const myName = getCurrentPlayerName();
@@ -34587,11 +36985,15 @@ init();
 </div>
 
 <div class="modal-overlay" id="modal-kids-edit-pts" style="display:none;" onclick="if(event.target===this)closeModal('modal-kids-edit-pts')">
-  <div class="modal-box" style="max-width:300px;">
+  <div class="modal-box" style="max-width:340px;padding:20px 20px 20px;">
     <div class="modal-title" id="kids-edit-pts-title">Edit Points</div>
     <div class="field-group">
       <label class="field-label">Set points to</label>
       <input class="field-input" id="kids-edit-pts-input" type="number" placeholder="0"/>
+    </div>
+    <div class="field-group">
+      <label class="field-label">Reason (shown in audit log)</label>
+      <input class="field-input" id="kids-edit-pts-reason" placeholder="e.g. Correction, bonus for good day…"/>
     </div>
     <div style="display:flex;gap:var(--sp2);margin-top:16px;">
       <button class="hbtn" style="flex:1;background:transparent;" onclick="closeModal('modal-kids-edit-pts')">Cancel</button>
