@@ -9584,40 +9584,51 @@ async function generateWorkoutPlan(){
   try {
     const systemPrompt = `You are an expert personal trainer. Always respond with valid JSON only — no markdown, no backticks, no explanation. Just the raw JSON object.`;
 
-    const userPrompt = `Create a ${weeks}-week workout plan for a ${level.toLowerCase()} focused on: ${goalLabel}.
-Schedule: ${days} days per week, ${mins} minutes per session maximum.
-Equipment: ${equipment}.
-${notes ? 'Additional notes: ' + notes : ''}
+    const totalSessions = parseInt(days) * parseInt(weeks);
 
-Return a JSON object with this exact structure:
-{
-  "name": "short plan name",
-  "overview": "2-3 sentence description of the plan approach",
-  "goal": "${goalLabel}",
-  "goals": ${JSON.stringify(goals)},
-  "daysPerWeek": ${days},
-  "durationWeeks": ${weeks},
-  "minsPerSession": ${mins},
-  "level": "${level}",
-  "equipment": "${equipment}",
-  "sessions": [
-    {
-      "name": "e.g. Day 1 – Upper Push",
-      "type": "e.g. Strength / Cardio / HIIT",
-      "duration": "${mins} min",
-      "exercises": [
-        { "name": "Exercise name", "sets": "3 sets", "reps": "8-12 reps", "rest": "90s" }
-      ]
-    }
-  ]
-}
+    // For large plans (>20 sessions), generate a weekly template that repeats
+    // rather than spelling out every session — far more token-efficient
+    const useTemplate = totalSessions > 20;
 
-IMPORTANT: Every session must fit within ${mins} minutes. Adjust sets, reps, and exercise count accordingly — fewer exercises for shorter sessions, more for longer ones.
-Include ${parseInt(days) * parseInt(weeks)} total sessions. Keep exercise names concise and searchable.`;
+    const userPrompt = useTemplate
+      ? `Create a ${weeks}-week workout plan for a ${level.toLowerCase()} focused on: ${goalLabel}.
+Schedule: ${days} days/week, ${mins} min/session max. Equipment: ${equipment}.
+${notes ? 'Notes: ' + notes : ''}
 
-    const raw = await aiCall(systemPrompt, userPrompt, 4000);
+Since this is ${totalSessions} sessions, return a WEEKLY TEMPLATE (${days} sessions) that repeats across all ${weeks} weeks, not every session individually. The app will repeat it.
+
+Return JSON only, no markdown:
+{"name":"plan name","overview":"2-3 sentences","goal":"${goalLabel}","goals":${JSON.stringify(goals)},"daysPerWeek":${days},"durationWeeks":${weeks},"minsPerSession":${mins},"level":"${level}","equipment":"${equipment}","isTemplate":true,"sessions":[{"name":"Day 1 – name","type":"type","duration":"${mins} min","exercises":[{"name":"Exercise","sets":"3 sets","reps":"10 reps","rest":"60s"}]}]}
+
+Rules: ${days} sessions in the array. Each session ≤ ${mins} min. Vary session types across the week to match goals. Keep exercise names short.`
+      : `Create a ${weeks}-week workout plan for a ${level.toLowerCase()} focused on: ${goalLabel}.
+Schedule: ${days} days/week, ${mins} min/session max. Equipment: ${equipment}.
+${notes ? 'Notes: ' + notes : ''}
+
+Return JSON only, no markdown:
+{"name":"plan name","overview":"2-3 sentences","goal":"${goalLabel}","goals":${JSON.stringify(goals)},"daysPerWeek":${days},"durationWeeks":${weeks},"minsPerSession":${mins},"level":"${level}","equipment":"${equipment}","sessions":[{"name":"Day 1 – name","type":"type","duration":"${mins} min","exercises":[{"name":"Exercise","sets":"3 sets","reps":"10 reps","rest":"60s"}]}]}
+
+Rules: ${totalSessions} sessions total. Each ≤ ${mins} min. Vary types to match goals. Keep exercise names short.`;
+
+    const raw = await aiCall(systemPrompt, userPrompt, 6000);
     const jsonStr = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
     const plan    = JSON.parse(jsonStr);
+
+    // If AI returned a weekly template, expand it to fill all weeks
+    if(plan.isTemplate && plan.sessions?.length){
+      const template = plan.sessions;
+      const expanded = [];
+      for(let w = 0; w < parseInt(weeks); w++){
+        template.forEach((s, d) => {
+          expanded.push({
+            ...s,
+            name: `Week ${w+1} · ${s.name.replace(/^Day \d+ [–-] ?/,'')}`
+          });
+        });
+      }
+      plan.sessions = expanded;
+      delete plan.isTemplate;
+    }
 
     plan.id        = 'wp-' + Date.now();
     plan.createdAt = new Date().toISOString();
