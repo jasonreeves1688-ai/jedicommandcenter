@@ -2386,6 +2386,9 @@ function selectGateUser(who){
       <button class="nav-btn" id="nav-tasks" onclick="setNav('tasks')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="16" y2="6"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="4" y1="14" x2="12" y2="14"/></svg></span><span class="nav-label">Tasks</span>
       </button>
+      <button class="nav-btn" id="nav-timebox" onclick="setNav('timebox')">
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="2"/><line x1="3" y1="7" x2="17" y2="7"/><line x1="8" y1="3" x2="8" y2="17"/><rect x="9" y="9" width="5" height="3" rx="1" fill="currentColor" stroke="none" opacity="0.5"/></svg></span><span class="nav-label">Timebox</span>
+      </button>
       <button class="nav-btn" id="nav-meetings" onclick="setNav('meetings')">
         <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="14" height="13" rx="2"/><line x1="3" y1="8" x2="17" y2="8"/><line x1="7" y1="2" x2="7" y2="5"/><line x1="13" y1="2" x2="13" y2="5"/></svg></span><span class="nav-label">Meetings</span>
       </button>
@@ -10309,12 +10312,12 @@ function openWeightSetupModal(){
       <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:4px;">
         ${WEEKLY_LOSS_OPTIONS.map(o=>`<button
           onclick="document.querySelectorAll('.wts-loss-btn').forEach(b=>{b.style.background='var(--surface2)';b.style.borderColor='var(--border)'});this.style.background='rgba(21,101,192,0.12)';this.style.borderColor='rgba(21,101,192,0.4)';document.getElementById('wts-loss').value='${o.val}';"
-          class="wts-loss-btn" style="text-align:left;padding:10px 12px;border-radius:8px;border:1px solid ${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(21,101,192,0.4)':'var(--border)'};background:${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(21,101,192,0.12)':'var(--surface2)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+          class="wts-loss-btn" style="text-align:left;padding:10px 12px;border-radius:8px;border:1px solid ${(( cfg.weeklyLossLbs ?? 1.0 )===o.val)?'rgba(21,101,192,0.4)':'var(--border)'};background:${(( cfg.weeklyLossLbs ?? 1.0 )===o.val)?'rgba(21,101,192,0.12)':'var(--surface2)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
           <span style="font:700 13px/1 var(--font-ui);color:var(--text);">${o.label}</span>
           <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">${o.sub}</span>
         </button>`).join('')}
       </div>
-      <input type="hidden" id="wts-loss" value="${cfg.weeklyLossLbs||1.0}"/>
+      <input type="hidden" id="wts-loss" value="${cfg.weeklyLossLbs ?? 1.0}"/>
     </div>
     <button onclick="saveWeightSetup()" style="width:100%;padding:13px;border-radius:9px;border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Setup</button>
   </div>`;
@@ -10333,7 +10336,7 @@ function saveWeightSetup(){
     startWeight: startVal ? parseFloat(startVal) : null,
     startDate:   document.getElementById('wts-start-date')?.value||null,
     goalWeight:    goalVal  ? parseFloat(goalVal)  : null,
-    weeklyLossLbs: parseFloat(document.getElementById('wts-loss')?.value) || 1.0,
+    weeklyLossLbs: (v=>isNaN(v)?1.0:v)(parseFloat(document.getElementById('wts-loss')?.value)),
   };
   saveWeightConfig();
   closeModal('modal-wt-setup');
@@ -11416,13 +11419,17 @@ const ACTIVITY_FACTORS = {
 };
 
 const WEEKLY_LOSS_OPTIONS = [
-  { val:0.5,  label:'0.5 lb/week', sub:'Mild deficit ~250 cal/day',       deficit:250  },
-  { val:1.0,  label:'1 lb/week',   sub:'Moderate deficit ~500 cal/day',   deficit:500  },
-  { val:1.5,  label:'1.5 lb/week', sub:'Aggressive deficit ~750 cal/day', deficit:750  },
-  { val:2.0,  label:'2 lb/week',   sub:'Max safe deficit ~1,000 cal/day', deficit:1000 },
+  { val:0,    label:'Maintain weight', sub:'Eat at TDEE — no deficit',            deficit:0    },
+  { val:0.5,  label:'0.5 lb/week',    sub:'Mild deficit ~250 cal/day',            deficit:250  },
+  { val:1.0,  label:'1 lb/week',      sub:'Moderate deficit ~500 cal/day',        deficit:500  },
+  { val:1.5,  label:'1.5 lb/week',    sub:'Aggressive deficit ~750 cal/day',      deficit:750  },
+  { val:2.0,  label:'2 lb/week',      sub:'Max safe deficit ~1,000 cal/day',      deficit:1000 },
 ];
 
-const MIN_CALORIES = 1200; // absolute floor per dietary science
+const MIN_CALORIES_FEMALE = 1400; // minimum safe for women per Academy of Nutrition & Dietetics
+const MIN_CALORIES_MALE   = 1500; // minimum safe for men
+// NOTE: 1200 is outdated guidance. Modern dietetics recommends 1400+ for women, 1500+ for men
+// for sustainable loss without nutrient deficiency risk.
 
 // Calculate TDEE and target calories from current weight
 function calcTargetCalories(overrideWeightLbs){
@@ -11448,11 +11455,22 @@ function calcTargetCalories(overrideWeightLbs){
   const tdee = Math.round(bmr * actFactor);
 
   // Deficit for weekly loss
-  const opt = WEEKLY_LOSS_OPTIONS.find(o=>o.val===(cfg.weeklyLossLbs||1.0)) || WEEKLY_LOSS_OPTIONS[1];
-  const deficit = opt.deficit;
+  const opt = WEEKLY_LOSS_OPTIONS.find(o=>o.val===(cfg.weeklyLossLbs ?? 1.0)) || WEEKLY_LOSS_OPTIONS[1];
+  let deficit = opt.deficit;
+
+  // Safety cap: deficit must not exceed 35% of TDEE (prevents dangerously low targets)
+  const maxDeficit = Math.round(tdee * 0.35);
+  const appliedDeficit = Math.min(deficit, maxDeficit);
+
+  // Sex-appropriate minimum floor
+  const floor = cfg.sex === 'female' ? MIN_CALORIES_FEMALE : MIN_CALORIES_MALE;
 
   // Apply deficit, enforce minimum
-  const target = Math.max(MIN_CALORIES, tdee - deficit);
+  const raw    = tdee - appliedDeficit;
+  const target = Math.max(floor, raw);
+  const atFloor = target === floor;
+  // If deficit was capped, note how much we actually used
+  const effectiveDeficit = tdee - target;
 
   // Macros: 30% protein, 40% carbs, 30% fat (standard weight loss split)
   const proteinCal = target * 0.30;
@@ -11460,15 +11478,18 @@ function calcTargetCalories(overrideWeightLbs){
   const fatCal     = target * 0.30;
 
   return {
-    bmr:      Math.round(bmr),
+    bmr:             Math.round(bmr),
     tdee,
-    deficit,
-    calories: target,
-    protein:  Math.round(proteinCal / 4),   // 4 cal/g
-    carbs:    Math.round(carbsCal   / 4),
-    fat:      Math.round(fatCal     / 9),   // 9 cal/g
-    weeklyLoss: opt.val,
-    atFloor:  target === MIN_CALORIES,
+    deficit:         effectiveDeficit,
+    requestedDeficit:deficit,
+    caloriesFloor:   floor,
+    calories:        target,
+    protein:         Math.round(proteinCal / 4),
+    carbs:           Math.round(carbsCal   / 4),
+    fat:             Math.round(fatCal     / 9),
+    weeklyLoss:      opt.val,
+    atFloor,
+    deficitCapped:   appliedDeficit < deficit,
   };
 }
 
@@ -11572,12 +11593,12 @@ function openCalcSetupModal(){
         <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px;">
           ${WEEKLY_LOSS_OPTIONS.map(o=>`
             <button onclick="document.querySelectorAll('.cs-loss-btn').forEach(b=>{b.style.background='var(--surface2)';b.style.borderColor='var(--border)'});this.style.background='rgba(100,181,246,0.12)';this.style.borderColor='rgba(100,181,246,0.4)';document.getElementById('cs-loss').value='${o.val}';calcSetupPreview();"
-              class="cs-loss-btn" style="text-align:left;padding:8px 12px;border-radius:8px;border:1px solid ${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(100,181,246,0.4)':'var(--border)'};background:${(cfg.weeklyLossLbs||1.0)===o.val?'rgba(100,181,246,0.12)':'var(--surface2)'};cursor:pointer;">
+              class="cs-loss-btn" style="text-align:left;padding:8px 12px;border-radius:8px;border:1px solid ${(( cfg.weeklyLossLbs ?? 1.0 )===o.val)?'rgba(100,181,246,0.4)':'var(--border)'};background:${(( cfg.weeklyLossLbs ?? 1.0 )===o.val)?'rgba(100,181,246,0.12)':'var(--surface2)'};cursor:pointer;">
               <div style="font:700 12px/1 var(--font-ui);color:var(--text);">${o.label}</div>
               <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${o.sub}</div>
             </button>`).join('')}
         </div>
-        <input type="hidden" id="cs-loss" value="${cfg.weeklyLossLbs||1.0}"/>
+        <input type="hidden" id="cs-loss" value="${cfg.weeklyLossLbs ?? 1.0}"/>
 
         <!-- Live preview -->
         <div id="cs-preview" style="background:rgba(129,199,132,0.08);border:1px solid rgba(129,199,132,0.25);border-radius:10px;padding:12px 14px;margin-bottom:4px;">
@@ -11585,7 +11606,7 @@ function openCalcSetupModal(){
           <div style="font:700 10px/1 var(--font-ui);color:#81C784;letter-spacing:1px;margin-bottom:8px;">YOUR CALCULATED TARGETS</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div><div style="font:900 22px/1 var(--font-ui);color:var(--accent);">${calc.calories}</div><div style="font:600 10px/1 var(--font-ui);color:var(--text4);">cal/day</div></div>
-            <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">BMR: ${calc.bmr} cal<br>TDEE: ${calc.tdee} cal<br>Deficit: −${calc.deficit} cal${calc.atFloor?'<br><span style="color:#E8A838;">⚠ at minimum floor</span>':''}</div>
+            <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">BMR: ${calc.bmr} cal<br>TDEE: ${calc.tdee} cal<br>Deficit: −${calc.deficit} cal${(calc.atFloor?'<br><span style="color:#E8A838;">⚠ Raised to safe min ('+calc.caloriesFloor+' cal)</span>':'')+(calc.deficitCapped?' · <span style="color:#E8A838;">deficit capped</span>':'')}</div>
           </div>
           <div style="display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(129,199,132,0.2);">
             <span style="font:700 11px/1 var(--font-ui);color:#64B5F6;">P: ${calc.protein}g</span>
@@ -11609,7 +11630,7 @@ function calcSetupPreview(){
   const inVal = parseFloat(document.getElementById('cs-in')?.value)||0;
   const heightCm = Math.round(((ft*12)+inVal)*2.54);
   const activity = document.getElementById('cs-activity')?.value||'sedentary';
-  const loss = parseFloat(document.getElementById('cs-loss')?.value)||1.0;
+  const loss = (v=>isNaN(v)?1.0:v)(parseFloat(document.getElementById('cs-loss')?.value));
   const sex = document.getElementById('cs-sex')?.value||'male';
   const age = parseInt(document.getElementById('cs-age')?.value)||0;
 
@@ -11629,7 +11650,7 @@ function calcSetupPreview(){
     <div style="font:700 10px/1 var(--font-ui);color:#81C784;letter-spacing:1px;margin-bottom:8px;">YOUR CALCULATED TARGETS</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div><div style="font:900 22px/1 var(--font-ui);color:var(--accent);">${calc.calories}</div><div style="font:600 10px/1 var(--font-ui);color:var(--text4);">cal/day</div></div>
-      <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">BMR: ${calc.bmr} cal<br>TDEE: ${calc.tdee} cal<br>Deficit: −${calc.deficit} cal${calc.atFloor?'<br><span style="color:#E8A838;">⚠ at minimum floor</span>':''}</div>
+      <div style="font:500 11px/1.5 var(--font-ui);color:var(--text3);">BMR: ${calc.bmr} cal<br>TDEE: ${calc.tdee} cal<br>Deficit: −${calc.deficit} cal${(calc.atFloor?'<br><span style="color:#E8A838;">⚠ Raised to safe min ('+calc.caloriesFloor+' cal)</span>':'')+(calc.deficitCapped?' · <span style="color:#E8A838;">deficit capped</span>':'')}</div>
     </div>
     <div style="display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(129,199,132,0.2);">
       <span style="font:700 11px/1 var(--font-ui);color:#64B5F6;">P: ${calc.protein}g</span>
@@ -11652,7 +11673,7 @@ function saveCalcSetup(){
     heightFt:     ft,
     heightIn:     inVal,
     activityLevel:document.getElementById('cs-activity')?.value||'sedentary',
-    weeklyLossLbs:parseFloat(document.getElementById('cs-loss')?.value)||1.0,
+    weeklyLossLbs:(v=>isNaN(v)?1.0:v)(parseFloat(document.getElementById('cs-loss')?.value)),
     useCalculated:document.getElementById('cs-use-calc')?.checked !== false,
   };
   saveWeightConfig();
@@ -13671,6 +13692,7 @@ function _renderAllInner(){
   if(activeNav==="grocery"){    renderGroceryPage(main);   return; }
   if(activeNav==="tracker"){    renderKidsTrackerPage(main); return; }
   if(activeNav==="health"){     renderHealthPage(main);      return; }
+  if(activeNav==="timebox"){     renderTimeboxPage(main);   return; }
   if(activeNav==="today"||activeNav==="focus"){renderTodayView(main);return;}
   if(activeNav==="waiting"){ renderWaitingPage(main); return; }
   if(activeNav==="discovery"){ renderDiscoveryPage(main); return; }
@@ -21561,6 +21583,1078 @@ function _hwSave(){
     wfsCreated   ? `${wfsCreated} waiting-for${wfsCreated!==1?'s':''}` : ''
   ].filter(Boolean).join(' + ');
   showToast(`✍️ Meeting saved${summary ? ' — created ' + summary : ''}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TIMEBOX PLANNER — Sunsama-inspired weekly drag-and-drop view
+// Pulls work tasks + family/home tasks into a calm week grid.
+// Data lives in tbBlocks: { date: [{id,title,src,srcId,startMin,durMin,color,done}] }
+// ═══════════════════════════════════════════════════════════════
+
+let _tbView        = 'week';        // 'week' | 'day'
+let _tbFocusDay    = today();       // which day is open in day view
+let _tbDragItem    = null;          // { id, srcId, src, title, color, durMin }
+let _tbDragOrigin  = null;          // { date, blockIndex } — where drag started
+let _tbSideFilter  = 'all';         // 'all'|'work'|'home'|'family'
+let _tbSideQuery   = '';
+
+// Colour palette — calm, Sunsama-like
+const TB_COLORS = {
+  work:    '#1565C0',   // Reeves blue
+  home:    '#2E7D32',   // green
+  family:  '#7B3FBE',   // purple
+  meeting: '#C0622A',   // warm orange-brown
+  cal:     '#0288D1',   // sky blue
+};
+
+function _tbWeekDates(){
+  // Returns Mon-Sun of the current week (or _tbFocusDay's week)
+  const ref  = new Date(_tbFocusDay + 'T12:00:00');
+  const dow   = ref.getDay(); // 0=Sun
+  const mon   = new Date(ref);
+  mon.setDate(ref.getDate() - (dow === 0 ? 6 : dow - 1));
+  return Array.from({length:7}, (_, i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return d.toISOString().slice(0,10);
+  });
+}
+
+function _tbFmtMin(m){
+  const h = Math.floor(m/60), min = m % 60;
+  const ampm = h >= 12 ? 'pm' : 'am';
+  return (h % 12 || 12) + (min ? ':' + String(min).padStart(2,'0') : '') + ampm;
+}
+
+function _tbTaskColor(task){
+  const p = projects.find(p => p.id === task?.projectId);
+  if(!p) return TB_COLORS.work;
+  if(p.domain === 'home' || p.domain === 'family') return TB_COLORS.home;
+  return TB_COLORS.work;
+}
+
+// Build sidebar task pool — unscheduled tasks + unscheduled family tasks
+function _tbSidebarItems(){
+  const todayStr = today();
+  // Work tasks: todo/in-progress, no timebox block for today's date, not done
+  const workItems = tasks
+    .filter(t => t.status !== 'done' && t.status !== 'cancelled')
+    .map(t => ({
+      id:     't:' + t.id, srcId: t.id, src: 'task',
+      title:  t.title,
+      color:  _tbTaskColor(t),
+      tag:    (projects.find(p=>p.id===t.projectId)?.name || 'Work').slice(0,16),
+      tagSrc: 'work',
+      est:    t.estimate ? parseInt(t.estimate) || 30 : 30,
+      done:   t.status === 'done'
+    }));
+
+  // Family tasks: not done, assigned to Jason or anyone
+  const famItems = familyTasks
+    .filter(t => !t.done && (
+      !t.assignedTo ||
+      (Array.isArray(t.assignedTo) ? t.assignedTo.some(a=>a==='jason'||a==='anyone') : t.assignedTo==='jason'||t.assignedTo==='anyone')
+    ))
+    .map(t => ({
+      id:    'ft:' + t.id, srcId: t.id, src: 'family',
+      title:  t.title,
+      color:  TB_COLORS.family,
+      tag:    'Family',
+      tagSrc: 'family',
+      est:    30,
+      done:   t.done
+    }));
+
+  // Jason personal home tasks
+  const homeItems = jasonHomeTasks
+    .filter(t => !t.done)
+    .map(t => ({
+      id:    'ht:' + t.id, srcId: t.id, src: 'home',
+      title:  t.title,
+      color:  TB_COLORS.home,
+      tag:    'Personal',
+      tagSrc: 'home',
+      est:    30,
+      done:   false
+    }));
+
+  const all = [...workItems, ...famItems, ...homeItems];
+
+  // Filter
+  const q = (_tbSideQuery || '').toLowerCase();
+  return all.filter(item => {
+    if(_tbSideFilter === 'work'   && item.tagSrc !== 'work')   return false;
+    if(_tbSideFilter === 'family' && item.tagSrc !== 'family') return false;
+    if(_tbSideFilter === 'home'   && item.tagSrc !== 'home')   return false;
+    if(q && !item.title.toLowerCase().includes(q))              return false;
+    return true;
+  });
+}
+
+// ── Main render ───────────────────────────────────────────────
+function renderTimeboxPage(container){
+  const dates = _tbWeekDates();
+  const todayStr = today();
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  // Build calendar event map for the week
+  const calMap = {};
+  dates.forEach(d => { calMap[d] = calEventsForDate ? (calEventsForDate(d)||[]) : []; });
+
+  container.innerHTML = `
+  <div id="tb-root" style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
+
+    <!-- ── Header ─────────────────────────────────────────────── -->
+    <div style="display:flex;align-items:center;gap:var(--sp3);padding:12px 16px 10px;
+      border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;">Timebox Planner</div>
+        <div style="font:700 18px/1.2 var(--font-ui);color:var(--text);margin-top:2px;">${_tbWeekLabel(dates)}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        <button onclick="openTbCalScan()" style="${_tbNavBtnStyle()}" title="Scan work calendar photo">📷 Scan Calendar</button>
+        <button onclick="_tbNavWeek(-1)" style="${_tbNavBtnStyle()}" title="Previous week">‹</button>
+        <button onclick="_tbGoToday()"   style="${_tbNavBtnStyle(false,true)}" title="This week">Today</button>
+        <button onclick="_tbNavWeek(1)"  style="${_tbNavBtnStyle()}" title="Next week">›</button>
+      </div>
+    </div>
+
+    <!-- ── Body: sidebar + grid ────────────────────────────────── -->
+    <div style="display:flex;flex:1;overflow:hidden;">
+
+      <!-- Sidebar — task pool -->
+      <div id="tb-sidebar" style="width:210px;flex-shrink:0;border-right:1px solid var(--border);
+        display:flex;flex-direction:column;background:var(--surface);overflow:hidden;">
+
+        <!-- Sidebar header -->
+        <div style="padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+            text-transform:uppercase;margin-bottom:8px;">Drag tasks onto week</div>
+          <!-- Search -->
+          <input id="tb-search" type="text" placeholder="Search tasks…"
+            value="${esc(_tbSideQuery)}"
+            style="width:100%;padding:7px 10px;border-radius:var(--r2);border:1.5px solid var(--border);
+              background:var(--surface2);color:var(--text);font:500 13px/1 var(--font-ui);outline:none;
+              box-sizing:border-box;"
+            oninput="_tbSideQuery=this.value;renderAll()"/>
+          <!-- Filter chips -->
+          <div style="display:flex;gap:4px;margin-top:7px;">
+            ${['all','work','family','home'].map(f => {
+              const sel = _tbSideFilter === f;
+              const labels = {all:'All',work:'Work',family:'Family',home:'Personal'};
+              return `<button onclick="_tbSideFilter='${f}';renderAll()"
+                style="flex:1;padding:5px 3px;border-radius:var(--r1);border:1px solid ${sel?'var(--accent)':'var(--border)'};
+                  background:${sel?'var(--accent-soft)':'transparent'};
+                  color:${sel?'var(--accent)':'var(--text4)'};
+                  font:${sel?'700':'500'} 11px/1 var(--font-ui);cursor:pointer;transition:all var(--t-fast);">${labels[f]}</button>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Task list — draggable -->
+        <div id="tb-task-pool" style="flex:1;overflow-y:auto;padding:8px 8px 24px;">
+          ${_renderTbSidebar()}
+        </div>
+      </div>
+
+      <!-- Calendar grid -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+
+        <!-- Day column headers -->
+        <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;
+          background:var(--surface);padding-left:48px;">
+          ${dates.map((d, i) => {
+            const isToday = d === todayStr;
+            const dayNum  = new Date(d + 'T12:00:00').getDate();
+            return `<div style="flex:1;padding:8px 0 7px;text-align:center;
+              ${isToday ? 'background:var(--accent-soft);border-radius:var(--r2) var(--r2) 0 0;' : ''}">
+              <div style="font:600 10px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text4)'};">
+                ${DAY_LABELS[i]}</div>
+              <div style="font:${isToday?'800':'600'} 16px/1.2 var(--font-ui);
+                color:${isToday?'var(--accent)':'var(--text)'};margin-top:2px;">
+                ${isToday ? `<span style="display:inline-flex;align-items:center;justify-content:center;
+                  width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;">${dayNum}</span>`
+                : dayNum}</div>
+            </div>`;
+          }).join('')}
+        </div>
+
+        <!-- Scrollable time grid -->
+        <div id="tb-grid-scroll" style="flex:1;overflow-y:auto;position:relative;"
+          onscroll="_tbSyncTimeScroll(this)">
+          <div id="tb-grid" style="display:flex;position:relative;min-height:${17*48}px;">
+
+            <!-- Time ruler -->
+            <div style="width:48px;flex-shrink:0;position:relative;border-right:1px solid var(--border);">
+              ${Array.from({length:17}, (_,h) => {
+                const hour = h + 7; // 7am → 11pm
+                return `<div style="position:absolute;top:${h*48}px;left:0;right:0;
+                  height:48px;display:flex;align-items:flex-start;
+                  padding-top:3px;justify-content:flex-end;padding-right:8px;">
+                  <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">
+                    ${hour%12||12}${hour<12?'am':'pm'}</span>
+                </div>`;
+              }).join('')}
+            </div>
+
+            <!-- Day columns -->
+            ${dates.map((d, colIdx) => {
+              const isToday = d === todayStr;
+              const blocks  = (tbBlocks[d]||[]);
+              const calEvs  = calMap[d] || [];
+              return `<div class="tb-col" data-date="${d}"
+                style="flex:1;position:relative;
+                  border-right:${colIdx<6?'1px solid var(--border)':'none'};
+                  ${isToday ? 'background:rgba(21,101,192,0.02);' : ''}
+                  min-height:${17*48}px;"
+                ondragover="event.preventDefault();_tbDragOver(event,'${d}')"
+                ondrop="_tbDrop(event,'${d}')"
+                ondragleave="_tbDragLeave(event)">
+
+                <!-- Hour lines -->
+                ${Array.from({length:17}, (_,h) =>
+                  `<div style="position:absolute;top:${h*48}px;left:0;right:0;
+                    border-top:1px solid ${h===0?'transparent':'var(--border)'};
+                    height:48px;pointer-events:none;"></div>
+                   <div style="position:absolute;top:${h*48+24}px;left:0;right:0;
+                    border-top:1px dashed var(--border);opacity:0.4;pointer-events:none;"></div>`
+                ).join('')}
+
+                <!-- Current time indicator (today only) -->
+                ${isToday ? `<div id="tb-now-line" style="${_tbNowLineStyle()}
+                  position:absolute;left:0;right:0;z-index:5;pointer-events:none;">
+                  <div style="height:2px;background:var(--accent);opacity:0.7;"></div>
+                  <div style="position:absolute;left:-3px;top:-3px;width:8px;height:8px;
+                    border-radius:50%;background:var(--accent);"></div>
+                </div>` : ''}
+
+                <!-- Calendar events -->
+                ${calEvs.slice(0,5).map(ev => _renderCalBlock(ev)).join('')}
+
+                <!-- Timeboxed task blocks -->
+                ${blocks.map((b, bi) => _renderTbBlock(b, d, bi)).join('')}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Scroll to 8am on mount
+  requestAnimationFrame(() => {
+    const scroll = document.getElementById('tb-grid-scroll');
+    if(scroll) scroll.scrollTop = 48; // 1 hour below 7am = 8am
+  });
+}
+
+function _tbWeekLabel(dates){
+  const start = new Date(dates[0] + 'T12:00:00');
+  const end   = new Date(dates[6] + 'T12:00:00');
+  const opts  = {month:'short',day:'numeric'};
+  if(start.getMonth() === end.getMonth())
+    return start.toLocaleDateString('en-US',opts) + ' – ' + end.getDate() + ', ' + end.getFullYear();
+  return start.toLocaleDateString('en-US',opts) + ' – ' + end.toLocaleDateString('en-US',{...opts,year:'numeric'});
+}
+
+function _tbNavBtnStyle(active=false, mid=false){
+  return `padding:6px ${mid?'12px':'10px'};border-radius:var(--r2);
+    border:1px solid var(--border);background:${active?'var(--accent-soft)':'var(--surface2)'};
+    color:${active?'var(--accent)':'var(--text3)'};font:600 13px/1 var(--font-ui);cursor:pointer;
+    min-height:32px;`;
+}
+
+function _tbNavWeek(dir){
+  const ref = new Date(_tbFocusDay + 'T12:00:00');
+  ref.setDate(ref.getDate() + dir * 7);
+  _tbFocusDay = ref.toISOString().slice(0,10);
+  renderAll();
+}
+
+function _tbGoToday(){
+  _tbFocusDay = today();
+  renderAll();
+}
+
+function _tbNowLineStyle(){
+  const now = new Date();
+  const mins = (now.getHours() - 7) * 60 + now.getMinutes();
+  if(mins < 0 || mins > 17*60) return 'display:none;';
+  return `top:${mins * (48/60)}px;`;
+}
+
+// ── Sidebar renderer ──────────────────────────────────────────
+function _renderTbSidebar(){
+  const items = _tbSidebarItems();
+  if(!items.length) return `<div style="padding:20px 8px;text-align:center;
+    font:500 12px/1.5 var(--font-ui);color:var(--text4);">
+    No tasks to schedule${_tbSideQuery ? ' — try clearing search' : ''}
+  </div>`;
+
+  // Group by source
+  const groups = {};
+  items.forEach(item => {
+    const g = item.tagSrc;
+    if(!groups[g]) groups[g] = [];
+    groups[g].push(item);
+  });
+
+  return Object.entries(groups).map(([src, group]) => {
+    const label = {work:'Work Tasks', family:'Family', home:'Personal'}[src] || src;
+    const col   = TB_COLORS[src] || TB_COLORS.work;
+    return `<div style="margin-bottom:12px;">
+      <div style="font:700 10px/1 var(--font-ui);color:${col};letter-spacing:0.8px;
+        text-transform:uppercase;padding:8px 6px 5px;margin-top:2px;
+        display:flex;align-items:center;gap:5px;">
+        <div style="width:8px;height:2px;border-radius:1px;background:${col};opacity:0.7;flex-shrink:0;"></div>
+        ${label}</div>
+      ${group.map(item => `
+        <div id="tbsi-${item.id}"
+          draggable="true"
+          ondragstart="_tbSideDragStart(event,'${item.id.replace(/'/g,"\\'")}','${esc(item.title).replace(/'/g,"\\'")}','${col}',${item.est},'${src}')"
+          style="display:flex;align-items:center;gap:7px;padding:6px 8px;
+            margin-bottom:2px;border-radius:var(--r2);background:transparent;
+            cursor:grab;transition:background var(--t-fast);user-select:none;"
+          onmouseenter="this.style.background='var(--surface2)'"
+          onmouseleave="this.style.background='transparent'">
+          <div style="width:3px;border-radius:2px;align-self:stretch;min-height:22px;flex-shrink:0;background:${col};opacity:0.6;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font:500 12px/1.35 var(--font-ui);color:var(--text2);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(item.title)}</div>
+            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">${item.est}m</div>
+          </div>
+          <div style="font-size:10px;color:var(--text4);flex-shrink:0;opacity:0.3;letter-spacing:1px;">&#8942;&#8942;</div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── Calendar event block (read-only, behind tasks) ────────────
+function _renderCalBlock(ev){
+  if(ev.allDay) return '';
+  const timeStr = ev.start || ev.startTime || '';
+  if(!timeStr) return '';
+  const t = timeStr.includes('T') ? timeStr.split('T')[1].slice(0,5) : timeStr;
+  const [hh,mm] = t.split(':').map(Number);
+  const startMin = (hh - 7)*60 + (mm||0);
+  if(startMin < 0) return '';
+
+  const durMs  = ev.endTime
+    ? (new Date('2000-01-01T'+(ev.endTime.includes('T')?ev.endTime.split('T')[1].slice(0,5):ev.endTime)).getTime() -
+       new Date('2000-01-01T'+t).getTime()) / 60000
+    : 60;
+  const durMin = Math.max(15, durMs||60);
+  const top  = startMin * (48/60);
+  const h    = Math.max(20, durMin * (48/60));
+  const col  = TB_COLORS.cal;
+
+  return `<div style="position:absolute;top:${top}px;left:2px;right:2px;height:${h}px;
+    background:${col}14;border-left:3px solid ${col}80;border-radius:0 var(--r1) var(--r1) 0;
+    padding:3px 5px;overflow:hidden;pointer-events:none;z-index:1;">
+    <div style="font:600 10px/1.3 var(--font-ui);color:${col};
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(ev.title||ev.summary||'')}</div>
+    <div style="font:500 9px/1 var(--font-ui);color:${col};opacity:0.7;margin-top:2px;">${_tbFmtMin(hh*60+(mm||0))}</div>
+  </div>`;
+}
+
+// ── Scheduled task block (interactive) ───────────────────────
+function _renderTbBlock(b, date, bi){
+  const startMin = b.startMin || 0;
+  const durMin   = b.durMin   || 30;
+  const top      = (startMin - (7*60)) * (48/60);
+  const h        = Math.max(24, durMin * (48/60));
+  const col      = b.color || TB_COLORS.work;
+  const isDone   = !!b.done;
+  const endMin   = startMin + durMin;
+  const durLabel = durMin >= 60
+    ? (durMin % 60 === 0 ? (durMin/60)+'h' : Math.floor(durMin/60)+'h '+durMin%60+'m')
+    : durMin + 'm';
+
+  return `<div
+    id="tbb-${b.id}"
+    draggable="true"
+    ondragstart="_tbBlockDragStart(event,'${b.id}','${date}',${bi})"
+    style="position:absolute;top:${top}px;left:3px;right:3px;height:${h}px;
+      background:${col}${isDone?'18':'22'};
+      border:1px solid ${col}${isDone?'30':'60'};
+      border-left:3px solid ${col}${isDone?'50':''};
+      border-radius:var(--r2);padding:4px 6px 10px;
+      cursor:grab;overflow:hidden;z-index:2;
+      transition:box-shadow var(--t-fast);
+      ${isDone?'opacity:0.5;':''}"
+    onmouseenter="this.style.boxShadow='var(--shadow-md)'"
+    onmouseleave="this.style.boxShadow='none'">
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:2px;">
+      <div style="font:600 11px/1.3 var(--font-ui);color:${col};flex:1;
+        overflow:hidden;text-overflow:ellipsis;${h<32?'white-space:nowrap;':''};
+        ${isDone?'text-decoration:line-through;':''}">${esc(b.title||'')}</div>
+      <button onclick="event.stopPropagation();_tbRemoveBlock('${date}',${bi})"
+        style="background:none;border:none;color:${col};font-size:12px;line-height:1;
+          cursor:pointer;opacity:0.5;padding:0;flex-shrink:0;">✕</button>
+    </div>
+
+    ${h >= 36 ? `<div style="font:500 9px/1 var(--font-ui);color:${col};opacity:0.7;margin-top:3px;">
+      ${_tbFmtMin(startMin)} – ${_tbFmtMin(endMin)} · <strong>${durLabel}</strong>
+    </div>` : ''}
+
+    <!-- Resize handle — drag bottom edge to change duration -->
+    <div
+      class="tb-resize-handle"
+      onmousedown="event.stopPropagation();_tbResizeStart(event,'${date}',${bi})"
+      style="position:absolute;bottom:0;left:0;right:0;height:8px;
+        cursor:ns-resize;display:flex;align-items:center;justify-content:center;
+        opacity:0;transition:opacity 0.15s;"
+      onmouseenter="this.style.opacity='1'"
+      onmouseleave="this.style.opacity='0'">
+      <div style="width:24px;height:3px;border-radius:2px;background:${col};opacity:0.5;"></div>
+    </div>
+  </div>`;
+}
+
+// ── Block resize (mouse drag on bottom handle) ────────────────
+function _tbResizeStart(event, date, bi){
+  event.preventDefault();
+  const block = (tbBlocks[date]||[])[bi];
+  if(!block) return;
+  _tbResizing = { date, bi, startY: event.clientY, origDur: block.durMin };
+
+  // Show a live duration tooltip while resizing
+  let tip = document.getElementById('tb-resize-tip');
+  if(!tip){ tip = document.createElement('div'); tip.id='tb-resize-tip';
+    tip.style.cssText='position:fixed;z-index:600;background:var(--text);color:var(--surface);'+
+      'padding:4px 10px;border-radius:var(--r2);font:700 12px/1 var(--font-ui);pointer-events:none;'; }
+  document.body.appendChild(tip);
+
+  const onMove = e => {
+    if(!_tbResizing) return;
+    const dy       = e.clientY - _tbResizing.startY;
+    const addMins  = Math.round((dy / (48/60)) / 15) * 15;
+    const newDur   = Math.max(15, _tbResizing.origDur + addMins);
+    const block    = (tbBlocks[_tbResizing.date]||[])[_tbResizing.bi];
+    if(block){ block.durMin = newDur; }
+
+    // Update block height live
+    const blockEl = document.getElementById('tbb-'+block?.id);
+    if(blockEl){
+      const newH = Math.max(24, newDur*(48/60));
+      blockEl.style.height = newH + 'px';
+      // Update duration label inside block if tall enough
+      const durLabel = newDur>=60 ? (newDur%60===0?(newDur/60)+'h':Math.floor(newDur/60)+'h '+newDur%60+'m') : newDur+'m';
+      const timeEl = blockEl.querySelector('div[style*="9px"]');
+      if(timeEl && newH >= 36){
+        const startMin = block?.startMin||0;
+        timeEl.innerHTML = `${_tbFmtMin(startMin)} – ${_tbFmtMin(startMin+newDur)} · <strong>${durLabel}</strong>`;
+      }
+    }
+
+    const durLabel = newDur>=60 ? (newDur%60===0?(newDur/60)+'h':Math.floor(newDur/60)+'h '+newDur%60+'m') : newDur+'m';
+    tip.textContent = durLabel;
+    tip.style.left = (e.clientX+12)+'px';
+    tip.style.top  = (e.clientY-8)+'px';
+  };
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.getElementById('tb-resize-tip')?.remove();
+    if(_tbResizing){
+      saveTbBlocks();
+      _tbResizing = null;
+      renderAll();
+    }
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ── Drag handlers ─────────────────────────────────────────────
+function _tbSideDragStart(event, id, title, color, est, src){
+  _tbDragItem   = { id, title, color, durMin: est, src };
+  _tbDragOrigin = null;
+  event.dataTransfer.effectAllowed = 'copy';
+  event.dataTransfer.setData('text/plain', id);
+}
+
+function _tbBlockDragStart(event, blockId, date, bi){
+  const block = (tbBlocks[date]||[])[bi];
+  if(!block) return;
+  _tbDragItem   = { id: blockId, title: block.title, color: block.color, durMin: block.durMin, src: block.src };
+  _tbDragOrigin = { date, bi };
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', blockId);
+}
+
+function _tbDragOver(event, date){
+  event.preventDefault();
+  event.dataTransfer.dropEffect = _tbDragOrigin ? 'move' : 'copy';
+  // Highlight column
+  event.currentTarget.style.background = 'rgba(21,101,192,0.06)';
+}
+
+function _tbDragLeave(event){
+  event.currentTarget.style.background = '';
+}
+
+// ── Resize state ──────────────────────────────────────────────
+let _tbResizing  = null; // { date, bi, startY, origDur }
+
+function _tbDrop(event, date){
+  event.preventDefault();
+  event.currentTarget.style.background = '';
+  if(!_tbDragItem) return;
+
+  // Calculate drop time from Y position (snap to 15 min)
+  const rect     = event.currentTarget.getBoundingClientRect();
+  const relY     = event.clientY - rect.top;
+  const mins     = Math.max(0, Math.round((relY / (48/60)) / 15) * 15);
+  const startMin = (7 * 60) + mins;
+
+  // Remove from origin if moving an existing block (no picker for moves)
+  if(_tbDragOrigin){
+    const origBlocks = tbBlocks[_tbDragOrigin.date] || [];
+    tbBlocks[_tbDragOrigin.date] = origBlocks.filter((_,i) => i !== _tbDragOrigin.bi);
+    if(!tbBlocks[date]) tbBlocks[date] = [];
+    tbBlocks[date].push({
+      id:       _tbDragItem.id || ('tb-' + Date.now()),
+      title:    _tbDragItem.title,
+      src:      _tbDragItem.src || 'task',
+      srcId:    _tbDragItem.srcId || null,
+      startMin,
+      durMin:   _tbDragItem.durMin || 30,
+      color:    _tbDragItem.color || TB_COLORS.work,
+      done:     false
+    });
+    tbBlocks[date].sort((a,b) => a.startMin - b.startMin);
+    saveTbBlocks();
+    _tbDragItem   = null;
+    _tbDragOrigin = null;
+    renderAll();
+    return;
+  }
+
+  // New drop from sidebar — show duration picker before committing
+  _tbShowDurPicker(date, startMin, _tbDragItem);
+  _tbDragItem   = null;
+  _tbDragOrigin = null;
+}
+
+// ── Duration picker — appears at drop point ───────────────────
+function _tbShowDurPicker(date, startMin, item){
+  // Remove any existing picker
+  document.getElementById('tb-dur-picker')?.remove();
+
+  const col      = item.color || TB_COLORS.work;
+  const defDur   = item.durMin || 30;
+  const topPx    = (startMin - 7*60) * (48/60);
+  const dateEl   = document.querySelector(`.tb-col[data-date="${date}"]`);
+  const gridRect = document.getElementById('tb-grid')?.getBoundingClientRect() || {left:0,top:0};
+  const colRect  = dateEl?.getBoundingClientRect() || {left:gridRect.left,top:gridRect.top};
+  const scroll   = document.getElementById('tb-grid-scroll')?.scrollTop || 0;
+
+  const p = document.createElement('div');
+  p.id = 'tb-dur-picker';
+  // Position near the drop point
+  const colLeft = colRect.left - gridRect.left + 48; // +48 for ruler width
+  const top     = topPx - scroll + (document.getElementById('tb-grid-scroll')?.getBoundingClientRect().top||0);
+
+  p.style.cssText = `position:fixed;z-index:500;
+    background:var(--surface);border:1.5px solid var(--border);
+    border-radius:var(--r3);box-shadow:var(--shadow-md);
+    padding:12px 14px;min-width:210px;`;
+
+  // Position below the drop — keep on screen
+  const PICKER_H = 120;
+  const safeTop  = Math.min(top, window.innerHeight - PICKER_H - 20);
+  p.style.top    = Math.max(60, safeTop) + 'px';
+  p.style.left   = Math.min(colRect.left + 8, window.innerWidth - 230) + 'px';
+
+  p.innerHTML = `
+    <div style="font:600 11px/1 var(--font-ui);color:var(--text3);margin-bottom:10px;">
+      ${_tbFmtMin(startMin)} · How long?
+    </div>
+    <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+      ${[15,30,45,60,90,120].map(n => `
+        <button onclick="_tbPickerSetDur(${n})"
+          id="tbdp-${n}"
+          style="padding:6px 9px;border-radius:var(--r1);border:1.5px solid ${n===defDur?col:'var(--border)'};
+            background:${n===defDur?col+'18':'transparent'};
+            color:${n===defDur?col:'var(--text3)'};
+            font:${n===defDur?'700':'500'} 11px/1 var(--font-ui);cursor:pointer;transition:all 0.1s;">
+          ${n>=60 ? (n/60)+'h' : n+'m'}
+        </button>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+      <input id="tbdp-custom" type="number" min="5" max="480" value="${defDur}"
+        style="width:60px;padding:6px 8px;border-radius:var(--r1);border:1.5px solid var(--border);
+          background:var(--surface2);color:var(--text);font:600 13px/1 var(--font-ui);
+          text-align:center;outline:none;"
+        oninput="_tbPickerSetDur(parseInt(this.value)||30,true)"/>
+      <span style="font:500 11px/1 var(--font-ui);color:var(--text4);">min custom</span>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="_tbPickerCancel()"
+        style="flex:1;padding:8px;border-radius:var(--r2);border:1px solid var(--border);
+          background:transparent;color:var(--text3);font:600 12px/1 var(--font-ui);cursor:pointer;">
+        Cancel
+      </button>
+      <button onclick="_tbPickerConfirm('${date}',${startMin},'${esc(item.id)}','${esc(item.title).replace(/'/g,"\\'")}','${esc(item.src||'task')}','${esc(item.srcId||'')}','${col}')"
+        style="flex:2;padding:8px;border-radius:var(--r2);border:none;
+          background:${col};color:#fff;font:700 12px/1 var(--font-ui);cursor:pointer;">
+        Add to ${new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}
+      </button>
+    </div>`;
+
+  document.body.appendChild(p);
+  p._selectedDur = defDur;
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function _closePicker(e){
+      if(!p.contains(e.target)){ p.remove(); document.removeEventListener('click',_closePicker); }
+    });
+  }, 10);
+}
+
+let _tbPickerDur = 30;
+
+function _tbPickerSetDur(n, fromInput=false){
+  _tbPickerDur = n;
+  const p = document.getElementById('tb-dur-picker');
+  if(!p) return;
+  [15,30,45,60,90,120].forEach(v => {
+    const btn = document.getElementById('tbdp-'+v);
+    if(!btn) return;
+    const active = v === n;
+    btn.style.fontWeight = active ? '700' : '500';
+    btn.style.background = active ? btn.style.borderColor.replace(')',',0.12)').replace('rgb(','rgba(') : 'transparent';
+  });
+  if(!fromInput){
+    const inp = document.getElementById('tbdp-custom');
+    if(inp) inp.value = n;
+  }
+}
+
+function _tbPickerConfirm(date, startMin, id, title, src, srcId, color){
+  const durMin = _tbPickerDur || 30;
+  document.getElementById('tb-dur-picker')?.remove();
+
+  if(!tbBlocks[date]) tbBlocks[date] = [];
+  tbBlocks[date].push({
+    id:       id || ('tb-' + Date.now()),
+    title:    title || '',
+    src:      src || 'task',
+    srcId:    srcId || null,
+    startMin: parseInt(startMin),
+    durMin,
+    color:    color || TB_COLORS.work,
+    done:     false
+  });
+  tbBlocks[date].sort((a,b) => a.startMin - b.startMin);
+  saveTbBlocks();
+  renderAll();
+}
+
+function _tbPickerCancel(){
+  document.getElementById('tb-dur-picker')?.remove();
+}
+
+function _tbRemoveBlock(date, bi){
+  if(!tbBlocks[date]) return;
+  tbBlocks[date] = tbBlocks[date].filter((_,i) => i !== bi);
+  saveTbBlocks();
+  renderAll();
+}
+
+function _tbSyncTimeScroll(el){}  // reserved for future mirroring
+
+// ═══════════════════════════════════════════════════════════════
+// TIMEBOX CALENDAR SCAN
+// Scan a photo of your work calendar → identify meetings →
+// let you pick time + duration for each → add to tbBlocks ONLY.
+// Never touches Google Calendar or the family calendar view.
+// ═══════════════════════════════════════════════════════════════
+
+let _tbScanState = {
+  step:         'camera',   // 'camera' | 'scanning' | 'place'
+  imageData:    null,
+  imagePreview: null,
+  meetings:     [],         // [{title, suggestedStart, suggestedEnd, notes}]
+  stream:       null
+};
+
+function openTbCalScan(){
+  _tbScanState = { step:'camera', imageData:null, imagePreview:null, meetings:[], stream:null };
+  _renderTbScanSheet();
+}
+
+function _renderTbScanSheet(){
+  const old = document.getElementById('modal-tb-scan'); if(old) old.remove();
+  const s   = _tbScanState;
+
+  const m = document.createElement('div');
+  m.id = 'modal-tb-scan';
+
+  if(s.step === 'camera'){
+    // Full-screen live viewfinder — same pattern as handwritten notes scan
+    m.style.cssText = 'position:fixed;inset:0;z-index:1150;background:#000;display:flex;flex-direction:column;';
+    m.innerHTML = `
+    <div style="position:relative;flex:1;overflow:hidden;background:#000;">
+      <video id="tbscan-video" autoplay playsinline muted
+        style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+      <!-- Guide overlay -->
+      <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+        <div style="width:90%;aspect-ratio:16/10;border:2px solid rgba(255,255,255,0.6);
+          border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,0.4);"></div>
+      </div>
+      <!-- Top bar -->
+      <div style="position:absolute;top:0;left:0;right:0;
+        padding:env(safe-area-inset-top,16px) 16px 12px;
+        background:linear-gradient(to bottom,rgba(0,0,0,0.6),transparent);
+        display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font:700 15px/1 var(--font-ui);color:#fff;">📷 Scan Work Calendar</div>
+          <div style="font:500 11px/1.3 var(--font-ui);color:rgba(255,255,255,0.7);margin-top:4px;">
+            Align your calendar screenshot in the frame</div>
+        </div>
+        <button onclick="_tbScanStop();document.getElementById('modal-tb-scan').remove();"
+          style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.4);
+            background:rgba(0,0,0,0.4);color:#fff;font-size:18px;cursor:pointer;line-height:1;">×</button>
+      </div>
+      <!-- Capture + upload row -->
+      <div style="position:absolute;bottom:0;left:0;right:0;
+        padding:20px 28px calc(env(safe-area-inset-bottom,0px) + 28px);
+        background:linear-gradient(to top,rgba(0,0,0,0.6),transparent);
+        display:flex;justify-content:center;align-items:center;gap:28px;">
+        <!-- Photo library -->
+        <button onclick="document.getElementById('tbscan-file').click()"
+          style="width:48px;height:48px;border-radius:50%;
+            border:2px solid rgba(255,255,255,0.5);background:rgba(0,0,0,0.4);
+            color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+          title="Choose from photos">🖼️</button>
+        <!-- Live capture -->
+        <button onclick="_tbScanCapture()"
+          style="width:72px;height:72px;border-radius:50%;border:5px solid #fff;
+            background:rgba(255,255,255,0.15);cursor:pointer;">
+          <div style="width:54px;height:54px;border-radius:50%;background:#fff;"></div>
+        </button>
+        <!-- Spacer to balance layout -->
+        <div style="width:48px;"></div>
+      </div>
+      <!-- Hidden file input for photo library -->
+      <input type="file" id="tbscan-file" accept="image/*" style="display:none;"
+        onchange="_tbScanFromFile(this)"/>
+      <canvas id="tbscan-canvas" style="display:none;"></canvas>
+    </div>`;
+    m.onclick = e => { if(e.target===m){ _tbScanStop(); m.remove(); } };
+    document.body.appendChild(m);
+    requestAnimationFrame(_tbScanStartCamera);
+
+  } else if(s.step === 'scanning'){
+    m.style.cssText = 'position:fixed;inset:0;z-index:1150;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.5);';
+    m.innerHTML = `<div onclick="event.stopPropagation()" style="width:100%;max-width:520px;
+      background:var(--surface);border-radius:20px 20px 0 0;padding:40px 24px 60px;text-align:center;">
+      ${s.imagePreview ? `<img src="${s.imagePreview}" style="width:100%;max-height:160px;object-fit:contain;border-radius:10px;margin-bottom:20px;opacity:0.75;"/>` : ''}
+      <div style="width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent);
+        border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+      <div style="font:700 16px/1 var(--font-ui);color:var(--text);margin-bottom:8px;">Reading your calendar…</div>
+      <div style="font:500 12px/1.5 var(--font-ui);color:var(--text3);">Identifying meetings and times</div>
+    </div>`;
+    m.onclick = e => { if(e.target===m) m.remove(); };
+    document.body.appendChild(m);
+
+  } else if(s.step === 'place'){
+    // Review extracted meetings — pick time + duration for each
+    m.style.cssText = 'position:fixed;inset:0;z-index:1150;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,0.5);';
+
+    const dates   = _tbWeekDates();
+    const dateOpts = dates.map(d => {
+      const label = d === today()
+        ? 'Today'
+        : new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      return `<option value="${d}">${label}</option>`;
+    }).join('');
+
+    const meetingCards = s.meetings.map((mtg, i) => {
+      const defDate  = mtg.suggestedDate || _tbFocusDay || today();
+      const defStart = mtg.suggestedStart || '09:00';
+      const defDur   = mtg.suggestedDur || 60;
+      return `<div id="tbsc-card-${i}" style="border:1.5px solid var(--border);border-radius:var(--r3);
+          background:var(--surface2);padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;">
+          <div style="width:3px;border-radius:2px;flex-shrink:0;height:36px;background:${TB_COLORS.meeting};"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.3 var(--font-ui);color:var(--text);">${esc(mtg.title)}</div>
+            ${mtg.notes ? `<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:3px;">${esc(mtg.notes)}</div>` : ''}
+          </div>
+          <input type="checkbox" id="tbsc-chk-${i}" checked
+            style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;margin-top:2px;"/>
+        </div>
+        <!-- Day + time + duration row -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <div style="flex:1;min-width:100px;">
+            <div style="font:700 9px/1 var(--font-ui);color:var(--text3);letter-spacing:0.7px;text-transform:uppercase;margin-bottom:4px;">Day</div>
+            <select id="tbsc-date-${i}" class="field-input" style="margin:0;font-size:13px;padding:7px 8px;">
+              ${dateOpts.replace(`value="${defDate}"`, `value="${defDate}" selected`)}
+            </select>
+          </div>
+          <div style="flex:0 0 90px;">
+            <div style="font:700 9px/1 var(--font-ui);color:var(--text3);letter-spacing:0.7px;text-transform:uppercase;margin-bottom:4px;">Start time</div>
+            <input type="time" id="tbsc-time-${i}" value="${defStart}"
+              style="width:100%;padding:7px 8px;border-radius:var(--r2);border:1.5px solid var(--border);
+                background:var(--surface);color:var(--text);font:600 13px/1 var(--font-ui);outline:none;"/>
+          </div>
+          <div style="flex:0 0 100px;">
+            <div style="font:700 9px/1 var(--font-ui);color:var(--text3);letter-spacing:0.7px;text-transform:uppercase;margin-bottom:4px;">Duration</div>
+            <div style="display:flex;gap:4px;">
+              ${[30,60,90].map(n=>`<button onclick="_tbScSetDur(${i},${n})" id="tbscd-${i}-${n}"
+                style="flex:1;padding:7px 2px;border-radius:var(--r1);
+                  border:1.5px solid ${n===defDur?TB_COLORS.meeting:'var(--border)'};
+                  background:${n===defDur?TB_COLORS.meeting+'18':'transparent'};
+                  color:${n===defDur?TB_COLORS.meeting:'var(--text4)'};
+                  font:${n===defDur?'700':'500'} 10px/1 var(--font-ui);cursor:pointer;">
+                ${n>=60?(n/60)+'h':n+'m'}</button>`).join('')}
+            </div>
+          </div>
+          <div style="flex:0 0 64px;">
+            <div style="font:700 9px/1 var(--font-ui);color:var(--text3);letter-spacing:0.7px;text-transform:uppercase;margin-bottom:4px;">Min</div>
+            <input type="number" id="tbsc-dur-${i}" value="${defDur}" min="15" max="480"
+              style="width:100%;padding:7px 6px;border-radius:var(--r2);border:1.5px solid var(--border);
+                background:var(--surface);color:var(--text);font:600 13px/1 var(--font-ui);
+                text-align:center;outline:none;"
+              oninput="_tbScHighlightDur(${i},parseInt(this.value)||60)"/>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    m.innerHTML = `<div onclick="event.stopPropagation()" style="width:100%;max-width:520px;
+      background:var(--surface);border-radius:20px 20px 0 0;
+      max-height:min(92vh,92dvh);display:flex;flex-direction:column;
+      padding-bottom:env(safe-area-inset-bottom);">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div>
+          <div style="font:700 16px/1 var(--font-ui);color:var(--text);">Set Meeting Times</div>
+          <div style="font:500 11px/1.3 var(--font-ui);color:var(--text4);margin-top:3px;">
+            These go into your Timebox planner only — not your calendar</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button onclick="_tbScanState.step='camera';_renderTbScanSheet();"
+            style="padding:5px 10px;border-radius:var(--r2);border:1px solid var(--border);
+              background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">Rescan</button>
+          <button onclick="document.getElementById('modal-tb-scan').remove()"
+            style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+              background:transparent;color:var(--text3);font-size:16px;cursor:pointer;line-height:1;">×</button>
+        </div>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;padding:14px 18px;">
+        ${s.meetings.length === 0
+          ? `<div style="text-align:center;padding:32px;font:500 13px/1.5 var(--font-ui);color:var(--text4);">
+              No meetings found — try a clearer photo of your calendar
+             </div>`
+          : meetingCards}
+      </div>
+
+      ${s.meetings.length > 0 ? `
+      <div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;">
+        <button onclick="_tbScanConfirm()"
+          style="width:100%;padding:14px;border-radius:var(--r3);border:none;
+            background:var(--accent);color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;
+            box-shadow:0 4px 16px rgba(21,101,192,0.3);">
+          ✓ Add to Timebox Planner
+        </button>
+      </div>` : ''}
+    </div>`;
+    m.onclick = e => { if(e.target===m) m.remove(); };
+    document.body.appendChild(m);
+  }
+}
+
+// Handle file chosen from photo library
+function _tbScanFromFile(input){
+  const file = input.files?.[0]; if(!file) return;
+  _tbScanStop(); // stop live camera if running
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1400, scale = Math.min(maxW/img.width, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      _tbScanState.imageData    = dataUrl.split(',')[1];
+      _tbScanState.imagePreview = dataUrl;
+      _tbScanState.step         = 'scanning';
+      _renderTbScanSheet();
+      _tbScanRun();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function _tbScanStartCamera(){
+  const video = document.getElementById('tbscan-video');
+  if(!video) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'environment', width:{ideal:1920}, height:{ideal:1440} }, audio:false
+    });
+    _tbScanState.stream = stream;
+    video.srcObject = stream;
+  } catch(e) {
+    showToast('Camera access needed — check browser settings');
+    document.getElementById('modal-tb-scan')?.remove();
+  }
+}
+
+function _tbScanStop(){
+  if(_tbScanState.stream){
+    _tbScanState.stream.getTracks().forEach(t=>t.stop());
+    _tbScanState.stream = null;
+  }
+}
+
+function _tbScanCapture(){
+  const video  = document.getElementById('tbscan-video');
+  const canvas = document.getElementById('tbscan-canvas');
+  if(!video||!canvas) return;
+
+  // Flash
+  const flash = document.createElement('div');
+  flash.style.cssText='position:fixed;inset:0;background:#fff;opacity:0.7;z-index:9999;pointer-events:none;';
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.remove(), 120);
+
+  const maxW = 1400, scale = Math.min(maxW/video.videoWidth,1);
+  canvas.width  = Math.round(video.videoWidth*scale);
+  canvas.height = Math.round(video.videoHeight*scale);
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg',0.88);
+
+  _tbScanStop(); // camera off immediately
+
+  _tbScanState.imageData    = dataUrl.split(',')[1];
+  _tbScanState.imagePreview = dataUrl;
+  _tbScanState.step         = 'scanning';
+  _renderTbScanSheet();
+  _tbScanRun();
+}
+
+// ── AI extraction ─────────────────────────────────────────────
+async function _tbScanRun(){
+  const weekDates = _tbWeekDates();
+  const weekStr   = weekDates[0] + ' to ' + weekDates[6];
+
+  try {
+    const raw = await aiCallVision([{
+      role: 'user',
+      content: [
+        { type:'image', source:{ type:'base64', media_type:'image/jpeg', data:_tbScanState.imageData } },
+        { type:'text', text:
+`This is a photo of a work calendar (likely Outlook or similar).
+The week shown is approximately ${weekStr}. Today is ${today()}.
+
+Identify every meeting, appointment, or event visible.
+Return ONLY a JSON array — no markdown, no explanation:
+[
+  {
+    "title": "Meeting name",
+    "suggestedDate": "YYYY-MM-DD",
+    "suggestedStart": "HH:MM",
+    "suggestedEnd": "HH:MM",
+    "suggestedDur": 60,
+    "notes": "Brief context if visible (organiser, location, etc)"
+  }
+]
+
+Rules:
+- suggestedDur is integer minutes, calculated from start–end if visible, else estimate 60
+- 24h time format
+- If date is unclear, use the most likely date from the week ${weekStr}
+- If no meetings visible, return []
+- Do NOT create calendar events — this is read-only extraction`
+        }
+      ]
+    }], 1200);
+
+    const clean    = raw.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+    const meetings = JSON.parse(clean);
+    _tbScanState.meetings = Array.isArray(meetings) ? meetings : [];
+    _tbScanState.step     = 'place';
+  } catch(e) {
+    console.error('[tbScan]', e);
+    showToast('Could not read calendar — try a clearer photo');
+    _tbScanState.step = 'camera';
+    _tbScanState.stream = null;
+  }
+  _renderTbScanSheet();
+}
+
+// ── Duration button helpers ───────────────────────────────────
+function _tbScSetDur(i, n){
+  const inp = document.getElementById('tbsc-dur-'+i);
+  if(inp) inp.value = n;
+  _tbScHighlightDur(i, n);
+}
+
+function _tbScHighlightDur(i, n){
+  [30,60,90].forEach(v=>{
+    const btn = document.getElementById(`tbscd-${i}-${v}`);
+    if(!btn) return;
+    const sel = v===n;
+    btn.style.borderColor = sel ? TB_COLORS.meeting      : 'var(--border)';
+    btn.style.background  = sel ? TB_COLORS.meeting+'18' : 'transparent';
+    btn.style.color       = sel ? TB_COLORS.meeting      : 'var(--text4)';
+    btn.style.fontWeight  = sel ? '700'                  : '500';
+  });
+}
+
+// ── Confirm: add checked meetings to tbBlocks ─────────────────
+function _tbScanConfirm(){
+  const s = _tbScanState;
+  let added = 0;
+
+  s.meetings.forEach((mtg, i) => {
+    const chk = document.getElementById('tbsc-chk-'+i);
+    if(!chk?.checked) return;
+
+    const dateVal = document.getElementById('tbsc-date-'+i)?.value || today();
+    const timeVal = document.getElementById('tbsc-time-'+i)?.value || '09:00';
+    const durVal  = parseInt(document.getElementById('tbsc-dur-'+i)?.value) || 60;
+
+    const [hh, mm] = timeVal.split(':').map(Number);
+    const startMin = hh*60 + (mm||0);
+
+    if(!tbBlocks[dateVal]) tbBlocks[dateVal] = [];
+    tbBlocks[dateVal].push({
+      id:       'tbm-' + Date.now() + '-' + i,
+      title:    mtg.title,
+      src:      'cal-scan',
+      srcId:    null,
+      startMin,
+      durMin:   durVal,
+      color:    TB_COLORS.meeting,
+      done:     false,
+      notes:    mtg.notes || ''
+    });
+    tbBlocks[dateVal].sort((a,b)=>a.startMin-b.startMin);
+    added++;
+  });
+
+  if(added > 0){
+    saveTbBlocks();
+    document.getElementById('modal-tb-scan')?.remove();
+    renderAll();
+    showToast(`📅 ${added} meeting${added!==1?'s':''} added to Timebox planner`);
+  } else {
+    showToast('Select at least one meeting to add');
+  }
 }
 
 function renderMeetingsPage(container){
