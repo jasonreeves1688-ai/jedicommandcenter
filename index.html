@@ -12611,8 +12611,8 @@ function _renderAllInner(){
     renderIntelPage(main); return;
   }
   // waiting and tasks route into commitments with pre-set filter
-  if(activeNav==='waiting'){ window._cvFilter='waiting'; setNav('commitments'); return; }
-  if(activeNav==='tasks'){   window._cvFilter='action';  setNav('commitments'); return; }
+  if(activeNav==='waiting'){ _cvFilter='waiting'; setNav('commitments'); return; }
+  if(activeNav==='tasks'){   _cvFilter='action';  setNav('commitments'); return; }
   if(activeNav==='settings'){renderSettings(main);return;}
   if(activeNav==="kids"){renderKidsGame(main);return;}
   if(activeNav==="games"){renderGamesPage(main);return;}
@@ -12942,7 +12942,7 @@ function renderCommitmentsPage(container){
         const sel = _cvFilter === t.key;
         const cnt = t.key==='all' ? totalActive : (typeCounts[t.key]||0);
         const badge = cnt > 0 ? ` <span style="font:700 10px/1 var(--font-ui);background:${sel?'rgba(21,101,192,0.15)':'var(--surface3)'};color:${sel?'var(--accent)':'var(--text4)'};padding:1px 5px;border-radius:8px;">${cnt}</span>` : '';
-        return `<button data-cvkey="${t.key}" onclick="window._cvFilter=this.dataset.cvkey;renderAll();"
+        return `<button data-cvkey="${t.key}" onclick="_cvFilter=this.dataset.cvkey;renderAll();"
           style="flex:1;min-width:60px;padding:10px 4px 9px;border:none;background:transparent;
             font:${sel?'700':'500'} 11px/1 var(--font-ui);color:${sel?'var(--accent)':'var(--text3)'};
             border-bottom:${sel?'2px solid var(--accent)':'2px solid transparent'};
@@ -12962,7 +12962,7 @@ function renderCommitmentsPage(container){
           value="${esc(_cvSearch)}"
           style="flex:1;border:none;background:transparent;color:var(--text);
             font:500 14px/1 var(--font-ui);outline:none;"
-          oninput="_cvSearch=this.value;renderAll()"/>
+          oninput="_cvSearch=this.value;_cvRefreshList()"/>
         ${_cvSearch ? `<button onclick="_cvSearch='';renderAll();"
           style="border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;">✕</button>` : ''}
       </div>
@@ -12976,14 +12976,8 @@ function renderCommitmentsPage(container){
         <option value="type"  ${_cvSort==='type'?'selected':''}>By type</option>
       </select>
     </div>
-    <!-- Type filter chips — horizontal scroll -->
-    <div style="display:flex;gap:6px;padding:10px 14px;overflow-x:auto;
-      -webkit-overflow-scrolling:touch;flex-shrink:0;border-bottom:1px solid var(--border);
-      background:var(--surface);">
-      ${chipsHtml}
-    </div>
     <!-- List -->
-    <div style="flex:1;overflow-y:auto;">
+    <div id="cv-list" style="flex:1;overflow-y:auto;">
       ${items.length === 0 ? emptyHtml : items.map(renderRow).join('')}
       <!-- Show done toggle -->
       <div style="padding:14px 16px;text-align:center;">
@@ -12995,6 +12989,23 @@ function renderCommitmentsPage(container){
       </div>
     </div>
   </div>`;
+}
+// ── Targeted list-only refresh (preserves search input focus) ────────────────
+// renderAll() destroys and recreates the input, losing focus after each keystroke.
+// This saves the cursor position, calls renderAll, then restores focus + cursor.
+function _cvRefreshList(){
+  const el = document.getElementById('cv-search');
+  const selStart = el ? el.selectionStart : null;
+  const selEnd   = el ? el.selectionEnd   : null;
+  renderAll();
+  // After renderAll the old input is gone — find the new one and restore focus
+  requestAnimationFrame(() => {
+    const newEl = document.getElementById('cv-search');
+    if(newEl){
+      newEl.focus();
+      try { newEl.setSelectionRange(selStart, selEnd); } catch(e){}
+    }
+  });
 }
 // ── Quick complete from list ──────────────────────────────────
 function _cvComplete(id){
@@ -15781,6 +15792,12 @@ let waitingPersonFilters = new Set(); // Set of person IDs, empty = show all
 let meetingPersonFilter = ''; // kept for legacy compat
 let meetingPersonFilters = new Set(); // multi-select set of person IDs
 // ── Client Intelligence data ─────────────────────────────────
+const _CLIENT_HEALTH = {
+  active:    { label:'Active',    color:'#4CAF50', dot:'🟢' },
+  atrisk:    { label:'At Risk',   color:'#FF9800', dot:'🟠' },
+  churned:   { label:'Churned',   color:'#F44336', dot:'🔴' },
+  prospect:  { label:'Prospect',  color:'#2196F3', dot:'🔵' },
+};
 let clientOrgs    = loadHubData('hub-client-orgs', []);
 // {id, name, segment, industry, health('active'|'atrisk'|'churned'|'prospect'),
 //  contactIds[], notes, createdAt, updatedAt}
