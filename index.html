@@ -15817,7 +15817,8 @@ let teamMeetings   = loadHubData('hub-team-meetings', []);
 let commsOwed      = loadHubData('hub-comms-owed', []);
 // {id, recipient, what, dueDate, context, done, createdAt}
 let meetingSearchQuery  = ''; // keyword search on meetings tab
-let meetingPageTab      = 'recurring'; // 'recurring' | 'log'
+let meetingPageTab      = 'people'; // 'people' | 'recurring' | 'log'
+let _mtPersonId         = null;       // selected person in people-centric view
 // ── New hub data (persisted to cloud via getCloudStats) ──────────
 function loadHubData(key, def){ try{ const r=localStorage.getItem(key); return r?JSON.parse(r):def; }catch(e){ return def; } }
 function saveHubData(key, val){
@@ -22824,8 +22825,265 @@ function renderMeetingsPage(container){
     </div>` : '';
   // ── Assemble page ─────────────────────────────────────────────
   const isRecurring = meetingPageTab === 'recurring';
-  const logCount = meetingLog.length;
+  const isPeople    = meetingPageTab === 'people';
+  const isLog       = meetingPageTab === 'log';
+  const logCount    = meetingLog.length;
   const seriesCount = meetingSeries.length;
+
+  // ── People tab: auto-select first person if none selected ─────
+  if(isPeople && !_mtPersonId){
+    // Prefer people who have meetings, then fall back to all people
+    const hasMeeting = (unifiedPeople.length ? unifiedPeople : peopleList)
+      .filter(p => meetingLog.some(m => (m.personIds||'').split(',').includes(p.id)));
+    const pool = hasMeeting.length ? hasMeeting : (unifiedPeople.length ? unifiedPeople : peopleList);
+    if(pool.length) _mtPersonId = pool[0].id;
+  }
+
+  // ── People tab render ─────────────────────────────────────────
+  if(isPeople){
+    const allPeople = (unifiedPeople.length ? unifiedPeople : peopleList)
+      .filter(p => p.name)
+      .sort((a,b) => {
+        // People with meetings first, then alpha
+        const aHas = meetingLog.some(m=>(m.personIds||'').split(',').includes(a.id)) ? 0 : 1;
+        const bHas = meetingLog.some(m=>(m.personIds||'').split(',').includes(b.id)) ? 0 : 1;
+        if(aHas !== bHas) return aHas - bHas;
+        return a.name.localeCompare(b.name);
+      });
+
+    const selPerson   = allPeople.find(p => p.id === _mtPersonId) || allPeople[0];
+    const selPersonId = selPerson?.id || null;
+
+    // Person's meetings sorted newest first
+    const personMeetings = selPersonId
+      ? meetingLog.filter(m => (m.personIds||'').split(',').filter(Boolean).includes(selPersonId))
+          .sort((a,b) => b.date.localeCompare(a.date))
+      : [];
+
+    // Commitments linked to this person
+    const personCommits = selPersonId
+      ? getCommitments({ active: false }).filter(c =>
+          (c.personIds||'').split(',').includes(selPersonId) ||
+          personMeetings.some(m => c.source === 'meeting:'+m.id)
+        )
+      : [];
+    const openCommits  = personCommits.filter(c => c.status !== 'done' && c.status !== 'cancelled');
+    const doneCommits  = personCommits.filter(c => c.status === 'done' || c.status === 'cancelled');
+
+    const rt = selPerson ? (RELATIONSHIP_TYPES[selPerson.relationshipType] || RELATIONSHIP_TYPES.colleague) : null;
+    const pc = rt?.color || '#64B5F6';
+
+    container.innerHTML = `
+      <!-- Header -->
+      <div style="padding:12px 14px 0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Meetings</div>
+        <button onclick="openMeetingCapture(null,null,null,${selPersonId?`'${selPersonId}'`:null})"
+          style="padding:6px 14px;border-radius:7px;border:none;background:var(--accent);
+            color:#fff;font:700 12px/1 var(--font-ui);cursor:pointer;">+ Log Meeting</button>
+      </div>
+      <!-- Tab bar -->
+      <div style="display:flex;padding:10px 14px 0;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <button onclick="meetingPageTab='people';renderAll();"
+          style="flex:1;padding:8px 0;border:none;border-bottom:2px solid var(--accent);
+            background:transparent;color:var(--accent);font:800 13px/1 var(--font-ui);cursor:pointer;">
+          👤 By Person
+        </button>
+        <button onclick="meetingPageTab='recurring';renderAll();"
+          style="flex:1;padding:8px 0;border:none;border-bottom:2px solid transparent;
+            background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">
+          🔁 Recurring
+        </button>
+        <button onclick="meetingPageTab='log';renderAll();"
+          style="flex:1;padding:8px 0;border:none;border-bottom:2px solid transparent;
+            background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">
+          📋 Log
+        </button>
+      </div>
+      <!-- Two-column layout -->
+      <div style="flex:1;display:flex;overflow:hidden;">
+        <!-- LEFT RAIL: person list -->
+        <div style="width:200px;flex-shrink:0;border-right:1px solid var(--border);
+            overflow-y:auto;background:var(--surface);padding:8px 0;">
+          ${allPeople.length === 0
+            ? `<div style="padding:20px 12px;text-align:center;color:var(--text4);font:500 12px/1.4 var(--font-ui);">No people yet</div>`
+            : allPeople.map(p => {
+                const prt  = RELATIONSHIP_TYPES[p.relationshipType] || RELATIONSHIP_TYPES.colleague;
+                const col  = prt.color;
+                const sel  = p.id === selPersonId;
+                const mCnt = meetingLog.filter(m=>(m.personIds||'').split(',').includes(p.id)).length;
+                const openCnt = getCommitments({active:true}).filter(c=>(c.personIds||'').split(',').includes(p.id)).length;
+                return `<div data-pid="${p.id}" onclick="_mtPersonId=this.dataset.pid;renderAll();"
+                    style="display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;
+                      background:${sel?col+'18':'transparent'};
+                      border-left:3px solid ${sel?col:'transparent'};
+                      transition:background 0.1s;">
+                  ${renderAvatar(p.name, p.photo, 30, col+'22', col, false)}
+                  <div style="flex:1;min-width:0;">
+                    <div style="font:${sel?'700':'500'} 12px/1.3 var(--font-ui);color:${sel?'var(--text)':'var(--text2)'};
+                      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(p.name)}</div>
+                    <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+                      ${mCnt > 0 ? `${mCnt} mtg${mCnt!==1?'s':''}` : 'no meetings'}${openCnt > 0 ? ` · <span style="color:var(--accent);">${openCnt} open</span>` : ''}
+                    </div>
+                  </div>
+                </div>`;
+              }).join('')
+          }
+        </div>
+        <!-- RIGHT PANEL: meeting history + commitments for selected person -->
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
+          ${!selPerson
+            ? `<div style="padding:40px 20px;text-align:center;color:var(--text4);">Select a person</div>`
+            : `<!-- Person header -->
+              <div style="padding:14px 16px 12px;border-bottom:1px solid var(--border);
+                  display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--surface);">
+                ${renderAvatar(selPerson.name, selPerson.photo, 44, pc+'22', pc, false)}
+                <div style="flex:1;min-width:0;">
+                  <div style="font:700 15px/1.3 var(--font-ui);color:var(--text);">${esc(selPerson.name)}</div>
+                  <div style="font:500 11px/1 var(--font-ui);color:${pc};margin-top:3px;">
+                    ${rt?.emoji||''} ${rt?.label||''} ${selPerson.role?'· '+esc(selPerson.role):''}
+                  </div>
+                </div>
+                <button onclick="openMeetingCapture(null,null,null,'${selPersonId}')"
+                  style="padding:7px 14px;border-radius:7px;border:none;background:var(--accent);
+                    color:#fff;font:700 12px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">
+                  + Log
+                </button>
+              </div>
+              <!-- Open commitments strip -->
+              ${openCommits.length > 0 ? `
+              <div style="padding:10px 16px 4px;background:var(--surface2);border-bottom:1px solid var(--border);">
+                <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:.5px;margin-bottom:6px;">
+                  ⚡ OPEN ACTIONS (${openCommits.length})
+                </div>
+                ${openCommits.slice(0,8).map(c => {
+                  const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
+                  const isOv = c.dueDate && c.dueDate < today();
+                  return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;
+                      border-bottom:1px solid var(--border);">
+                    <button onclick="_cvComplete('${c.id}')"
+                      style="width:18px;height:18px;border-radius:50%;border:2px solid ${isOv?'var(--red)':ct.color};
+                        background:transparent;cursor:pointer;flex-shrink:0;"></button>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font:500 12px/1.3 var(--font-ui);color:${isOv?'var(--red)':'var(--text)'};
+                        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
+                      ${c.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${isOv?'var(--red)':'var(--text4)'};">due ${c.dueDate}</div>`:''}
+                    </div>
+                    <span style="font:500 10px/1 var(--font-ui);color:${ct.color};
+                      background:${ct.color}18;padding:1px 6px;border-radius:4px;flex-shrink:0;">
+                      ${ct.emoji} ${ct.label}
+                    </span>
+                  </div>`;
+                }).join('')}
+                ${openCommits.length > 8 ? `<div style="padding:4px 0;font:500 11px/1 var(--font-ui);color:var(--text4);">+${openCommits.length-8} more</div>` : ''}
+              </div>` : ''}
+              <!-- Meeting history -->
+              <div style="flex:1;overflow-y:auto;">
+                ${personMeetings.length === 0
+                  ? `<div style="padding:40px 20px;text-align:center;color:var(--text4);font:500 13px/1.5 var(--font-ui);">
+                      <div style="font-size:28px;margin-bottom:8px;">📭</div>
+                      No meetings logged with ${esc(selPerson.name)} yet.
+                      <br><br>
+                      <button onclick="openMeetingCapture(null,null,null,'${selPersonId}')"
+                        style="padding:8px 18px;border-radius:8px;border:1px solid var(--accent);
+                          background:rgba(232,168,56,0.08);color:var(--accent);
+                          font:700 12px/1 var(--font-ui);cursor:pointer;">+ Log first meeting</button>
+                    </div>`
+                  : personMeetings.map((m, idx) => {
+                      const mOpenTasks = commitments.filter(c =>
+                        c.source === 'meeting:'+m.id && c.status !== 'done' && c.status !== 'cancelled'
+                      );
+                      const mAllCommits = commitments.filter(c => c.source === 'meeting:'+m.id);
+                      const legacyMyLines = (m.myCommits||'').split('\n').filter(s=>s.trim());
+                      const legacyTheirLines = (m.theirCommits||'').split('\n').filter(s=>s.trim());
+                      const isFirst = idx === 0;
+                      return `<div style="border-bottom:1px solid var(--border);">
+                        <!-- Meeting row header -->
+                        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;
+                            cursor:pointer;background:${isFirst?'var(--surface2)':'transparent'};"
+                            onclick="openMeetingCapture('${m.id}')">
+                          <div style="display:flex;flex-direction:column;align-items:center;
+                              width:38px;flex-shrink:0;padding-top:2px;">
+                            <div style="font:700 13px/1 var(--font-ui);color:var(--text);">
+                              ${new Date(m.date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                            </div>
+                            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+                              ${new Date(m.date+'T12:00').getFullYear()}
+                            </div>
+                          </div>
+                          <div style="flex:1;min-width:0;">
+                            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                              ${esc(m.title||'Meeting')}
+                            </div>
+                            <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;">
+                              ${mOpenTasks.length > 0 ? `<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.12);padding:1px 6px;border-radius:4px;">⚡ ${mOpenTasks.length} open</span>` : ''}
+                              ${mAllCommits.length > 0 && mOpenTasks.length === 0 ? `<span style="font:700 10px/1 var(--font-ui);color:var(--green);background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">✓ all done</span>` : ''}
+                              ${m.decisions ? `<span style="font:700 10px/1 var(--font-ui);color:#66BB6A;background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">📌 decision</span>` : ''}
+                              ${m.theirCommits?.trim() ? `<span style="font:700 10px/1 var(--font-ui);color:#64B5F6;background:rgba(100,181,246,0.1);padding:1px 6px;border-radius:4px;">⏳ their action</span>` : ''}
+                            </div>
+                            ${m.notes ? `<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);margin-top:5px;
+                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                              ${m.notes.replace(/<[^>]+>/g,' ').trim().slice(0,100)}</div>` : ''}
+                          </div>
+                          <button onclick="event.stopPropagation();openMeetingCapture('${m.id}')"
+                            style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);
+                              background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">
+                            Edit
+                          </button>
+                        </div>
+                        <!-- Commitment lines from this meeting -->
+                        ${(mAllCommits.length > 0 || legacyMyLines.length > 0 || legacyTheirLines.length > 0) ? `
+                        <div style="padding:0 16px 10px 68px;">
+                          ${mAllCommits.map(c => {
+                            const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
+                            const isDone = c.status==='done'||c.status==='cancelled';
+                            const isOv = !isDone && c.dueDate && c.dueDate < today();
+                            return `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
+                              <button onclick="_cvComplete('${c.id}')"
+                                style="width:16px;height:16px;border-radius:50%;flex-shrink:0;cursor:pointer;
+                                  border:2px solid ${isDone?'var(--text4)':isOv?'var(--red)':ct.color};
+                                  background:${isDone?'var(--text4)':'transparent'};"></button>
+                              <span style="font:${isDone?'400':'500'} 12px/1.3 var(--font-ui);
+                                color:${isDone?'var(--text4)':isOv?'var(--red)':'var(--text2)'};
+                                text-decoration:${isDone?'line-through':'none'};flex:1;
+                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                ${esc(c.title)}
+                              </span>
+                              <span style="font:500 10px/1 var(--font-ui);color:${ct.color};flex-shrink:0;">
+                                ${ct.emoji}
+                              </span>
+                            </div>`;
+                          }).join('')}
+                          ${legacyMyLines.filter(l => !mAllCommits.some(c=>c.title===l)).map(l =>
+                            `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
+                              <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
+                                border:2px solid var(--text4);background:transparent;"></div>
+                              <span style="font:500 12px/1.3 var(--font-ui);color:var(--text2);flex:1;
+                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l)}</span>
+                              <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">me</span>
+                            </div>`
+                          ).join('')}
+                          ${legacyTheirLines.map(l =>
+                            `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
+                              <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
+                                border:2px solid #64B5F6;background:transparent;"></div>
+                              <span style="font:500 12px/1.3 var(--font-ui);color:var(--text2);flex:1;
+                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l)}</span>
+                              <span style="font:500 10px/1 var(--font-ui);color:#64B5F6;">them</span>
+                            </div>`
+                          ).join('')}
+                        </div>` : ''}
+                      </div>`;
+                    }).join('')
+                }
+              </div>`
+          }
+        </div>
+      </div>`;
+    setTimeout(resolveAvatarPhotos, 100);
+    return;
+  }
+
   container.innerHTML = `
     <!-- Header -->
     <div style="padding:12px 14px 0;display:flex;align-items:center;justify-content:space-between;">
@@ -22848,6 +23106,11 @@ function renderMeetingsPage(container){
     </div>
     <!-- Tab bar -->
     <div style="display:flex;gap:0;padding:10px 14px 0;border-bottom:1px solid var(--border);">
+      <button onclick="meetingPageTab='people';renderAll();"
+        style="flex:1;padding:8px 0;border:none;border-bottom:2px solid transparent;
+          background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;">
+        👤 By Person
+      </button>
       <button onclick="meetingPageTab='recurring';renderAll();"
         style="flex:1;padding:8px 0;border:none;border-bottom:2px solid ${isRecurring?'var(--accent)':'transparent'};
           background:transparent;color:${isRecurring?'var(--accent)':'var(--text3)'};
@@ -22857,16 +23120,16 @@ function renderMeetingsPage(container){
           padding:1px 5px;border-radius:8px;margin-left:3px;">${seriesCount}</span>`:''}
       </button>
       <button onclick="meetingPageTab='log';renderAll();"
-        style="flex:1;padding:8px 0;border:none;border-bottom:2px solid ${!isRecurring?'#BA68C8':'transparent'};
-          background:transparent;color:${!isRecurring?'#BA68C8':'var(--text3)'};
-          font:${!isRecurring?'800':'600'} 13px/1 var(--font-ui);cursor:pointer;transition:all 0.15s;">
+        style="flex:1;padding:8px 0;border:none;border-bottom:2px solid ${isLog?'#BA68C8':'transparent'};
+          background:transparent;color:${isLog?'#BA68C8':'var(--text3)'};
+          font:${isLog?'800':'600'} 13px/1 var(--font-ui);cursor:pointer;transition:all 0.15s;">
         📋 Log ${logCount>0?`<span style="font:700 10px/1 var(--font-ui);
-          background:${!isRecurring?'#BA68C8':'var(--border2)'};color:${!isRecurring?'#fff':'var(--text4)'};
+          background:${isLog?'#BA68C8':'var(--border2)'};color:${isLog?'#fff':'var(--text4)'};
           padding:1px 5px;border-radius:8px;margin-left:3px;">${logCount}</span>`:''}
       </button>
     </div>
     <!-- Log tab: search bar -->
-    ${!isRecurring?`
+    ${isLog?`
     <div style="padding:8px 12px;border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;
           border-radius:var(--r2);border:1.5px solid ${meetingSearchQuery?'var(--accent)':'var(--border)'};
@@ -24748,13 +25011,13 @@ function deleteMeeting(id){
   meetingLog = meetingLog.filter(m=>m.id!==id);
   saveMeetings(); renderAll();
 }
-function openMeetingCapture(existingId, seriesId, prevMeeting){
+function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
   _activePickerList = peopleList;
   const existing = existingId ? meetingLog.find(m=>m.id===existingId) : null;
   const series   = seriesId ? meetingSeries.find(s=>s.id===seriesId) : null;
   const old = document.getElementById('modal-meeting');
   if(old) old.remove();
-  const existingPersonIds = existing?.personIds || series?.personIds || '';
+  const existingPersonIds = existing?.personIds || series?.personIds || (prePersonId||'');
   const captureTitle = existing?.title || series?.name || '';
   const m=document.createElement('div');
   m.id='modal-meeting'; m.className='modal-overlay fullscreen';
