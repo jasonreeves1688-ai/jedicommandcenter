@@ -16675,7 +16675,18 @@ function renderTodayView(container){
   const dueTodayUnpinned=tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate===todayStr&&!todayPinned.has(t.id));
   const pinnedTasks    = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
   const pinnedDone     = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
+  // Non-task pinned commitments (waiting, delegation, comms, etc.)
+  const taskIds        = new Set(tasks.map(t=>t.id));
+  const pinnedCommits  = [...todayPinned]
+    .filter(id => !taskIds.has(id))
+    .map(id => commitments.find(c=>c.id===id))
+    .filter(c => c && c.status!=='done' && c.status!=='cancelled');
+  const pinnedCommitsDone = [...todayPinned]
+    .filter(id => !taskIds.has(id))
+    .map(id => commitments.find(c=>c.id===id))
+    .filter(c => c && (c.status==='done'||c.status==='cancelled'));
   const focusTasks     = [...pinnedTasks,...dueTodayUnpinned.filter(t=>!todayPinned.has(t.id))];
+  const focusCommits   = pinnedCommits; // non-task pinned commitments
   const nudges2        = getPeopleNudges();
   const urgentWF       = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
   const _activeTasks   = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
@@ -17011,13 +17022,13 @@ function renderTodayView(container){
     </div>`;
   }
   // ── 6. TODAY'S FOCUS (pinned + due today) ───────────────────
-  if(focusTasks.length > 0 || pinnedDone.length > 0){
+  if(focusTasks.length > 0 || pinnedDone.length > 0 || focusCommits.length > 0 || pinnedCommitsDone.length > 0){
     html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
       <div class="today-card-header">
         <div class="today-card-label">
           <div class="today-card-accent" style="background:var(--accent);"></div>
           <span class="today-card-title" style="color:var(--accent);">Today's Focus</span>
-          <span class="today-card-count">${focusTasks.length} active${pinnedDone.length>0?' · '+pinnedDone.length+' done':''}</span>
+          <span class="today-card-count">${focusTasks.length+focusCommits.length} active${(pinnedDone.length+pinnedCommitsDone.length)>0?' · '+(pinnedDone.length+pinnedCommitsDone.length)+' done':''}</span>
         </div>
         <button onclick="openTodayPicker()" class="today-card-action">+ Add</button>
       </div>
@@ -17033,7 +17044,25 @@ function renderTodayView(container){
           :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>`;
         return tRow(t,'var(--accent)',badge,pinBtn);
       }).join('')}
-      ${pinnedDone.length>0?`
+      ${focusCommits.map(c=>{
+        const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
+        const isOv = c.dueDate&&c.dueDate<todayStr;
+        const person = c.personIds ? findPerson(c.personIds.split(',')[0]) : null;
+        return `<div class="today-card-row" onclick="_cvOpenEdit('${c.id}')">
+          <button class="today-check-btn" style="color:${ct.color};"
+            onclick="event.stopPropagation();_cvComplete('${c.id}')">✓</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:${ct.color};background:${ct.color}14;padding:2px 6px;border-radius:5px;">${ct.emoji} ${ct.label}</span>
+              ${person?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">👤 ${esc(person.name.split(' ')[0])}</span>`:''}
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ overdue</span>`:c.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${c.dueDate.slice(5)}</span>`:''}
+            </div>
+          </div>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${c.id}')" title="Remove">✕</button>
+        </div>`;
+      }).join('')}
+      ${(pinnedDone.length+pinnedCommitsDone.length)>0?`
         <div style="padding:var(--sp1) var(--sp3);border-top:1px solid var(--border);
             font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">DONE</div>
         ${pinnedDone.map(t=>{
@@ -17049,6 +17078,21 @@ function renderTodayView(container){
               ${proj?`<div style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</div>`:''}
             </div>
             <button onclick="toggleTodayPin('${t.id}')" class="today-icon-btn" title="Remove">✕</button>
+          </div>`;
+        }).join('')}
+        ${pinnedCommitsDone.map(c=>{
+          const ct=COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
+          return `<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);
+              border-top:1px solid var(--border);opacity:0.45;">
+            <div style="width:40px;height:40px;border-radius:50%;border:2px solid var(--green);
+              background:var(--green-soft);color:var(--green);font-size:13px;flex-shrink:0;
+              display:flex;align-items:center;justify-content:center;">✓</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font:600 13px/1 var(--font-ui);color:var(--text3);text-decoration:line-through;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
+              <span style="font:700 9px/1 var(--font-ui);color:${ct.color};">${ct.emoji} ${ct.label}</span>
+            </div>
+            <button onclick="toggleTodayPin('${c.id}')" class="today-icon-btn" title="Remove">✕</button>
           </div>`;
         }).join('')}`:''}
     </div>`;
@@ -24899,81 +24943,194 @@ function submitAddContact(){
   openAddContactModal();
 }
 function openAddPersonModal(editId){
-  const existing = editId ? peopleList.find(p=>p.id===editId) : null;
+  const existing = editId
+    ? (unifiedPeople.find(p=>p.id===editId) || peopleList.find(p=>p.id===editId))
+    : null;
   const old = document.getElementById('modal-person');
   if(old) old.remove();
-  const m=document.createElement('div');
-  m.id='modal-person'; m.className='modal-overlay';
-  m.innerHTML=`<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;">
-    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span style="font:800 15px/1 var(--font-ui);color:var(--text);">${existing?'✏ Edit Person':'👤 Add Person'}</span>
-      <button class="modal-close" onclick="closeModal('modal-person')">✕</button>
+  const m = document.createElement('div');
+  m.id = 'modal-person'; m.className = 'modal-overlay'; m.style.cssText = 'align-items:flex-end;';
+  const curRt = existing?.relationshipType || (existing?.isDirectReport ? 'direct_report' : 'colleague');
+  const rtBtns = Object.entries(RELATIONSHIP_TYPES).map(([k,v])=>{
+    const sel = curRt === k;
+    return `<button type="button" class="ap-rt-btn" data-val="${k}"
+      onclick="_apSetRt('${k}','${v.color}')"
+      style="padding:8px 10px;border-radius:20px;min-height:40px;
+        border:2px solid ${sel?v.color:'var(--border)'};
+        background:${sel?v.color+'14':'transparent'};
+        color:${sel?v.color:'var(--text3)'};
+        font:${sel?'700':'500'} 11px/1.2 var(--font-ui);cursor:pointer;flex-shrink:0;">
+      ${v.emoji} ${v.label}</button>`;
+  }).join('');
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="width:100%;max-width:480px;background:var(--surface);border-radius:20px 20px 0 0;
+      max-height:min(92vh,92dvh);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:1px solid var(--border);">
+      <div style="font:700 15px/1 var(--font-ui);color:var(--text);">${existing?'✏ Edit Person':'👤 Add Person'}</div>
+      <button onclick="closeModal('modal-person')" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:16px;cursor:pointer;">✕</button>
     </div>
-    <div class="field-group">
-      <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
-      <div style="display:flex;align-items:center;gap:var(--sp3);margin-bottom:var(--sp2);">
-        <div onclick="pickContactPhoto('','person-photo-preview','person-photo')"
-          style="width:60px;height:60px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;position:relative;">
-          <img id="person-photo-preview" src="${existing?.photo||''}" alt="" style="width:60px;height:60px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
-          <span style="font-size:22px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;">
+      <!-- Photo + Name -->
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div onclick="pickContactPhoto('','ap-photo-preview','ap-photo')"
+          style="width:56px;height:56px;border-radius:50%;background:var(--surface2);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden;">
+          <img id="ap-photo-preview" src="${existing?.photo||''}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:50%;display:${existing?.photo?'block':'none'};"/>
+          <span id="ap-photo-icon" style="font-size:20px;color:var(--text4);${existing?.photo?'display:none':''}">📷</span>
         </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font:var(--type-caption);color:var(--text3);margin-bottom:4px;">Tap photo to change</div>
-          <input id="person-name" class="field-input" placeholder="Name…" autocomplete="off" value="${existing?esc(existing.name):''}" style="margin:0;"/>
-        </div>
+        <input id="ap-name" class="field-input" placeholder="Full name…" autocomplete="off"
+          style="flex:1;margin:0;font-size:16px;" value="${existing?esc(existing.name||''):''}"/>
       </div>
-      <input type="hidden" id="person-photo" value="${existing?.photo||''}"/>
-      <input id="person-role" class="field-input" placeholder="Role or title (optional)…" autocomplete="off" value="${existing?esc(existing.role||''):''}"/>
-      <input id="person-department" class="field-input" placeholder="Department (optional)…" autocomplete="off" value="${existing?esc(existing.department||''):''}"/>
-      <div style="margin-bottom:var(--sp2);">
-        <div class="chip-label">Direct Report</div>
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);cursor:pointer;">
-          <input type="checkbox" id="person-direct-report" ${existing?.isDirectReport?'checked':''} style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;"/>
-          <div>
-            <div style="font:700 13px/1 var(--font-ui);color:var(--text);">This person reports to me</div>
-            <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">Shows in Team leadership view with delegations &amp; 1:1s</div>
-          </div>
-        </label>
+      <input type="hidden" id="ap-photo" value="${existing?.photo||''}"/>
+      <!-- Relationship type -->
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;">Relationship</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${rtBtns}</div>
+        <input type="hidden" id="ap-rt" value="${curRt}"/>
       </div>
-      <div style="margin-bottom:var(--sp2);">
-        <div class="chip-label">Priority</div>
-        <div style="display:flex;gap:6px;">
-          ${['High','Medium','Low'].map(lvl=>{
-            const c = lvl==='High'?'#ff6060':lvl==='Medium'?'#E8A838':'#888';
-            const cur = existing?.priority||'Medium';
-            const sel = cur===lvl;
-            return `<button type="button"
-              onclick="document.querySelectorAll('.pp-chip').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('person-priority').value='${lvl}';"
-              class="pp-chip"
-              style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font-family:var(--font-ui);font-size:12px;font-weight:700;cursor:pointer;">${lvl}</button>`;
-          }).join('')}
-        </div>
-        <input type="hidden" id="person-priority" value="${existing?.priority||'Medium'}"/>
-      </div>
-      <input type="hidden" id="person-edit-id" value="${editId||''}"/>
-    </div>
-    <div class="modal-actions">
-      <button onclick="submitAddPerson()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Person'}</button>
+      <!-- Conditional fields — rendered by JS based on type -->
+      <div id="ap-fields"></div>
+      <input type="hidden" id="ap-edit-id" value="${editId||''}"/>
+      <button onclick="submitAddPerson()"
+        style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);
+          color:#fff;font:800 15px/1 var(--font-ui);cursor:pointer;">
+        ${existing?'✓ Save Changes':'+ Add Person'}
+      </button>
     </div>
   </div>`;
-  m.onclick=e=>{ if(e.target===m) closeModal('modal-person'); };
+  m.onclick = e => { if(e.target===m) closeModal('modal-person'); };
   document.body.appendChild(m);
   openModal('modal-person');
-  setTimeout(()=>document.getElementById('person-name').focus(),150);
+  _apRenderFields(curRt, existing);
+  setTimeout(()=>document.getElementById('ap-name')?.focus(), 150);
+}
+// Render conditional fields based on relationship type
+function _apRenderFields(rt, existing){
+  const el = document.getElementById('ap-fields'); if(!el) return;
+  const p = existing || {};
+  const isWork      = rt==='direct_report'||rt==='colleague';
+  const isClient    = rt==='client_contact';
+  const isPersonal  = rt==='personal'||rt==='external';
+  let html = '';
+  // Role — always shown
+  html += `<input id="ap-role" class="field-input" style="margin:0;" placeholder="Role or title…" autocomplete="off" value="${esc(p.role||'')}"/>`;
+  if(isWork){
+    html += `<input id="ap-department" class="field-input" style="margin:0;" placeholder="Department (optional)…" autocomplete="off" value="${esc(p.department||'')}"/>`;
+    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;margin-top:4px;">Priority</div>
+      <div style="display:flex;gap:6px;">
+        ${['High','Medium','Low'].map(lvl=>{
+          const c=lvl==='High'?'#ff6060':lvl==='Medium'?'#E8A838':'#888';
+          const cur=p.priority||'Medium'; const sel=cur===lvl;
+          return `<button type="button" class="ap-pri-btn" data-val="${lvl}"
+            onclick="document.querySelectorAll('.ap-pri-btn').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('ap-priority').value='${lvl}';"
+            style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font:700 12px/1 var(--font-ui);cursor:pointer;">${lvl}</button>`;
+        }).join('')}
+      </div>
+      <input type="hidden" id="ap-priority" value="${p.priority||'Medium'}"/>`;
+    if(rt==='direct_report'){
+      html += `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);cursor:pointer;">
+        <input type="checkbox" id="ap-direct-report" ${(p.isDirectReport||rt==='direct_report')?'checked':''} style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;"/>
+        <div>
+          <div style="font:700 13px/1 var(--font-ui);color:var(--text);">Reports to me</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">Shows in Team tab with 1:1s &amp; delegations</div>
+        </div>
+      </label>`;
+    }
+    html += `<div style="display:flex;gap:10px;">
+      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
+        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0=off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
+      </div>
+    </div>`;
+  } else if(isClient){
+    html += `<div style="display:flex;gap:10px;">
+      <div style="flex:2;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Client Org</div>
+        <select id="ap-org" class="field-input" style="margin:0;font-size:14px;color-scheme:dark;">
+          <option value="">None</option>
+          ${clientOrgs.map(o=>`<option value="${o.id}" ${(p.orgId||''===o.id)?'selected':''}>${esc(o.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
+        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
+      </div>
+    </div>`;
+    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Notes</div>
+      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>`;
+  } else {
+    // personal / external
+    html += `<div style="display:flex;gap:10px;">
+      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
+        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0=off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
+      </div>
+    </div>`;
+    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Notes</div>
+      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>`;
+  }
+  el.innerHTML = html;
+}
+// Called by relationship type buttons
+function _apSetRt(rt, col){
+  document.getElementById('ap-rt').value = rt;
+  document.querySelectorAll('.ap-rt-btn').forEach(b=>{
+    const sel = b.dataset.val === rt;
+    const v = RELATIONSHIP_TYPES[b.dataset.val];
+    b.style.borderColor = sel ? v.color : 'var(--border)';
+    b.style.background  = sel ? v.color+'14' : 'transparent';
+    b.style.color       = sel ? v.color : 'var(--text3)';
+    b.style.fontWeight  = sel ? '700' : '500';
+  });
+  // Preserve any already-typed values before re-rendering fields
+  const existingId = document.getElementById('ap-edit-id')?.value||'';
+  const existing = existingId ? (unifiedPeople.find(p=>p.id===existingId)||peopleList.find(p=>p.id===existingId)) : null;
+  const partial = {
+    role:       document.getElementById('ap-role')?.value||existing?.role||'',
+    department: document.getElementById('ap-department')?.value||existing?.department||'',
+    priority:   document.getElementById('ap-priority')?.value||existing?.priority||'Medium',
+    nudgeDays:  document.getElementById('ap-nudge')?.value||existing?.nudgeDays||'',
+    notes:      document.getElementById('ap-notes')?.value||existing?.notes||'',
+    orgId:      document.getElementById('ap-org')?.value||existing?.orgId||'',
+    isDirectReport: document.getElementById('ap-direct-report')?.checked??existing?.isDirectReport??false,
+    photo:      existing?.photo||'',
+  };
+  _apRenderFields(rt, partial);
 }
 function submitAddPerson(){
   _markModalClean();
-  const name=document.getElementById('person-name')?.value||'';
-  const role=document.getElementById('person-role')?.value||'';
-  const priority=document.getElementById('person-priority')?.value||'Medium';
-  const photo=document.getElementById('person-photo')?.value||'';
-  const department=document.getElementById('person-department')?.value||'';
-  const editId=document.getElementById('person-edit-id')?.value||'';
-  const isDirectReport=document.getElementById('person-direct-report')?.checked||false;
-  if(!name.trim()){ showToast('Need a name'); return; }
-  if(editId){ updatePerson(editId, name, role, priority, photo, department, isDirectReport); }
-  else { addPerson(name, role, priority, photo, department, isDirectReport); showToast('👤 Added ' + name.trim()); }
-  openAddPersonModal();
+  const name     = document.getElementById('ap-name')?.value.trim()||'';
+  const rt       = document.getElementById('ap-rt')?.value||'colleague';
+  const role     = document.getElementById('ap-role')?.value.trim()||'';
+  const dept     = document.getElementById('ap-department')?.value.trim()||'';
+  const priority = document.getElementById('ap-priority')?.value||'Medium';
+  const photo    = document.getElementById('ap-photo')?.value||'';
+  const isDirectReport = document.getElementById('ap-direct-report')?.checked || rt==='direct_report';
+  const nudge    = parseInt(document.getElementById('ap-nudge')?.value)||0;
+  const notes    = document.getElementById('ap-notes')?.value.trim()||'';
+  const orgId    = document.getElementById('ap-org')?.value||'';
+  const editId   = document.getElementById('ap-edit-id')?.value||'';
+  if(!name){ showToast('Name required'); return; }
+  if(editId){
+    // Update unifiedPeople primary
+    const ui = unifiedPeople.findIndex(p=>p.id===editId);
+    if(ui>=0){
+      unifiedPeople[ui] = { ...unifiedPeople[ui], name, relationshipType:rt, role, department:dept,
+        priority, photo, isDirectReport, nudgeDays:nudge||null, notes, orgId, updatedAt:today() };
+      saveUnifiedPeople();
+    }
+    // Mirror to legacy peopleList
+    const pi = peopleList.findIndex(p=>p.id===editId);
+    if(pi>=0){ peopleList[pi]={...peopleList[pi],name,role,priority,photo,department:dept,isDirectReport}; savePeople(); }
+    showToast('✓ Updated');
+  } else {
+    // New person — add to unifiedPeople + mirror to legacy
+    const id = 'p'+Date.now();
+    unifiedPeople.push({ id, name, relationshipType:rt, role, department:dept,
+      priority, photo, isDirectReport, nudgeDays:nudge||null, notes, orgId,
+      lastContact:'', contactHistory:[], createdAt:today(), updatedAt:today() });
+    saveUnifiedPeople();
+    peopleList.push({ id, name, role, priority, photo, department:dept, isDirectReport });
+    savePeople();
+    showToast('👤 Added ' + name);
+  }
+  closeModal('modal-person');
+  renderAll();
 }
 // ═══════════════════════════════════════════════════════════════
 // MEETING CAPTURE
