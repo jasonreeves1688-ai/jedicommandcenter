@@ -12796,8 +12796,11 @@ function renderCommitmentsPage(container){
   // Overdue → due today → by staleness → by priority → rest
   const _priOrd = {critical:0, high:1, medium:2, low:3};
   const _stale = c => {
-    if(!c.lastActedAt) return 9999;
-    return Math.floor((Date.now()-new Date(c.lastActedAt).getTime())/86400000);
+    const ref = c.lastActedAt || c.createdAt;
+    if(!ref) return 0;
+    const d = new Date(typeof ref === 'number' ? ref : ref);
+    if(isNaN(d.getTime())) return 0;
+    return Math.floor((Date.now()-d.getTime())/86400000);
   };
   if(_cvSort === 'smart'){
     items.sort((a,b)=>{
@@ -12918,6 +12921,16 @@ function renderCommitmentsPage(container){
             ${stale}d since action</span>` : ''}
         </div>
       </div>
+      <!-- Pin to Today -->
+      <button onclick="event.stopPropagation();toggleTodayPin('${c.id}')"
+        title="${todayPinned.has(c.id)?'Unpin from Today':'Pin to Today'}"
+        style="flex-shrink:0;padding:4px 6px;border:none;background:transparent;cursor:pointer;
+          font-size:14px;opacity:${todayPinned.has(c.id)?'1':'0.3'};
+          transition:opacity var(--t-fast);"
+        onmouseover="this.style.opacity='1'"
+        onmouseout="this.style.opacity='${todayPinned.has(c.id)?'1':'0.3'}'">
+        📌
+      </button>
     </div>`;
   };
   // ── Empty state ────────────────────────────────────────────
@@ -16813,20 +16826,7 @@ function renderTodayView(container){
         doneAction: `_clientIssueAct('${i.id}')`,
       });
     });
-    // ── People nudges due today ───────────────────────────────
-    const nudgesDue = unifiedPeople.filter(personNudgeDue);
-    nudgesDue.slice(0,4).forEach(p => {
-      const days = personDaysSinceContact(p);
-      briefItems.push({
-        urgency: 2,
-        icon: '💛', color: '#E8A838',
-        label: 'Reach out',
-        title: p.name,
-        sub: days === null ? 'Never contacted' : days+'d since last contact · every '+p.nudgeDays+'d',
-        action: `openPersonDetail('${p.id}')`,
-        doneAction: `logContact('${p.id}');renderAll();`,
-      });
-    });
+    // People nudges intentionally omitted here — they live under "Reach Out" section below
     // ── Stale waiting-fors (14+ days, no movement) ───────────
     const staleWF = getCommitments({ type:'waiting', active:true })
       .filter(c => {
@@ -21002,11 +21002,17 @@ function renderRelationshipsPage(container){
   content.style.cssText = 'flex:1;overflow:hidden;display:flex;flex-direction:column;';
   wrapper.appendChild(content);
   if(tab === 'clients'){
+    window._peopleFilter = null; // reset for when switching back to people tabs
     renderClientsPage(content);
+  } else if(tab === 'team'){
+    // Team tab always forces direct_report filter, no chips shown
+    window._peopleFilter = 'direct_report';
+    renderPeoplePage(content);
   } else {
-    // Set people filter based on tab
-    if(tab === 'team') window._peopleFilter = 'direct_report';
-    else window._peopleFilter = null; // renderPeoplePage will default to 'all'
+    // 'all' tab: preserve whatever chip filter the user set, defaulting to 'all'
+    // but exclude direct_reports from the 'all' tab (they live in Team tab)
+    if(window._peopleFilter === 'direct_report') window._peopleFilter = 'all';
+    if(!window._peopleFilter) window._peopleFilter = 'all';
     renderPeoplePage(content);
   }
 }
@@ -21031,7 +21037,12 @@ function renderPeoplePage(container){
   const filter = window._peopleFilter || 'all';
   const search = (window._peopleSearch||'').toLowerCase();
   let visible = allPeople;
-  if(filter !== 'all') visible = visible.filter(p=>p.relationshipType===filter);
+  if(filter === 'all'){
+    // In the Everyone tab, direct reports show in Team tab — exclude them here
+    visible = visible.filter(p=>p.relationshipType !== 'direct_report');
+  } else {
+    visible = visible.filter(p=>p.relationshipType===filter);
+  }
   if(search) visible = visible.filter(p=>
     (p.name||'').toLowerCase().includes(search) ||
     (p.role||'').toLowerCase().includes(search) ||
@@ -21052,9 +21063,12 @@ function renderPeoplePage(container){
   });
   const nudgeDueCount = allPeople.filter(personNudgeDue).length;
   // ── Chip config ────────────────────────────────────────────────
-  const chips = [
-    { key:'all',           label:'Everyone',      count:allPeople.length  },
-    { key:'direct_report', label:'Direct Reports',count:typeCounts.direct_report||0 },
+  // In team tab, show no chips (filter is fixed to direct_report)
+  // In all tab, show chips excluding direct_report (those live in Team tab)
+  const isTeamTab = window._peopleFilter === 'direct_report';
+  const allTabCount = allPeople.filter(p=>p.relationshipType!=='direct_report').length;
+  const chips = isTeamTab ? [] : [
+    { key:'all',           label:'Everyone',      count:allTabCount },
     { key:'colleague',     label:'Colleagues',    count:typeCounts.colleague||0 },
     { key:'client_contact',label:'Clients',       count:typeCounts.client_contact||0 },
     { key:'external',      label:'External',      count:typeCounts.external||0 },
@@ -24889,13 +24903,13 @@ function openAddPersonModal(editId){
   const old = document.getElementById('modal-person');
   if(old) old.remove();
   const m=document.createElement('div');
-  m.id='modal-person'; m.className='modal-overlay fullscreen';
-  m.innerHTML=`<div class="modal-fullscreen" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">👥 People</div>
+  m.id='modal-person'; m.className='modal-overlay';
+  m.innerHTML=`<div class="modal-sheet" onclick="event.stopPropagation()" style="max-height:min(88vh,88dvh);overflow-y:auto;">
+    <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font:800 15px/1 var(--font-ui);color:var(--text);">${existing?'✏ Edit Person':'👤 Add Person'}</span>
       <button class="modal-close" onclick="closeModal('modal-person')">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="field-group">
       <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">${existing?'EDIT PERSON':'ADD PERSON'}</div>
       <div style="display:flex;align-items:center;gap:var(--sp3);margin-bottom:var(--sp2);">
         <div onclick="pickContactPhoto('','person-photo-preview','person-photo')"
@@ -24937,30 +24951,9 @@ function openAddPersonModal(editId){
         <input type="hidden" id="person-priority" value="${existing?.priority||'Medium'}"/>
       </div>
       <input type="hidden" id="person-edit-id" value="${editId||''}"/>
+    </div>
+    <div class="modal-actions">
       <button onclick="submitAddPerson()" style="width:100%;padding:13px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">${existing?'✓ Save Changes':'+ Add Person'}</button>
-      <div style="border-top:1px solid var(--border);margin-top:4px;padding-top:12px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:var(--sp2);">ALL PEOPLE (${peopleList.length})</div>
-        <div id="people-edit-list">
-          ${peopleList.length===0
-            ? `<div style="font-size:13px;color:var(--text3);font-family:var(--font-ui);font-style:italic;padding:8px 0;">No people added yet.</div>`
-            : peopleList.map(p=>{
-                const pc=p.priority==='High'?'#ff6060':p.priority==='Low'?'#888':'#E8A838';
-                return `<div class="people-list-item">
-                  ${renderAvatar(p.name, p.photo, 38, pc+'22', pc, false)}
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
-                    <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
-                      ${p.role?`<span style="font:var(--type-caption);color:var(--text4);">${esc(p.role)}</span>`:''}
-                      <span style="font-size:10px;font-weight:800;font-family:var(--font-ui);color:${pc};padding:1px 6px;border-radius:4px;border:1px solid ${pc}44;">${p.priority||'Medium'}</span>
-                    </div>
-                  </div>
-                  <button onclick="openAddPersonModal('${p.id}')" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-ui);font-size:11px;cursor:pointer;margin-right:4px;">edit</button>
-                  <button onclick="deletePerson('${p.id}');openAddPersonModal();" style="padding:6px 8px;border-radius:6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;">✕</button>
-                </div>`;
-              }).join('')
-          }
-        </div>
-      </div>
     </div>
   </div>`;
   m.onclick=e=>{ if(e.target===m) closeModal('modal-person'); };
