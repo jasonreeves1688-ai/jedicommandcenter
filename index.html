@@ -5060,12 +5060,12 @@ async function renderHomeTodayView(container){
     html += '</div>';
   }
   if(hasDueToday){
-    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Due Today</div>';
+    html += '<div style="margin:4px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Due Today</div>';
     todayPrivate.forEach(t => { html += homeTaskRow(t, 'private'); });
     todayFamily.forEach(t => { html += homeTaskRow(t, 'family'); });
   }
   // Add task button
-  html += '<div style="padding:8px 16px 12px;display:flex;align-items:center;gap:10px;">'
+  html += '<div style="margin:0 16px 8px;display:flex;align-items:center;gap:10px;">'
     + '<button onclick="openPrivateTaskModal(null)" style="flex:1;padding:11px 14px;border-radius:var(--r3);border:1.5px dashed var(--border);background:transparent;color:var(--text3);font:500 13px/1 var(--font-ui);cursor:pointer;text-align:left;">+ Add personal task…</button>'
     + '<div style="font:500 10px/1 var(--font-ui);color:var(--text4);">🔒 private</div>'
     + '</div>';
@@ -5079,7 +5079,7 @@ async function renderHomeTodayView(container){
   const nudges = isJason ? getPeopleNudges() : [];
   if(nudges.length > 0){
     const todayStr2 = today();
-    html += '<div style="padding:8px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">💬 Reach Out</div>';
+    html += '<div style="margin:4px 16px 4px;font:700 11px/1 var(--font-ui);letter-spacing:1px;color:var(--accent);text-transform:uppercase;">💬 Reach Out</div>';
     html += '<div style="margin:0 16px 12px;border-radius:var(--r3);border:1px solid rgba(232,168,56,0.25);background:var(--surface);overflow:hidden;">';
     nudges.slice(0,4).forEach(c => {
       const daysSince = c.lastContact ? Math.floor((new Date(todayStr2)-new Date(c.lastContact))/86400000) : null;
@@ -5151,7 +5151,7 @@ async function renderHomeTodayView(container){
       </div>
     </div>`;
   }
-  container.innerHTML = html;
+  container.innerHTML = `<div style="display:flex;flex-direction:column;min-height:100%;padding-bottom:20px;">${html}</div>`;
   // Load weather async — fills #weather-card when ready
   loadAndRenderWeather();
   // Load calendar async — fills #home-cal-strip when ready
@@ -5789,13 +5789,13 @@ function renderFamilyPage(container){
   const myFamilyTasks = isJason2 ? jasonHomeTasks : wifeHomeTasks;
   function ftab(idx, label){
     const a = _familyTab === idx;
-    return '<button onclick="_familyTab=' + idx + ';renderAll()" style="flex:1;padding:8px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (a?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (a?'var(--accent)':'transparent') + ';margin-bottom:-2px;">' + label + '</button>';
+    return '<button onclick="_familyTab=' + idx + ';renderAll()" style="flex:1;padding:10px 16px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (a?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (a?'var(--accent)':'transparent') + ';margin-bottom:-2px;">' + label + '</button>';
   }
   let html = '<div style="padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between;">'
     + '<div style="font:700 20px/1 var(--font-ui);color:var(--text);">Family</div>'
     + '<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">' + open.length + ' open</div>'
     + '</div>'
-    + '<div style="display:flex;border-bottom:2px solid var(--border);margin:0 16px 12px;">'
+    + '<div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:12px;">'
     + ftab(0, '\u{1F464} My Tasks')
     + ftab(1, '\u{1F46A} Family Tasks')
     + '</div>';
@@ -11271,13 +11271,23 @@ function openMeetingCaptureFromImport(){
   const old = document.getElementById('modal-meeting');
   if(old) old.remove();
   const m = document.createElement('div');
-  m.id = 'modal-meeting'; m.className = 'modal-overlay fullscreen';
-  m.innerHTML = `<div class="modal-fullscreen" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Log Meeting</div>
-      <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
+  m.id = 'modal-meeting'; m.className = 'modal-overlay'; m.style.cssText='align-items:flex-end;';
+  m.innerHTML = `<div onclick="event.stopPropagation()"
+    style="width:100%;max-width:600px;background:var(--surface);
+      border-radius:20px 20px 0 0;max-height:min(92vh,92dvh);
+      display:flex;flex-direction:column;overflow:hidden;
+      box-shadow:0 -8px 40px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:14px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 10px;"></div>
+        <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 Log Meeting</div>
+      </div>
+      <button onclick="closeModal('modal-meeting')"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:16px;cursor:pointer;">✕</button>
     </div>
-    <div class="modal-body">
+    <div style="overflow-y:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
       <input type="hidden" id="mtg-id" value=""/>
       <input type="hidden" id="mtg-series-id" value=""/>
       <div>
@@ -11363,7 +11373,8 @@ function openMeetingCaptureFromImport(){
         <div id="mtg-comms-list" style="display:flex;flex-direction:column;"></div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;
+        padding-bottom:calc(12px + env(safe-area-inset-bottom));">
       <button onclick="saveMeetingCapture()"
         style="width:100%;padding:14px;border-radius:var(--r3);border:none;
           background:var(--accent);color:#fff;
@@ -22782,57 +22793,101 @@ function renderMeetingsPage(container){
         .map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean).join(', ');
       const histId = 'series-hist-'+s.id;
       const caretId = 'series-caret-'+s.id;
-      return `<div class="today-card" style="margin-bottom:8px;border-color:${cadenceColor}33;">
-        <!-- Compact header row -->
-        <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;
-            border-bottom:${(latest&&!s.collapsed)||history.length>0?'1px solid var(--border)':'none'};">
-          <div style="width:3px;height:36px;border-radius:2px;background:${cadenceColor};flex-shrink:0;"></div>
+      // Build takeaway summary for latest occurrence
+      const latestCommits = latest ? commitments.filter(c => c.source === 'meeting:'+latest.id) : [];
+      const latestTypeCounts = {};
+      latestCommits.forEach(c => { latestTypeCounts[c.type] = (latestTypeCounts[c.type]||0)+1; });
+      if(!latestCommits.length && latest){
+        (latest.myCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ latestTypeCounts['action']=(latestTypeCounts['action']||0)+1; });
+        (latest.theirCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ latestTypeCounts['waiting']=(latestTypeCounts['waiting']||0)+1; });
+      }
+      const latestBadges = Object.entries(latestTypeCounts).map(([t,cnt])=>{
+        const ct = COMMIT_TYPES[t]||COMMIT_TYPES.action;
+        return `<span onclick="event.stopPropagation();_cvFilter='${t}';setNav('commitments');"
+          style="font:700 10px/1 var(--font-ui);color:${ct.color};background:${ct.color}18;
+            padding:3px 8px;border-radius:10px;border:1px solid ${ct.color}30;cursor:pointer;white-space:nowrap;">
+          ${ct.emoji} ${cnt}</span>`;
+      }).join('');
+
+      return `<div style="border:1px solid var(--border);border-radius:var(--r3);margin-bottom:8px;
+          overflow:hidden;background:var(--surface);">
+        <!-- Series header -->
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;
+            background:var(--surface2);border-bottom:1px solid var(--border);">
+          <div style="width:3px;height:40px;border-radius:2px;background:${cadenceColor};flex-shrink:0;"></div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
               ${statusDot}
-              <span style="font:700 14px/1.2 var(--font-ui);color:var(--text);
+              <span style="font:700 15px/1.2 var(--font-ui);color:var(--text);
                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(s.name)}</span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <span style="font:700 10px/1 var(--font-ui);color:${cadenceColor};
-                background:${cadenceColor}18;padding:1px 6px;border-radius:10px;">${s.cadence}</span>
-              ${sPersonNames?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${esc(sPersonNames.slice(0,40))}</span>`:''}
-              ${latest?`<span style="font:500 10px/1 var(--font-ui);color:${overdue?'#ff6060':'var(--text4)'};">
-                last ${overdue?'⚠ ':''} ${latest.date}</span>`
-                :`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);font-style:italic;">never captured</span>`}
-              ${seriesOpenTasks>0?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);
-                background:rgba(232,168,56,0.12);padding:1px 6px;border-radius:4px;">⚡ ${seriesOpenTasks} open</span>`:''}
+                background:${cadenceColor}18;padding:2px 7px;border-radius:10px;">${s.cadence}</span>
+              ${sPersonNames?`<span style="font:500 11px/1 var(--font-ui);color:var(--text3);">with ${esc(sPersonNames.slice(0,40))}</span>`:''}
+              ${latest
+                ? `<span style="font:500 10px/1 var(--font-ui);color:${overdue?'#EF5350':'var(--text4)'};">
+                    ${overdue?'⚠ overdue · ':''}Last: ${latest.date}</span>`
+                : `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);font-style:italic;">Never captured</span>`}
             </div>
           </div>
-          <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
             <button onclick="captureSeriesMeeting('${s.id}')"
-              style="padding:5px 10px;border-radius:6px;border:1px solid var(--accent)55;
-                background:rgba(232,168,56,0.1);color:var(--accent);
-                font:700 11px/1 var(--font-ui);cursor:pointer;">+ Capture</button>
+              style="padding:7px 12px;border-radius:7px;border:none;background:var(--accent);
+                color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;">+ Log</button>
             <button onclick="editMeetingSeries('${s.id}')"
-              style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);
-                background:transparent;color:var(--text3);
-                font:600 11px/1 var(--font-ui);cursor:pointer;">⚙</button>
-            <button onclick="deleteMeetingSeries('${s.id}')"
-              style="padding:5px 7px;border-radius:6px;border:none;
-                background:transparent;color:var(--text4);
-                font-size:14px;cursor:pointer;" title="Delete series">✕</button>
+              style="padding:7px 8px;border-radius:7px;border:1px solid var(--border);
+                background:transparent;color:var(--text3);font-size:14px;cursor:pointer;">⚙</button>
           </div>
         </div>
-        <!-- Latest occurrence (always visible if exists) -->
-        ${latest ? renderOccurrence(latest, {compact:true, showTitle:false}) : ''}
-        <!-- History toggle -->
-        ${history.length>0?`
-          <div onclick="toggleSeriesHistory('${s.id}')"
-            style="display:flex;align-items:center;gap:6px;padding:6px 14px;
-              cursor:pointer;background:var(--surface2);border-top:1px solid var(--border);">
-            <span style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:0.5px;flex:1;">
-              ${history.length} previous meeting${history.length!==1?'s':''}</span>
-            <span id="${caretId}" style="font-size:11px;color:var(--text4);">${s.collapsed?'▸':'▾'}</span>
-          </div>
-          <div id="${histId}" style="display:${s.collapsed?'none':'block'};">
-            ${history.map(m=>renderOccurrence(m,{compact:true,showTitle:false})).join('')}
-          </div>`:''}
+        <!-- Open actions summary -->
+        ${seriesOpenTasks > 0 ? `
+        <div style="padding:8px 14px;background:rgba(232,168,56,0.04);border-bottom:1px solid var(--border);
+            display:flex;align-items:center;gap:8px;">
+          <span style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:0.5px;">⚡ OPEN</span>
+          <span style="font:500 11px/1 var(--font-ui);color:var(--text3);">${seriesOpenTasks} action${seriesOpenTasks!==1?'s':''} from this series</span>
+          <button onclick="event.stopPropagation();_cvFilter='action';setNav('commitments');"
+            style="margin-left:auto;padding:3px 8px;border-radius:5px;border:1px solid var(--accent)44;
+              background:transparent;color:var(--accent);font:700 10px/1 var(--font-ui);cursor:pointer;">View →</button>
+        </div>` : ''}
+        <!-- Meeting entries -->
+        ${occurrences.length === 0
+          ? `<div style="padding:14px;text-align:center;color:var(--text4);font:500 12px/1 var(--font-ui);">No meetings captured yet</div>`
+          : occurrences.map((m,idx) => {
+              const mCom = commitments.filter(c => c.source === 'meeting:'+m.id);
+              const mTyp = {};
+              mCom.forEach(c => { mTyp[c.type]=(mTyp[c.type]||0)+1; });
+              if(!mCom.length){
+                (m.myCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ mTyp['action']=(mTyp['action']||0)+1; });
+                (m.theirCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ mTyp['waiting']=(mTyp['waiting']||0)+1; });
+              }
+              const mBadges = Object.entries(mTyp).map(([t,cnt])=>{
+                const ct=COMMIT_TYPES[t]||COMMIT_TYPES.action;
+                return `<span style="font:700 10px/1 var(--font-ui);color:${ct.color};background:${ct.color}14;
+                  padding:2px 6px;border-radius:8px;white-space:nowrap;">${ct.emoji} ${cnt}</span>`;
+              }).join('');
+              const dateStr = new Date(m.date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+              return `<div onclick="openMeetingCapture('${m.id}')"
+                style="display:flex;align-items:center;gap:12px;padding:10px 14px;
+                  border-bottom:${idx<occurrences.length-1?'1px solid var(--border)':'none'};
+                  cursor:pointer;transition:background 0.1s;"
+                onmouseover="this.style.background='var(--surface2)'"
+                onmouseout="this.style.background='transparent'">
+                <div style="flex-shrink:0;min-width:56px;">
+                  <div style="font:700 11px/1 var(--font-ui);color:var(--text);">${dateStr}</div>
+                  ${idx===0?`<div style="font:700 9px/1 var(--font-ui);color:var(--accent);margin-top:2px;letter-spacing:0.5px;">LATEST</div>`:''}
+                </div>
+                <div style="width:1px;align-self:stretch;background:var(--border);flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                  ${m.notes?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px;">
+                    ${m.notes.replace(/<[^>]+>/g,' ').trim().slice(0,80)}</div>`:''}
+                  ${mBadges?`<div style="display:flex;gap:4px;flex-wrap:wrap;">${mBadges}</div>`:''}
+                </div>
+                <span style="color:var(--text4);font-size:14px;flex-shrink:0;">›</span>
+              </div>`;
+            }).join('')
+        }
       </div>`;
     }).join('');
   };
@@ -22873,11 +22928,55 @@ function renderMeetingsPage(container){
     return Object.entries(byMonth).map(([ym, items])=>{
       const [y,mo] = ym.split('-');
       const label = new Date(+y,+mo-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-      return `<div style="margin-bottom:8px;">
-        <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;
-          padding:8px 14px 4px;text-transform:uppercase;">${label} · ${items.length}</div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);overflow:hidden;">
-          ${items.map(m=>renderOccurrence(m,{compact:false,showTitle:true})).join('')}
+      return `<div style="margin-bottom:12px;">
+        <!-- Month header -->
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 14px 8px;">
+          <span style="font:800 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;">${label}</span>
+          <span style="font:500 10px/1 var(--font-ui);color:var(--text4);background:var(--surface2);padding:1px 6px;border-radius:8px;">${items.length}</span>
+        </div>
+        <!-- Meeting cards -->
+        <div style="display:flex;flex-direction:column;gap:6px;padding:0 10px;">
+          ${items.map(m => {
+            const mCom = commitments.filter(c => c.source === 'meeting:'+m.id);
+            const mTyp = {};
+            mCom.forEach(c => { mTyp[c.type]=(mTyp[c.type]||0)+1; });
+            if(!mCom.length){
+              (m.myCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ mTyp['action']=(mTyp['action']||0)+1; });
+              (m.theirCommits||'').split('\n').filter(s=>s.trim()).forEach(()=>{ mTyp['waiting']=(mTyp['waiting']||0)+1; });
+            }
+            const mPersonNames = (m.personIds||'').split(',').filter(Boolean)
+              .map(id=>peopleList.find(p=>p.id===id)?.name).filter(Boolean).join(', ');
+            const badges = Object.entries(mTyp).map(([t,cnt])=>{
+              const ct=COMMIT_TYPES[t]||COMMIT_TYPES.action;
+              return `<span style="font:700 10px/1 var(--font-ui);color:${ct.color};background:${ct.color}14;
+                padding:2px 6px;border-radius:8px;border:1px solid ${ct.color}25;white-space:nowrap;">${ct.emoji} ${cnt}</span>`;
+            }).join('');
+            const hasDecision = !!(m.decisions?.trim());
+            return `<div onclick="openMeetingCapture('${m.id}')"
+              style="border:1px solid var(--border);border-radius:var(--r3);
+                background:var(--surface);padding:12px 14px;cursor:pointer;
+                transition:border-color 0.1s;"
+              onmouseover="this.style.borderColor='var(--accent)44'"
+              onmouseout="this.style.borderColor='var(--border)'">
+              <!-- Title row -->
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:${(badges||mPersonNames||hasDecision)?'8px':'0'};">
+                <div style="flex:1;min-width:0;">
+                  <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title||'Meeting')}</div>
+                  <div style="font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px;">
+                    ${m.date}${mPersonNames?' · '+esc(mPersonNames.slice(0,40)):''}
+                  </div>
+                </div>
+                <span style="color:var(--text4);font-size:14px;flex-shrink:0;margin-top:2px;">›</span>
+              </div>
+              <!-- Takeaway badges -->
+              ${(badges||hasDecision) ? `<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+                ${badges}
+                ${hasDecision?`<span style="font:700 10px/1 var(--font-ui);color:#66BB6A;background:rgba(102,187,106,0.1);
+                  padding:2px 6px;border-radius:8px;border:1px solid rgba(102,187,106,0.2);">📌 Decision</span>`:''}
+              </div>` : ''}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
     }).join('');
@@ -22954,14 +23053,15 @@ function renderMeetingsPage(container){
 
   // ── People tab render ─────────────────────────────────────────
   if(isPeople){
+    // Only show people who have at least one meeting, sorted by most recent meeting date
     const allPeople = (unifiedPeople.length ? unifiedPeople : peopleList)
-      .filter(p => p.name)
+      .filter(p => p.name && meetingLog.some(m=>(m.personIds||'').split(',').includes(p.id)))
       .sort((a,b) => {
-        // People with meetings first, then alpha
-        const aHas = meetingLog.some(m=>(m.personIds||'').split(',').includes(a.id)) ? 0 : 1;
-        const bHas = meetingLog.some(m=>(m.personIds||'').split(',').includes(b.id)) ? 0 : 1;
-        if(aHas !== bHas) return aHas - bHas;
-        return a.name.localeCompare(b.name);
+        const aLast = meetingLog.filter(m=>(m.personIds||'').split(',').includes(a.id))
+          .map(m=>m.date).sort().reverse()[0] || '';
+        const bLast = meetingLog.filter(m=>(m.personIds||'').split(',').includes(b.id))
+          .map(m=>m.date).sort().reverse()[0] || '';
+        return bLast.localeCompare(aLast); // most recent first
       });
 
     const selPerson   = allPeople.find(p => p.id === _mtPersonId) || allPeople[0];
@@ -23102,90 +23202,61 @@ function renderMeetingsPage(container){
                           font:700 12px/1 var(--font-ui);cursor:pointer;">+ Log first meeting</button>
                     </div>`
                   : personMeetings.map((m, idx) => {
-                      const mOpenTasks = commitments.filter(c =>
-                        c.source === 'meeting:'+m.id && c.status !== 'done' && c.status !== 'cancelled'
-                      );
-                      const mAllCommits = commitments.filter(c => c.source === 'meeting:'+m.id);
+                      // Count takeaways by type
+                      const mCommits = commitments.filter(c => c.source === 'meeting:'+m.id);
                       const legacyMyLines = (m.myCommits||'').split('\n').filter(s=>s.trim());
                       const legacyTheirLines = (m.theirCommits||'').split('\n').filter(s=>s.trim());
+                      const typeCounts = {};
+                      mCommits.forEach(c => { typeCounts[c.type] = (typeCounts[c.type]||0)+1; });
+                      // Legacy fallback counts
+                      if(!mCommits.length){
+                        if(legacyMyLines.length) typeCounts['action'] = (typeCounts['action']||0) + legacyMyLines.length;
+                        if(legacyTheirLines.length) typeCounts['waiting'] = (typeCounts['waiting']||0) + legacyTheirLines.length;
+                      }
+                      const hasDecisions = !!(m.decisions?.trim());
                       const isFirst = idx === 0;
-                      return `<div style="border-bottom:1px solid var(--border);">
-                        <!-- Meeting row header -->
-                        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;
-                            cursor:pointer;background:${isFirst?'var(--surface2)':'transparent'};"
-                            onclick="openMeetingCapture('${m.id}')">
-                          <div style="display:flex;flex-direction:column;align-items:center;
-                              width:38px;flex-shrink:0;padding-top:2px;">
-                            <div style="font:700 13px/1 var(--font-ui);color:var(--text);">
-                              ${new Date(m.date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                            </div>
-                            <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
-                              ${new Date(m.date+'T12:00').getFullYear()}
-                            </div>
+                      const dateObj = new Date(m.date+'T12:00');
+                      const dateLabel = dateObj.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+                      const typeOrder = ['action','waiting','delegation','comms'];
+                      const takeawayBadges = [
+                        ...typeOrder.filter(t=>typeCounts[t]).map(t => {
+                          const ct = COMMIT_TYPES[t]||COMMIT_TYPES.action;
+                          return `<span onclick="event.stopPropagation();_cvFilter='${t}';setNav('commitments');"
+                            style="font:700 10px/1 var(--font-ui);color:${ct.color};
+                              background:${ct.color}18;padding:3px 8px;border-radius:10px;
+                              border:1px solid ${ct.color}30;cursor:pointer;white-space:nowrap;
+                              transition:opacity 0.1s;" title="View ${ct.label}s">
+                            ${ct.emoji} ${typeCounts[t]} ${ct.label}${typeCounts[t]!==1?'s':''}
+                          </span>`;
+                        }),
+                        hasDecisions ? `<span style="font:700 10px/1 var(--font-ui);color:#66BB6A;
+                          background:rgba(102,187,106,0.1);padding:3px 8px;border-radius:10px;
+                          border:1px solid rgba(102,187,106,0.2);white-space:nowrap;">📌 Decision</span>` : ''
+                      ].filter(Boolean).join('');
+                      return `<div onclick="openMeetingCapture('${m.id}')"
+                        style="display:flex;align-items:center;gap:12px;padding:12px 16px;
+                          border-bottom:1px solid var(--border);cursor:pointer;
+                          background:${isFirst?'var(--surface2)':'transparent'};
+                          transition:background 0.1s;"
+                        onmouseover="this.style.background='var(--surface2)'"
+                        onmouseout="this.style.background='${isFirst?'var(--surface2)':'transparent'}'">
+                        <div style="flex-shrink:0;text-align:center;min-width:42px;">
+                          <div style="font:800 13px/1 var(--font-ui);color:var(--text);">
+                            ${dateObj.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                           </div>
-                          <div style="flex:1;min-width:0;">
-                            <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
-                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                              ${esc(m.title||'Meeting')}
-                            </div>
-                            <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;">
-                              ${mOpenTasks.length > 0 ? `<span style="font:700 10px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.12);padding:1px 6px;border-radius:4px;">⚡ ${mOpenTasks.length} open</span>` : ''}
-                              ${mAllCommits.length > 0 && mOpenTasks.length === 0 ? `<span style="font:700 10px/1 var(--font-ui);color:var(--green);background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">✓ all done</span>` : ''}
-                              ${m.decisions ? `<span style="font:700 10px/1 var(--font-ui);color:#66BB6A;background:rgba(102,187,106,0.1);padding:1px 6px;border-radius:4px;">📌 decision</span>` : ''}
-                              ${m.theirCommits?.trim() ? `<span style="font:700 10px/1 var(--font-ui);color:#64B5F6;background:rgba(100,181,246,0.1);padding:1px 6px;border-radius:4px;">⏳ their action</span>` : ''}
-                            </div>
-                            ${m.notes ? `<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);margin-top:5px;
-                              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                              ${m.notes.replace(/<[^>]+>/g,' ').trim().slice(0,100)}</div>` : ''}
+                          <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">
+                            ${dateObj.getFullYear()}
                           </div>
-                          <button onclick="event.stopPropagation();openMeetingCapture('${m.id}')"
-                            style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);
-                              background:transparent;color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">
-                            Edit
-                          </button>
                         </div>
-                        <!-- Commitment lines from this meeting -->
-                        ${(mAllCommits.length > 0 || legacyMyLines.length > 0 || legacyTheirLines.length > 0) ? `
-                        <div style="padding:0 16px 10px 68px;">
-                          ${mAllCommits.map(c => {
-                            const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
-                            const isDone = c.status==='done'||c.status==='cancelled';
-                            const isOv = !isDone && c.dueDate && c.dueDate < today();
-                            return `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
-                              <button onclick="_cvComplete('${c.id}')"
-                                style="width:16px;height:16px;border-radius:50%;flex-shrink:0;cursor:pointer;
-                                  border:2px solid ${isDone?'var(--text4)':isOv?'var(--red)':ct.color};
-                                  background:${isDone?'var(--text4)':'transparent'};"></button>
-                              <span style="font:${isDone?'400':'500'} 12px/1.3 var(--font-ui);
-                                color:${isDone?'var(--text4)':isOv?'var(--red)':'var(--text2)'};
-                                text-decoration:${isDone?'line-through':'none'};flex:1;
-                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                ${esc(c.title)}
-                              </span>
-                              <span style="font:500 10px/1 var(--font-ui);color:${ct.color};flex-shrink:0;">
-                                ${ct.emoji}
-                              </span>
-                            </div>`;
-                          }).join('')}
-                          ${legacyMyLines.filter(l => !mAllCommits.some(c=>c.title===l)).map(l =>
-                            `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
-                              <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
-                                border:2px solid var(--text4);background:transparent;"></div>
-                              <span style="font:500 12px/1.3 var(--font-ui);color:var(--text2);flex:1;
-                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l)}</span>
-                              <span style="font:500 10px/1 var(--font-ui);color:var(--text4);">me</span>
-                            </div>`
-                          ).join('')}
-                          ${legacyTheirLines.map(l =>
-                            `<div style="display:flex;align-items:center;gap:7px;padding:4px 0;">
-                              <div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;
-                                border:2px solid #64B5F6;background:transparent;"></div>
-                              <span style="font:500 12px/1.3 var(--font-ui);color:var(--text2);flex:1;
-                                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l)}</span>
-                              <span style="font:500 10px/1 var(--font-ui);color:#64B5F6;">them</span>
-                            </div>`
-                          ).join('')}
-                        </div>` : ''}
+                        <div style="width:1px;align-self:stretch;background:var(--border);flex-shrink:0;"></div>
+                        <div style="flex:1;min-width:0;">
+                          <div style="font:600 13px/1.3 var(--font-ui);color:var(--text);
+                            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;">
+                            ${esc(m.title||'Meeting')}
+                          </div>
+                          ${takeawayBadges ? `<div style="display:flex;gap:5px;flex-wrap:wrap;">${takeawayBadges}</div>` : ''}
+                        </div>
+                        <span style="color:var(--text4);font-size:14px;flex-shrink:0;">›</span>
                       </div>`;
                     }).join('')
                 }
@@ -25010,61 +25081,68 @@ function _apRenderFields(rt, existing){
   const isWork      = rt==='direct_report'||rt==='colleague';
   const isClient    = rt==='client_contact';
   const isPersonal  = rt==='personal'||rt==='external';
-  let html = '';
+  const lbl = (text) => `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">${text}</div>`;
+  let rows = [];
   // Role — always shown
-  html += `<input id="ap-role" class="field-input" style="margin:0;" placeholder="Role or title…" autocomplete="off" value="${esc(p.role||'')}"/>`;
+  rows.push(`<input id="ap-role" class="field-input" style="margin:0;" placeholder="Role or title…" autocomplete="off" value="${esc(p.role||'')}"/>`);
   if(isWork){
-    html += `<input id="ap-department" class="field-input" style="margin:0;" placeholder="Department (optional)…" autocomplete="off" value="${esc(p.department||'')}"/>`;
-    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;margin-top:4px;">Priority</div>
+    rows.push(`<input id="ap-department" class="field-input" style="margin:0;" placeholder="Department (optional)…" autocomplete="off" value="${esc(p.department||'')}"/>`);
+    rows.push(`<div>
+      ${lbl('Priority')}
       <div style="display:flex;gap:6px;">
         ${['High','Medium','Low'].map(lvl=>{
           const c=lvl==='High'?'#ff6060':lvl==='Medium'?'#E8A838':'#888';
           const cur=p.priority||'Medium'; const sel=cur===lvl;
           return `<button type="button" class="ap-pri-btn" data-val="${lvl}"
             onclick="document.querySelectorAll('.ap-pri-btn').forEach(b=>{b.style.background='transparent';b.style.borderColor='var(--border)';b.style.color='var(--text3)'});this.style.background='${c}22';this.style.borderColor='${c}';this.style.color='${c}';document.getElementById('ap-priority').value='${lvl}';"
-            style="flex:1;padding:7px 4px;border-radius:7px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font:700 12px/1 var(--font-ui);cursor:pointer;">${lvl}</button>`;
+            style="flex:1;padding:8px 4px;border-radius:7px;border:1px solid ${sel?c:'var(--border)'};background:${sel?c+'22':'transparent'};color:${sel?c:'var(--text3)'};font:700 12px/1 var(--font-ui);cursor:pointer;">${lvl}</button>`;
         }).join('')}
       </div>
-      <input type="hidden" id="ap-priority" value="${p.priority||'Medium'}"/>`;
+      <input type="hidden" id="ap-priority" value="${p.priority||'Medium'}"/>
+    </div>`);
     if(rt==='direct_report'){
-      html += `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);cursor:pointer;">
-        <input type="checkbox" id="ap-direct-report" ${(p.isDirectReport||rt==='direct_report')?'checked':''} style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;"/>
+      rows.push(`<label style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);cursor:pointer;">
+        <input type="checkbox" id="ap-direct-report" ${(p.isDirectReport||rt==='direct_report')?'checked':''} style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
         <div>
           <div style="font:700 13px/1 var(--font-ui);color:var(--text);">Reports to me</div>
-          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">Shows in Team tab with 1:1s &amp; delegations</div>
+          <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:3px;">Shows in Team tab with 1:1s &amp; delegations</div>
         </div>
-      </label>`;
+      </label>`);
     }
-    html += `<div style="display:flex;gap:10px;">
-      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
-        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0=off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
-      </div>
-    </div>`;
+    rows.push(`<div>
+      ${lbl('Nudge (days)')}
+      <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0 = off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
+    </div>`);
   } else if(isClient){
-    html += `<div style="display:flex;gap:10px;">
-      <div style="flex:2;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Client Org</div>
+    rows.push(`<div style="display:flex;gap:10px;">
+      <div style="flex:2;">
+        ${lbl('Client Org')}
         <select id="ap-org" class="field-input" style="margin:0;font-size:14px;color-scheme:dark;">
           <option value="">None</option>
           ${clientOrgs.map(o=>`<option value="${o.id}" ${(p.orgId||''===o.id)?'selected':''}>${esc(o.name)}</option>`).join('')}
         </select>
       </div>
-      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
+      <div style="flex:1;">
+        ${lbl('Nudge (days)')}
         <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
       </div>
-    </div>`;
-    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Notes</div>
-      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>`;
+    </div>`);
+    rows.push(`<div>
+      ${lbl('Notes')}
+      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>
+    </div>`);
   } else {
     // personal / external
-    html += `<div style="display:flex;gap:10px;">
-      <div style="flex:1;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Nudge (days)</div>
-        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0=off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
-      </div>
-    </div>`;
-    html += `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:5px;">Notes</div>
-      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>`;
+    rows.push(`<div>
+      ${lbl('Nudge (days)')}
+      <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0 = off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
+    </div>`);
+    rows.push(`<div>
+      ${lbl('Notes')}
+      <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>
+    </div>`);
   }
-  el.innerHTML = html;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px;">${rows.join('')}</div>`;
 }
 // Called by relationship type buttons
 function _apSetRt(rt, col){
@@ -25225,31 +25303,34 @@ function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
   const existingPersonIds = existing?.personIds || series?.personIds || (prePersonId||'');
   const captureTitle = existing?.title || series?.name || '';
   const m=document.createElement('div');
-  m.id='modal-meeting'; m.className='modal-overlay fullscreen';
+  m.id='modal-meeting'; m.className='modal-overlay'; m.style.cssText='align-items:flex-end;';
   // Side-by-side when capturing a new series occurrence with a previous meeting
   const isSideBySide = !existing && prevMeeting;
-  m.innerHTML=`<div class="${isSideBySide?'modal-sidebyside':'modal-fullscreen'}" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;${isSideBySide?'grid-column:1/-1;':''}">
-      <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 ${existing?'Edit Meeting':isSideBySide?'New Occurrence':'Meeting Capture'}</div>
-      <button class="modal-close" onclick="closeModal('modal-meeting')">✕</button>
+  m.innerHTML=`<div onclick="event.stopPropagation()"
+    style="width:100%;max-width:600px;background:var(--surface);
+      border-radius:20px 20px 0 0;max-height:min(92vh,92dvh);
+      display:flex;flex-direction:column;overflow:hidden;
+      box-shadow:0 -8px 40px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:14px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 10px;"></div>
+        <div style="font:700 16px/1.3 var(--font-ui);color:var(--text);">📝 ${existing?'Edit Meeting':isSideBySide?'New Occurrence':'Log Meeting'}</div>
+      </div>
+      <button onclick="closeModal('modal-meeting')"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:16px;cursor:pointer;">✕</button>
     </div>
     ${isSideBySide?`
-    <!-- LEFT: previous meeting read-only -->
-    <div class="sbs-prev">
-      <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--text4);letter-spacing:1px;padding:8px 14px 6px;border-bottom:1px solid var(--border);background:var(--surface2);">⏮ LAST MEETING — ${prevMeeting.date}</div>
-      <div style="overflow-y:auto;flex:1;padding:var(--sp3) var(--sp4);">
-        ${prevMeeting.decisions?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:var(--green);letter-spacing:1px;margin-bottom:4px;">✅ DECISIONS</div><div style="font-size:12px;color:var(--text3);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.decisions)}</div></div>`:''}
-        ${prevMeeting.notes?`<div style="margin-bottom:10px;"><div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">📋 NOTES</div><div style="font-size:12px;color:var(--text3);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.notes)}</div></div>`:''}
-        ${prevMeeting.myCommits?`<div style="margin-bottom:10px;"><div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">⚡ MY COMMITS</div><div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.myCommits)}</div></div>`:''}
-        ${prevMeeting.theirCommits?`<div style="margin-bottom:10px;"><div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;margin-bottom:4px;">⏳ THEIR COMMITS</div><div style="font-size:12px;color:var(--text);line-height:1.5;white-space:pre-wrap;">${esc(prevMeeting.theirCommits)}</div></div>`:''}
-        ${!prevMeeting.decisions&&!prevMeeting.notes&&!prevMeeting.myCommits&&!prevMeeting.theirCommits?`<div style="font-size:12px;color:var(--text4);font-style:italic;">No notes recorded for last meeting.</div>`:''}
+    <div style="padding:10px 18px;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;margin-bottom:6px;">⏮ LAST MEETING — ${prevMeeting.date}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${prevMeeting.decisions?`<span style="font:500 11px/1.4 var(--font-body);color:var(--text3);">📌 ${esc(prevMeeting.decisions.slice(0,60))}${prevMeeting.decisions.length>60?'…':''}</span>`:''}
+        ${prevMeeting.myCommits?(prevMeeting.myCommits.split('\n').filter(s=>s.trim()).length+' my commits'):''}
+        ${prevMeeting.theirCommits?(prevMeeting.theirCommits.split('\n').filter(s=>s.trim()).length+' their commits'):''}
       </div>
-    </div>
-    <!-- RIGHT: new meeting form -->
-    <div class="sbs-new">
-      <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;padding:8px 14px 6px;border-bottom:1px solid var(--border);background:var(--surface2);">✏ TODAY'S MEETING</div>
-      <div class="modal-body" style="overflow-y:auto;flex:1;">`
-    :'<div class="modal-body">'}
+    </div>`:''}
+    <div style="overflow-y:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
       <input type="hidden" id="mtg-id" value="${existingId||''}"/>
       <input type="hidden" id="mtg-series-id" value="${existing?.seriesId||seriesId||''}"/>
       <div>
@@ -25358,11 +25439,11 @@ function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
         <div id="mtg-comms-list" style="display:flex;flex-direction:column;"></div>
       </div>
     </div>
-    ${isSideBySide?'</div>':''}
+    </div>
     ${existingId ? `
-    <div style="padding:0 var(--sp4) var(--sp3);">
+    <div style="padding:0 18px 8px;flex-shrink:0;border-top:1px solid var(--border);background:var(--surface2);">
       <div style="font:700 10px/1 var(--font-ui);color:var(--text3);
-        letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;">
+        letter-spacing:0.5px;text-transform:uppercase;margin:10px 0 6px;">
         📋 Related Tasks</div>
       <div id="mtg-task-list">
         ${renderMeetingTaskList(existingId, existing?.taskIds||[])}
@@ -25372,12 +25453,10 @@ function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
           border:1px solid var(--border);background:transparent;
           color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;">
         + Link a task</button>
-    </div>
-    <div style="padding:0 var(--sp4) var(--sp3);">
-      ${renderAttachmentSection('meeting', existingId, existing?.attachments||[])}
     </div>` : ''}
-    <div class="modal-footer" style="${isSideBySide?'grid-column:1/-1;':''}">
-      <button onclick="saveMeetingCapture()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:14px;font-weight:800;cursor:pointer;">✓ Save Meeting</button>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);flex-shrink:0;
+        padding-bottom:calc(12px + env(safe-area-inset-bottom));">
+      <button onclick="saveMeetingCapture()" style="width:100%;padding:14px;border-radius:var(--r3);border:none;background:var(--accent);color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;">✓ Save Meeting</button>
     </div>
   </div>`;
   m.onclick=e=>{ if(e.target===m) closeModal('modal-meeting'); };
