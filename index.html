@@ -19162,6 +19162,9 @@ function renderClientDetail(container){
   const commitIds = new Set(orgCommits.map(c=>c.id).concat(orgCommits.map(c=>c.id.replace(/^cm-(wf|del|co|ci)-/,''))));
   const legacyTasks = tasks.filter(t=>t.orgId===org.id&&t.status!=='done'&&!commitIds.has(t.id));
   const legacyWF    = waitingFor.filter(w=>!w.done&&w.orgId===org.id&&!commitIds.has(w.id)&&!commitIds.has('cm-wf-'+w.id));
+  // Unified task + waiting views used in stats bar and sections
+  const orgTasks = [...orgCommits.filter(c=>c.type==='action'), ...legacyTasks];
+  const orgWF    = [...orgCommits.filter(c=>c.type==='waiting'), ...legacyWF];
   const orgMeetings = meetingLog.filter(m=>m.orgId===org.id).sort((a,b)=>b.date.localeCompare(a.date));
   // Group insights by type for summary
   const insightsByType = {};
