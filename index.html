@@ -11323,29 +11323,44 @@ function openMeetingCaptureFromImport(){
           style="width:100%;min-height:80px;resize:vertical;
             font-family:var(--font-body);line-height:1.5;box-sizing:border-box;"></textarea>
       </div>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);
-          letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">
-          ⚡ MY COMMITMENTS
-          <span style="font-size:10px;font-weight:400;color:var(--text4);">
-            one per line → become tasks</span></div>
-        <textarea id="mtg-mycommits" class="field-input"
-          placeholder="I said I would…"
-          style="width:100%;min-height:80px;resize:vertical;
-            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;
-            border-color:rgba(232,168,56,0.35);"></textarea>
-      </div>
-      <div>
-        <div style="font:800 10px/1 var(--font-ui);color:#64B5F6;
-          letter-spacing:1px;margin-bottom:6px;">
-          ⏳ THEIR COMMITMENTS
-          <span style="font-size:10px;font-weight:400;color:var(--text4);">
-            one per line → become Waiting For</span></div>
-        <textarea id="mtg-theircommits" class="field-input"
-          placeholder="Name: they said they would…"
-          style="width:100%;min-height:80px;resize:vertical;
-            font-family:var(--font-body);line-height:1.5;box-sizing:border-box;
-            border-color:rgba(100,181,246,0.35);"></textarea>
+      <!-- Structured commitment sections -->
+      <div style="border-top:2px solid var(--border);margin-top:2px;">
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;background:var(--surface2);">☐ TASKS FOR ME</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-task-inp" class="field-input" placeholder="Something I need to do…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-task');}"/>
+          <input id="mtg-task-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-task')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:var(--accent);color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-task-list" style="display:flex;flex-direction:column;"></div>
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">📋 DELEGATE TO THEM</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-del-inp" class="field-input" placeholder="What I'm delegating…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-del');}"/>
+          <input id="mtg-del-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-del')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#64B5F6;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-del-list" style="display:flex;flex-direction:column;"></div>
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#E8A838;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">⏳ WAITING FOR FROM THEM</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-wf-inp" class="field-input" placeholder="What I'm waiting on from them…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-wf');}"/>
+          <input id="mtg-wf-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-wf')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#E8A838;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-wf-list" style="display:flex;flex-direction:column;"></div>
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">📣 COMMS TO SEND</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-comms-inp" class="field-input" placeholder="What needs to be communicated…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-comms');}"/>
+          <input id="mtg-comms-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-comms')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#BA68C8;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-comms-list" style="display:flex;flex-direction:column;"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -20732,6 +20747,34 @@ function openTeamMeetingModal(editId, type, prefillPersonId){
   document.body.appendChild(m);
   setTimeout(()=>{ _watchModalInputs(m); document.getElementById('tm-agenda')?.focus(); }, 80);
 }
+// Generic add-to-list for meeting capture sections (mirrors _tm1on1Add)
+function _mtgAddItem(prefix){
+  const input = document.getElementById(prefix+'-inp');
+  const due   = document.getElementById(prefix+'-due');
+  const text  = input?.value.trim();
+  if(!text) return;
+  const list = document.getElementById(prefix+'-list');
+  if(!list) return;
+  const dueVal = due?.value||'';
+  const colors = {'mtg-task':'var(--accent)','mtg-del':'#64B5F6','mtg-wf':'#E8A838','mtg-comms':'#BA68C8'};
+  const col = colors[prefix]||'var(--accent)';
+  const div = document.createElement('div');
+  div.dataset.text = text;
+  div.dataset.due  = dueVal;
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface);';
+  div.innerHTML = `
+    <div style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;">
+      <div style="font:500 13px/1.3 var(--font-ui);color:var(--text);">${esc(text)}</div>
+      ${dueVal?`<div style="font:600 10px/1 var(--font-ui);color:var(--text4);margin-top:2px;">📅 ${dueVal.slice(5)}</div>`:''}
+    </div>
+    <button onclick="this.parentElement.remove()"
+      style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;flex-shrink:0;">✕</button>`;
+  list.appendChild(div);
+  input.value = '';
+  if(due) due.value = '';
+  input.focus();
+}
 // Generic add-to-list for 1:1 capture sections
 function _tm1on1Add(inputId){
   const input = document.getElementById(inputId);
@@ -25092,17 +25135,65 @@ function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
         <textarea id="mtg-decisions" class="field-input" placeholder="What was decided…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.decisions||''):''}</textarea>
       </div>
       <div>
-  
-      <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">📋 KEY NOTES</div>
-        <textarea id="mtg-notes" class="field-input" placeholder="Context, important points…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.notes||''):''}</textarea>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">📋 KEY NOTES</div>
+        <textarea id="mtg-notes" class="field-input" placeholder="Context, discussion, important points…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;">${existing?esc(existing.notes||''):''}</textarea>
       </div>
-      <div>
-        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">⚡ MY COMMITMENTS <span style="font-size:10px;font-weight:400;color:var(--text4);">one per line → become tasks</span></div>
-        <textarea id="mtg-mycommits" class="field-input" placeholder="I said I would…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;border-color:rgba(232,168,56,0.35);">${existing?esc(existing.myCommits||''):''}</textarea>
-      </div>
-      <div>
-        <div style="font-family:var(--font-ui);font-size:10px;font-weight:800;color:#64B5F6;letter-spacing:1px;margin-bottom:6px;">⏳ THEIR COMMITMENTS <span style="font-size:10px;font-weight:400;color:var(--text4);">one per line → become Waiting For</span></div>
-        <textarea id="mtg-theircommits" class="field-input" placeholder="Name: they said they would…" style="width:100%;min-height:80px;resize:vertical;font-family:var(--font-body);line-height:1.5;box-sizing:border-box;border-color:rgba(100,181,246,0.35);">${existing?esc(existing.theirCommits||''):''}</textarea>
+      <!-- Structured commitment sections -->
+      <div style="border-top:2px solid var(--border);margin-top:2px;">
+        <!-- ☐ My tasks -->
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;background:var(--surface2);">☐ TASKS FOR ME</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-task-inp" class="field-input" placeholder="Something I need to do…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-task');}"/>
+          <input id="mtg-task-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-task')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:var(--accent);color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-task-list" style="display:flex;flex-direction:column;">
+          ${existing ? (existing.myCommits||'').split('\n').filter(s=>s.trim()).map(line=>`
+            <div data-text="${line.replace(/"/g,'&quot;')}" data-due="" data-type="task"
+              style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div style="flex:1;min-width:0;font:500 13px/1.3 var(--font-ui);color:var(--text);">${esc(line)}</div>
+              <button onclick="this.parentElement.remove()" style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+            </div>`).join('') : ''}
+        </div>
+        <!-- 📋 Delegate to them -->
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#64B5F6;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">📋 DELEGATE TO THEM</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-del-inp" class="field-input" placeholder="What I'm delegating to them…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-del');}"/>
+          <input id="mtg-del-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-del')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#64B5F6;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-del-list" style="display:flex;flex-direction:column;"></div>
+        <!-- ⏳ Waiting for -->
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#E8A838;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">⏳ WAITING FOR FROM THEM</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-wf-inp" class="field-input" placeholder="What I'm waiting on from them…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-wf');}"/>
+          <input id="mtg-wf-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-wf')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#E8A838;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-wf-list" style="display:flex;flex-direction:column;">
+          ${existing ? (existing.theirCommits||'').split('\n').filter(s=>s.trim()).map(line=>`
+            <div data-text="${line.replace(/"/g,'&quot;')}" data-due="" data-type="wf"
+              style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--surface);">
+              <div style="flex:1;min-width:0;font:500 13px/1.3 var(--font-ui);color:var(--text);">${esc(line)}</div>
+              <button onclick="this.parentElement.remove()" style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">✕</button>
+            </div>`).join('') : ''}
+        </div>
+        <!-- 📣 Comms -->
+        <div style="padding:8px 12px 5px;font:800 10px/1 var(--font-ui);color:#BA68C8;letter-spacing:1px;background:var(--surface2);border-top:2px solid var(--border);">📣 COMMS TO SEND</div>
+        <div style="display:flex;gap:6px;padding:7px 12px;border-bottom:1px solid var(--border);">
+          <input id="mtg-comms-inp" class="field-input" placeholder="What needs to be communicated…" autocomplete="off"
+            style="flex:1;margin:0;padding:8px 10px;font-size:16px;"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();_mtgAddItem('mtg-comms');}"/>
+          <input id="mtg-comms-due" type="date" style="width:110px;padding:8px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text);font:500 12px/1 var(--font-ui);color-scheme:dark;outline:none;flex-shrink:0;"/>
+          <button onclick="_mtgAddItem('mtg-comms')" style="padding:8px 12px;border-radius:var(--r2);border:none;background:#BA68C8;color:#fff;font:700 11px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">+ Add</button>
+        </div>
+        <div id="mtg-comms-list" style="display:flex;flex-direction:column;"></div>
       </div>
     </div>
     ${isSideBySide?'</div>':''}
@@ -25429,29 +25520,40 @@ function _doSaveMeetingCapture(){
   const attendees    = getPersonNamesByIds(personIds);
   const decisions    = document.getElementById('mtg-decisions')?.value.trim()||'';
   const notes        = document.getElementById('mtg-notes')?.value.trim()||'';
-  const myCommits    = document.getElementById('mtg-mycommits')?.value.trim()||'';
-  const theirCommits = document.getElementById('mtg-theircommits')?.value.trim()||'';
   const initiativeId = document.getElementById('mtg-initiative-id')?.value||'';
   const orgId        = document.getElementById('mtg-org-id')?.value||'';
-  const capSeriesId = document.getElementById('mtg-series-id')?.value||'';
-  // Preserve existing taskIds and attachments — managed separately, must not be dropped on edit
-  const existingMeeting   = id ? meetingLog.find(m=>m.id===id) : null;
-  const existingTaskIds   = existingMeeting?.taskIds   || [];
+  const capSeriesId  = document.getElementById('mtg-series-id')?.value||'';
+
+  // Read structured commitment lists
+  const readMtgList = id => [...(document.getElementById(id)?.children||[])]
+    .map(d => ({ text: d.dataset.text||'', due: d.dataset.due||'' })).filter(d=>d.text);
+  const newTasks  = readMtgList('mtg-task-list');
+  const newDels   = readMtgList('mtg-del-list');
+  const newWFs    = readMtgList('mtg-wf-list');
+  const newComms  = readMtgList('mtg-comms-list');
+
+  // Keep myCommits/theirCommits on the meeting record for backward compat
+  const myCommits    = newTasks.map(t=>t.text).join('\n');
+  const theirCommits = newWFs.map(w=>w.text).join('\n');
+
+  const existingMeeting     = id ? meetingLog.find(m=>m.id===id) : null;
+  const existingTaskIds     = existingMeeting?.taskIds     || [];
   const existingAttachments = existingMeeting?.attachments || [];
-  const existingCreatedAt = existingMeeting?.createdAt || today();
+  const existingCreatedAt   = existingMeeting?.createdAt   || today();
+
   const meeting = {
     id: id||'m'+Date.now(), title, date, startTime, duration, personIds, attendees,
     decisions, notes, myCommits, theirCommits,
     createdAt: existingCreatedAt,
     taskIds: existingTaskIds,
     attachments: existingAttachments,
-    ...(orgId ? {orgId} : {}),
+    ...(orgId        ? {orgId}        : {}),
     ...(initiativeId ? {initiativeId} : {}),
     ...(capSeriesId  ? {seriesId:capSeriesId} : {})
   };
   if(id){ const idx=meetingLog.findIndex(m=>m.id===id); if(idx>-1) meetingLog[idx]=meeting; else meetingLog.unshift(meeting); }
   else   { meetingLog.unshift(meeting); }
-  // Auto-link meeting into initiative's linkedMeetingIds
+
   if(initiativeId){
     const ini = discoveryList.find(i=>i.id===initiativeId);
     if(ini){
@@ -25460,53 +25562,80 @@ function _doSaveMeetingCapture(){
       saveDiscovery();
     }
   }
-  // Auto-create tasks from my commitments — ONLY on first save, not on edits
-  let tasksCreated=0;
-  const isNewMeeting = !id;
-  if(isNewMeeting && myCommits){
-    myCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-      const t={ id:'t'+Date.now()+Math.random().toString(36).slice(2,6), projectId:'', title:line,
-        priority:'medium', status:'todo', dueDate:'', notes:'From meeting: '+title+' ('+date+')',
+
+  const isNew = !id;
+  const personId = personIds.split(',').filter(Boolean)[0]||'';
+  let created = 0;
+
+  if(isNew){
+    // Tasks for me → tasks[] + commitments[]
+    newTasks.forEach(t=>{
+      const tid = 't'+Date.now()+Math.random().toString(36).slice(2,6);
+      const task = { id:tid, projectId:'', title:t.text, priority:'medium', status:'todo',
+        dueDate:t.due, notes:'From meeting: '+title+' ('+date+')',
         source:'meeting:'+meeting.id, recur:'none', effort:'', estimate:'', energy:'medium',
-        createdAt:today(), completedAt:null, subtasks:[],
-        ...(initiativeId ? {discoveryId:initiativeId} : {})
-      };
-      tasks.push(t); tasksCreated++;
-      // Also add to initiative's linkedTaskIds
-      if(initiativeId){
-        const ini = discoveryList.find(i=>i.id===initiativeId);
-        if(ini){
-          if(!ini.linkedTaskIds) ini.linkedTaskIds=[];
-          if(!ini.linkedTaskIds.includes(t.id)) ini.linkedTaskIds.push(t.id);
-        }
-      }
+        personIds, createdAt:today(), completedAt:null, subtasks:[],
+        ...(initiativeId?{discoveryId:initiativeId}:{}) };
+      tasks.push(task);
+      commitments.unshift({ id:tid, type:'action', title:t.text, status:'todo',
+        dueDate:t.due, personIds, source:'meeting:'+meeting.id,
+        notes:'From meeting: '+title+' ('+date+')',
+        createdAt:today(), createdBy:'jason', visibility:'work' });
+      created++;
     });
-    if(initiativeId) saveDiscovery();
-  }
-  // Auto-create Waiting For from their commitments — ONLY on first save
-  let waitingCreated=0;
-  if(isNewMeeting && theirCommits){
-    theirCommits.split('\n').map(s=>s.trim()).filter(Boolean).forEach(line=>{
-      const match = line.match(/^([^:]+):\s*(.+)$/);
-      const person = match ? match[1].trim() : attendees.split(',')[0].trim()||'Meeting attendee';
-      const what   = match ? match[2].trim() : line;
-      waitingFor.unshift({
-        id:'wf'+Date.now()+Math.random().toString(36).slice(2,6),
-        person, what, dueDate:'', taskId:'', done:false, createdAt:today(),
-        ...(initiativeId ? {initiativeId} : {})
-      });
-      waitingCreated++;
+    if(newTasks.length){ saveAllDebounced(); if(initiativeId){ const ini=discoveryList.find(i=>i.id===initiativeId); if(ini){ if(!ini.linkedTaskIds)ini.linkedTaskIds=[]; newTasks.forEach(t=>{ if(!ini.linkedTaskIds.includes(t.id))ini.linkedTaskIds.push(t.id);}); saveDiscovery(); }} }
+
+    // Delegations
+    newDels.forEach(d=>{
+      const did = 'del'+Date.now()+Math.random().toString(36).slice(2,6);
+      delegations.unshift({ id:did, personId, what:d.text, dueDate:d.due,
+        status:'active', notes:'From meeting: '+title+' ('+date+')', createdAt:today() });
+      commitments.unshift({ id:did, type:'delegation', title:d.text, status:'todo',
+        dueDate:d.due, personIds, source:'meeting:'+meeting.id,
+        notes:'From meeting: '+title+' ('+date+')',
+        createdAt:today(), createdBy:'jason', visibility:'work' });
+      created++;
     });
-    saveWaiting();
+    if(newDels.length) saveDelegations();
+
+    // Waiting for → waitingFor[] + commitments[]
+    newWFs.forEach(w=>{
+      const wid = 'wf'+Date.now()+Math.random().toString(36).slice(2,6);
+      const person = findPerson(personId);
+      waitingFor.unshift({ id:wid, person:person?.name||attendees.split(',')[0]||'',
+        personId, personIds, what:w.text, dueDate:w.due,
+        done:false, createdAt:today(), ...(initiativeId?{initiativeId}:{}) });
+      commitments.unshift({ id:wid, type:'waiting', title:w.text, status:'todo',
+        dueDate:w.due, personIds, source:'meeting:'+meeting.id,
+        notes:'From meeting: '+title+' ('+date+')',
+        createdAt:today(), createdBy:'jason', visibility:'work' });
+      created++;
+    });
+    if(newWFs.length) saveWaiting();
+
+    // Comms → commsOwed[] + commitments[]
+    newComms.forEach(c=>{
+      const cid = 'co'+Date.now()+Math.random().toString(36).slice(2,6);
+      commsOwed.unshift({ id:cid, what:c.text, recipient:'', dueDate:c.due,
+        context:'From meeting: '+title+' ('+date+')',
+        personId, done:false, createdAt:today() });
+      commitments.unshift({ id:cid, type:'comms', title:c.text, status:'todo',
+        dueDate:c.due, personIds, source:'meeting:'+meeting.id,
+        notes:'From meeting: '+title+' ('+date+')',
+        createdAt:today(), createdBy:'jason', visibility:'work' });
+      created++;
+    });
+    if(newComms.length) saveCommsOwed();
+
+    if(created) saveCommitments();
   }
+
   saveMeetings();
-  if(tasksCreated > 0) saveAllDebounced();
   renderAll();
   closeModal('modal-meeting');
   let msg = '📝 Meeting saved';
-  if(initiativeId){ const ini=discoveryList.find(i=>i.id===initiativeId); if(ini) msg+=' · linked to '+ini.title.slice(0,20); }
-  if(tasksCreated>0) msg += ' · '+tasksCreated+' task'+(tasksCreated>1?'s':'')+' created';
-  if(waitingCreated>0) msg += ' · '+waitingCreated+' waiting for';
+  if(initiativeId){ const ini=discoveryList.find(i=>i.id===initiativeId); if(ini) msg+=' · '+ini.title.slice(0,20); }
+  if(created) msg += ` · ${created} item${created!==1?'s':''} created`;
   showToast(msg);
 }
 function renderMeetingLog(){
@@ -26722,16 +26851,31 @@ async function runMeetingAI(){
   try {
     const result = await aiCall(
       `You are a sharp executive assistant. Structure raw meeting notes into clean sections.
-Return ONLY valid JSON with these exact keys: {"decisions":"...","notes":"...","myCommits":"one per line","theirCommits":"Name: what they committed to, one per line"}.
-Be concise. myCommits = things Jason committed to. theirCommits = things others committed to (format: "Name: commitment").`,
+Return ONLY valid JSON with these exact keys:
+{"decisions":"string","notes":"string","myTasks":["task text"],"delegations":["task text"],"waitingFor":["what I am waiting on"],"comms":["what needs to be communicated"]}
+myTasks = things Jason committed to do himself.
+delegations = things Jason is assigning to others in the meeting.
+waitingFor = things Jason is waiting to receive from others.
+comms = things that need to be communicated to others after this meeting.
+Be concise. Arrays may be empty [].`,
       `Meeting: "${title}"\n\nRaw notes:\n${rawNotes}`,
       600
     );
     let obj; try{ obj=JSON.parse(result.replace(/```json|```/g,'').trim()); }catch(e){ throw new Error('Could not parse AI response'); }
     if(obj.decisions){ const el=document.getElementById('mtg-decisions'); if(el) el.value=obj.decisions; }
     if(obj.notes){ const el=document.getElementById('mtg-notes'); if(el) el.value=obj.notes; }
-    if(obj.myCommits){ const el=document.getElementById('mtg-mycommits'); if(el) el.value=obj.myCommits; }
-    if(obj.theirCommits){ const el=document.getElementById('mtg-theircommits'); if(el) el.value=obj.theirCommits; }
+    // Inject typed items into the structured lists
+    const _injectMtgItems = (prefix, items) => {
+      if(!items?.length) return;
+      items.forEach(text => {
+        const inp = document.getElementById(prefix+'-inp');
+        if(inp){ inp.value = text; _mtgAddItem(prefix); }
+      });
+    };
+    _injectMtgItems('mtg-task',  obj.myTasks);
+    _injectMtgItems('mtg-del',   obj.delegations);
+    _injectMtgItems('mtg-wf',    obj.waitingFor);
+    _injectMtgItems('mtg-comms', obj.comms);
     showToast('✓ Notes structured');
   } catch(e){
     const _notSetup = String(e.message||'').includes('PASTE_YOUR') || String(e.message||'').includes('not set') || String(e.message||'').includes('401') || String(e.message||'').includes('404');
