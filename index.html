@@ -54,6 +54,39 @@ img{-webkit-touch-callout:none;user-select:none;}
   --font-ui:'DM Sans',system-ui,sans-serif;
   --font-body:'Lora','Georgia',serif;
 }
+/* ── Dark mode: override all surface/text/border vars ────────── */
+body.dark-mode{
+  --bg:           #0D1117;
+  --surface:      #161B22;
+  --surface2:     #1E2530;
+  --surface3:     #252D3A;
+  --border:       #2A3448;
+  --border2:      #374560;
+  --accent:       #4D8FE0;
+  --accent-dim:   #3A7ACC;
+  --accent-soft:  rgba(77,143,224,0.15);
+  --gold:         #E8A838;
+  --gold-soft:    rgba(232,168,56,0.15);
+  --green:        #4CAF6A;
+  --green-soft:   rgba(76,175,106,0.12);
+  --red:          #EF5350;
+  --red-soft:     rgba(239,83,80,0.12);
+  --blue:         #4D8FE0;
+  --blue-soft:    rgba(77,143,224,0.12);
+  --orange:       #FF8A65;
+  --orange-soft:  rgba(255,138,101,0.12);
+  --text:         #E8EDF5;
+  --text2:        #B8C4D8;
+  --text3:        #8896B4;
+  --text4:        #5A6A88;
+  --color-today:  #4D8FE0;
+  --color-tasks:  #66BB6A;
+  --color-waiting:#FFA726;
+  --color-meetings:#CE93D8;
+  --color-people: #4DB6AC;
+  --color-discovery:#9575CD;
+}
+
 html,body{
   height:100%;overflow:hidden;
   background:var(--bg);
@@ -4929,7 +4962,15 @@ async function renderHomeTodayView(container){
   // ── Tasks due today ───────────────────────────────────────────
   const myPrivateTasks = isJason ? jasonHomeTasks : wifeHomeTasks;
   const privateDue     = myPrivateTasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayStr);
-  const familyDueToday = familyTasks.filter(t => !t.done && t.dueDate && t.dueDate <= todayStr);
+  // Family tasks — each person only sees tasks assigned to them or 'anyone'
+  // Jason sees: anyone, jason. Jenny sees: anyone, wife, jenny.
+  const familyDueToday = familyTasks.filter(t => {
+    if(t.done || !t.dueDate || t.dueDate > todayStr) return false;
+    const a = taskAssignees(t);
+    if(isJason)  return a.includes('anyone') || a.includes('jason');
+    if(isJenny)  return a.includes('anyone') || a.includes('wife') || a.includes('jenny');
+    return a.includes('anyone');
+  });
   // ── Kids chores due today ─────────────────────────────────────
   const kidsChoresSummary = (() => {
     if (!kidsGame || !kidsGame.players || !kidsGame.cats) return '';
@@ -4956,6 +4997,54 @@ async function renderHomeTodayView(container){
   const planBtnColor = _planDone ? 'var(--green)' : 'var(--accent)';
   const planBtnLabel = _planDone ? '&#128197; View the week' : (isSun ? '&#128197; Plan next week →' : '&#128197; Plan the week');
   let html = '';
+  // ── Mother's Day surprise for Jenny ──────────────────────────
+  // Show on May 11, 2026 only (second Sunday in May)
+  const _isMothersDay = todayStr === '2026-05-10';
+  if(_isMothersDay){
+    html += `<div id="mothers-day-banner" style="
+      position:relative;overflow:hidden;
+      margin:12px 16px 0;padding:20px 16px 18px;
+      border-radius:var(--r3);
+      background:linear-gradient(135deg,#FF6B8A 0%,#FF8E6B 40%,#FFB347 100%);
+      border:none;box-shadow:0 4px 20px rgba(255,107,138,0.4);">
+      <!-- Sparkles -->
+      <div style="position:absolute;top:8px;right:12px;font-size:22px;animation:spin 4s linear infinite;display:inline-block;">✨</div>
+      <div style="position:absolute;top:16px;right:38px;font-size:14px;opacity:0.7;">💐</div>
+      <div style="position:absolute;bottom:10px;right:16px;font-size:18px;opacity:0.6;">🌸</div>
+      <style>
+        @keyframes spin { 0%{transform:rotate(0deg) scale(1)} 50%{transform:rotate(180deg) scale(1.2)} 100%{transform:rotate(360deg) scale(1)} }
+        @keyframes fadeUp { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+        #mothers-day-banner > *:not(style) { animation: fadeUp 0.6s ease both; }
+        #mothers-day-banner > *:nth-child(3) { animation-delay: 0.1s; }
+        #mothers-day-banner > *:nth-child(4) { animation-delay: 0.2s; }
+        #mothers-day-banner > *:nth-child(5) { animation-delay: 0.3s; }
+      </style>
+      <div style="font:800 22px/1.2 'DM Sans',sans-serif;color:#fff;margin-bottom:6px;
+        text-shadow:0 1px 3px rgba(0,0,0,0.15);">
+        Happy Mother's Day, Jenny! 💕
+      </div>
+      <div style="font:500 14px/1.5 'DM Sans',sans-serif;color:rgba(255,255,255,0.92);margin-bottom:12px;">
+        Thank you for being the heart of this family. Ridley and Connor are so lucky to have you and so am I. 🏡
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.22);
+          padding:6px 12px;border-radius:20px;">
+          <span style="font-size:16px;">🌹</span>
+          <span style="font:700 12px/1 'DM Sans',sans-serif;color:#fff;">From Jason</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.22);
+          padding:6px 12px;border-radius:20px;">
+          <span style="font-size:16px;">💙</span>
+          <span style="font:700 12px/1 'DM Sans',sans-serif;color:#fff;">From Ridley</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.22);
+          padding:6px 12px;border-radius:20px;">
+          <span style="font-size:16px;">💚</span>
+          <span style="font:700 12px/1 'DM Sans',sans-serif;color:#fff;">From Connor</span>
+        </div>
+      </div>
+    </div>`;
+  }
   // Sunday nudge banner
   if(isSun && !_planDone){
     html += '<div style="margin:12px 16px 0;padding:14px 16px;border-radius:var(--r3);background:var(--accent-soft);border:1.5px solid var(--accent);display:flex;align-items:center;gap:12px;">'
@@ -7769,8 +7858,21 @@ function saveFamilyTaskModal(){
       const t = arr.find(x=>x.id===m.editId);
       if(t){ t.title=title; t.dueDate=dueDate; }
     } else {
-      arr.unshift({id:'ht'+Date.now(), title, done:false, dueDate,
+      const newId = 'ht'+Date.now();
+      arr.unshift({id:newId, title, done:false, dueDate,
         createdAt:today(), createdBy: isJason?'jason':'jenny'});
+      // Auto-pin to today if due today — makes it show on Work Today view
+      if(dueDate === today()){
+        todayPinned.add(newId);
+        savePinned();
+      }
+      // Also add to commitments so it appears on Work page under Personal type
+      if(isJason){
+        commitments.unshift({ id:newId, type:'home', title, status:'todo',
+          dueDate, personIds:'', source:'personal-task',
+          notes:'', createdAt:today(), createdBy:'jason', visibility:'private' });
+        saveCommitments();
+      }
     }
     save();
   } else {
@@ -13048,7 +13150,19 @@ function _cvRefreshList(){
 }
 // ── Quick complete from list ──────────────────────────────────
 function _cvComplete(id){
-  const c = commitments.find(x=>x.id===id); if(!c) return;
+  const c = commitments.find(x=>x.id===id);
+  if(!c){
+    // May be a jasonHomeTasks item pinned to today — complete it directly
+    const ht = jasonHomeTasks.find(t=>t.id===id) || wifeHomeTasks.find(t=>t.id===id);
+    if(ht){
+      ht.done = !ht.done;
+      if(ht.done){ todayPinned.delete(id); savePinned(); }
+      jasonHomeTasks.find(t=>t.id===id) ? saveJasonHomeTasks() : saveWifeHomeTasks();
+      renderAll();
+      if(ht.done) showToast('✓ Done');
+    }
+    return;
+  }
   const wasDone = c.status === 'done' || c.status === 'resolved';
   updateCommitment(id, {
     status:      wasDone ? 'todo' : 'done',
@@ -13063,24 +13177,31 @@ function _cvComplete(id){
 // Keeps existing views (Tasks, Waiting For etc) in sync during migration
 function _cvSyncBackToLegacy(id){
   const c = commitments.find(x=>x.id===id); if(!c) return;
-  // If it maps to a task (same ID or cm-... prefix)
   const origId = id.startsWith('cm-') ? id.replace(/^cm-(wf|del|co|ci|ft|jh|wh)-/,'') : id;
+  const isDone = c.status === 'done' || c.status === 'cancelled';
   if(c.type === 'action'){
     const t = tasks.find(x=>x.id===origId||x.id===id);
-    if(t){ t.status=c.status; t.completedAt=c.completedAt; saveAllDebounced(); }
+    if(t){ t.status=c.status; t.completedAt=c.completedAt||null; saveAllDebounced(); }
   } else if(c.type === 'waiting'){
     const w = waitingFor.find(x=>x.id===origId||x.id===id);
-    if(w){ w.done=(c.status==='done'); saveWaitingFor(); }
+    if(w){ w.done=isDone; saveWaiting(); }                      // was saveWaiting() — wrong name
   } else if(c.type === 'delegation'){
     const d = delegations.find(x=>x.id===origId||x.id===id);
-    if(d){ d.status=(c.status==='done'?'done':'active'); saveDelegations(); }
+    if(d){ d.status=isDone?'done':'active'; saveDelegations(); }
+  } else if(c.type === 'comms'){
+    const co = commsOwed.find(x=>x.id===origId||x.id===id);   // was missing entirely
+    if(co){ co.done=isDone; saveCommsOwed(); }
   } else if(c.type === 'family'){
     const ft = familyTasks.find(x=>x.id===origId||x.id===id);
-    if(ft){ ft.done=(c.status==='done'); saveFamilyTasks(); }
+    if(ft){ ft.done=isDone; saveFamilyTasks(); }
   } else if(c.type === 'home'){
     const jt = jasonHomeTasks.find(x=>x.id===origId||x.id===id);
-    if(jt){ jt.done=(c.status==='done'); saveJasonHomeTasks(); }
+    if(jt){ jt.done=isDone; saveJasonHomeTasks(); return; }
+    const wt = wifeHomeTasks.find(x=>x.id===origId||x.id===id); // was missing Jenny
+    if(wt){ wt.done=isDone; saveWifeHomeTasks(); }
   }
+  // follow_up and other types: commitment record is the source of truth,
+  // no separate legacy array to sync — saveCommitments() already called by updateCommitment()
 }
 // ── Open edit modal for existing commitment ───────────────────
 function _cvOpenEdit(id){
@@ -13203,6 +13324,48 @@ function openCommitmentModal(editId){
         <textarea id="cm-notes" class="field-input" rows="2" style="margin:0;resize:vertical;"
           placeholder="Context, details, next steps…">${esc(existing?.notes||'')}</textarea>
       </div>
+      <!-- Comments / progress log -->
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;
+          text-transform:uppercase;margin-bottom:8px;">
+          Progress Log
+          ${existing?.comments?.length ? `<span style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-left:4px;">${existing.comments.length} note${existing.comments.length!==1?'s':''}</span>` : ''}
+        </div>
+        <!-- Existing comments -->
+        ${existing?.comments?.length ? `
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;
+            max-height:180px;overflow-y:auto;padding-right:2px;">
+          ${[...(existing.comments)].reverse().map(c => {
+            const d = new Date(c.ts);
+            const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+            const timeStr = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+            const author  = c.author || 'Jason';
+            return `<div style="padding:8px 10px;border-radius:8px;background:var(--surface2);
+                border-left:3px solid var(--accent);">
+              <div style="font:500 13px/1.4 var(--font-body);color:var(--text);">${esc(c.text)}</div>
+              <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:4px;">
+                ${author} · ${dateStr} at ${timeStr}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+        <!-- Add new comment -->
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <textarea id="cm-new-comment" class="field-input" rows="2"
+            style="flex:1;margin:0;resize:none;font-size:14px;"
+            placeholder="Add a progress note…"
+            onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();_cmAddComment('${editId||''}');}"></textarea>
+          <button onclick="_cmAddComment('${editId||''}')"
+            style="padding:8px 12px;border-radius:var(--r2);border:none;
+              background:var(--accent);color:#fff;font:700 12px/1 var(--font-ui);
+              cursor:pointer;flex-shrink:0;height:40px;">
+            + Add
+          </button>
+        </div>
+        <div style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          Cmd+Enter to add · Timestamped automatically
+        </div>
+      </div>
       <input type="hidden" id="cm-edit-id" value="${editId||''}"/>
       <button onclick="_cvSave()"
         style="width:100%;padding:14px;border-radius:var(--r3);border:none;
@@ -13242,6 +13405,52 @@ function _cmSetVis(v, col){
     b.style.fontWeight =sel?'700':'500';
   });
 }
+function _cmAddComment(editId){
+  const text = document.getElementById('cm-new-comment')?.value.trim();
+  if(!text) return;
+  const isJenny = typeof currentUser==='object' && currentUser?.role==='wife';
+  const author  = isJenny ? 'Jenny' : 'Jason';
+  const comment = { id:'cmt'+Date.now(), text, author, ts: Date.now() };
+  if(editId){
+    // Existing commitment — save comment immediately
+    const c = commitments.find(x=>x.id===editId);
+    if(c){
+      if(!c.comments) c.comments = [];
+      c.comments.push(comment);
+      saveCommitments();
+      showToast('📝 Note added');
+    }
+  } else {
+    // New commitment being created — stage in a temp array on the modal
+    if(!window._cmPendingComments) window._cmPendingComments = [];
+    window._cmPendingComments.push(comment);
+  }
+  // Refresh the comments section in-place (don't re-open whole modal)
+  const inp = document.getElementById('cm-new-comment');
+  if(inp) inp.value = '';
+  // Rebuild just the comments log
+  const modal = document.getElementById('modal-commitment');
+  if(!modal) return;
+  // Re-render the comments display by reopening (quick enough on small comment lists)
+  const cId = document.getElementById('cm-edit-id')?.value || '';
+  if(cId){
+    // Preserve form state and reopen to show new comment
+    const savedTitle    = document.getElementById('cm-title')?.value || '';
+    const savedType     = document.getElementById('cm-type')?.value || 'action';
+    const savedNotes    = document.getElementById('cm-notes')?.value || '';
+    const savedDue      = document.getElementById('cm-due')?.value || '';
+    const savedPriority = document.getElementById('cm-priority')?.value || 'medium';
+    const savedVis      = document.getElementById('cm-visibility')?.value || 'work';
+    const savedPersonIds= document.getElementById('cm-person-ids')?.value || '';
+    const savedOrg      = document.getElementById('cm-org')?.value || '';
+    openCommitmentModal(cId);
+    // Restore any in-progress edits
+    requestAnimationFrame(()=>{
+      const t = document.getElementById('cm-title'); if(t) t.value = savedTitle;
+      const n = document.getElementById('cm-notes'); if(n) n.value = savedNotes;
+    });
+  }
+}
 function _cvSave(){
   const editId     = document.getElementById('cm-edit-id')?.value||'';
   const title      = document.getElementById('cm-title')?.value.trim()||'';
@@ -13256,7 +13465,10 @@ function _cvSave(){
   if(editId){
     updateCommitment(editId, { title, type, notes, personIds, orgId, dueDate, priority, visibility });
   } else {
-    createCommitment({ title, type, notes, personIds, orgId, dueDate, priority, visibility });
+    const pending = window._cmPendingComments || [];
+    window._cmPendingComments = [];
+    createCommitment({ title, type, notes, personIds, orgId, dueDate, priority, visibility,
+      comments: pending.length ? pending : [] });
   }
   document.getElementById('modal-commitment')?.remove();
   renderAll();
@@ -15705,39 +15917,37 @@ function toggleNavGrid(){
   const overlay = document.getElementById('nav-grid-overlay');
   if(!overlay) return;
   if(overlay.classList.contains('open')){ closeNavGrid(); return; }
-  // Rebuild grid — overflow items only (not already on bottom nav)
   const grid = document.getElementById('nav-grid');
   if(grid){
     const isHome = currentMode === 'home';
     const tiles = isHome
       ? [
-          // Home overflow: Calendar + Dinners
+          // Home overflow: everything not on the 5 bottom-nav slots
           {icon:'📅', label:'Calendar', nav:'calendar'},
-          {icon:'🍽', label:'Dinners',  nav:'dinners'},
+          {icon:'🍽️', label:'Dinners',  nav:'dinners'},
+          {icon:'🛒', label:'Grocery',  nav:'grocery'},
+          {icon:'👥', label:'Contacts', nav:'people'},
         ]
       : [
-          // Work overflow: just Settings now (all else on nav)
-          {icon:'⚙', label:'Settings', nav:'settings'},
+          // Work overflow: Settings (all primary tabs on rail/bottom nav)
+          {icon:'⚙️',  label:'Settings', nav:'settings'},
         ];
     grid.innerHTML = tiles.map(function(t){
-      return '<button class="nav-grid-tile" onclick="setNav(&quot;'+t.nav+'&quot;);closeNavGrid()">'
-        + '<div class="nav-grid-tile-icon">'+t.icon+'</div><div>'+t.label+'</div>'
-        + '</button>';
+      const isActive = activeNav === t.nav
+        || (t.nav==='people' && activeNav==='relationships');
+      return '<button class="nav-grid-tile'+(isActive?' grid-active':'')+'"'
+        +' onclick="setNav(\''+t.nav+'\');closeNavGrid()">'
+        +'<div class="nav-grid-tile-icon">'+t.icon+'</div><div>'+t.label+'</div>'
+        +'</button>';
     }).join('');
   }
-  updateNavGridActive();
   overlay.classList.add('open');
 }
 function closeNavGrid(){
   document.getElementById('nav-grid-overlay')?.classList.remove('open');
 }
 function updateNavGridActive(){
-  document.querySelectorAll('.nav-grid-tile[id^="grid-"]').forEach(el=>el.classList.remove('active'));
-  const map = {today:'grid-today',tasks:'grid-tasks',
-    meetings:'grid-meetings',kids:'grid-kids',waiting:'grid-waiting',
-    people:'grid-people',settings:'grid-settings'};
-  const el = document.getElementById(map[activeNav]);
-  if(el) el.classList.add('active');
+  // Active state is now handled inline when grid is built — no-op kept for compat
 }
 // Compat shims for any remaining references
 function toggleMoreMenu(){ toggleNavGrid(); }
@@ -15749,6 +15959,26 @@ function setNav(nav){
   activeNav=nav;
   if(nav==="focus"){ activeNav='today'; todayFocusMode=true; }
   else if(nav==="today"){ todayFocusMode=false; }
+  // ── Update URL so refresh restores position ───────────────────
+  // Map internal nav names to clean URL tab param
+  const _urlTabMap = {
+    // Work tabs
+    'today':'today','commitments':'work','timebox':'timebox',
+    'relationships':'people','intel':'intel','settings':'settings',
+    // Home tabs
+    'home-today':'home-today','family':'family','grocery':'grocery',
+    'tracker':'tracker','health':'health','kids':'kids',
+    'dinners':'dinners','calendar':'calendar','games':'games',
+    // Legacy aliases → canonical URL names
+    'tasks':'work','waiting':'work','meetings':'intel','discovery':'intel',
+    'people':'people','team':'people','clients':'people',
+  };
+  const _urlTab = _urlTabMap[nav] || nav;
+  try {
+    const _newUrl = window.location.pathname + '?tab=' + _urlTab;
+    if(window.history?.pushState) window.history.pushState({ tab:_urlTab }, '', _newUrl);
+  } catch(e) {}
+  // ── Nav button highlighting ───────────────────────────────────
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
   // Highlight matching button in BOTH nav bars (only one is visible at a time)
   // Map old routes to new consolidated nav button IDs
@@ -16684,20 +16914,85 @@ function renderTodayView(container){
   const totalAssigned  = pinnedAll.length;
   const overdueUnpinned= tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate<todayStr&&!todayPinned.has(t.id));
   const dueTodayUnpinned=tasks.filter(t=>t.status!=='done'&&t.status!=='blocked'&&t.dueDate&&t.dueDate===todayStr&&!todayPinned.has(t.id));
-  const pinnedTasks    = [...new Set([...todayPinned,...(getTbBlocksForDate(todayStr)||[]).map(b=>b.taskId)])].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
+  // ── Resolve tbBlocks for today → Today's Focus ───────────────
+  // Blocks store id as 't:taskId', 'ft:familyId', 'ht:homeId', or 'tb-timestamp'
+  // We need to resolve each to its source item for display + completion
+  const todayBlocksRaw = getTbBlocksForDate(todayStr);
+  function _resolveBlock(b){
+    const id = b.id || '';
+    if(id.startsWith('t:')){
+      const t = tasks.find(x => x.id === id.slice(2));
+      return t ? { kind:'task', item:t, block:b } : null;
+    }
+    if(id.startsWith('ft:')){
+      const t = familyTasks.find(x => x.id === id.slice(3));
+      return t ? { kind:'family', item:t, block:b } : null;
+    }
+    if(id.startsWith('ht:')){
+      const t = jasonHomeTasks.find(x => x.id === id.slice(3)) || wifeHomeTasks.find(x => x.id === id.slice(3));
+      return t ? { kind:'home', item:t, block:b } : null;
+    }
+    // srcId fallback
+    if(b.srcId){
+      const t = tasks.find(x => x.id === b.srcId);
+      if(t) return { kind:'task', item:t, block:b };
+      const ft = familyTasks.find(x => x.id === b.srcId);
+      if(ft) return { kind:'family', item:ft, block:b };
+      const ht = jasonHomeTasks.find(x => x.id === b.srcId);
+      if(ht) return { kind:'home', item:ht, block:b };
+    }
+    // Free-form block (no source task)
+    return { kind:'free', item:{ id:b.id, title:b.title, status:b.done?'done':'todo' }, block:b };
+  }
+  const todayResolved = todayBlocksRaw.map(_resolveBlock).filter(Boolean);
+  const todayBlockTasks = todayResolved.filter(r => r.kind==='task' && r.item.status!=='done').map(r=>r.item);
+  const todayBlockTaskIds = new Set(todayBlockTasks.map(t=>t.id));
+
+  const pinnedTasks    = [...new Set([...todayPinned, ...todayBlockTasks.map(t=>t.id)])].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status!=='done');
   const pinnedDone     = [...todayPinned].map(id=>tasks.find(t=>t.id===id)).filter(t=>t&&t.status==='done');
   // Non-task pinned commitments (waiting, delegation, comms, etc.)
   const taskIds        = new Set(tasks.map(t=>t.id));
+  const homeTaskIds    = new Set([...jasonHomeTasks,...wifeHomeTasks].map(t=>t.id));
   const pinnedCommits  = [...todayPinned]
     .filter(id => !taskIds.has(id))
-    .map(id => commitments.find(c=>c.id===id))
+    .map(id => commitments.find(c=>c.id===id) || (() => {
+      // Fallback: check jasonHomeTasks directly
+      const ht = jasonHomeTasks.find(t=>t.id===id) || wifeHomeTasks.find(t=>t.id===id);
+      return ht && !ht.done ? { id:ht.id, type:'home', title:ht.title, status:'todo',
+        dueDate:ht.dueDate, personIds:'', source:'personal-task' } : null;
+    })())
     .filter(c => c && c.status!=='done' && c.status!=='cancelled');
   const pinnedCommitsDone = [...todayPinned]
     .filter(id => !taskIds.has(id))
-    .map(id => commitments.find(c=>c.id===id))
+    .map(id => commitments.find(c=>c.id===id) || (() => {
+      const ht = jasonHomeTasks.find(t=>t.id===id) || wifeHomeTasks.find(t=>t.id===id);
+      return ht && ht.done ? { id:ht.id, type:'home', title:ht.title, status:'done',
+        dueDate:ht.dueDate, personIds:'', source:'personal-task' } : null;
+    })())
     .filter(c => c && (c.status==='done'||c.status==='cancelled'));
   const focusTasks     = [...pinnedTasks,...dueTodayUnpinned.filter(t=>!todayPinned.has(t.id))];
   const focusCommits   = pinnedCommits; // non-task pinned commitments
+  // ── All non-task commitments due today or overdue ────────────
+  // These join Today's Focus alongside pinned items
+  const dueTodayCommits = getCommitments({ active:true })
+    .filter(c => c.type !== 'action' && c.dueDate && c.dueDate <= todayStr && !todayPinned.has(c.id));
+  // ── jasonHomeTasks due today/overdue (unpinned, not already in tbBlocks) ──
+  const plannedHomeIds = new Set(todayResolved.filter(r=>r.kind==='home').map(r=>r.item.id));
+  const dueHomeTasksUnpinned = jasonHomeTasks.filter(t =>
+    !t.done && t.dueDate && t.dueDate <= todayStr && !todayPinned.has(t.id) && !plannedHomeIds.has(t.id));
+  // ── familyTasks assigned to Jason due today/overdue (unpinned, not in tbBlocks)
+  const plannedFamilyIds = new Set(todayResolved.filter(r=>r.kind==='family').map(r=>r.item.id));
+  const dueFamilyTasksUnpinned = familyTasks.filter(t => {
+    if(t.done || !t.dueDate || t.dueDate > todayStr) return false;
+    if(todayPinned.has(t.id) || plannedFamilyIds.has(t.id)) return false;
+    const a = taskAssignees(t);
+    return a.includes('anyone') || a.includes('jason');
+  });
+  // ── Timebox-planned blocks for today that aren't work tasks ──
+  // (home tasks, family tasks, and free-form blocks from timebox)
+  const plannedHomeBlocks   = todayResolved.filter(r => r.kind==='home'   && !r.item.done);
+  const plannedFamilyBlocks = todayResolved.filter(r => r.kind==='family' && !r.item.done);
+  const plannedFreeBlocks   = todayResolved.filter(r => r.kind==='free'   && !r.block.done);
   const nudges2        = getPeopleNudges();
   const urgentWF       = waitingFor.filter(w=>!w.done&&w.dueDate&&w.dueDate<=todayStr);
   const _activeTasks   = tasks.filter(t=>t.status!=='done'&&t.status!=='blocked');
@@ -17033,13 +17328,15 @@ function renderTodayView(container){
     </div>`;
   }
   // ── 6. TODAY'S FOCUS (pinned + due today) ───────────────────
-  if(focusTasks.length > 0 || pinnedDone.length > 0 || focusCommits.length > 0 || pinnedCommitsDone.length > 0){
+  if(focusTasks.length > 0 || pinnedDone.length > 0 || focusCommits.length > 0 || pinnedCommitsDone.length > 0 || dueTodayCommits.length > 0 || dueHomeTasksUnpinned.length > 0 || dueFamilyTasksUnpinned.length > 0 || plannedHomeBlocks.length > 0 || plannedFamilyBlocks.length > 0 || plannedFreeBlocks.length > 0){
+    const totalActive = focusTasks.length + focusCommits.length + dueTodayCommits.length + dueHomeTasksUnpinned.length + dueFamilyTasksUnpinned.length + plannedHomeBlocks.length + plannedFamilyBlocks.length + plannedFreeBlocks.length;
+    const totalDone   = pinnedDone.length + pinnedCommitsDone.length;
     html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
       <div class="today-card-header">
         <div class="today-card-label">
           <div class="today-card-accent" style="background:var(--accent);"></div>
-          <span class="today-card-title" style="color:var(--accent);">Today's Focus</span>
-          <span class="today-card-count">${focusTasks.length+focusCommits.length} active${(pinnedDone.length+pinnedCommitsDone.length)>0?' · '+(pinnedDone.length+pinnedCommitsDone.length)+' done':''}</span>
+          <span class="today-card-title" style="color:var(--accent);">Today\u2019s Focus</span>
+          <span class="today-card-count">${totalActive} active${totalDone>0?' · '+totalDone+' done':''}</span>
         </div>
         <button onclick="openTodayPicker()" class="today-card-action">+ Add</button>
       </div>
@@ -17047,48 +17344,122 @@ function renderTodayView(container){
         const isOv=t.dueDate&&t.dueDate<todayStr;
         const isToday=t.dueDate===todayStr;
         const isPinned=todayPinned.has(t.id);
-        const badge=isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ overdue</span>`
-          :isToday?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📅 today</span>`
-          :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${t.dueDate.slice(5)}</span>`:'';
+        const badge=isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`
+          :isToday?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">\U0001f4c5 today</span>`
+          :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 ${t.dueDate.slice(5)}</span>`:'';
         const pinBtn=isPinned
-          ?`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove">✕</button>`
-          :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>`;
+          ?`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove">\u2715</button>`
+          :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>`;
         return tRow(t,'var(--accent)',badge,pinBtn);
       }).join('')}
-      ${focusCommits.map(c=>{
+      ${[...focusCommits, ...dueTodayCommits].map(c=>{
         const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
         const isOv = c.dueDate&&c.dueDate<todayStr;
+        const isPinned = todayPinned.has(c.id);
         const person = c.personIds ? findPerson(c.personIds.split(',')[0]) : null;
         return `<div class="today-card-row" onclick="_cvOpenEdit('${c.id}')">
           <button class="today-check-btn" style="color:${ct.color};"
-            onclick="event.stopPropagation();_cvComplete('${c.id}')">✓</button>
+            onclick="event.stopPropagation();_cvComplete('${c.id}')">\u2713</button>
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
               <span style="font:700 9px/1 var(--font-ui);color:${ct.color};background:${ct.color}14;padding:2px 6px;border-radius:5px;">${ct.emoji} ${ct.label}</span>
-              ${person?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">👤 ${esc(person.name.split(' ')[0])}</span>`:''}
-              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">⚠ overdue</span>`:c.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${c.dueDate.slice(5)}</span>`:''}
+              ${person?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">\U0001f464 ${esc(person.name.split(' ')[0])}</span>`:''}
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:c.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 ${c.dueDate.slice(5)}</span>`:''}
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${c.id}')" title="Remove">✕</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${c.id}')" title="${isPinned?'Unpin':'Pin'}">${isPinned?'\u2715':'\U0001f4cc'}</button>
+        </div>`;
+      }).join('')}
+      ${dueHomeTasksUnpinned.map(t=>{
+        const isOv = t.dueDate&&t.dueDate<todayStr;
+        return `<div class="today-card-row" onclick="openPrivateTaskModal('${t.id}')">
+          <button class="today-check-btn" style="color:#FF8A65;"
+            onclick="event.stopPropagation();toggleHomeTask('${t.id}','jasonHomeTasks','saveJasonHomeTasks')">\u2713</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">\U0001f3e0 Personal</span>
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 today</span>`}
+            </div>
+          </div>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+        </div>`;
+      }).join('')}
+      ${dueFamilyTasksUnpinned.map(t=>{
+        const isOv = t.dueDate&&t.dueDate<todayStr;
+        return `<div class="today-card-row" onclick="setNav('family')">
+          <button class="today-check-btn" style="color:#81C784;"
+            onclick="event.stopPropagation();toggleHomeTask('${t.id}','familyTasks','saveFamilyTasks')">\u2713</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">\U0001f46a\u200d\U0001f467\u200d\U0001f466 Family</span>
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 today</span>`}
+            </div>
+          </div>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+        </div>`;
+      }).join('')}
+      ${plannedHomeBlocks.map(r=>{
+        const t=r.item; const b=r.block;
+        return `<div class="today-card-row" onclick="openPrivateTaskModal('${t.id}')">
+          <button class="today-check-btn" style="color:#FF8A65;"
+            onclick="event.stopPropagation();toggleHomeTask('${t.id}','jasonHomeTasks','saveJasonHomeTasks')">\u2713</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">\U0001f3e0 Personal</span>
+              <span style="font:700 9px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);padding:2px 6px;border-radius:5px;">planned</span>
+            </div>
+          </div>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+        </div>`;
+      }).join('')}
+      ${plannedFamilyBlocks.map(r=>{
+        const t=r.item; const b=r.block;
+        return `<div class="today-card-row" onclick="setNav('family')">
+          <button class="today-check-btn" style="color:#81C784;"
+            onclick="event.stopPropagation();toggleHomeTask('${t.id}','familyTasks','saveFamilyTasks')">\u2713</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">\U0001f46a\u200d\U0001f467\u200d\U0001f466 Family</span>
+              <span style="font:700 9px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);padding:2px 6px;border-radius:5px;">planned</span>
+            </div>
+          </div>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+        </div>`;
+      }).join('')}
+      ${plannedFreeBlocks.map(r=>{
+        const b=r.block;
+        const bi=(tbBlocks[todayStr]||[]).findIndex(x=>x.id===b.id);
+        return `<div class="today-card-row">
+          <button class="today-check-btn" style="color:${b.color||'var(--accent)'};"
+            onclick="event.stopPropagation();_tbListComplete('${b.id}',''+todayStr+'',${String(bi)})">\u2713</button>
+          <div style="flex:1;min-width:0;">
+            <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.title||'')}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
+              <span style="font:700 9px/1 var(--font-ui);color:${b.color||'var(--accent)'};background:${b.color||'var(--accent)'}14;padding:2px 6px;border-radius:5px;">\U0001f4c5 Timebox</span>
+              ${b.durMin?`<span style="font:var(--type-caption);color:var(--text4);">\u23f1 ${b.durMin}m</span>`:''}
+            </div>
+          </div>
         </div>`;
       }).join('')}
       ${(pinnedDone.length+pinnedCommitsDone.length)>0?`
-        <div style="padding:var(--sp1) var(--sp3);border-top:1px solid var(--border);
-            font:700 10px/1 var(--font-ui);color:var(--text4);letter-spacing:1px;">DONE</div>
         ${pinnedDone.map(t=>{
           const proj=projects.find(p=>p.id===t.projectId);
           return `<div style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp2) var(--sp3);
               border-top:1px solid var(--border);opacity:0.45;">
             <button onclick="completeTask('${t.id}',event)" style="width:40px;height:40px;border-radius:50%;
                 border:2px solid var(--green);background:var(--green-soft);color:var(--green);
-                font-size:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">✓</button>
+                font-size:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">\u2713</button>
             <div style="flex:1;min-width:0;cursor:pointer;" onclick="openEditTask('${t.id}')">
               <div style="font:600 13px/1 var(--font-ui);color:var(--text3);text-decoration:line-through;
                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
-              ${proj?`<div style="font:var(--type-caption);color:${proj.color};">◈ ${esc(proj.name)}</div>`:''}
+              ${proj?`<div style="font:var(--type-caption);color:${proj.color};">\u25c8 ${esc(proj.name)}</div>`:''}
             </div>
-            <button onclick="toggleTodayPin('${t.id}')" class="today-icon-btn" title="Remove">✕</button>
+            <button onclick="toggleTodayPin('${t.id}')" class="today-icon-btn" title="Remove">\u2715</button>
           </div>`;
         }).join('')}
         ${pinnedCommitsDone.map(c=>{
@@ -17097,17 +17468,17 @@ function renderTodayView(container){
               border-top:1px solid var(--border);opacity:0.45;">
             <div style="width:40px;height:40px;border-radius:50%;border:2px solid var(--green);
               background:var(--green-soft);color:var(--green);font-size:13px;flex-shrink:0;
-              display:flex;align-items:center;justify-content:center;">✓</div>
+              display:flex;align-items:center;justify-content:center;">\u2713</div>
             <div style="flex:1;min-width:0;">
               <div style="font:600 13px/1 var(--font-ui);color:var(--text3);text-decoration:line-through;
                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
               <span style="font:700 9px/1 var(--font-ui);color:${ct.color};">${ct.emoji} ${ct.label}</span>
             </div>
-            <button onclick="toggleTodayPin('${c.id}')" class="today-icon-btn" title="Remove">✕</button>
+            <button onclick="toggleTodayPin('${c.id}')" class="today-icon-btn" title="Remove">\u2715</button>
           </div>`;
         }).join('')}`:''}
     </div>`;
-  } else {
+    } else {
     html += `<div class="today-card" style="border-style:dashed;border-color:rgba(232,168,56,0.3);">
       <div style="padding:var(--sp5);text-align:center;">
         <div style="font-size:28px;margin-bottom:var(--sp2);">📌</div>
@@ -18622,7 +18993,7 @@ function renderWaitingPage(container){
         </div>
       </div>
       <button onclick="event.stopPropagation();completeCommitment('${c.id}');
-          if('${c._legacy}'==='true') {const w=waitingFor.find(x=>x.id==='${c._legacyId||''}');if(w){w.done=true;saveWaitingFor();}}
+          if('${c._legacy}'==='true') {const w=waitingFor.find(x=>x.id==='${c._legacyId||''}');if(w){w.done=true;saveWaiting();}}
           renderAll();"
         style="width:28px;height:28px;border-radius:50%;border:2px solid #E8A838;
           background:transparent;color:#E8A838;font-size:11px;cursor:pointer;flex-shrink:0;">✓</button>
@@ -21680,7 +22051,7 @@ function _hwSave(){
     });
     wfsCreated++;
   });
-  if(wfsCreated > 0) saveWaitingFor();
+  if(wfsCreated > 0) saveWaiting();
   // ── Also save as team meeting if 1:1 ──────────────────────────
   if(teamMeetingType === '1on1' && teamPersonId){
     teamMeetings.unshift({
@@ -21708,6 +22079,7 @@ function _hwSave(){
 // Data lives in tbBlocks: { date: [{id,title,src,srcId,startMin,durMin,color,done}] }
 // ═══════════════════════════════════════════════════════════════
 let _tbView        = 'week';        // 'week' | 'day'
+let _tbListMode    = localStorage.getItem('tb-list-mode') !== '0'; // default ON (list mode like Sunsama)
 let _tbFocusDay    = today();       // which day is open in day view
 let _tbDragItem    = null;          // { id, srcId, src, title, color, durMin }
 let _tbDragOrigin  = null;          // { date, blockIndex } — where drag started
@@ -21799,6 +22171,258 @@ function _tbSidebarItems(){
 }
 // ── Main render ───────────────────────────────────────────────
 function renderTimeboxPage(container){
+  if(_tbListMode){ _tbRenderListView(container); return; }
+  _tbRenderGridView(container);
+}
+// ── List view — Sunsama-style day columns ─────────────────────
+function _tbRenderListView(container){
+  const dates    = _tbWeekDates();
+  const todayStr = today();
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const sideItems = _tbSidebarItems();
+
+  container.innerHTML = `
+  <div id="tb-root" style="display:flex;flex-direction:column;height:100%;overflow:hidden;background:var(--bg);">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;
+        border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
+      <div>
+        <div style="font:700 10px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;">Timebox</div>
+        <div style="font:700 17px/1.2 var(--font-ui);color:var(--text);margin-top:2px;">${_tbWeekLabel(dates)}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        <button onclick="_tbNavWeek(-1)" style="${_tbNavBtnStyle()}">‹</button>
+        <button onclick="_tbGoToday()"   style="${_tbNavBtnStyle(false,true)}">Today</button>
+        <button onclick="_tbNavWeek(1)"  style="${_tbNavBtnStyle()}">›</button>
+        <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+        <button onclick="openTbCalScan()" style="${_tbNavBtnStyle()}" title="Scan calendar">📷</button>
+        <button onclick="_tbListMode=false;localStorage.setItem('tb-list-mode','0');renderAll();"
+          title="Grid view"
+          style="${_tbNavBtnStyle()}">⊞ Grid</button>
+      </div>
+    </div>
+    <!-- Unscheduled task pool (collapsible strip above columns) -->
+    <div style="border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;padding:6px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${sideItems.length?'6px':'0'};">
+        <span style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;">Unscheduled</span>
+        <span style="font:500 10px/1 var(--font-ui);color:var(--text4);background:var(--surface);padding:1px 6px;border-radius:8px;">${sideItems.length}</span>
+        <!-- Filter chips -->
+        <div style="display:flex;gap:4px;margin-left:auto;">
+          ${['all','work','family','home'].map(f => {
+            const sel = _tbSideFilter === f;
+            const lbl = {all:'All',work:'Work',family:'Family',home:'Personal'}[f];
+            return `<button onclick="_tbSideFilter='${f}';renderAll()"
+              style="padding:3px 8px;border-radius:10px;border:1px solid ${sel?'var(--accent)':'var(--border)'};
+                background:${sel?'var(--accent-soft)':'transparent'};
+                color:${sel?'var(--accent)':'var(--text4)'};
+                font:${sel?'700':'500'} 10px/1 var(--font-ui);cursor:pointer;">${lbl}</button>`;
+          }).join('')}
+          <input id="tb-search" type="text" placeholder="Search…" value="${esc(_tbSideQuery)}"
+            style="width:90px;padding:3px 8px;border-radius:10px;border:1px solid var(--border);
+              background:var(--surface);color:var(--text);font:500 11px/1 var(--font-ui);outline:none;"
+            oninput="_tbSideQuery=this.value;renderAll()"/>
+        </div>
+      </div>
+      ${sideItems.length ? `<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+        ${sideItems.slice(0,20).map(item => `
+          <div id="tbsi-${item.id}"
+            draggable="true"
+            ondragstart="_tbSideDragStart(event,'${item.id.replace(/'/g,"\\'")}','${esc(item.title).replace(/'/g,"\\'")}','${item.color}',${item.est},'${item.tagSrc}')"
+            style="display:flex;align-items:center;gap:6px;padding:5px 10px;
+              border-radius:20px;background:${item.color}14;
+              border:1px solid ${item.color}30;cursor:grab;flex-shrink:0;
+              white-space:nowrap;user-select:none;"
+            onmouseenter="this.style.background='${item.color}25'"
+            onmouseout="this.style.background='${item.color}14'">
+            <span style="font:500 12px/1 var(--font-ui);color:${item.color};">${esc(item.title.slice(0,28))}${item.title.length>28?'…':''}</span>
+            <span style="font:700 10px/1 var(--font-ui);color:${item.color};opacity:0.7;">${item.est}m</span>
+          </div>`).join('')}
+        ${sideItems.length > 20 ? `<span style="font:500 11px/1 var(--font-ui);color:var(--text4);padding:5px 8px;flex-shrink:0;">+${sideItems.length-20} more</span>` : ''}
+      </div>` : `<div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);">All tasks scheduled ✓</div>`}
+    </div>
+    <!-- Day columns -->
+    <div style="flex:1;display:flex;overflow:hidden;">
+      <!-- Weekdays Mon–Fri visible, Sat/Sun smaller -->
+      <div style="flex:1;display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;">
+        ${dates.map((d, i) => {
+          const isToday   = d === todayStr;
+          const isPast    = d < todayStr;
+          const dayObj    = new Date(d + 'T12:00:00');
+          const dayLabel  = DAY_LABELS[i];
+          const dayNum    = dayObj.getDate();
+          const monthLabel= dayObj.toLocaleDateString('en-US',{month:'short'});
+          const dayBlocks = tbBlocks[d] || [];
+          const calEvs    = calEventsForDate ? (calEventsForDate(d)||[]) : [];
+          const doneCount = dayBlocks.filter(b=>b.done).length;
+          const totalEst  = dayBlocks.reduce((s,b)=>s+(b.durMin||30),0);
+          const doneEst   = dayBlocks.filter(b=>b.done).reduce((s,b)=>s+(b.durMin||30),0);
+          const estLabel  = totalEst>=60 ? (Math.floor(totalEst/60)+'h'+(totalEst%60?'m':'')) : totalEst+'m';
+          const isWeekend = i >= 5;
+          return `<div style="flex:${isWeekend?'0.6':'1'};min-width:${isWeekend?'110px':'160px'};
+              display:flex;flex-direction:column;
+              border-right:1px solid var(--border);
+              background:${isToday?'var(--surface2)':isPast?'transparent':'var(--surface)'};">
+            <!-- Day header -->
+            <div style="padding:10px 12px 8px;border-bottom:2px solid ${isToday?'var(--accent)':'var(--border)'};
+                flex-shrink:0;background:${isToday?'var(--accent-soft)':'transparent'};">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;">
+                <div>
+                  <div style="font:700 11px/1 var(--font-ui);color:${isToday?'var(--accent)':isPast?'var(--text4)':'var(--text3)'};
+                    text-transform:uppercase;letter-spacing:0.5px;">${dayLabel}</div>
+                  <div style="font:${isToday?'800':'700'} 22px/1.1 var(--font-ui);
+                    color:${isToday?'var(--accent)':isPast?'var(--text4)':'var(--text)'};margin-top:2px;">
+                    ${isToday?`<span style="display:inline-flex;align-items:center;justify-content:center;
+                      width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;">${dayNum}</span>`:dayNum}
+                  </div>
+                  <div style="font:500 10px/1 var(--font-ui);color:var(--text4);margin-top:3px;">${monthLabel}</div>
+                </div>
+                ${dayBlocks.length > 0 ? `<div style="text-align:right;">
+                  <div style="font:700 11px/1 var(--font-ui);color:${isToday?'var(--accent)':'var(--text3)'};">${estLabel}</div>
+                  ${doneCount > 0 ? `<div style="font:500 9px/1 var(--font-ui);color:var(--green);margin-top:2px;">${doneCount}/${dayBlocks.length} done</div>` : ''}
+                </div>` : ''}
+              </div>
+              ${!isWeekend ? `<button onclick="_tbAddToDay('${d}')"
+                style="width:100%;margin-top:8px;padding:5px;border-radius:var(--r2);
+                  border:1.5px dashed ${isToday?'var(--accent)':'var(--border)'};
+                  background:transparent;color:${isToday?'var(--accent)':'var(--text4)'};
+                  font:600 11px/1 var(--font-ui);cursor:pointer;text-align:left;">
+                + Add a task</button>` : ''}
+            </div>
+            <!-- Cal events for the day (compact) -->
+            ${calEvs.length ? `<div style="padding:4px 8px;border-bottom:1px solid var(--border);background:var(--surface2);">
+              ${calEvs.slice(0,3).map(ev => {
+                const t = ev.startTime||ev.start||'';
+                const tLabel = t ? t.slice(0,5) : '';
+                return `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;">
+                  <div style="width:3px;height:14px;border-radius:1px;background:#0288D1;flex-shrink:0;"></div>
+                  <div style="font:500 10px/1.3 var(--font-ui);color:var(--text3);
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">
+                    ${tLabel?`<span style="color:#0288D1;margin-right:3px;">${tLabel}</span>`:''}${esc(ev.title||ev.summary||'')}
+                  </div>
+                </div>`;
+              }).join('')}
+              ${calEvs.length > 3 ? `<div style="font:500 9px/1 var(--font-ui);color:var(--text4);padding-top:2px;">+${calEvs.length-3} more</div>` : ''}
+            </div>` : ''}
+            <!-- Task blocks for this day -->
+            <div class="tb-day-list" data-date="${d}"
+              style="flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:5px;"
+              ondragover="event.preventDefault();_tbListDragOver(event,'${d}')"
+              ondrop="_tbListDrop(event,'${d}')"
+              ondragleave="_tbDragLeave(event)">
+              ${dayBlocks.length === 0 && !isWeekend ? `
+              <div ondragover="event.preventDefault();_tbListDragOver(event,'${d}')"
+                ondrop="_tbListDrop(event,'${d}')"
+                style="flex:1;min-height:60px;display:flex;align-items:center;justify-content:center;
+                  border-radius:var(--r2);border:2px dashed transparent;
+                  font:500 11px/1.4 var(--font-ui);color:var(--text4);text-align:center;
+                  transition:border-color 0.15s;">
+                Drop tasks here
+              </div>` : ''}
+              ${dayBlocks.map((b, bi) => _tbRenderListBlock(b, d, bi)).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+  setTimeout(resolveAvatarPhotos, 100);
+}
+// ── List mode block card ──────────────────────────────────────
+function _tbRenderListBlock(b, date, bi){
+  const col      = b.color || TB_COLORS.work;
+  const isDone   = !!b.done;
+  const durMin   = b.durMin || 30;
+  const durLabel = durMin >= 60
+    ? (durMin % 60 === 0 ? (durMin/60)+'h' : Math.floor(durMin/60)+'h '+durMin%60+'m')
+    : durMin + 'm';
+  // Find source task for project tag
+  const srcId = b.taskId || b.id;
+  const srcTask = tasks.find(t => t.id === srcId || b.id === 't:'+t.id);
+  const tag = srcTask ? (projects.find(p=>p.id===srcTask.projectId)?.name||'') : (b.tag||'');
+  return `<div
+    id="tbb-${b.id}"
+    draggable="true"
+    ondragstart="_tbBlockDragStart(event,'${b.id}','${date}',${bi})"
+    onclick="_tbListBlockClick('${b.id}','${date}',${bi})"
+    style="border-radius:8px;background:${isDone?'transparent':'var(--surface)'};
+      border:1px solid ${isDone?'var(--border)':'var(--border)'};
+      border-left:3px solid ${col}${isDone?'60':''};
+      padding:8px 10px;cursor:pointer;
+      transition:box-shadow 0.12s;
+      ${isDone?'opacity:0.55;':''}"
+    onmouseenter="this.style.boxShadow='0 1px 8px rgba(0,0,0,0.1)'"
+    onmouseleave="this.style.boxShadow='none'">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+      <!-- Complete button -->
+      <button onclick="event.stopPropagation();_tbListComplete('${b.id}','${date}',${bi})"
+        style="width:18px;height:18px;border-radius:50%;flex-shrink:0;cursor:pointer;margin-top:1px;
+          border:2px solid ${isDone?'var(--green)':'var(--border)'};
+          background:${isDone?'var(--green)':'transparent'};
+          color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;">
+        ${isDone?'✓':''}
+      </button>
+      <!-- Title -->
+      <div style="flex:1;min-width:0;">
+        <div style="font:${isDone?'400':'600'} 13px/1.35 var(--font-ui);
+          color:${isDone?'var(--text4)':'var(--text)'};
+          text-decoration:${isDone?'line-through':'none'};
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.title||'')}</div>
+        ${tag ? `<div style="font:500 10px/1 var(--font-ui);color:${col};opacity:0.8;margin-top:3px;"># ${esc(tag)}</div>` : ''}
+      </div>
+      <!-- Est + remove -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+        <span style="font:700 10px/1 var(--font-ui);color:var(--text4);background:var(--surface2);
+          padding:2px 6px;border-radius:6px;">${durLabel}</span>
+        <button onclick="event.stopPropagation();_tbRemoveBlock('${date}',${bi})"
+          style="background:none;border:none;color:var(--text4);font-size:12px;cursor:pointer;padding:0;line-height:1;opacity:0.4;"
+          onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.4'">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+// ── List mode helpers ─────────────────────────────────────────
+function _tbListDragOver(event, date){
+  event.preventDefault();
+  const col = event.currentTarget;
+  col.style.background = 'var(--accent-soft)';
+}
+function _tbListDrop(event, date){
+  event.preventDefault();
+  const col = event.currentTarget;
+  col.style.background = '';
+  _tbDrop(event, date);
+}
+function _tbListComplete(blockId, date, bi){
+  const block = (tbBlocks[date]||[])[bi];
+  if(!block) return;
+  block.done = !block.done;
+  // Also complete the source task if marking done
+  if(block.done && block.taskId){
+    const t = tasks.find(x=>x.id===block.taskId);
+    if(t){ t.status='done'; t.completedAt=String(Date.now()); saveAllDebounced(); }
+  }
+  saveTbBlocks();
+  renderAll();
+}
+function _tbListBlockClick(blockId, date, bi){
+  const block = (tbBlocks[date]||[])[bi];
+  if(!block) return;
+  if(block.taskId){ openEditTask(block.taskId); return; }
+  // For non-task blocks, open a quick edit
+  const newTitle = prompt('Edit:', block.title||'');
+  if(newTitle !== null){ block.title = newTitle.trim() || block.title; saveTbBlocks(); renderAll(); }
+}
+function _tbAddToDay(date){
+  const title = prompt('Task title:');
+  if(!title?.trim()) return;
+  const id = 'tb-' + Date.now();
+  if(!tbBlocks[date]) tbBlocks[date] = [];
+  tbBlocks[date].push({ id, title:title.trim(), durMin:30, done:false, color:TB_COLORS.work });
+  saveTbBlocks();
+  renderAll();
+}
+// ── Grid view (original) ──────────────────────────────────────
+function _tbRenderGridView(container){
   const dates = _tbWeekDates();
   const todayStr = today();
   const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -21819,6 +22443,10 @@ function renderTimeboxPage(container){
         <button onclick="_tbNavWeek(-1)" style="${_tbNavBtnStyle()}" title="Previous week">‹</button>
         <button onclick="_tbGoToday()"   style="${_tbNavBtnStyle(false,true)}" title="This week">Today</button>
         <button onclick="_tbNavWeek(1)"  style="${_tbNavBtnStyle()}" title="Next week">›</button>
+        <div style="width:1px;height:20px;background:var(--border);margin:0 2px;"></div>
+        <button onclick="_tbListMode=true;localStorage.setItem('tb-list-mode','1');renderAll();"
+          title="List view"
+          style="${_tbNavBtnStyle()}">☰ List</button>
       </div>
     </div>
     <!-- ── Body: sidebar + grid ────────────────────────────────── -->
@@ -29326,24 +29954,51 @@ function handleDeepLink(){
   delete window._startInit;
   delete window._startMtg;
   delete window._startAction;
-  // Tab navigation first
-  const validTabs = ['today','tasks','meetings','waiting','people','discovery','kids','settings'];
-  if(tab && validTabs.includes(tab)){
-    setNav(tab);
-  }
+  // Map URL tab names → internal nav + optional sub-tab state
+  const _tabMap = {
+    // Work tabs
+    'today':        ()=>{ setNav('today'); },
+    'work':         ()=>{ setNav('commitments'); },
+    'commitments':  ()=>{ setNav('commitments'); },
+    'timebox':      ()=>{ setNav('timebox'); },
+    'people':       ()=>{ setNav('relationships'); },
+    'relationships':()=>{ setNav('relationships'); },
+    'intel':        ()=>{ setNav('intel'); },
+    'settings':     ()=>{ setNav('settings'); },
+    // Home tabs
+    'home-today':   ()=>{ setNav('home-today'); },
+    'family':       ()=>{ setNav('family'); },
+    'grocery':      ()=>{ setNav('grocery'); },
+    'tracker':      ()=>{ setNav('tracker'); },
+    'health':       ()=>{ setNav('health'); },
+    'kids':         ()=>{ setNav('kids'); },
+    'dinners':      ()=>{ setNav('dinners'); },
+    'calendar':     ()=>{ setNav('calendar'); },
+    'games':        ()=>{ setNav('games'); },
+    // Legacy names (still work via notification deep links etc)
+    'tasks':        ()=>{ _cvFilter='action'; setNav('commitments'); },
+    'waiting':      ()=>{ _cvFilter='waiting'; setNav('commitments'); },
+    'meetings':     ()=>{ window._intelTab='meetings'; setNav('intel'); },
+    'discovery':    ()=>{ window._intelTab='discovery'; setNav('intel'); },
+    'team':         ()=>{ window._relTab='team'; setNav('relationships'); },
+    'clients':      ()=>{ window._relTab='clients'; setNav('relationships'); },
+  };
+  if(tab && _tabMap[tab]){ _tabMap[tab](); }
   // Then open specific record if provided
   if(taskId){
-    setNav('tasks');
+    setNav('commitments');
     setTimeout(()=>openEditTask(taskId), 300);
     return;
   }
   if(initId){
-    setNav('discovery');
+    window._intelTab='discovery';
+    setNav('intel');
     setTimeout(()=>openDiscoveryDetail(initId), 300);
     return;
   }
   if(mtgId){
-    setNav('meetings');
+    window._intelTab='meetings';
+    setNav('intel');
     setTimeout(()=>openMeetingCapture(mtgId), 300);
     return;
   }
@@ -29353,6 +30008,24 @@ function handleDeepLink(){
   if(action === 'focus')       { todayFocusMode=true; setNav('today'); return; }
   if(action === 'reset')       { setNav('today'); setTimeout(openReset, 400); return; }
 }
+// ── Browser back/forward support ─────────────────────────────
+// When the user hits back/forward, restore the tab from history state
+window.addEventListener('popstate', e => {
+  const tab = e.state?.tab;
+  if(!tab) return;
+  const _revMap = {
+    // Work
+    'work':'commitments','people':'relationships','intel':'intel',
+    'today':'today','timebox':'timebox','settings':'settings',
+    // Home
+    'home-today':'home-today','family':'family','grocery':'grocery',
+    'tracker':'tracker','health':'health','kids':'kids',
+    'dinners':'dinners','calendar':'calendar','games':'games',
+  };
+  const nav = _revMap[tab] || tab;
+  activeNav = nav;
+  renderAll();
+});
 // ── Link generators ───────────────────────────────────────────────
 function linkToTab(tab){
   return APP_BASE_URL + '/?tab=' + tab;
@@ -34057,9 +34730,10 @@ async function init(){
   if(_dlInit)   window._startInit   = _dlInit;
   if(_dlMtg)    window._startMtg    = _dlMtg;
   if(_dlAction) window._startAction = _dlAction;
-  // Clean URL after reading params so it doesn't re-trigger on refresh
-  if(window.history && window.history.replaceState && (urlParams.toString())){
-    window.history.replaceState({}, '', window.location.pathname);
+  // Clean URL after reading — replace with clean path so back button works properly
+  if(window.history?.replaceState && urlParams.toString()){
+    const cleanTab = _dlTab || 'today';
+    window.history.replaceState({ tab: cleanTab }, '', window.location.pathname + '?tab=' + cleanTab);
   }
   // Apply calm mode before anything renders
   if(localStorage.getItem('hub-calm') === '1'){
