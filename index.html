@@ -3709,8 +3709,9 @@ async function _sbSaveMeetings(){
     decisions:m.decisions||'', notes:m.notes||'',
     my_commits:m.myCommits||'', their_commits:m.theirCommits||'',
     series_id:m.seriesId||'', task_ids:m.taskIds||[],
-    attachments:m.attachments||[], created_at:String(m.createdAt||''),
-    initiative_id:m.initiativeId||''
+    attachments:m.attachments||[], created_at:String(m.createdAt||'')
+    // initiative_id omitted — column does not exist in meetings table.
+    // The link is stored on the discovery row (linked_meeting_ids[]).
   }));
   if(!rows.length) return;
   // Retry upsert up to 3 times — meetings are high-value data
