@@ -15104,6 +15104,7 @@ function completeTask(id, evt){
     const xp = xpForTask(t);
     totalXP += xp;
     _syncTaskToCommitment(t); // keep commitments in sync
+    _cvSyncBackToLegacy(t.id);   // keep legacy arrays (waitingFor, delegations, etc.) in sync
     totalXP += xp;
     _undoSpawnedId = (t.recur && t.recur!=="none") ? spawnRecurringCopy(t) : null;
     checkJasonRewardMilestone();
@@ -15927,6 +15928,7 @@ function toggleNavGrid(){
           {icon:'🍽️', label:'Dinners',  nav:'dinners'},
           {icon:'🛒', label:'Grocery',  nav:'grocery'},
           {icon:'👥', label:'Contacts', nav:'people'},
+          {icon:'🎮', label:'Games',    nav:'games'},
         ]
       : [
           // Work overflow: Settings (all primary tabs on rail/bottom nav)
@@ -16484,8 +16486,7 @@ function _syncTaskToCommitment(task){
   } else {
     commitments.unshift({ id: task.id, ...mapped });
   }
-  // Don't call saveCommitments() here — saveAllDebounced() handles batching
-  localStorage.setItem('hub-commitments', JSON.stringify(commitments));
+  saveCommitments(); // queues Supabase sync + saves localStorage
 }
 // ── Run migration on boot (after all legacy data loads) ───────
 function _runMigrationIfNeeded(){
@@ -16902,6 +16903,11 @@ function _buildUTriageCount(){
 }
 function renderTodayView(container){
   setTimeout(resolveAvatarPhotos, 150);
+  // ── Universal triage — takes over the whole today view ───────
+  if(_uTriageMode){
+    container.innerHTML = '<div class="today-stack">' + renderUniversalTriageCard() + '</div>';
+    return;
+  }
   if(todayFocusMode || activeNav==='focus'){ renderTodayFocusMode(container); return; }
   if(todayViewMode === 'timeblock'){ tbDate = today(); renderTimeBlock(container); return; }
   if(todayUnifiedMode){ renderTodayUnified(container); return; }
@@ -17033,6 +17039,7 @@ function renderTodayView(container){
       </div>
     </div>`;
   }
+  // ── Universal triage mode moved to top of renderTodayView ────
   let html = '<div class="today-stack">';
   // ── 1. PAGE HERO ─────────────────────────────────────────────
   html += `<div class="page-hero" style="margin:0;border-radius:0;border-left:none;border-right:none;border-top:none;">
@@ -30214,7 +30221,7 @@ function openEmailCapture(){
       <div>
         <div style="font:800 16px/1 var(--font-ui);color:#64B5F6;">📧 Extract Tasks from Email</div>
         <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
-          Paste email text — AI finds what's yours to do
+          Paste email text — AI classifies actions, delegations, waiting-fors &amp; more
         </div>
       </div>
       <button onclick="closeEmailCapture()" style="width:28px;height:28px;border-radius:50%;
@@ -30229,14 +30236,14 @@ function openEmailCapture(){
       onfocus="this.style.borderColor='#64B5F6'"
       onblur="this.style.borderColor='var(--border)'"></textarea>
     <div id="email-extract-hint" style="font:500 10px/1.4 var(--font-ui);color:var(--text4);margin-top:6px;min-height:14px;">
-      Only action items assigned to you will be extracted — FYIs are ignored.
+      Actions, delegations, waiting-fors, comms &amp; follow-ups — FYIs are ignored.
     </div>
     <button onclick="runEmailExtraction()"
       style="width:100%;margin-top:14px;padding:14px;border-radius:var(--r3);border:none;
         background:linear-gradient(135deg,#64B5F6,#1E88E5);
         color:#fff;font:800 14px/1 var(--font-ui);cursor:pointer;
         box-shadow:0 4px 16px rgba(100,181,246,0.3);">
-      🤖 Extract Action Items
+      🤖 Extract Commitments
     </button>
     <div id="email-extract-results" style="margin-top:16px;"></div>
   </div>`;
@@ -30483,55 +30490,77 @@ async function runEmailExtraction(){
   </div>`;
   const proj = projects.filter(p=>p.status!=='archived'&&p.status!=='paused').slice(0,12);
   const projNames = proj.map(p=>p.name).join(', ');
+  // Commitment type colours for card borders
+  const _cmColors = {
+    action:'var(--accent)', waiting:'#E8A838', delegation:'#64B5F6',
+    comms:'#BA68C8', follow_up:'#81C784', issue:'#EF5350'
+  };
+  const _cmLabels = {
+    action:'☑ My Action', waiting:'⏳ Waiting For', delegation:'📋 Delegate',
+    comms:'📣 Comms', follow_up:'🔁 Follow-up', issue:'⚠ Issue'
+  };
   try {
     const raw = await aiCall(
       `You are a sharp executive assistant for Jason, a Senior Director of Product Management / interim CPO at a healthcare technology company.
-Read this email and return a JSON object with two keys: "tasks" and "people".
-"tasks": ONLY the action items Jason personally needs to do — things asked of him, commitments he made, or follow-ups he owns.
-Ignore: FYI information, things others are doing, general updates.
-For each task:
-- title: clear task title starting with a verb
-- priority: "high" (urgent/deadline), "medium" (requested), "low" (optional)
+Read this email and return a JSON object with keys: "items" and "people".
+
+"items": Every distinct commitment this email creates for Jason, classified by type:
+  - "action"     — something Jason personally needs to DO (tasks he owns)
+  - "waiting"    — something Jason is waiting on from someone else (their ball, not his)
+  - "delegation" — something Jason needs to hand off / assign to a team member
+  - "comms"      — a message, reply, or communication Jason needs to send
+  - "follow_up"  — check back on something later; no immediate action but can't drop it
+  - "issue"      — a problem, risk, or blocker that needs to be tracked
+
+For each item:
+- type: one of the six types above
+- title: clear, verb-first title (e.g. "Send Q3 report to Mark", "Wait for Sarah to confirm budget")
+- priority: "high" (urgent/deadline), "medium" (important), "low" (nice to have)
 - dueDate: ISO date YYYY-MM-DD if mentioned, otherwise null
-- person: name of the person most associated with this task
-- project: match to Jason's projects if relevant, otherwise null
-- context: one sentence of why this matters
-"people": ALL people mentioned or identifiable in the email (senders, recipients, names referenced).
+- person: name of the person this commitment is with or about (null if none)
+- project: match to one of Jason's active projects if relevant, otherwise null
+- context: one sentence explaining why this commitment exists
+
+Important classification rules:
+- If the email says "let me know" or "please confirm" — that is "waiting" not "action"
+- If Jason needs to tell or ask someone something — that is "comms"
+- If Jason needs to get someone on his team to do something — that is "delegation"
+- If a deadline or next-step is unclear but Jason can't drop it — that is "follow_up"
+- Never create duplicate items — one per distinct commitment only
+- Ignore pure FYI content with no commitment required
+
+"people": ALL people mentioned or identifiable in the email.
 For each person:
-- name: full name if available, first name only if that's all that's given
-- email: email address if visible
-- role: their job title or role if mentioned or inferable
-- org: their company or organization if identifiable
-- relationship: "sender", "recipient", "mentioned", or "unknown"
-Return ONLY valid JSON: {"tasks": [...], "people": [...]}
-If no tasks, return {"tasks": [], "people": [...]}`,
+- name, email (if visible), role, org, relationship ("sender"/"recipient"/"mentioned")
+
+Return ONLY valid JSON: {"items": [...], "people": [...]}`,
       `Jason's active projects: ${projNames||'none'}
 EMAIL CONTENT:
 ${emailText.slice(0, 4000)}`,
-      1200
+      1400
     );
     let parsed;
     try {
       const cleaned = raw.replace(/```json|```/g,'').trim();
       parsed = JSON.parse(cleaned);
-      // Handle old format (array) vs new format (object)
-      if(Array.isArray(parsed)) parsed = { tasks: parsed, people: [] };
+      // Back-compat: old format returned {tasks:[...]} or an array
+      if(Array.isArray(parsed)) parsed = { items: parsed.map(t=>({...t,type:'action'})), people:[] };
+      if(parsed.tasks && !parsed.items) parsed.items = parsed.tasks.map(t=>({...t,type:'action'}));
     } catch(e) {
       throw new Error('Could not parse AI response — try again');
     }
-    const items = parsed.tasks || [];
+    const items = (parsed.items || []).map(it=>({ ...it, type: it.type||'action' }));
     const emailPeople = parsed.people || [];
+
     // ── People matching ───────────────────────────────────────────
-    // Match each email person against peopleList, contactsList, clientOrgs contacts
     const allKnownPeople = [
       ...peopleList.map(p=>({ ...p, _source:'people' })),
       ...contactsList.map(p=>({ ...p, _source:'contacts' })),
     ];
-    const matchedPeopleMap = {}; // emailPerson.name → { matched, suggested, appPerson }
+    const matchedPeopleMap = {};
     for(const ep of emailPeople){
       const nameL = (ep.name||'').toLowerCase();
       const emailL = (ep.email||'').toLowerCase();
-      // Try exact name match first, then partial
       let matched = allKnownPeople.find(p=>
         p.name.toLowerCase() === nameL ||
         (emailL && (p.email||'').toLowerCase() === emailL)
@@ -30542,7 +30571,6 @@ ${emailText.slice(0, 4000)}`,
           nameL.includes(p.name.toLowerCase().split(' ')[0])
         );
       }
-      // Also check client org contacts
       let matchedOrg = null;
       if(ep.org){
         const orgL = ep.org.toLowerCase();
@@ -30550,50 +30578,57 @@ ${emailText.slice(0, 4000)}`,
           o.name.toLowerCase().includes(orgL) || orgL.includes(o.name.toLowerCase())
         );
       }
-      matchedPeopleMap[ep.name] = {
-        emailPerson: ep,
-        matched: matched || null,
-        matchedOrg: matchedOrg || null,
-        appPersonId: matched?.id || null,
-      };
+      matchedPeopleMap[ep.name] = { emailPerson:ep, matched:matched||null, matchedOrg:matchedOrg||null, appPersonId:matched?.id||null };
     }
-    // Enrich items with resolved personId from matching
+    // Enrich items with resolved personId
     items.forEach(item => {
       if(item.person && matchedPeopleMap[item.person]?.appPersonId){
         item._resolvedPersonId = matchedPeopleMap[item.person].appPersonId;
       }
     });
+
     if(items.length === 0 && emailPeople.length === 0){
       resultsEl.innerHTML = `<div style="padding:20px;text-align:center;border-radius:var(--r3);
           border:1px solid var(--border);background:var(--surface2);">
         <div style="font-size:28px;margin-bottom:8px;">✅</div>
         <div style="font:700 14px/1.3 var(--font-ui);color:var(--text3);">Nothing actionable found</div>
         <div style="font:500 12px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
-          This email doesn't seem to have action items or identifiable people.
+          This email appears to be FYI only — no commitments extracted.
         </div>
       </div>`;
       return;
     }
-    // ── Render results ────────────────────────────────────────────
+
+    // ── Group items by type for the section header summary ────────
+    const typeCounts = {};
+    items.forEach(it=>{ typeCounts[it.type]=(typeCounts[it.type]||0)+1; });
+    const summaryPills = Object.entries(typeCounts).map(([t,n])=>{
+      const col = _cmColors[t]||'var(--accent)';
+      return `<span style="font:700 10px/1 var(--font-ui);padding:3px 8px;border-radius:10px;
+        background:${col}18;border:1px solid ${col}44;color:${col};">
+        ${_cmLabels[t]||t} · ${n}
+      </span>`;
+    }).join('');
+
     resultsEl.innerHTML = `
-      ${items.length>0?`<div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;
-          text-transform:uppercase;margin-bottom:10px;">
-        ${items.length} action item${items.length!==1?'s':''} found
-      </div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">${summaryPills}</div>
       <div id="email-task-cards" style="display:flex;flex-direction:column;gap:8px;"></div>
       <div id="email-people-section" style="margin-top:${items.length?'16px':'0'};"></div>
       <div id="email-accept-summary" style="margin-top:12px;"></div>`;
-    // ── Task cards ────────────────────────────────────────────────
+
+    // ── Commitment cards ──────────────────────────────────────────
     const cardsEl = document.getElementById('email-task-cards');
     if(cardsEl){
       items.forEach((item, idx) => {
+        const cType   = item.type || 'action';
+        const typeCol = _cmColors[cType] || 'var(--accent)';
+        const typeLbl = _cmLabels[cType] || cType;
         const matchedProj = item.project
           ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
                          item.project.toLowerCase().includes(p.name.toLowerCase()))
           : null;
         const priorityColor = item.priority==='high'?'var(--red)':item.priority==='medium'?'var(--accent)':'#888';
         const priorityLabel = item.priority==='high'?'🔴 Urgent':item.priority==='medium'?'🟡 Medium':'⚪ Low';
-        // Resolved person display
         const personEntry = item.person ? matchedPeopleMap[item.person] : null;
         const personBadge = personEntry
           ? personEntry.matched
@@ -30602,9 +30637,12 @@ ${emailText.slice(0, 4000)}`,
           : '';
         const card = document.createElement('div');
         card.id = 'email-card-'+idx;
-        card.style.cssText = 'border-radius:12px;border:1.5px solid var(--border);background:var(--surface);overflow:hidden;transition:all 0.2s;';
+        card.style.cssText = `border-radius:12px;border:1.5px solid ${typeCol}55;background:var(--surface);overflow:hidden;transition:all 0.2s;`;
         card.innerHTML = `
-          <div style="padding:14px 14px 12px;">
+          <div style="padding:10px 14px 4px;background:${typeCol}0d;border-bottom:1px solid ${typeCol}33;">
+            <span style="font:800 10px/1 var(--font-ui);color:${typeCol};letter-spacing:0.5px;text-transform:uppercase;">${typeLbl}</span>
+          </div>
+          <div style="padding:12px 14px 10px;">
             <div style="font:700 14px/1.3 var(--font-ui);color:var(--text);margin-bottom:8px;">
               ${esc(item.title)}
             </div>
@@ -30621,13 +30659,13 @@ ${emailText.slice(0, 4000)}`,
             </div>
             ${item.context?`<div style="font:500 11px/1.4 var(--font-body);color:var(--text3);
               padding:8px 10px;border-radius:8px;background:var(--surface2);
-              border-left:3px solid #64B5F680;">${esc(item.context)}</div>`:''}
+              border-left:3px solid ${typeCol}80;">${esc(item.context)}</div>`:''}
           </div>
           <div style="display:flex;border-top:1px solid var(--border);">
             <button onclick="acceptEmailTask(${idx})"
               style="flex:1;padding:11px;border:none;border-right:1px solid var(--border);
                 background:transparent;color:#81C784;font:800 12px/1 var(--font-ui);cursor:pointer;">
-              ✓ Add to Tasks
+              ✓ Add
             </button>
             <button onclick="skipEmailTask(${idx})"
               style="flex:0 0 80px;padding:11px;border:none;background:transparent;
@@ -30646,7 +30684,6 @@ ${emailText.slice(0, 4000)}`,
       let peopleHtml = `<div style="font:700 11px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
         👤 People in this email
       </div>`;
-      // Known / matched
       if(knownPeople.length){
         peopleHtml += knownPeople.map(ep=>{
           const entry = matchedPeopleMap[ep.name];
@@ -30664,7 +30701,6 @@ ${emailText.slice(0, 4000)}`,
           </div>`;
         }).join('');
       }
-      // Unknown — suggest adding
       if(newPeople.length){
         peopleHtml += `<div style="font:600 11px/1 var(--font-ui);color:var(--text4);margin:${knownPeople.length?'10px 0 6px':'0 0 6px'};">New people — not in your app yet:</div>`;
         peopleHtml += newPeople.map((ep,i)=>{
@@ -30713,59 +30749,72 @@ function acceptEmailTask(idx){
   const items = window._emailExtractedItems;
   if(!items || !items[idx]) return;
   const item = items[idx];
-  // Find matched project
+  const cType = item.type || 'action';
+
+  // Resolve project
   const proj = projects.filter(p=>p.status!=='archived'&&p.status!=='paused');
   const matchedProj = item.project
     ? proj.find(p=>p.name.toLowerCase().includes(item.project.toLowerCase()) ||
                    item.project.toLowerCase().includes(p.name.toLowerCase()))
     : null;
-  // Use AI-resolved personId if available, otherwise fall back to name search
+
+  // Resolve person
   let resolvedPersonId = item._resolvedPersonId || '';
   if(!resolvedPersonId && item.person){
-    const matchedPerson = peopleList.find(p=>p.name.toLowerCase().includes(item.person.toLowerCase()));
-    resolvedPersonId = matchedPerson?.id || '';
+    const mp = (typeof unifiedPeople!=='undefined'?unifiedPeople:[...peopleList,...contactsList])
+      .find(p=>p.name.toLowerCase().includes(item.person.toLowerCase()));
+    resolvedPersonId = mp?.id || '';
   }
-  // Create the task
-  const newTask = {
-    id:         genId(),
-    title:      item.title,
-    projectId:  matchedProj?.id || '',
-    priority:   item.priority || 'medium',
-    status:     'todo',
-    dueDate:    item.dueDate || '',
-    notes:      item.context ? `From email: ${item.context}` : '',
-    source:     'email',
-    personIds:  resolvedPersonId,
-    recur:      'none',
-    effort:     '',
-    estimate:   '',
-    energy:     'medium',
-    subtasks:   [],
-    createdAt:  today(),
-    completedAt: null,
-  };
-  tasks.unshift(newTask);
-  saveAllDebounced();
+
+  const notes = item.context ? `From email: ${item.context}` : '';
+
+  // ── Route to the right commitment type ────────────────────────
+  createCommitment({
+    type:        cType,
+    title:       item.title,
+    notes:       notes,
+    priority:    item.priority || 'medium',
+    dueDate:     item.dueDate  || '',
+    projectId:   matchedProj?.id || '',
+    personIds:   resolvedPersonId,
+    assignedTo:  cType === 'delegation' ? resolvedPersonId : '',
+    visibility:  'work',
+    createdBy:   'jason',
+    ownedBy:     'me',
+    source:      'email',
+  });
+
   // Visually mark accepted
+  const cColors = {
+    action:'var(--accent)', waiting:'#E8A838', delegation:'#64B5F6',
+    comms:'#BA68C8', follow_up:'#81C784', issue:'#EF5350'
+  };
+  const cLabels = {
+    action:'Action added', waiting:'Waiting For added', delegation:'Delegation added',
+    comms:'Comms added', follow_up:'Follow-up added', issue:'Issue tracked'
+  };
+  const col = cColors[cType] || '#81C784';
+  const lbl = cLabels[cType] || 'Added';
   const card = document.getElementById('email-card-'+idx);
   if(card){
     card.style.opacity = '0.5';
-    card.style.border = '1.5px solid rgba(129,199,132,0.5)';
-    card.style.background = 'rgba(129,199,132,0.05)';
+    card.style.border = `1.5px solid ${col}55`;
+    card.style.background = `${col}08`;
     card.innerHTML = `<div style="padding:12px 14px;display:flex;align-items:center;gap:10px;">
       <span style="font-size:18px;">✅</span>
-      <span style="font:600 13px/1 var(--font-ui);color:#81C784;">Added: ${esc(item.title)}</span>
+      <span style="font:600 13px/1 var(--font-ui);color:${col};">${lbl}: ${esc(item.title)}</span>
     </div>`;
   }
   window._emailAcceptedCount = (window._emailAcceptedCount||0) + 1;
-  showToast('✓ Task added: ' + item.title.slice(0,40));
-  // Show "Done — view tasks" once at least one accepted
+  showToast(`✓ ${lbl}: ` + item.title.slice(0,35));
+
+  // Show "View Work" button after first acceptance
   const summaryEl = document.getElementById('email-accept-summary');
   if(summaryEl){
-    summaryEl.innerHTML = `<button onclick="closeEmailCapture();setNav('tasks');"
+    summaryEl.innerHTML = `<button onclick="closeEmailCapture();setNav('work');"
       style="width:100%;padding:12px;border-radius:var(--r3);border:none;
         background:var(--accent);color:#fff;font:800 13px/1 var(--font-ui);cursor:pointer;">
-      View Tasks →
+      View Commitments →
     </button>`;
   }
 }
@@ -31968,6 +32017,10 @@ function _startRealtimeSubscriptions(){
     .on('postgres_changes',
       {event:'*', schema:'public', table:'kids_tracker'},
       payload => { _handleRealtimeChange('kids_tracker', payload); })
+    .on('postgres_changes',
+      // commitments: filter to this user so Jason's changes don't spam Jenny and vice versa
+      {event:'*', schema:'public', table:'commitments', filter:`owner_id=eq.${_sbUserId||'00000000-0000-0000-0000-000000000000'}`},
+      payload => { _handleRealtimeChange('commitments', payload); })
     .subscribe();
 }
 function _handleRealtimeChange(table, payload){
@@ -32078,6 +32131,57 @@ function _handleRealtimeChange(table, payload){
       kidsTracker = {lunches:newRow.lunches||{}, schedule:newRow.schedule||{}};
       localStorage.setItem('hub-kids-tracker', JSON.stringify(kidsTracker));
     }
+  }
+  else if(table === 'commitments'){
+    // A commitment was created/updated/deleted on another tab or device.
+    // Merge into local array + localStorage only — do NOT call saveCommitments()
+    // here or we'd bounce the change straight back to Supabase in an infinite loop.
+    if(eventType === 'DELETE'){
+      commitments = commitments.filter(c=>c.id !== oldRow.id);
+    } else {
+      const r = newRow;
+      const mapped = {
+        id:            r.id,
+        type:          r.type           || 'action',
+        title:         r.title          || '',
+        notes:         r.notes          || '',
+        status:        r.status         || 'todo',
+        priority:      r.priority       || 'medium',
+        visibility:    r.visibility     || 'work',
+        createdBy:     r.created_by     || 'jason',
+        ownedBy:       r.owned_by       || 'me',
+        assignedTo:    r.assigned_to    || '',
+        personIds:     r.person_ids     || '',
+        orgId:         r.org_id         || '',
+        interactionId: r.interaction_id || '',
+        projectId:     r.project_id     || '',
+        initiativeId:  r.initiative_id  || '',
+        dueDate:       r.due_date       || '',
+        followUpDate:  r.follow_up_date || '',
+        checkInDays:   r.check_in_days  || null,
+        recur:         r.recur          || 'none',
+        estimate:      r.estimate       || '',
+        energy:        r.energy         || '',
+        audience:      r.audience       || '',
+        source:        r.source         || '',
+        subtasks:      (() => { try { return JSON.parse(r.subtasks||'[]'); } catch(e){ return []; } })(),
+        linkedCallDates: (() => { try { return JSON.parse(r.linked_call_dates||'[]'); } catch(e){ return []; } })(),
+        lastActedAt:   r.last_acted_at  || r.created_at || '',
+        createdAt:     r.created_at     || '',
+        completedAt:   r.completed_at   || '',
+      };
+      const idx = commitments.findIndex(c=>c.id===mapped.id);
+      if(idx > -1){
+        // Preserve comments — not stored in commitments Supabase table
+        mapped.comments = commitments[idx].comments || [];
+        commitments[idx] = mapped;
+      } else {
+        commitments.unshift(mapped);
+      }
+      // Sync to legacy arrays (tasks[], waitingFor[], etc.) so every view reflects the change
+      _cvSyncBackToLegacy(mapped.id);
+    }
+    localStorage.setItem('hub-commitments', JSON.stringify(commitments));
   }
   // Re-render after any real-time update (debounced to avoid thrashing)
   clearTimeout(_realtimeRenderTimeout);
@@ -34386,8 +34490,13 @@ async function registerServiceWorker(){
           t.completedAt = Date.now();
           logFamilyTaskHistory(t.id, _commentAuthor() + ' marked this complete');
           saveFamilyTasks();
+          // Also mark the corresponding commitment done so every view reflects it immediately
+          const cmId = commitments.find(c=>c.id===event.data.taskId) ? event.data.taskId
+                     : commitments.find(c=>c.id==='cm-ft-'+event.data.taskId) ? 'cm-ft-'+event.data.taskId
+                     : null;
+          if(cmId) updateCommitment(cmId, { status:'done', completedAt:String(Date.now()) });
           renderAll();
-          showToast('✓ Task completed from notification');
+          showToast('\u2713 Task completed from notification');
         }
       }
       // Handle deep-link navigation from notification tap
