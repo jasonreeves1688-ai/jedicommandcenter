@@ -13170,6 +13170,8 @@ function _cvComplete(id){
   });
   // Also sync back to legacy arrays
   _cvSyncBackToLegacy(id);
+  // Count toward prize milestone — same as completeTask()
+  if(!wasDone) checkJasonRewardMilestone();
   renderAll();
   if(!wasDone) showToast('✓ Done');
 }
@@ -16429,10 +16431,15 @@ function updateCommitment(id, changes){
 }
 // ── Helper: complete a commitment ─────────────────────────────
 function completeCommitment(id){
-  return updateCommitment(id, {
+  const c = commitments.find(x=>x.id===id);
+  if(c && (c.status === 'done' || c.status === 'resolved')) return; // already done — no double-count
+  const result = updateCommitment(id, {
     status: 'done',
     completedAt: String(Date.now())
   });
+  // Count toward prize milestone — same as completeTask()
+  checkJasonRewardMilestone();
+  return result;
 }
 // ── Sync an action commitment to tasks[] ─────────────────────
 function _syncCommitmentToTask(c){
