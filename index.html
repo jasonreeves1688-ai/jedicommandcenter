@@ -3725,14 +3725,18 @@ async function _sbSaveMeetings(){
     showToast('⚠ Meeting saved locally but not synced — check your connection');
     return; // Don't run orphan delete if upsert failed
   }
-  // Wait 2s before orphan delete — prevents race condition where another device's
-  // backgroundSync deletes a meeting that was just upserted but not yet in their local list
-  await new Promise(r => setTimeout(r, 2000));
+  // Wait 4s before orphan delete (doubled from 2s) — gives backgroundSync
+  // enough time to merge any concurrent saves before we check what to delete.
+  // We also use the snapshot of rows we just upserted (not a fresh meetingLog read)
+  // so a mid-save backgroundSync can't shrink the set we protect.
+  const upsertedIds = new Set(rows.map(r=>r.id));
+  await new Promise(r => setTimeout(r, 4000));
   try{
     const { data: remoteRows } = await _sb.from('meetings').select('id').eq('owner_id',_sbUserId);
     if(remoteRows && remoteRows.length){
-      const localIds = new Set(meetingLog.map(m=>m.id));
-      const toDelete = remoteRows.map(r=>r.id).filter(id=>!localIds.has(id));
+      // Protect: keep any row that was in our upsert OR is still in the current local list
+      const currentLocalIds = new Set(meetingLog.map(m=>m.id));
+      const toDelete = remoteRows.map(r=>r.id).filter(id=>!upsertedIds.has(id) && !currentLocalIds.has(id));
       if(toDelete.length) await _sb.from('meetings').delete().in('id', toDelete);
     }
   }catch(e){ console.warn('[Meetings] Cleanup failed:', e); }
@@ -35104,31 +35108,45 @@ async function backgroundSync(){
       localStorage.setItem('hub-tasks', JSON.stringify(tasks));
       } // end !_taskModalOpen
     }
-    // Fix: also refresh meetings + series in background so changes from other devices appear
+    // Refresh meetings + series — merge with local so unsaved new sessions
+    // are never clobbered by a backgroundSync that fires before the debounced
+    // Supabase write completes (the main cause of "new meeting disappears").
     try{
       const [meetingRows, seriesRows] = await Promise.all([
         sbGet('meetings'), sbGet('meeting_series')
       ]);
-      if(meetingRows.length){
-        // Only overwrite if no meeting modal is open (avoid clobbering in-progress capture)
-        const _mtgModalOpen = document.getElementById('modal-meeting') &&
-                              document.getElementById('modal-meeting').style.display !== 'none';
-        if(!_mtgModalOpen){
-          meetingLog = meetingRows.map(m=>({
-            id:m.id, title:m.title, date:m.date, startTime:m.start_time,
-            duration:m.duration, personIds:m.person_ids, attendees:m.attendees,
-            decisions:m.decisions, notes:m.notes, myCommits:m.my_commits,
-            theirCommits:m.their_commits, seriesId:m.series_id,
-            taskIds:m.task_ids||[], attachments:m.attachments||[],
-            createdAt:m.created_at, initiativeId:m.initiative_id||''
-          }));
-          localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
-          meetingSeries = seriesRows.map(s=>({
-            id:s.id, name:s.name, cadence:s.cadence,
-            personIds:s.person_ids, collapsed:s.collapsed
-          }));
-          localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
+      // Only overwrite if no meeting modal is open (avoid clobbering in-progress capture)
+      const _mtgModalOpen = document.getElementById('modal-meeting') &&
+                            document.getElementById('modal-meeting').style.display !== 'none';
+      if(!_mtgModalOpen){
+        // Build a map of remote rows
+        const remoteMeetingMap = {};
+        meetingRows.forEach(m=>{ remoteMeetingMap[m.id] = m; });
+        // Keep any local meetings not yet in Supabase (id not in remote set)
+        // These are meetings saved in the last few seconds that haven't flushed yet.
+        const localOnlyMeetings = meetingLog.filter(m => !remoteMeetingMap[m.id]);
+        // Map remote rows to local shape
+        const remoteMapped = meetingRows.map(m=>({
+          id:m.id, title:m.title, date:m.date, startTime:m.start_time,
+          duration:m.duration, personIds:m.person_ids, attendees:m.attendees,
+          decisions:m.decisions, notes:m.notes, myCommits:m.my_commits,
+          theirCommits:m.their_commits, seriesId:m.series_id,
+          taskIds:m.task_ids||[], attachments:m.attachments||[],
+          createdAt:m.created_at, initiativeId:m.initiative_id||''
+        }));
+        // Merge: remote rows take precedence for meetings that exist in both;
+        // local-only rows are preserved at the front.
+        meetingLog = [...localOnlyMeetings, ...remoteMapped];
+        localStorage.setItem('hub-meetings', JSON.stringify(meetingLog));
+        // If there were local-only meetings, re-queue their save so they flush to Supabase
+        if(localOnlyMeetings.length){
+          _queueSave('meetings', _sbSaveMeetings);
         }
+        meetingSeries = seriesRows.map(s=>({
+          id:s.id, name:s.name, cadence:s.cadence,
+          personIds:s.person_ids, collapsed:s.collapsed
+        }));
+        localStorage.setItem('hub-meeting-series', JSON.stringify(meetingSeries));
       }
     }catch(e){ console.warn('[backgroundSync] meetings refresh failed:', e); }
     updateStats(); renderAll();
