@@ -14943,6 +14943,10 @@ function renderSettings(container){
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
       <button class="hbtn" style="width:100%;" onclick="syncNow()">↻ Sync Now</button>
       <button class="hbtn" style="width:100%;" onclick="requestNotifPermission().then(g=>{showToast(g?'🔔 Notifications enabled!':'Blocked — check browser settings');renderAll();})">🔔 Enable Notifications</button>
+      ${_installPrompt ? `<button id="pwa-install-btn" onclick="installPWA()"
+        class="hbtn" style="width:100%;background:linear-gradient(135deg,var(--accent),var(--accent-dim));color:#fff;border:none;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;">
+        <span style="font-size:16px;">📲</span><span>Install App to Home Screen</span>
+      </button>` : ''}
     <!-- AI Diagnostics -->
     <div class="section-title" style="margin-top:var(--sp4);">🤖 AI Features</div>
     <div style="display:flex;flex-direction:column;gap:var(--sp2);margin-bottom:var(--sp4);">
@@ -26405,6 +26409,14 @@ function mtgFollowUpComplete(){
 }
 // ── The actual save logic (was the body of saveMeetingCapture) ─
 function _doSaveMeetingCapture(){
+  // Clear the dirty guard immediately — this IS the save path.
+  // _doSaveMeetingCapture is called from multiple entry points
+  // (saveMeetingCapture, follow-up prompt "Save", "Skip", backdrop tap)
+  // and not all of them go through saveMeetingCapture() where
+  // _markModalClean() used to be the only call site. Without this,
+  // closeModal() at the end sees _modalDirty=true and shows the
+  // "Unsaved changes" warning even though the save already ran.
+  _markModalClean();
   const id           = document.getElementById('mtg-id')?.value;
   const title        = document.getElementById('mtg-title')?.value.trim()||'Untitled Meeting';
   const date         = document.getElementById('mtg-date')?.value||today();
@@ -31605,20 +31617,41 @@ function _completePendingMove(){
 // Tracks whether any input inside the currently open modal has been
 // touched. If so, closeModal shows a confirmation sheet instead of
 // closing immediately. Works for all modals — static and dynamic.
-let _modalDirty     = false;   // true when user has typed/changed something
-let _modalDirtyId   = null;    // which modal is dirty
-let _modalForceClose = false;  // set true to bypass guard (on Save)
-// Call this from Save buttons to bypass the guard
-function _markModalClean(){ _modalDirty = false; _modalDirtyId = null; }
+let _modalDirty      = false;   // true when user has typed/changed something
+let _modalDirtyId    = null;    // which modal is dirty
+let _modalForceClose = false;   // legacy — kept for safety
+let _modalSaving     = false;   // true during save; suppresses spurious dirty events
+
+// Call this from Save buttons BEFORE any DOM/state changes so the
+// guard is cleared before programmatic value-sets can re-trigger it.
+function _markModalClean(){
+  _modalDirty   = false;
+  _modalDirtyId = null;
+  _modalSaving  = true;   // suppress re-dirty from programmatic DOM updates
+  // Release the suppression after this tick's microtask queue clears
+  Promise.resolve().then(() => { _modalSaving = false; });
+}
 function saveAndClose(id){ _markModalClean(); closeModal(id); }
-// Attach input listeners to a modal element so we can detect changes
+
+// Attach input listeners to a modal element so we can detect changes.
+// Uses a named function so duplicate addEventListener calls are no-ops
+// (same reference = browser deduplicates automatically).
 function _watchModalInputs(el){
   if(!el) return;
-  const handler = ()=>{
-    _modalDirty = true;
-    _modalDirtyId = el.id || null;
-  };
+  // Store the handler on the element so we reference the same function if
+  // _watchModalInputs is called again on the same modal (e.g. after re-render).
+  if(!el._dirtyHandler){
+    el._dirtyHandler = ()=>{
+      if(_modalSaving) return;   // ← ignore events fired during save
+      _modalDirty   = true;
+      _modalDirtyId = el.id || null;
+    };
+  }
+  const handler = el._dirtyHandler;
   el.querySelectorAll('input,textarea,select').forEach(input=>{
+    // removeEventListener first so re-calling _watchModalInputs never doubles up
+    input.removeEventListener('input',  handler);
+    input.removeEventListener('change', handler);
     input.addEventListener('input',  handler, {passive:true});
     input.addEventListener('change', handler, {passive:true});
   });
@@ -34947,15 +34980,21 @@ let _installPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _installPrompt = e;
-  // Show install hint in settings if not already installed
-  const btn = document.getElementById('pwa-install-btn');
-  if(btn) btn.style.display = 'flex';
+  // Re-render settings if open so the install button appears immediately;
+  // otherwise it will appear next time the user opens settings.
+  if(activeNav === 'settings'){
+    const main = document.getElementById('main');
+    if(main) renderSettings(main);
+  }
 });
 window.addEventListener('appinstalled', () => {
   _installPrompt = null;
   showToast('✓ App installed! Check your home screen.');
-  const btn = document.getElementById('pwa-install-btn');
-  if(btn) btn.style.display = 'none';
+  // Re-render settings to hide the button
+  if(activeNav === 'settings'){
+    const main = document.getElementById('main');
+    if(main) renderSettings(main);
+  }
 });
 async function installPWA(){
   if(!_installPrompt){ showToast('Open in browser and use "Add to Home Screen"'); return; }
