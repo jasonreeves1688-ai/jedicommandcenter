@@ -12894,6 +12894,48 @@ let _cvShowDone  = false;    // show completed items
 function renderCommitmentsPage(container){
   const todayStr  = today();
   const isJenny   = typeof currentUser==='object' && currentUser?.role==='wife';
+
+  // ── Inject legacy orphans ──────────────────────────────────
+  // commsOwed[], delegations[], and waitingFor[] items that exist in the legacy
+  // arrays but have no corresponding commitments[] entry are invisible in this view.
+  // Surface them here so nothing gets lost while migration catches up.
+  // We also write them into commitments[] so they persist going forward.
+  (()=>{
+    const existingIds = new Set(commitments.map(c=>c.id)
+      .concat(commitments.map(c=>c.id.replace(/^cm-(co|del|wf|ci)-/,'')))
+    );
+    let added = false;
+    (commsOwed||[]).filter(c=>!c.done && !existingIds.has(c.id) && !existingIds.has('cm-co-'+c.id)).forEach(c=>{
+      commitments.unshift({ id:'cm-co-'+c.id, type:'comms', title:c.what||'',
+        notes:c.context||'', status:'todo', priority:'medium',
+        visibility:'work', createdBy:'jason', ownedBy:'me',
+        assignedTo:c.recipient||'', personIds:c.personId||'',
+        dueDate:c.dueDate||'', createdAt:String(c.createdAt||''),
+        lastActedAt:c.dueDate||String(c.createdAt||''), source:'migrated' });
+      added = true;
+    });
+    (delegations||[]).filter(d=>d.status!=='done' && !existingIds.has(d.id) && !existingIds.has('cm-del-'+d.id)).forEach(d=>{
+      commitments.unshift({ id:'cm-del-'+d.id, type:'delegation', title:d.what||'',
+        notes:d.notes||'', status:'todo', priority:'medium',
+        visibility:'work', createdBy:'jason', ownedBy:'me',
+        assignedTo:d.personId||'', personIds:d.personId||'',
+        dueDate:d.dueDate||'', checkInDays:d.checkInDays||null,
+        createdAt:String(d.createdAt||''), lastActedAt:d.dueDate||String(d.createdAt||''),
+        source:'migrated' });
+      added = true;
+    });
+    (waitingFor||[]).filter(w=>!w.done && !existingIds.has(w.id) && !existingIds.has('cm-wf-'+w.id)).forEach(w=>{
+      commitments.unshift({ id:'cm-wf-'+w.id, type:'waiting', title:w.what||'',
+        notes:w.notes||'', status:'todo', priority:'medium',
+        visibility:'work', createdBy:'jason', ownedBy:'me',
+        personIds:w.personIds||w.personId||'', orgId:w.orgId||'',
+        dueDate:w.dueDate||'', createdAt:String(w.createdAt||''),
+        lastActedAt:w.dueDate||String(w.createdAt||''), source:'migrated' });
+      added = true;
+    });
+    if(added) saveCommitments(); // persist so they survive next reload
+  })();
+
   // ── Get visible items ──────────────────────────────────────
   let items = getCommitments({ active: !_cvShowDone });
   if(_cvShowDone) items = commitments.filter(_commitVisible);
@@ -13076,20 +13118,24 @@ function renderCommitmentsPage(container){
       </div>
       <button onclick="_cvOpenAdd()" class="page-hero-action">+ Add</button>
     </div>
-    <!-- Primary sub-tabs: All / Tasks / Waiting / Delegated / Family -->
+    <!-- Primary sub-tabs — always-visible types + conditional tabs for comms/follow_up/issue -->
     <div id="cv-subtabs" style="display:flex;border-bottom:2px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
       ${[
-        {key:'all',        label:'All',       emoji:'⊞'},
-        {key:'action',     label:'Tasks',     emoji:'☑'},
-        {key:'waiting',    label:'Waiting',   emoji:'⏳'},
-        {key:'delegation', label:'Delegated', emoji:'👤'},
-        {key:'family',     label:'Family',    emoji:'🏠'},
-      ].map(t => {
+        {key:'all',        label:'All',        emoji:'⊞',  always:true},
+        {key:'action',     label:'Tasks',      emoji:'☑',  always:true},
+        {key:'waiting',    label:'Waiting',    emoji:'⏳', always:true},
+        {key:'delegation', label:'Delegated',  emoji:'👤', always:true},
+        {key:'comms',      label:'Comms',      emoji:'📣', always:true},
+        {key:'follow_up',  label:'Follow-ups', emoji:'🔁', always:false},
+        {key:'issue',      label:'Issues',     emoji:'⚠',  always:false},
+        {key:'family',     label:'Family',     emoji:'🏠', always:false},
+      ].filter(t => t.always || (typeCounts[t.key]||0) > 0 || _cvFilter === t.key)
+       .map(t => {
         const sel = _cvFilter === t.key;
         const cnt = t.key==='all' ? totalActive : (typeCounts[t.key]||0);
         const badge = cnt > 0 ? ` <span style="font:700 10px/1 var(--font-ui);background:${sel?'rgba(21,101,192,0.15)':'var(--surface3)'};color:${sel?'var(--accent)':'var(--text4)'};padding:1px 5px;border-radius:8px;">${cnt}</span>` : '';
         return `<button data-cvkey="${t.key}" onclick="_cvFilter=this.dataset.cvkey;renderAll();"
-          style="flex:1;min-width:60px;padding:10px 4px 9px;border:none;background:transparent;
+          style="flex:1;min-width:55px;padding:10px 4px 9px;border:none;background:transparent;
             font:${sel?'700':'500'} 11px/1 var(--font-ui);color:${sel?'var(--accent)':'var(--text3)'};
             border-bottom:${sel?'2px solid var(--accent)':'2px solid transparent'};
             margin-bottom:-2px;cursor:pointer;white-space:nowrap;transition:all var(--t-fast);">
@@ -13184,31 +13230,16 @@ function _cvComplete(id){
 // Keeps existing views (Tasks, Waiting For etc) in sync during migration
 function _cvSyncBackToLegacy(id){
   const c = commitments.find(x=>x.id===id); if(!c) return;
-  const origId = id.startsWith('cm-') ? id.replace(/^cm-(wf|del|co|ci|ft|jh|wh)-/,'') : id;
-  const isDone = c.status === 'done' || c.status === 'cancelled';
   if(c.type === 'action'){
+    // Action type: sync status back to tasks[] (the legacy task may use the original id)
+    const origId = id.startsWith('cm-') ? id.replace(/^cm-[a-z]+-/,'') : id;
     const t = tasks.find(x=>x.id===origId||x.id===id);
     if(t){ t.status=c.status; t.completedAt=c.completedAt||null; saveAllDebounced(); }
-  } else if(c.type === 'waiting'){
-    const w = waitingFor.find(x=>x.id===origId||x.id===id);
-    if(w){ w.done=isDone; saveWaiting(); }                      // was saveWaiting() — wrong name
-  } else if(c.type === 'delegation'){
-    const d = delegations.find(x=>x.id===origId||x.id===id);
-    if(d){ d.status=isDone?'done':'active'; saveDelegations(); }
-  } else if(c.type === 'comms'){
-    const co = commsOwed.find(x=>x.id===origId||x.id===id);   // was missing entirely
-    if(co){ co.done=isDone; saveCommsOwed(); }
-  } else if(c.type === 'family'){
-    const ft = familyTasks.find(x=>x.id===origId||x.id===id);
-    if(ft){ ft.done=isDone; saveFamilyTasks(); }
-  } else if(c.type === 'home'){
-    const jt = jasonHomeTasks.find(x=>x.id===origId||x.id===id);
-    if(jt){ jt.done=isDone; saveJasonHomeTasks(); return; }
-    const wt = wifeHomeTasks.find(x=>x.id===origId||x.id===id); // was missing Jenny
-    if(wt){ wt.done=isDone; saveWifeHomeTasks(); }
+  } else {
+    // All other types: use insert-or-update so new items always reach Supabase
+    _syncCommitmentToLegacy(c);
   }
-  // follow_up and other types: commitment record is the source of truth,
-  // no separate legacy array to sync — saveCommitments() already called by updateCommitment()
+  // follow_up/issue: commitment is the source of truth — no legacy array
 }
 // ── Open edit modal for existing commitment ───────────────────
 function _cvOpenEdit(id){
@@ -16157,7 +16188,14 @@ function getCommitments(filters={}){
   if(filters.status)     items = items.filter(c=>c.status===filters.status);
   if(filters.notStatus)  items = items.filter(c=>c.status!==filters.notStatus);
   if(filters.orgId)      items = items.filter(c=>c.orgId===filters.orgId);
-  if(filters.personId)   items = items.filter(c=>(c.personIds||'').split(',').includes(filters.personId));
+  if(filters.personId)   items = items.filter(c=>{
+    const pid = filters.personId;
+    // Check personIds (comma-separated), assignedTo, and createdBy so delegations
+    // and comms always show on the person they're associated with
+    if((c.personIds||'').split(',').filter(Boolean).includes(pid)) return true;
+    if(c.assignedTo === pid) return true;
+    return false;
+  });
   if(filters.projectId)  items = items.filter(c=>c.projectId===filters.projectId);
   if(filters.active)     items = items.filter(c=>c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled');
   if(filters.overdue)    items = items.filter(c=>c.dueDate&&c.dueDate<today());
@@ -16389,6 +16427,9 @@ function migrateToCommitments(){
 function createCommitment(fields){
   const isJenny = typeof currentUser==='object' && currentUser?.role==='wife';
   const userId  = isJenny ? 'jenny' : 'jason';
+  // Ensure personIds is populated — fall back to assignedTo so delegations
+  // always show on the person's detail view even if personIds wasn't set explicitly
+  const _personIds = fields.personIds || fields.assignedTo || '';
   const c = {
     id:           fields.id           || 'c-'+Date.now()+'-'+Math.random().toString(36).slice(2,5),
     type:         fields.type         || 'action',
@@ -16400,7 +16441,7 @@ function createCommitment(fields){
     createdBy:    fields.createdBy    || userId,
     ownedBy:      fields.ownedBy      || 'me',
     assignedTo:   fields.assignedTo   || '',
-    personIds:    fields.personIds    || '',
+    personIds:    _personIds,
     orgId:        fields.orgId        || '',
     interactionId:fields.interactionId|| '',
     projectId:    fields.projectId    || '',
@@ -16422,6 +16463,7 @@ function createCommitment(fields){
   commitments.unshift(c);
   saveCommitments();
   if(c.type === 'action') _syncCommitmentToTask(c);
+  else _syncCommitmentToLegacy(c);  // mirrors delegation/comms/waiting/family/home to their legacy arrays so Supabase picks them up
   return c;
 }
 // ── Helper: update a commitment ───────────────────────────────
@@ -16430,8 +16472,9 @@ function updateCommitment(id, changes){
   if(idx < 0) return null;
   commitments[idx] = { ...commitments[idx], ...changes, lastActedAt: today() };
   saveCommitments();
-  // Keep tasks[] in sync for action-type commitments
+  // Keep legacy arrays in sync for all commitment types
   if(commitments[idx].type === 'action') _syncCommitmentToTask(commitments[idx]);
+  else _syncCommitmentToLegacy(commitments[idx]);
   return commitments[idx];
 }
 // ── Helper: complete a commitment ─────────────────────────────
@@ -16446,6 +16489,141 @@ function completeCommitment(id){
   checkJasonRewardMilestone();
   return result;
 }
+// ── Sync ANY commitment type to its legacy array (create/update) ─────────────
+// This is what gets delegations[], commsOwed[], waitingFor[], familyTasks[],
+// and jasonHomeTasks[] into Supabase — those tables read from legacy arrays,
+// not from commitments[].
+function _syncCommitmentToLegacy(c){
+  if(!c) return;
+  const isDone = c.status === 'done' || c.status === 'cancelled';
+
+  if(c.type === 'delegation'){
+    const existing = delegations.find(x => x.id === c.id);
+    if(existing){
+      existing.what        = c.title        || existing.what;
+      existing.dueDate     = c.dueDate      || existing.dueDate;
+      existing.notes       = c.notes        || existing.notes;
+      existing.status      = isDone ? 'done' : 'active';
+      existing.personId    = (c.personIds||'').split(',').filter(Boolean)[0] || existing.personId;
+      existing.checkInDays = c.checkInDays  != null ? c.checkInDays : existing.checkInDays;
+    } else {
+      delegations.push({
+        id:          c.id,
+        personId:    (c.personIds||'').split(',').filter(Boolean)[0] || '',
+        what:        c.title        || '',
+        dueDate:     c.dueDate      || '',
+        status:      isDone ? 'done' : 'active',
+        notes:       c.notes        || '',
+        createdAt:   c.createdAt    || today(),
+        checkInDays: c.checkInDays  || null,
+      });
+    }
+    saveDelegations();
+    return;
+  }
+
+  if(c.type === 'comms'){
+    const existing = commsOwed.find(x => x.id === c.id);
+    if(existing){
+      existing.what     = c.title   || existing.what;
+      existing.dueDate  = c.dueDate || existing.dueDate;
+      existing.context  = c.notes   || existing.context;
+      existing.done     = isDone;
+      existing.recipient = (c.personIds||'').split(',').filter(Boolean)[0]
+                          || c.assignedTo || existing.recipient || '';
+    } else {
+      commsOwed.push({
+        id:        c.id,
+        recipient: (c.personIds||'').split(',').filter(Boolean)[0] || c.assignedTo || '',
+        what:      c.title   || '',
+        dueDate:   c.dueDate || '',
+        context:   c.notes   || '',
+        done:      isDone,
+        createdAt: c.createdAt || today(),
+      });
+    }
+    saveCommsOwed();
+    return;
+  }
+
+  if(c.type === 'waiting'){
+    const existing = waitingFor.find(x => x.id === c.id);
+    if(existing){
+      existing.what     = c.title   || existing.what;
+      existing.dueDate  = c.dueDate || existing.dueDate;
+      existing.notes    = c.notes   || existing.notes;
+      existing.done     = isDone;
+      existing.personId = (c.personIds||'').split(',').filter(Boolean)[0] || existing.personId;
+    } else {
+      waitingFor.push({
+        id:        c.id,
+        personId:  (c.personIds||'').split(',').filter(Boolean)[0] || '',
+        what:      c.title   || '',
+        dueDate:   c.dueDate || '',
+        notes:     c.notes   || '',
+        done:      isDone,
+        createdAt: c.createdAt || today(),
+      });
+    }
+    saveWaiting();
+    return;
+  }
+
+  if(c.type === 'family'){
+    const existing = familyTasks.find(x => x.id === c.id);
+    if(existing){
+      existing.title   = c.title   || existing.title;
+      existing.dueDate = c.dueDate || existing.dueDate;
+      existing.notes   = c.notes   || existing.notes;
+      existing.done    = isDone;
+    } else {
+      familyTasks.push({
+        id:        c.id,
+        title:     c.title   || '',
+        dueDate:   c.dueDate || '',
+        notes:     c.notes   || '',
+        done:      isDone,
+        assignee:  c.assignedTo || 'anyone',
+        createdAt: c.createdAt || today(),
+      });
+    }
+    saveFamilyTasks();
+    return;
+  }
+
+  if(c.type === 'home'){
+    const jt = jasonHomeTasks.find(x => x.id === c.id);
+    if(jt){
+      jt.title   = c.title   || jt.title;
+      jt.dueDate = c.dueDate || jt.dueDate;
+      jt.done    = isDone;
+      saveJasonHomeTasks();
+    } else {
+      const wt = wifeHomeTasks.find(x => x.id === c.id);
+      if(wt){
+        wt.title   = c.title   || wt.title;
+        wt.dueDate = c.dueDate || wt.dueDate;
+        wt.done    = isDone;
+        saveWifeHomeTasks();
+      } else {
+        // New home task — assign to the creator
+        const isJenny = c.createdBy === 'jenny';
+        const arr = isJenny ? wifeHomeTasks : jasonHomeTasks;
+        arr.push({
+          id:        c.id,
+          title:     c.title   || '',
+          dueDate:   c.dueDate || '',
+          done:      isDone,
+          createdAt: c.createdAt || today(),
+        });
+        if(isJenny) saveWifeHomeTasks(); else saveJasonHomeTasks();
+      }
+    }
+    return;
+  }
+  // action type is handled by _syncCommitmentToTask — no-op here
+}
+
 // ── Sync an action commitment to tasks[] ─────────────────────
 function _syncCommitmentToTask(c){
   if(!c||c.type!=='action') return;
@@ -16505,6 +16683,68 @@ function _syncTaskToCommitment(task){
   saveCommitments(); // queues Supabase sync + saves localStorage
 }
 // ── Run migration on boot (after all legacy data loads) ───────
+// ── One-time Supabase flush for pre-v102 delegations & comms ────────────────
+// Before v102, createCommitment() never mirrored delegation/comms items into
+// their legacy arrays, so _sbSaveDelegations/_sbSaveCommsOwed never wrote them
+// to Supabase. This function runs once per device on first boot with v105+ and
+// force-flushes every delegation and commsOwed entry to Supabase so no data is
+// lost across devices.
+async function _flushLegacyToSupabase(){
+  const FLAG = 'hub-legacy-flush-v105';
+  if(localStorage.getItem(FLAG) === '1') return;   // already done on this device
+  if(!_sbUserId){ 
+    // Not logged in yet — retry in 5s
+    setTimeout(_flushLegacyToSupabase, 5000);
+    return;
+  }
+  console.log('[v105] Running one-time legacy flush to Supabase…');
+  let flushed = 0;
+
+  // ── 1. Delegations ────────────────────────────────────────────
+  if(delegations.length){
+    await _sbSaveDelegations().catch(e=>console.warn('[v105] Delegations flush:', e));
+    flushed += delegations.length;
+  }
+
+  // ── 2. Comms owed ─────────────────────────────────────────────
+  if(commsOwed.length){
+    await _sbSaveCommsOwed().catch(e=>console.warn('[v105] CommsOwed flush:', e));
+    flushed += commsOwed.length;
+  }
+
+  // ── 3. Waiting-for (also had the same gap) ────────────────────
+  if(waitingFor.length){
+    await _sbSaveWaiting().catch(e=>console.warn('[v105] WaitingFor flush:', e));
+    flushed += waitingFor.length;
+  }
+
+  // ── 4. Mirror all non-action commitments back into legacy arrays
+  //       so any commitment created via the Work page that never had
+  //       a legacy row now has one — ensuring future saves are clean.
+  let mirrored = 0;
+  for(const c of commitments){
+    if(c.type !== 'action'){
+      _syncCommitmentToLegacy(c);
+      mirrored++;
+    }
+  }
+  if(mirrored){
+    // saveCommitments() already called by _syncCommitmentToLegacy internally
+    // Just need to flush the legacy tables one more time to pick up new rows
+    await Promise.all([
+      _sbSaveDelegations().catch(()=>{}),
+      _sbSaveCommsOwed().catch(()=>{}),
+      _sbSaveWaiting().catch(()=>{}),
+    ]);
+  }
+
+  localStorage.setItem(FLAG, '1');
+  console.log(`[v105] Flush complete — ${flushed} legacy rows + ${mirrored} commitment mirrors synced`);
+  if(flushed > 0 || mirrored > 0){
+    showToast(`✓ Synced ${flushed + mirrored} items to cloud`);
+  }
+}
+
 function _runMigrationIfNeeded(){
   if(!_commitMigrated && (tasks.length||waitingFor.length||delegations.length||familyTasks.length)){
     migrateToCommitments();
@@ -16593,10 +16833,19 @@ function getPersonInteractions(personId){
     .sort((a,b)=>b.date.localeCompare(a.date));
 }
 function personDaysSinceContact(person){
-  const lastI=getPersonInteractions(person.id)[0];
-  const lastDate=person.lastContact||lastI?.date||null;
+  const todayLocal = today(); // YYYY-MM-DD in local timezone
+  // Check contactHistory for a log entry today — belt-and-suspenders guard
+  // that works even if lastContact hasn't been written yet in the same tick.
+  const loggedToday = (person.contactHistory||[]).some(h => h.date === todayLocal);
+  if(loggedToday) return 0;
+  const lastI = getPersonInteractions(person.id)[0];
+  const lastDate = person.lastContact || lastI?.date || null;
   if(!lastDate) return null;
-  return Math.floor((Date.now()-new Date(lastDate).getTime())/86400000);
+  // Compare as local date strings to avoid UTC midnight off-by-one issues.
+  // YYYY-MM-DD string sort is equivalent to date sort, so this is safe.
+  if(lastDate === todayLocal) return 0;
+  // Fall back to ms arithmetic for non-today dates
+  return Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000);
 }
 function personNudgeDue(person){
   if(!person.nudgeDays) return false;
@@ -25262,8 +25511,32 @@ function openPersonDetail(id, type){
   const rt        = RELATIONSHIP_TYPES[record.relationshipType] || RELATIONSHIP_TYPES.colleague;
   const org       = record.orgId ? clientOrgs.find(o=>o.id===record.orgId) : null;
   const allCommits   = getPersonCommitments(id, false);
-  const openCommits  = allCommits.filter(c=>c.status!=='done'&&c.status!=='resolved');
-  const doneCommits  = allCommits.filter(c=>c.status==='done'||c.status==='resolved').slice(0,5);
+  // Also surface legacy items that exist in legacy arrays but not yet in commitments[]
+  // (created before migration or before the v102 sync fix was deployed)
+  const commitIds = new Set(allCommits.map(c=>c.id)
+    .concat(allCommits.map(c=>c.id.replace(/^cm-(wf|del|co|ci)-/,'')))
+  );
+  const legacyDels = (delegations||[]).filter(d=>
+    (d.personId===id||(d.personIds||'').split(',').includes(id)) && !commitIds.has(d.id)
+  ).map(d=>({ id:d.id, type:'delegation', title:d.what||'', status:d.status==='done'?'done':'todo',
+    personIds:d.personId||'', dueDate:d.dueDate||'', notes:d.notes||'', priority:'medium',
+    createdAt:d.createdAt||'', completedAt:'', lastActedAt:d.createdAt||'' }));
+  const legacyWFs = (waitingFor||[]).filter(w=>
+    (w.personId===id||(w.personIds||'').split(',').includes(id)) && !w.done && !commitIds.has(w.id)
+  ).map(w=>({ id:w.id, type:'waiting', title:w.what||'', status:'todo',
+    personIds:w.personId||'', dueDate:w.dueDate||'', notes:w.notes||'', priority:'medium',
+    createdAt:w.createdAt||'', completedAt:'', lastActedAt:w.createdAt||'' }));
+  const legacyComms = (commsOwed||[]).filter(co=>
+    !co.done && !commitIds.has(co.id) &&
+    (co.recipient===id || (co.personIds||'').split(',').includes(id) ||
+     (id && getPersonNameById(id) && (co.recipient||'').toLowerCase().includes((getPersonNameById(id)||'').toLowerCase().split(' ')[0])))
+  ).map(co=>({ id:co.id, type:'comms', title:co.what||'', status:'todo',
+    personIds:co.recipient||'', dueDate:co.dueDate||'', notes:co.context||'', priority:'medium',
+    createdAt:co.createdAt||'', completedAt:'', lastActedAt:co.createdAt||'' }));
+  // Merge: unified commitments first, then legacy orphans
+  const mergedCommits = [...allCommits, ...legacyDels, ...legacyWFs, ...legacyComms];
+  const openCommits  = mergedCommits.filter(c=>c.status!=='done'&&c.status!=='resolved');
+  const doneCommits  = mergedCommits.filter(c=>c.status==='done'||c.status==='resolved').slice(0,5);
   const interactions = getPersonInteractions(id);
   const daysSince    = personDaysSinceContact(record);
   const nudgeDue     = personNudgeDue(record);
@@ -25482,7 +25755,26 @@ function submitLogContact(){
     if(!up.contactHistory) up.contactHistory = [];
     up.contactHistory.unshift({ date:dateStr, method, note, ts:Date.now() });
     if(up.contactHistory.length > 50) up.contactHistory = up.contactHistory.slice(0,50);
+    // Sync nudgeDays from legacy if missing (migration safety)
+    const _legacy = contactsList.find(x=>x.id===id);
+    if(_legacy && !up.nudgeDays && _legacy.nudgeDays) up.nudgeDays = _legacy.nudgeDays;
     saveUnifiedPeople();
+  } else {
+    // Person exists in contactsList but not yet in unifiedPeople — add them now
+    const _lc = contactsList.find(x=>x.id===id);
+    if(_lc){
+      const _newUp = {
+        id: _lc.id, name: _lc.name, photo: _lc.photo||'',
+        relationshipType: 'personal', isDirectReport: false,
+        department: '', role: _lc.role||'', priority: '',
+        orgId: '', nudgeDays: _lc.nudgeDays||14,
+        lastContact: dateStr, updatedAt: dateStr, createdAt: _lc.createdAt||dateStr,
+        contactHistory: [{ date:dateStr, method, note, ts:Date.now() }],
+        notes: ''
+      };
+      unifiedPeople.push(_newUp);
+      saveUnifiedPeople();
+    }
   }
   // ── Mirror to legacy contactsList ────────────────────────────
   const c = contactsList.find(x=>x.id===id);
@@ -26107,7 +26399,6 @@ function openMeetingCapture(existingId, seriesId, prevMeeting, prePersonId){
         </div>
         <div id="mtg-comms-list" style="display:flex;flex-direction:column;"></div>
       </div>
-    </div>
     </div>
     ${existingId ? `
     <div style="padding:0 18px 8px;flex-shrink:0;border-top:1px solid var(--border);background:var(--surface2);">
@@ -32412,6 +32703,10 @@ async function bootApp(){
   // Run one-time migration to unified commitments model
   // Deferred 500ms so all legacy cloud loads have completed first
   setTimeout(_runMigrationIfNeeded, 500);
+  // One-time flush: push all delegations[] and commsOwed[] to Supabase.
+  // Guards with a localStorage flag so it only runs once per device.
+  // Runs 2s after boot so _loadTeamData has had time to finish.
+  setTimeout(_flushLegacyToSupabase, 2000);
   // Inject any already-imported work meetings immediately (before first fetch)
   injectImportedMeetings();
   // Schedule prep notifications for today's meeting blocks
