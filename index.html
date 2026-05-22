@@ -1496,6 +1496,33 @@ input,select,textarea{ font-size:16px !important; }
   max-width:90vw; text-align:center;
 }
 #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+/* ── What's Next panel ────────────────────────────────────────── */
+#whats-next-panel{
+  position:fixed;bottom:0;left:0;right:0;z-index:490;
+  background:var(--surface);border-top:2px solid var(--accent);
+  border-radius:20px 20px 0 0;
+  padding:0 0 env(safe-area-inset-bottom,0);
+  transform:translateY(105%);
+  transition:transform 0.32s cubic-bezier(0.34,1.2,0.64,1);
+  box-shadow:0 -8px 32px rgba(0,0,0,0.4);
+  max-height:60vh;overflow-y:auto;
+}
+#whats-next-panel.show{ transform:translateY(0); }
+.wnp-header{ display:flex;align-items:center;gap:10px;padding:14px 18px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:1; }
+.wnp-title{ font:800 12px/1 var(--font-ui);color:var(--accent);letter-spacing:1px;text-transform:uppercase;flex:1; }
+.wnp-dismiss{ background:transparent;border:none;color:var(--text4);font-size:22px;cursor:pointer;padding:0 2px;line-height:1; }
+.wnp-item{ display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--t-fast);user-select:none; }
+.wnp-item:last-of-type{ border-bottom:none; }
+.wnp-item:active{ background:var(--surface2); }
+.wnp-dot{ width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.wnp-text{ flex:1;min-width:0; }
+.wnp-item-title{ font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.wnp-item-meta{ font:500 11px/1 var(--font-ui);color:var(--text4);margin-top:3px; }
+.wnp-action-btn{ flex-shrink:0;padding:7px 14px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font:800 11px/1 var(--font-ui);cursor:pointer;white-space:nowrap; }
+.wnp-focus-row{ display:flex;border-top:1px solid var(--border); }
+.wnp-focus-btn{ flex:1;padding:14px;border:none;background:var(--accent);color:var(--bg);font:800 13px/1 var(--font-ui);cursor:pointer;letter-spacing:0.3px; }
+.wnp-eod-btn{ flex:0 0 auto;padding:14px 18px;border:none;border-left:1px solid rgba(0,0,0,0.15);background:var(--accent);color:var(--bg);font:700 12px/1 var(--font-ui);cursor:pointer;opacity:0.7; }
+.wnp-empty{ padding:24px 18px;text-align:center;font:600 13px/1.4 var(--font-ui);color:var(--text3); }
 /* ── Undo bar ────────────────────────────────────────────────── */
 #undo-bar{
   position:fixed; bottom:88px; left:50%; transform:translateX(-50%) translateY(12px);
@@ -2563,6 +2590,14 @@ function selectGateUser(who){
 <div id="toast"></div>
 <!-- Frictionless capture button — always visible -->
 <button id="global-capture-btn" class="fab-capture" onclick="openFrictionlessCapture()" title="Capture anything">+</button>
+<!-- What's Next panel -->
+<div id="whats-next-panel">
+  <div class="wnp-header">
+    <span class="wnp-title">⚡ What's Next?</span>
+    <button class="wnp-dismiss" onclick="dismissWhatsNext()" aria-label="Dismiss">×</button>
+  </div>
+  <div id="wnp-content"></div>
+</div>
 <div id="undo-bar">
   <svg id="undo-countdown" viewBox="0 0 22 22">
     <circle class="track" cx="11" cy="11" r="8"/>
@@ -3215,7 +3250,8 @@ async function loadAll(){
       meetingRows, seriesRows, waitingRows,
       peopleRows, contactRows, habitRows, habitLogRow,
       discoveryRows, signalRows, somedayRows,
-      weeklyPlanRow, kidsTrackerRow, tbBlockRows, settingRows
+      weeklyPlanRow, kidsTrackerRow, tbBlockRows, settingRows,
+      bootCommitRows, bootUpRows
     ] = await Promise.all([
       sbGet('projects'),
       sbGet('tasks'),
@@ -3237,7 +3273,10 @@ async function loadAll(){
       _sb.from('weekly_plan').select('*').eq('id','current').single(),
       _sb.from('kids_tracker').select('*').eq('id','current').single(),
       sbGet('time_blocks').then(r=>r.filter(b=>b.owner_id===_sbUserId)),
-      _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId).then(r=>r.data||[])
+      _sb.from('user_settings').select('key,value').eq('owner_id',_sbUserId).then(r=>r.data||[]),
+      // commitments and unified_people are the primary post-migration tables — load on boot
+      sbGet('commitments').catch(()=>[]),
+      sbGet('unified_people').catch(()=>[])
     ]);
     // ── Projects ──────────────────────────────────────────────
     projects = projectRows.map(p=>({
@@ -3459,6 +3498,46 @@ async function loadAll(){
     if(cloudTheme && !localStorage.getItem('hub-theme')){ localStorage.setItem('hub-theme', cloudTheme); document.body.setAttribute('data-theme', cloudTheme); }
     const cloudCalm = _parseS('calm', null);
     if(cloudCalm && !localStorage.getItem('hub-calm')) localStorage.setItem('hub-calm', cloudCalm);
+    // ── Commitments (boot load — merge with localStorage) ────────────────────
+    if(bootCommitRows?.length){
+      const _cloudCIds = new Set(bootCommitRows.map(r=>r.id));
+      const _localOnlyC = commitments.filter(c=>!_cloudCIds.has(c.id));
+      commitments = [
+        ...bootCommitRows.map(r=>({
+          id:r.id, type:r.type||'action', title:r.title||'', notes:r.notes||'',
+          status:r.status||'todo', priority:r.priority||'medium',
+          visibility:r.visibility||'work', createdBy:r.created_by||'jason',
+          ownedBy:r.owned_by||'me', assignedTo:r.assigned_to||'',
+          personIds:r.person_ids||'', orgId:r.org_id||'',
+          interactionId:r.interaction_id||'', projectId:r.project_id||'',
+          dueDate:r.due_date||'', followUpDate:r.follow_up_date||'',
+          checkInDays:r.check_in_days||null, recur:r.recur||'none',
+          estimate:r.estimate||'', energy:r.energy||'', audience:r.audience||'',
+          source:r.source||'', lastActedAt:r.last_acted_at||r.created_at||'',
+          createdAt:r.created_at||'', completedAt:r.completed_at||'',
+          subtasks:(()=>{ try{ return JSON.parse(r.subtasks||'[]'); }catch(e){ return []; } })(),
+          linkedCallDates:(()=>{ try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
+          comments:[]
+        })),
+        ..._localOnlyC
+      ];
+      _dedupeCommitments();
+      localStorage.setItem('hub-commitments', JSON.stringify(commitments));
+    }
+    // ── Unified People (boot load) ─────────────────────────────────────────
+    if(bootUpRows?.length){
+      unifiedPeople = bootUpRows.map(p=>({
+        id:p.id, name:p.name||'', photo:p.photo||'',
+        relationshipType:p.relationship_type||'colleague',
+        isDirectReport:!!p.is_direct_report,
+        department:p.department||'', role:p.role||'', priority:p.priority||'',
+        orgId:p.org_id||'', nudgeDays:p.nudge_days||null,
+        lastContact:p.last_contact||'',
+        contactHistory:(()=>{ try{ return JSON.parse(p.contact_history||'[]'); }catch(e){ return (typeof p.contact_history==='object'&&p.contact_history)?p.contact_history:[]; } })(),
+        notes:p.notes||'', createdAt:p.created_at||'', updatedAt:p.updated_at||''
+      }));
+      localStorage.setItem('hub-unified-people', JSON.stringify(unifiedPeople));
+    }
     setSyncStatus('ok','Loaded ✓');
     kidsCloudLoaded = true;
   } catch(e){
@@ -5935,18 +6014,32 @@ function renderFamilyPage(container){
       }
     }
     html += '</div>';
+    // ── Family email capture shortcut — both Jason and Jenny ─────
+    // Visible as a secondary action row so neither user has to dig for it
+    html += '<div style="padding:0 16px 4px;display:flex;gap:8px;flex-wrap:wrap;">'
+      + '<button onclick="openFamilyEmailCapture()" '
+      + 'style="padding:8px 14px;border-radius:20px;border:1.5px solid rgba(129,199,132,0.45);'
+      + 'background:rgba(129,199,132,0.06);color:#81C784;font:700 11px/1 var(--font-ui);cursor:pointer;'
+      + 'display:flex;align-items:center;gap:6px;">'
+      + '📧 Extract tasks from email</button>'
+      + '<button onclick="openBulkPaste()" '
+      + 'style="padding:8px 14px;border-radius:20px;border:1.5px solid rgba(232,168,56,0.45);'
+      + 'background:rgba(232,168,56,0.06);color:var(--accent);font:700 11px/1 var(--font-ui);cursor:pointer;">'
+      + '📋 Paste list</button>'
+      + '</div>';
     // ── Brain dump bar (Jason only) ─────────────────────────────
     if(isJason2){
       html += '<div class="brain-dump-bar" style="margin:10px 16px 8px;">'
         + '<input class="brain-dump-input" id="home-brain-dump" placeholder="💭 Quick capture…"'
         + ' onkeydown="if(event.key===\'Enter\'){brainDump(this.value);this.value=\'\';showToast(\'💭 Captured\');}" autocomplete="off" autocorrect="off" spellcheck="false"/>'
         + '<button class="mic-btn" id="mic-btn-home-dump" onclick="toggleVoice(\'home-brain-dump\',\'mic-btn-home-dump\')" title="Voice">🎙</button>'
+        + '<button class="mic-btn" onclick="openFamilyEmailCapture()" title="Extract tasks from email" style="font-size:14px;">📧</button>'
         + '<button class="brain-dump-btn" onclick="if(document.getElementById(\'home-brain-dump\').value.trim()){brainDump(document.getElementById(\'home-brain-dump\').value);document.getElementById(\'home-brain-dump\').value=\'\';showToast(\'💭 Captured\');}">+</button>'
         + '</div>';
     }
   } else {
     // Family Tasks
-    html += '<div style="padding:0 16px 12px;">'      + '<button onclick="openFamilyTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add Family Task</button>'      + '</div>';
+    html += '<div style="padding:0 16px 12px;display:flex;gap:8px;">'      + '<button onclick="openFamilyTaskModal(null)" style="flex:1;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add Task</button>'      + '<button onclick="openFamilyEmailCapture()" style="padding:12px 16px;border-radius:var(--r3);border:1.5px solid rgba(129,199,132,0.45);background:rgba(129,199,132,0.06);color:#81C784;font:700 13px/1 var(--font-ui);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;">📧 From Email</button>'      + '</div>';
     if(open.length === 0){
       html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
     } else {
@@ -12911,7 +13004,7 @@ function renderCommitmentsPage(container){
         visibility:'work', createdBy:'jason', ownedBy:'me',
         assignedTo:c.recipient||'', personIds:c.personId||'',
         dueDate:c.dueDate||'', createdAt:String(c.createdAt||''),
-        lastActedAt:c.dueDate||String(c.createdAt||''), source:'migrated' });
+        lastActedAt:today(), source:'migrated' });
       added = true;
     });
     (delegations||[]).filter(d=>d.status!=='done' && !existingIds.has(d.id) && !existingIds.has('cm-del-'+d.id)).forEach(d=>{
@@ -12920,7 +13013,7 @@ function renderCommitmentsPage(container){
         visibility:'work', createdBy:'jason', ownedBy:'me',
         assignedTo:d.personId||'', personIds:d.personId||'',
         dueDate:d.dueDate||'', checkInDays:d.checkInDays||null,
-        createdAt:String(d.createdAt||''), lastActedAt:d.dueDate||String(d.createdAt||''),
+        createdAt:String(d.createdAt||''), lastActedAt:today(),
         source:'migrated' });
       added = true;
     });
@@ -12930,7 +13023,7 @@ function renderCommitmentsPage(container){
         visibility:'work', createdBy:'jason', ownedBy:'me',
         personIds:w.personIds||w.personId||'', orgId:w.orgId||'',
         dueDate:w.dueDate||'', createdAt:String(w.createdAt||''),
-        lastActedAt:w.dueDate||String(w.createdAt||''), source:'migrated' });
+        lastActedAt:today(), source:'migrated' });
       added = true;
     });
     if(added) saveCommitments(); // persist so they survive next reload
@@ -13224,7 +13317,10 @@ function _cvComplete(id){
   // Count toward prize milestone — same as completeTask()
   if(!wasDone) checkJasonRewardMilestone();
   renderAll();
-  if(!wasDone) showToast('✓ Done');
+  if(!wasDone){
+    showToast('✓ Done');
+    showWhatsNext(c.title);
+  }
 }
 // ── Sync a commitment change back to its legacy array ─────────
 // Keeps existing views (Tasks, Waiting For etc) in sync during migration
@@ -13235,11 +13331,15 @@ function _cvSyncBackToLegacy(id){
     const origId = id.startsWith('cm-') ? id.replace(/^cm-[a-z]+-/,'') : id;
     const t = tasks.find(x=>x.id===origId||x.id===id);
     if(t){ t.status=c.status; t.completedAt=c.completedAt||null; saveAllDebounced(); }
-  } else {
-    // All other types: use insert-or-update so new items always reach Supabase
+    else {
+      // No matching task — commitment IS the task, already saved via saveCommitments()
+    }
+  } else if(c.type === 'delegation' || c.type === 'comms' || c.type === 'waiting' ||
+             c.type === 'family'     || c.type === 'home'){
+    // Sync to legacy arrays so _sbSaveDelegations / _sbSaveCommsOwed / etc. fire
     _syncCommitmentToLegacy(c);
   }
-  // follow_up/issue: commitment is the source of truth — no legacy array
+  // follow_up / issue: commitment is the only source of truth — already saved by saveCommitments()
 }
 // ── Open edit modal for existing commitment ───────────────────
 function _cvOpenEdit(id){
@@ -15006,10 +15106,14 @@ function renderSettings(container){
         Loading…
       </div>
       <div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;margin-top:4px;">TEST NOTIFICATIONS</div>
-      <div style="display:flex;gap:var(--sp2);flex-wrap:wrap;">
-        <button class="hbtn" style="flex:1;" onclick="testNotif('morning')">☀ Morning</button>
-        <button class="hbtn" style="flex:1;" onclick="testNotif('overdue')">⚠ Overdue</button>
-        <button class="hbtn" style="flex:1;" onclick="testNotif('eod')">🌙 EOD</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp2);">
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('morning')">☀️ Morning</button>
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('nudge')">👥 Contacts</button>
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('overdue')">⚠️ Overdue</button>
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('midday')">⚡ Midday</button>
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('delegation')">📋 Delegations</button>
+        <button class="hbtn" style="font-size:11px;" onclick="testNotif('eod')">🌙 EOD</button>
+        <button class="hbtn" style="font-size:11px;grid-column:1/-1;" onclick="testNotif('kids-prizes')">🎁 Kids Prizes (Fri 6pm)</button>
       </div>
     </div>
     <!-- Appearance -->
@@ -15164,11 +15268,12 @@ function completeTask(id, evt){
         rowEl.style.padding = '0';
         rowEl.style.margin = '0';
       });
-      setTimeout(()=>{ saveAllDebounced(); renderAll(); celebrateCompletion(null, celebRect, xp); showUndoBar(t.title, xp); }, 320);
+      setTimeout(()=>{ saveAllDebounced(); renderAll(); celebrateCompletion(null, celebRect, xp); showUndoBar(t.title, xp); showWhatsNext(t.title); }, 320);
     } else {
       saveAllDebounced(); renderAll();
       celebrateCompletion(null, celebRect, xp);
       showUndoBar(t.title, xp);
+      showWhatsNext(t.title);
     }
   }
 }
@@ -16211,7 +16316,11 @@ function _dedupeCommitments(){
   const before = commitments.length;
   commitments = commitments.filter(c => {
     if(seen.has(c.id)) return false;
+    // Also catch cm-co-X vs X, cm-del-X vs X duplicates from migration
+    const normId = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
+    if(normId !== c.id && seen.has(normId)) return false;
     seen.add(c.id);
+    if(normId !== c.id) seen.add(normId);
     return true;
   });
   if(commitments.length < before){
@@ -16241,7 +16350,7 @@ async function _sbSaveCommitments(){
     org_id:        c.orgId         || '',
     interaction_id:c.interactionId || '',
     project_id:    c.projectId     || '',
-    initiative_id: c.initiativeId  || '',
+    // initiative_id omitted — column does not exist in commitments table (v100 fix)
     due_date:      c.dueDate       || '',
     last_acted_at: c.lastActedAt   || c.createdAt || '',
     follow_up_date:c.followUpDate  || '',
@@ -16294,7 +16403,7 @@ function migrateToCommitments(){
       source:       t.source        || '',
       createdAt:    String(t.createdAt||''),
       completedAt:  t.completedAt   || '',
-      lastActedAt:  t.dueDate       || String(t.createdAt||''),
+      lastActedAt:  today(),  // set to now so migrated items don't show as stale immediately
     });
   });
   // waitingFor → waiting
@@ -16311,7 +16420,7 @@ function migrateToCommitments(){
       followUpDate: w.followUpDate  || '',
       source:       'migrated',
       createdAt:    String(w.createdAt||''),
-      lastActedAt:  w.dueDate       || String(w.createdAt||''),
+      lastActedAt:  today(),
     });
   });
   // delegations → delegation
@@ -16329,7 +16438,7 @@ function migrateToCommitments(){
       checkInDays:  d.checkInDays   || null,
       source:       'migrated',
       createdAt:    String(d.createdAt||''),
-      lastActedAt:  d.dueDate       || String(d.createdAt||''),
+      lastActedAt:  today(),
     });
   });
   // commsOwed → comms
@@ -16346,7 +16455,7 @@ function migrateToCommitments(){
       dueDate:      c.dueDate       || '',
       source:       'migrated',
       createdAt:    String(c.createdAt||''),
-      lastActedAt:  c.dueDate       || String(c.createdAt||''),
+      lastActedAt:  today(),
     });
   });
   // clientIssues → issue
@@ -16381,7 +16490,7 @@ function migrateToCommitments(){
       dueDate:   t.dueDate  || '',
       source:    'migrated',
       createdAt: t.createdAt|| '',
-      lastActedAt: t.dueDate||t.createdAt||'',
+      lastActedAt: today(),
     });
   });
   // jasonHomeTasks → home, private
@@ -16487,6 +16596,7 @@ function completeCommitment(id){
   });
   // Count toward prize milestone — same as completeTask()
   checkJasonRewardMilestone();
+  if(c) showWhatsNext(c.title);
   return result;
 }
 // ── Sync ANY commitment type to its legacy array (create/update) ─────────────
@@ -17624,7 +17734,15 @@ function renderTodayView(container){
           :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>`;
         return tRow(t,'var(--accent)',badge,pinBtn);
       }).join('')}
-      ${[...focusCommits, ...dueTodayCommits].map(c=>{
+      ${(()=>{
+        // Dedup: focusCommits (pinned) take priority; dueTodayCommits fills the rest
+        const _seenCmIds = new Set(focusCommits.map(c=>c.id));
+        const _dedupedCommits = [
+          ...focusCommits,
+          ...dueTodayCommits.filter(c => !_seenCmIds.has(c.id))
+        ];
+        return _dedupedCommits;
+      })().map(c=>{
         const ct = COMMIT_TYPES[c.type]||COMMIT_TYPES.action;
         const isOv = c.dueDate&&c.dueDate<todayStr;
         const isPinned = todayPinned.has(c.id);
@@ -30447,6 +30565,13 @@ function openFrictionlessCapture(){
           display:flex;align-items:center;justify-content:center;gap:8px;">
         📧 Extract tasks from an email
       </button>
+      <button onclick="closeFrictionlessCapture();openBulkPaste();"
+        style="width:100%;margin-top:8px;padding:12px 14px;border-radius:var(--r3);
+          border:1px solid rgba(232,168,56,0.45);background:rgba(232,168,56,0.06);
+          color:var(--accent);font:700 13px/1 var(--font-ui);cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:8px;">
+        📋 Paste a list — create tasks in bulk
+      </button>
     </div>` : '';
   // Photo event capture — home mode, both Jason and Jenny
   const photoEventBtn = (isHome && (isJason || isJenny)) ? `
@@ -30566,6 +30691,415 @@ function openEmailCapture(){
   document.body.appendChild(m);
   setTimeout(()=>document.getElementById('email-paste-input')?.focus(), 150);
 }
+// ═══════════════════════════════════════════════════════════════
+// BULK PASTE — Create multiple tasks/commitments from a list
+// Open from the + capture button, Work tab header, or ⌘K
+// ═══════════════════════════════════════════════════════════════
+function openBulkPaste(){
+  const old = document.getElementById('modal-bulk-paste'); if(old) old.remove();
+  const projs = projects.filter(p=>p.status!=='archived'&&p.domain==='work');
+  const projOptions = projs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+
+  const m = document.createElement('div');
+  m.id = 'modal-bulk-paste';
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.6);';
+  m.innerHTML = `
+  <div onclick="event.stopPropagation()" id="bulk-inner"
+    style="background:var(--surface);border-radius:20px 20px 0 0;
+      padding:20px 16px calc(20px + env(safe-area-inset-bottom));
+      max-height:92dvh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+
+    <!-- Handle + header -->
+    <div style="width:40px;height:4px;border-radius:2px;background:var(--border);margin:0 auto;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font:800 17px/1 var(--font-ui);color:var(--accent);">📋 Bulk Paste</div>
+        <div style="font:500 11px/1.4 var(--font-ui);color:var(--text4);margin-top:4px;">
+          One item per line — AI classifies each one automatically
+        </div>
+      </div>
+      <button onclick="closeBulkPaste()"
+        style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:17px;cursor:pointer;">✕</button>
+    </div>
+
+    <!-- Paste area (step 1) -->
+    <div id="bulk-step-1">
+      <textarea id="bulk-paste-input" rows="10"
+        style="width:100%;background:var(--surface2);border:1.5px solid var(--border);
+          border-radius:12px;padding:12px 14px;font:500 14px/1.7 var(--font-body);
+          color:var(--text);resize:none;outline:none;box-sizing:border-box;"
+        placeholder="Paste your list here — one task per line:
+
+• Review Q3 budget proposal
+- Send recap to Mike by Friday
+Follow up on HCSC contract
+Complete onboarding slides
+
+Lines starting with -, •, *, – or numbers are auto-cleaned.
+Empty lines are ignored."
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="this.style.borderColor='var(--border)'"></textarea>
+
+      <!-- Options row -->
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+        <select id="bulk-project" style="flex:1;min-width:120px;padding:9px 10px;
+            border-radius:10px;border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);
+            font:600 12px/1 var(--font-ui);">
+          <option value="">Project (optional)</option>
+          ${projOptions}
+        </select>
+        <select id="bulk-type" title="Fallback type if AI is unsure" style="flex:1;min-width:110px;padding:9px 10px;
+            border-radius:10px;border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);
+            font:600 12px/1 var(--font-ui);">
+          <option value="action">☑ AI classify</option>
+          <option value="action" disabled>── or force all to: ──</option>
+          <option value="action">☑ Tasks</option>
+          <option value="waiting">⏳ Waiting For</option>
+          <option value="delegation">📋 Delegations</option>
+          <option value="comms">📣 Comms</option>
+          <option value="follow_up">🔁 Follow-ups</option>
+        </select>
+        <select id="bulk-priority" style="flex:0 0 auto;padding:9px 10px;
+            border-radius:10px;border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);
+            font:600 12px/1 var(--font-ui);">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">⚪ Low</option>
+        </select>
+      </div>
+
+      <button onclick="_bulkParseAndPreview()"
+        style="width:100%;margin-top:12px;padding:14px;border-radius:12px;border:none;
+          background:var(--accent);color:var(--bg);
+          font:800 14px/1 var(--font-ui);cursor:pointer;">
+        🤖 Classify with AI →
+      </button>
+    </div>
+
+    <!-- Preview + confirm (step 2, hidden until parse) -->
+    <div id="bulk-step-2" style="display:none;">
+      <div id="bulk-preview-header" style="font:700 12px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;"></div>
+      <div id="bulk-preview-list" style="display:flex;flex-direction:column;gap:6px;
+          max-height:40dvh;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button onclick="_bulkBack()"
+          style="flex:1;padding:12px;border-radius:12px;
+            border:1.5px solid var(--border);background:transparent;
+            color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">
+          ← Edit
+        </button>
+        <button id="bulk-confirm-btn" onclick="_bulkConfirm()"
+          style="flex:2;padding:12px;border-radius:12px;border:none;
+            background:var(--accent);color:var(--bg);
+            font:800 13px/1 var(--font-ui);cursor:pointer;">
+          ✓ Create All
+        </button>
+      </div>
+    </div>
+  </div>`;
+
+  m.onclick = e => { if(e.target===m) closeBulkPaste(); };
+  document.body.appendChild(m);
+  setTimeout(()=>document.getElementById('bulk-paste-input')?.focus(), 150);
+}
+
+function closeBulkPaste(){
+  document.getElementById('modal-bulk-paste')?.remove();
+}
+
+// ── Parse textarea into clean lines ──────────────────────────
+function _bulkParseLines(raw){
+  return raw
+    .split('\n')
+    .map(line => line
+      .trim()
+      // Strip leading bullets, dashes, asterisks, numbers "1. "
+      .replace(/^[-–—•*]\s+/, '')
+      .replace(/^\d+[.)\s]+/, '')
+      .trim()
+    )
+    .filter(line => line.length > 1); // skip empty / single-char lines
+}
+
+// ── Detect inline date hints from the line text ───────────────
+// Looks for "by Friday", "by May 15", "due 2026-05-20" etc.
+function _bulkExtractDate(text){
+  const today = new Date();
+  const yyyy  = today.getFullYear();
+
+  // ISO date: 2026-05-15
+  const isoMatch = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if(isoMatch) return isoMatch[1];
+
+  // "by [day]" → nearest future weekday
+  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const byDay = text.toLowerCase().match(/\b(?:by|due)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if(byDay){
+    const target = dayNames.indexOf(byDay[1]);
+    const d = new Date(today);
+    d.setDate(d.getDate() + ((target - d.getDay() + 7) % 7 || 7));
+    return d.toISOString().slice(0,10);
+  }
+
+  // "by [Month D]" → this or next year
+  const months = ['january','february','march','april','may','june',
+                  'july','august','september','october','november','december'];
+  const byDate = text.toLowerCase().match(/\b(?:by|due)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})\b/);
+  if(byDate){
+    const mon = months.indexOf(byDate[1]);
+    const day = parseInt(byDate[2]);
+    const candidate = new Date(yyyy, mon, day);
+    if(candidate < today) candidate.setFullYear(yyyy + 1);
+    return candidate.toISOString().slice(0,10);
+  }
+
+  return '';
+}
+
+// ── Strip the extracted date hint from display title ─────────
+function _bulkStripDateHint(text){
+  return text
+    .replace(/\s*\b\d{4}-\d{2}-\d{2}\b/g, '')
+    .replace(/\s*\bby\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/gi, '')
+    .replace(/\s*\b(?:by|due)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}\b/gi, '')
+    .trim();
+}
+
+// ── Preview step ──────────────────────────────────────────────
+let _bulkItems = [];
+
+// ── Type metadata ──────────────────────────────────────────────
+const _BULK_TYPE_META = {
+  action:     { color:'var(--accent)', icon:'☑',  label:'Task',        next:'waiting'     },
+  waiting:    { color:'#E8A838',       icon:'⏳', label:'Waiting For', next:'delegation'  },
+  delegation: { color:'#64B5F6',       icon:'📋', label:'Delegate',    next:'comms'       },
+  comms:      { color:'#BA68C8',       icon:'📣', label:'Comms',       next:'follow_up'   },
+  follow_up:  { color:'#81C784',       icon:'🔁', label:'Follow-up',   next:'issue'       },
+  issue:      { color:'#EF5350',       icon:'⚠',  label:'Issue',       next:'action'      },
+};
+
+// ── Render one bulk item card (shared by parse + type-change) ──
+function _bulkRenderCard(item, i){
+  const m = _BULK_TYPE_META[item.type] || _BULK_TYPE_META.action;
+  const col = m.color;
+  return `
+    <div id="bulk-item-${i}"
+      style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;
+        border-radius:10px;border:1px solid ${col}44;background:${col}09;
+        transition:opacity 0.2s,border-color 0.15s,background 0.15s;">
+      <!-- Checkmark / skip toggle -->
+      <button onclick="_bulkToggleSkip(${i})" id="bulk-skip-btn-${i}"
+        style="margin-top:2px;width:20px;height:20px;border-radius:50%;
+          border:1.5px solid ${col};background:${col};color:var(--bg);
+          font-size:10px;cursor:pointer;flex-shrink:0;line-height:1;padding:0;">✓</button>
+      <div style="flex:1;min-width:0;">
+        <!-- Type badge — tap to cycle to next type -->
+        <button id="bulk-type-btn-${i}" onclick="_bulkCycleType(${i})"
+          title="Tap to change type"
+          style="display:inline-flex;align-items:center;gap:4px;
+            padding:2px 7px;border-radius:8px;margin-bottom:5px;cursor:pointer;
+            border:1px solid ${col}44;background:${col}15;
+            font:800 9px/1 var(--font-ui);color:${col};
+            letter-spacing:0.5px;text-transform:uppercase;">
+          ${m.icon} ${m.label}
+        </button>
+        <!-- Editable title -->
+        <div contenteditable="true" id="bulk-title-${i}"
+          style="font:600 13px/1.4 var(--font-ui);color:var(--text);
+            outline:none;border-bottom:1px solid transparent;padding-bottom:1px;"
+          onfocus="this.style.borderBottomColor='${col}'"
+          onblur="this.style.borderBottomColor='transparent';_bulkItems[${i}].title=this.textContent.trim();"
+          >${esc(item.title)}</div>
+        <!-- Due date -->
+        ${item.dueDate ? `<div style="font:600 10px/1 var(--font-ui);color:${col};margin-top:4px;">📅 ${item.dueDate}</div>` : ''}
+        <!-- AI reasoning (subtle, collapsible) -->
+        ${item._reason ? `<div style="font:500 10px/1.3 var(--font-ui);color:var(--text4);margin-top:4px;font-style:italic;">${esc(item._reason)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── Cycle type on tap ──────────────────────────────────────────
+function _bulkCycleType(i){
+  const item = _bulkItems[i];
+  if(!item || item._skip) return;
+  item.type = _BULK_TYPE_META[item.type]?.next || 'action';
+  // Re-render just this card
+  const card = document.getElementById('bulk-item-'+i);
+  if(card){
+    const temp = document.createElement('div');
+    temp.innerHTML = _bulkRenderCard(item, i);
+    card.replaceWith(temp.firstElementChild);
+  }
+}
+
+// ── Main parse + AI classify function ─────────────────────────
+async function _bulkParseAndPreview(){
+  const raw      = document.getElementById('bulk-paste-input')?.value || '';
+  const priority = document.getElementById('bulk-priority')?.value || 'medium';
+  const projectId= document.getElementById('bulk-project')?.value  || '';
+  const lines    = _bulkParseLines(raw);
+
+  if(lines.length === 0){
+    showToast('Nothing to parse — add at least one line');
+    return;
+  }
+
+  // ── Show loading state ────────────────────────────────────────
+  const btn = document.querySelector('[onclick="_bulkParseAndPreview()"]');
+  if(btn){ btn.textContent = '🤖 Classifying…'; btn.disabled = true; }
+
+  // Show skeleton preview immediately while AI runs
+  document.getElementById('bulk-step-1').style.display = 'none';
+  document.getElementById('bulk-step-2').style.display = 'block';
+  document.getElementById('bulk-preview-header').innerHTML =
+    '<span style="opacity:0.5;">Classifying with AI…</span>';
+  document.getElementById('bulk-preview-list').innerHTML = lines.map((_,i)=>`
+    <div style="height:52px;border-radius:10px;background:var(--surface2);
+      border:1px solid var(--border);animation:loadingPulse 1.2s ease-in-out ${i*0.08}s infinite;"></div>`
+  ).join('');
+  document.getElementById('bulk-confirm-btn').textContent = '…';
+
+  // Pre-populate items with date extraction (fast, no AI needed)
+  _bulkItems = lines.map((line, idx) => {
+    const dueDate = _bulkExtractDate(line);
+    const title   = dueDate ? _bulkStripDateHint(line) : line;
+    return { idx, title, dueDate, type: 'action', priority, projectId, _skip: false, _reason: '' };
+  });
+
+  // ── AI classification ──────────────────────────────────────────
+  try {
+    const raw = await aiCall(
+      `You are a sharp executive assistant for Jason, a Senior Director of Product Management.
+Classify each item in this list as exactly one commitment type:
+  "action"     — something Jason personally needs to DO
+  "waiting"    — Jason is waiting on someone else (their ball, not his)
+  "delegation" — Jason needs to hand off to a team member
+  "comms"      — a message, reply, or communication Jason needs to SEND
+  "follow_up"  — check back on something later; no immediate action
+  "issue"      — a problem, risk, or blocker to track
+
+Return ONLY a JSON array, one object per item, in the same order as the input:
+[{"type":"action","reason":"one-sentence explanation"},...]
+Reason should be 5-8 words max. If unsure, use "action".
+Return ONLY valid JSON, no preamble, no markdown.`,
+      `Classify these ${lines.length} items:
+${lines.map((l,i)=>`${i+1}. ${l}`).join('
+')}`,
+      Math.min(lines.length * 60 + 200, 1500)
+    );
+
+    let classified;
+    try {
+      const cleaned = raw.replace(/```json|```/g,'').trim();
+      classified = JSON.parse(cleaned);
+    } catch(e) {
+      // AI returned something unparseable — fall back to heuristic
+      classified = lines.map(() => ({ type: 'action', reason: '' }));
+    }
+
+    // Merge AI types back into _bulkItems
+    classified.forEach((c, i) => {
+      if(!_bulkItems[i]) return;
+      const validTypes = ['action','waiting','delegation','comms','follow_up','issue'];
+      _bulkItems[i].type    = validTypes.includes(c.type) ? c.type : 'action';
+      _bulkItems[i]._reason = c.reason || '';
+    });
+
+  } catch(e) {
+    // AI failed — show items as actions, let user fix manually
+    console.warn('[BulkPaste] AI classification failed:', e);
+    showToast('AI classification failed — defaulted to tasks. Tap any badge to change type.');
+  }
+
+  // ── Render classified preview ──────────────────────────────────
+  const typeCounts = {};
+  _bulkItems.forEach(item => { typeCounts[item.type] = (typeCounts[item.type]||0)+1; });
+  const summaryPills = Object.entries(typeCounts)
+    .map(([t,n]) => {
+      const m = _BULK_TYPE_META[t] || _BULK_TYPE_META.action;
+      return `<span style="font:800 10px/1 var(--font-ui);padding:3px 7px;border-radius:8px;
+        background:${m.color}18;border:1px solid ${m.color}44;color:${m.color};">
+        ${m.icon} ${m.label} · ${n}
+      </span>`;
+    }).join('');
+
+  document.getElementById('bulk-preview-header').innerHTML = `
+    <div style="margin-bottom:8px;font:700 11px/1 var(--font-ui);color:var(--text3);
+      letter-spacing:0.5px;text-transform:uppercase;">
+      ${_bulkItems.length} item${_bulkItems.length!==1?'s':''} classified — tap any badge to change
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;">${summaryPills}</div>`;
+
+  document.getElementById('bulk-preview-list').innerHTML =
+    _bulkItems.map((item, i) => _bulkRenderCard(item, i)).join('');
+
+  document.getElementById('bulk-confirm-btn').textContent =
+    `✓ Create ${_bulkItems.length}`;
+
+  if(btn){ btn.textContent = 'Parse List →'; btn.disabled = false; }
+}
+
+function _bulkToggleSkip(i){
+  _bulkItems[i]._skip = !_bulkItems[i]._skip;
+  const row = document.getElementById('bulk-item-'+i);
+  const btn = document.getElementById('bulk-skip-btn-'+i);
+  if(_bulkItems[i]._skip){
+    row.style.opacity = '0.35';
+    btn.style.background = 'transparent';
+    btn.textContent = '○';
+  } else {
+    row.style.opacity = '1';
+    const col = (_BULK_TYPE_META[_bulkItems[i].type] || _BULK_TYPE_META.action).color;
+    btn.style.background = col;
+    btn.textContent = '✓';
+  }
+  const active = _bulkItems.filter(x=>!x._skip).length;
+  const btn2 = document.getElementById('bulk-confirm-btn');
+  if(btn2) btn2.textContent = active > 0 ? `✓ Create ${active}` : 'None selected';
+}
+
+function _bulkBack(){
+  document.getElementById('bulk-step-1').style.display = 'block';
+  document.getElementById('bulk-step-2').style.display = 'none';
+}
+
+function _bulkConfirm(){
+  const toCreate = _bulkItems.filter(x => !x._skip && x.title.trim());
+  if(toCreate.length === 0){ showToast('Nothing selected'); return; }
+
+  let created = 0;
+  toCreate.forEach(item => {
+    // Sync title from contenteditable in case user edited it
+    const el = document.getElementById('bulk-title-'+item.idx);
+    const finalTitle = el ? el.textContent.trim() : item.title;
+    if(!finalTitle) return;
+
+    createCommitment({
+      type:       item.type,
+      title:      finalTitle,
+      priority:   item.priority,
+      dueDate:    item.dueDate || '',
+      projectId:  item.projectId || '',
+      visibility: 'work',
+      createdBy:  'jason',
+      ownedBy:    'me',
+      source:     'bulk-paste',
+    });
+    created++;
+  });
+
+  closeBulkPaste();
+  showToast(`✓ Created ${created} item${created !== 1 ? 's' : ''}`);
+  // Show what's next if in today view
+  if(activeNav === 'today' || activeNav === 'commitments') renderAll();
+  else renderAll();
+}
+
 function closeEmailCapture(){
   const m = document.getElementById('modal-email-capture');
   if(m) m.remove();
@@ -32090,6 +32624,206 @@ function _unsavedSheetDiscard(modalId){
   const el = document.getElementById(modalId);
   if(el) el.style.display = 'none';
 }
+// ═══════════════════════════════════════════════════════════════
+// WHAT'S NEXT PANEL
+// Slides up from the bottom after completing any task/commitment.
+// Shows the smart-prioritised next item + context, lets you pin
+// it or drop straight into Focus Mode. Dismisses on tap outside.
+// ═══════════════════════════════════════════════════════════════
+let _wnpTimer = null;
+let _wnpDismissed = false; // user explicitly closed — don't re-show this session
+
+// ── Smart "next item" engine ──────────────────────────────────
+// Picks the single best next item given the current context.
+// Priority order:
+//   1. Overdue + high priority
+//   2. Pinned for today not yet done
+//   3. Due today + high priority
+//   4. Due today + medium priority
+//   5. Highest-priority commitment not yet acted on today
+//   6. Any active commitment/task
+function _getNextItems(count = 4) {
+  const todayStr = today();
+  const items = [];
+
+  // ── Pull from commitments[] first (the unified source of truth)
+  const activeCommits = commitments.filter(c =>
+    c.status !== 'done' && c.status !== 'cancelled' &&
+    _commitVisible(c)
+  );
+
+  // Score each item
+  const scored = activeCommits.map(c => {
+    let score = 0;
+    const isOverdue = c.dueDate && c.dueDate < todayStr;
+    const isDueToday = c.dueDate === todayStr;
+    const isPinned = todayPinned.has(c.id);
+    const pMap = { critical:400, high:300, medium:200, low:100 };
+    score += pMap[c.priority] || 200;
+    if (isOverdue)   score += 500;
+    if (isDueToday)  score += 250;
+    if (isPinned)    score += 150;
+    // Boost items not touched recently
+    const lastAct = c.lastActedAt ? new Date(c.lastActedAt).getTime() : 0;
+    const hoursSince = lastAct ? (Date.now() - lastAct) / 3600000 : 999;
+    if (hoursSince > 24) score += 50;
+    // Slight penalty for waiting/delegation — those aren't things you *do*
+    if (c.type === 'waiting' || c.type === 'delegation') score -= 100;
+    return { ...c, _score: score, _overdue: isOverdue, _dueToday: isDueToday, _pinned: isPinned };
+  }).sort((a, b) => b._score - a._score);
+
+  // ── Also pull from tasks[] for any pinned tasks not in commitments
+  const pinnedTasks = [...todayPinned]
+    .map(id => tasks.find(t => t.id === id))
+    .filter(t => t && t.status !== 'done' && !activeCommits.find(c => c.id === t.id));
+  pinnedTasks.forEach(t => {
+    scored.unshift({
+      id: t.id, type: 'action', title: t.title, priority: t.priority,
+      dueDate: t.dueDate, _score: 999, _overdue: t.dueDate < todayStr, _dueToday: t.dueDate === todayStr, _pinned: true
+    });
+  });
+
+  return scored.slice(0, count);
+}
+
+function _wnpTypeColor(type) {
+  const map = { action:'var(--accent)', waiting:'#E8A838', delegation:'#64B5F6', comms:'#BA68C8', follow_up:'#81C784', issue:'#EF5350', family:'#FF8A65', home:'#64B5F6' };
+  return map[type] || 'var(--accent)';
+}
+function _wnpTypeLabel(type) {
+  const map = { action:'Task', waiting:'Waiting for', delegation:'Delegate', comms:'Send', follow_up:'Follow up', issue:'Issue', family:'Family', home:'Home' };
+  return map[type] || type;
+}
+function _wnpMetaLine(item) {
+  const parts = [];
+  if (item._overdue && item.dueDate)  parts.push(`⚠ overdue since ${item.dueDate.slice(5)}`);
+  else if (item._dueToday)            parts.push('📅 due today');
+  else if (item.dueDate)              parts.push(`📅 ${item.dueDate.slice(5)}`);
+  if (item.type && item.type !== 'action') parts.push(_wnpTypeLabel(item.type));
+  if (item._pinned) parts.push('📌 pinned');
+  return parts.join(' · ');
+}
+
+// ── Show the panel ─────────────────────────────────────────────
+// Called after any completion. completedTitle is shown in the header.
+function showWhatsNext(completedTitle) {
+  if (_wnpDismissed) return; // user dismissed — respect that for this session
+  const panel = document.getElementById('whats-next-panel');
+  const content = document.getElementById('wnp-content');
+  if (!panel || !content) return;
+
+  const nextItems = _getNextItems(3);
+  const top = nextItems[0];
+
+  // ── Build content ─────────────────────────────────────────────
+  let html = '';
+
+  if (!top) {
+    // All clear — nothing left to do
+    html = `<div class="wnp-empty">
+      <div style="font-size:36px;margin-bottom:10px;">🌟</div>
+      <div style="font-weight:800;color:var(--text);margin-bottom:6px;">All clear!</div>
+      <div style="color:var(--text4);font-size:12px;">Nothing left on your plate right now.</div>
+    </div>
+    <div class="wnp-focus-row">
+      <button class="wnp-focus-btn" onclick="dismissWhatsNext();setNav('eod-modal');" style="opacity:0.85;">
+        🌙 Close the day
+      </button>
+    </div>`;
+  } else {
+    // Show top item prominently
+    const topColor = _wnpTypeColor(top.type);
+    const topMeta  = _wnpMetaLine(top);
+    html += `
+    <div style="padding:14px 18px 12px;border-bottom:1px solid var(--border);background:${topColor}08;">
+      <div style="font:700 10px/1 var(--font-ui);color:${topColor};letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">
+        Suggested next
+      </div>
+      <div style="font:700 15px/1.35 var(--font-ui);color:var(--text);margin-bottom:4px;">
+        ${esc(top.title)}
+      </div>
+      ${topMeta ? `<div style="font:500 11px/1 var(--font-ui);color:var(--text4);">${topMeta}</div>` : ''}
+    </div>`;
+
+    // Secondary items
+    if (nextItems.length > 1) {
+      nextItems.slice(1).forEach(item => {
+        const col = _wnpTypeColor(item.type);
+        const meta = _wnpMetaLine(item);
+        html += `
+        <div class="wnp-item" onclick="dismissWhatsNext();pinForToday('${item.id}');showToast('📌 Pinned for today');">
+          <div class="wnp-dot" style="background:${col};"></div>
+          <div class="wnp-text">
+            <div class="wnp-item-title">${esc(item.title)}</div>
+            ${meta ? `<div class="wnp-item-meta">${meta}</div>` : ''}
+          </div>
+          <button class="wnp-action-btn" onclick="event.stopPropagation();dismissWhatsNext();pinForToday('${item.id}');showToast('📌 Pinned');">Pin</button>
+        </div>`;
+      });
+    }
+
+    // Action row: Focus on top item OR see all
+    html += `
+    <div class="wnp-focus-row">
+      <button class="wnp-focus-btn" onclick="dismissWhatsNext();_wnpStartFocus('${top.id}');">
+        ⚡ Start: ${esc(top.title.length > 30 ? top.title.slice(0,28)+'…' : top.title)}
+      </button>
+      <button class="wnp-eod-btn" onclick="dismissWhatsNext();setNav('today');" title="See full today view">All →</button>
+    </div>`;
+  }
+
+  content.innerHTML = html;
+
+  // Slide up after a short delay so the undo bar appears first
+  clearTimeout(_wnpTimer);
+  _wnpTimer = setTimeout(() => {
+    panel.classList.add('show');
+    // Auto-dismiss after 12 seconds if untouched
+    _wnpTimer = setTimeout(() => dismissWhatsNext(), 12000);
+  }, 700); // 700ms after completion — undo bar appears at 320ms
+}
+
+function dismissWhatsNext() {
+  clearTimeout(_wnpTimer);
+  const panel = document.getElementById('whats-next-panel');
+  if (panel) panel.classList.remove('show');
+}
+
+function _wnpStartFocus(id) {
+  // Pin the item and enter focus mode
+  pinForToday(id);
+  const t = tasks.find(x => x.id === id);
+  const c = commitments.find(x => x.id === id);
+  if (t) {
+    selectedMissionId = t.id;
+    todayFocusMode = true;
+    setNav('today');
+  } else if (c) {
+    // Open commitment detail so it's front and centre
+    setNav('commitments');
+    setTimeout(() => openCommitmentDetail(id), 200);
+  } else {
+    setNav('today');
+  }
+}
+
+// ── Pin an item for today (works for tasks and commitments) ───
+function pinForToday(id) {
+  todayPinned.add(id);
+  savePinned();
+  // If it's a commitment update its lastActedAt
+  const c = commitments.find(x => x.id === id);
+  if (c) updateCommitment(id, { lastActedAt: today() });
+}
+
+// ── Dismiss when tapping outside the panel ────────────────────
+document.addEventListener('click', e => {
+  const panel = document.getElementById('whats-next-panel');
+  if (panel && panel.classList.contains('show') && !panel.contains(e.target)) {
+    dismissWhatsNext();
+  }
+}, { passive: true });
+
 // ── Undo bar state ───────────────────────────────────────────
 let _undoTask       = null;   // snapshot of task before completion
 let _undoXP         = 0;      // XP awarded, to reverse on undo
@@ -32743,20 +33477,28 @@ function initStatsStrip(){
 // Players: Jason, Jenny, Ridley, Connor
 // Scores sync to Supabase table: arcade_scores
 // ══════════════════════════════════════════════════════════════════
+// ── iframe flag: games with iframe:true are loaded from /games/{id}/index.html
+// All others use the built-in GAME_ENGINES[id] canvas renderer.
+// To add a new iframe game: drop game files in /games/{id}/, set iframe:true below.
 const ARCADE_GAMES = [
-  { id:'snake',      name:'Snake',          emoji:'🐍', desc:'Eat, grow, survive' },
-  { id:'tetris',     name:'Block Drop',     emoji:'🧱', desc:'Clear the lines' },
-  { id:'breakout',   name:'Breakout',       emoji:'🏓', desc:'Break the bricks' },
-  { id:'runner',     name:'Endless Runner', emoji:'🦘', desc:'Jump to survive' },
-  { id:'wordle',     name:'Wordle',         emoji:'🟩', desc:'New word every day' },
-  { id:'scramble',   name:'Word Scramble',  emoji:'🔤', desc:'Unscramble the word' },
-  { id:'hangman',    name:'Hangman',        emoji:'🪢', desc:'Guess the word' },
-  { id:'wordsearch', name:'Word Search',    emoji:'🔍', desc:'Find hidden words' },
-  { id:'mathblitz',  name:'Math Blitz',     emoji:'⚡', desc:'Rapid-fire maths' },
-  { id:'numpuzzle',  name:'Number Puzzle',  emoji:'🔢', desc:'Fill the missing number' },
+  // ── Iframe games (self-hosted open source, battle-tested) ──────────────────
+  { id:'snake',      name:'Snake',          emoji:'🐍', desc:'Eat, grow, survive',       iframe:true  },
+  { id:'tetris',     name:'Block Drop',     emoji:'🧱', desc:'Clear the lines',          iframe:true  },
+  { id:'breakout',   name:'Breakout',       emoji:'🏓', desc:'Break the bricks',         iframe:true  },
+  { id:'clumsy',     name:'Clumsy Bird',    emoji:'🐦', desc:'Flap through the gaps',    iframe:true  },
+  { id:'2048',       name:'2048',           emoji:'🔢', desc:'Slide tiles to 2048',      iframe:true  },
+  { id:'skifree',    name:'Ski Free',       emoji:'⛷',  desc:'Dodge trees, go fast',     iframe:true  },
+  { id:'wordle',     name:'Wordle',         emoji:'🟩', desc:'Guess the 5-letter word',  iframe:true  },
+  { id:'hangman',    name:'Hangman',        emoji:'🪢', desc:'Guess the word',           iframe:true  },
+  // ── Also iframe (replacing buggy canvas implementations) ─────────────────────
+  { id:'mathblitz',  name:'Math Blitz',     emoji:'⚡', desc:'Rapid-fire maths',         iframe:true  },
+  { id:'scramble',   name:'Word Scramble',  emoji:'🔤', desc:'Unscramble the word',      iframe:true  },
+  { id:'wordsearch', name:'Word Search',    emoji:'🔍', desc:'Find hidden words',         iframe:true  },
+  { id:'numpuzzle',  name:'Number Puzzle',  emoji:'🔢', desc:'Fill the missing number',  iframe:true  },
+  { id:'runner',     name:'Endless Runner', emoji:'🦘', desc:'Jump to survive',          iframe:true  },
 ];
-// Games shown in the kids experience — no Wordle (adult vocab) or Math Blitz (too hard for younger kids)
-const KIDS_ARCADE_GAMES = ARCADE_GAMES.filter(g=>!['wordle','mathblitz'].includes(g.id));
+// Kids arcade — all games except Math Blitz and Wordle (can re-enable wordle for smart kids)
+const KIDS_ARCADE_GAMES = ARCADE_GAMES.filter(g=>!['mathblitz'].includes(g.id));
 function getCurrentPlayerName(){
   if(currentUser === 'parent') return 'Jason';
   if(typeof currentUser === 'object' && currentUser.role === 'wife') return 'Jenny';
@@ -32931,63 +33673,225 @@ function renderActiveGame(container, gameId){
   const g = ARCADE_GAMES.find(x=>x.id===gameId);
   if(!g){ _activeGame=null; renderGamesPage(container); return; }
   const pb = getPersonalBest(gameId);
+  const isKidsMode = !!document.getElementById('kids-game-overlay');
+
   container.innerHTML = `
   <div id="game-shell" style="display:flex;flex-direction:column;height:100%;background:var(--bg);">
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <button id="game-back-btn" onclick="_activeGame=null;renderGamesPage(document.getElementById('main'))"
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);">
+      <button id="game-back-btn"
+        onclick="_activeGame=null;${isKidsMode?`document.getElementById('kids-game-overlay')?.remove();renderKidsPageForKid()`:`renderGamesPage(document.getElementById('main'))`}"
         style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">←</button>
       <span style="font-size:20px;">${g.emoji}</span>
-      <div style="flex:1;">
+      <div style="flex:1;min-width:0;">
         <div style="font:800 15px/1 var(--font-ui);color:var(--text);">${g.name}</div>
         ${pb?`<div style="font:500 10px/1 var(--font-ui);color:var(--accent);">Your best: ${pb.toLocaleString()}</div>`:''}
       </div>
       <div id="game-score-display" style="font:800 18px/1 var(--font-ui);color:var(--accent);">0</div>
-      <button onclick="launchGame('${gameId}')"
-        style="padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;">↺</button>
+      <button onclick="${isKidsMode?`kidsLaunchGame('${gameId}')`:`launchGame('${gameId}')`}"
+        title="Restart"
+        style="padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text3);font:600 12px/1 var(--font-ui);cursor:pointer;flex-shrink:0;">↺</button>
     </div>
-    <div id="game-canvas-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;min-height:0;">
-      <canvas id="game-canvas" style="border-radius:12px;touch-action:none;display:block;max-width:100%;height:auto;"></canvas>
+    <div id="game-canvas-wrap" style="flex:1;overflow:hidden;min-height:0;position:relative;">
     </div>
-    <div id="game-controls" style="padding:8px 16px 16px;display:flex;gap:8px;justify-content:center;flex-shrink:0;"></div>
+    <div id="game-controls" style="padding:6px 16px 12px;display:flex;gap:8px;justify-content:center;flex-shrink:0;min-height:0;"></div>
   </div>`;
-  // Use a slightly longer delay to ensure layout is complete, then measure
+
   setTimeout(()=>{
     const wrap = document.getElementById('game-canvas-wrap');
-    const canvas = document.getElementById('game-canvas');
-    if(!wrap || !canvas) return;
-    // Clean up any previous game's event listeners and animation frames
-    canvas.dispatchEvent(new Event('remove'));
-    // Measure available space — fall back to window size if flex hasn't resolved
-    let availW = wrap.clientWidth  || (window.innerWidth  - 32);
-    let availH = wrap.clientHeight || (window.innerHeight - 200);
-    // Clamp to sensible game dimensions
-    const w = Math.max(200, Math.min(availW - 16, 400));
-    const h = Math.max(200, Math.min(availH - 16, 540));
-    canvas.width  = w;
-    canvas.height = gameId === '2048' ? w : h;
-    const engine = GAME_ENGINES[gameId];
-    if(!engine){
-      wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font:600 14px/1.4 var(--font-ui);">Game engine not found.<br>Try refreshing.</div>`;
-      return;
+    if(!wrap) return;
+
+    if(g.iframe){
+      // ── IFRAME PATH — load self-hosted game file ──────────────────────────
+      _launchIframeGame(wrap, gameId, g);
+    } else {
+      // ── CANVAS PATH — built-in GAME_ENGINES renderer ─────────────────────
+      _launchCanvasGame(wrap, gameId);
     }
-    try{
-      engine(canvas,
-        (score) => {
-          const el = document.getElementById('game-score-display');
-          if(el) el.textContent = score.toLocaleString();
-        },
-        async (finalScore) => {
-          const pb2 = getPersonalBest(gameId);
-          const isNew = finalScore > (pb2||0);
-          await saveArcadeScore(gameId, finalScore);
-          showGameOver(gameId, finalScore, isNew);
-        }
-      );
-    } catch(e){
-      console.error('Game engine error:', e);
-      wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font:600 13px/1.4 var(--font-ui);">Error starting game.<br>${e.message}</div>`;
+  }, 100);
+}
+
+// ── Iframe game launcher ──────────────────────────────────────────────────────
+// Loads /games/{gameId}/index.html in a sandboxed iframe.
+// The game fires window.parent.postMessage({type:'REEVES_SCORE', score:N}) for live updates
+// and {type:'REEVES_GAME_OVER', score:N} when the game ends.
+function _launchIframeGame(wrap, gameId, g){
+  // Remove any existing postMessage listener from a previous game
+  if(window._gamePostMessageListener){
+    window.removeEventListener('message', window._gamePostMessageListener);
+  }
+
+  // Loading state
+  wrap.innerHTML = `
+    <div id="game-iframe-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);">
+      <div style="font-size:48px;">${g.emoji}</div>
+      <div style="width:36px;height:36px;border-radius:50%;border:3px solid var(--accent);border-top-color:transparent;animation:loadingRing 0.8s linear infinite;"></div>
+      <div style="font:600 13px/1 var(--font-ui);color:var(--text4);">Loading ${g.name}…</div>
+    </div>
+    <iframe
+      id="game-iframe"
+      src="/games/${gameId}/index.html"
+      style="width:100%;height:100%;border:none;display:block;"
+      allow="autoplay"
+      sandbox="allow-scripts allow-same-origin allow-forms"
+      title="${g.name}"
+    ></iframe>`;
+
+  const iframe = document.getElementById('game-iframe');
+
+  // Hide loading overlay once iframe content loads
+  iframe.addEventListener('load', () => {
+    const loading = document.getElementById('game-iframe-loading');
+    if(loading) loading.style.display = 'none';
+  });
+
+  // Handle error — game files not found
+  iframe.addEventListener('error', () => {
+    wrap.innerHTML = _gameNotDeployedHTML(gameId, g);
+  });
+
+  // ── postMessage score bridge ──────────────────────────────────────────────
+  window._gamePostMessageListener = async (event) => {
+    // Only accept messages from same origin (self-hosted games)
+    if(event.origin !== window.location.origin) return;
+
+    const msg = event.data;
+    if(!msg || !msg.type) return;
+
+    if(msg.type === 'REEVES_SCORE'){
+      // Live score update
+      const el = document.getElementById('game-score-display');
+      if(el) el.textContent = Number(msg.score || 0).toLocaleString();
     }
-  }, 150);
+
+    if(msg.type === 'REEVES_GAME_OVER'){
+      const finalScore = Number(msg.score || 0);
+      const pb = getPersonalBest(gameId);
+      const isNew = finalScore > (pb || 0);
+      await saveArcadeScore(gameId, finalScore);
+      // Remove listener — game session ended
+      window.removeEventListener('message', window._gamePostMessageListener);
+      window._gamePostMessageListener = null;
+      // Show game over overlay on top of iframe
+      _showIframeGameOver(gameId, finalScore, isNew);
+    }
+  };
+  window.addEventListener('message', window._gamePostMessageListener);
+}
+
+// ── Show game over overlay (sits on top of the iframe) ───────────────────────
+function _showIframeGameOver(gameId, score, isNewBest){
+  const wrap = document.getElementById('game-canvas-wrap');
+  if(!wrap) return;
+  const g = ARCADE_GAMES.find(x=>x.id===gameId);
+  const isKidsMode = !!document.getElementById('kids-game-overlay');
+  const top = getTopScores(gameId, 4);
+  const myName = getCurrentPlayerName();
+  const rank = top.findIndex(s=>s.name===myName) + 1;
+  const PCOLORS = {Jason:'var(--accent)',Jenny:'#E91E8C',Ridley:'#FF8C00',Connor:'#0088FF'};
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;z-index:10;border-radius:0 0 12px 12px;';
+  overlay.innerHTML = `
+    <div style="text-align:center;width:100%;max-width:320px;">
+      <div style="font-size:52px;margin-bottom:8px;">${isNewBest?'🏆':'🎮'}</div>
+      <div style="font:800 22px/1 var(--font-ui);color:${isNewBest?'var(--accent)':'var(--text)'};margin-bottom:4px;">
+        ${isNewBest ? 'New Personal Best!' : 'Game Over'}
+      </div>
+      <div style="font:800 32px/1 var(--font-ui);color:var(--accent);margin:12px 0;">
+        ${score.toLocaleString()}
+      </div>
+      ${rank > 0 ? `<div style="font:600 12px/1 var(--font-ui);color:var(--text3);margin-bottom:16px;">#${rank} on the family leaderboard</div>` : ''}
+      <!-- Mini leaderboard -->
+      <div style="background:var(--surface);border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);">
+        ${top.slice(0,3).map((s,i)=>{
+          const col = PCOLORS[s.name]||'var(--text3)';
+          const isMe = s.name===myName;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;${i>0?'border-top:1px solid var(--border)':''}${isMe?';background:rgba(232,168,56,0.06)':''}">
+            <span style="font:700 11px/1 var(--font-ui);color:var(--text4);width:18px;">${['🥇','🥈','🥉'][i]||i+1}</span>
+            <div style="width:6px;height:6px;border-radius:50%;background:${col};"></div>
+            <span style="flex:1;font:${isMe?800:600} 12px/1 var(--font-ui);color:${isMe?'var(--accent)':'var(--text)'};">${esc(s.name)}${isMe?' ◀':''}</span>
+            <span style="font:800 13px/1 var(--font-ui);color:${col};">${s.score.toLocaleString()}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="this.closest('[style*=absolute]').remove();${isKidsMode?`kidsLaunchGame('${gameId}')`:`launchGame('${gameId}')`}"
+          style="flex:1;padding:12px;border-radius:12px;border:none;background:var(--accent);color:var(--bg);font:800 13px/1 var(--font-ui);cursor:pointer;">
+          ↺ Play Again
+        </button>
+        <button onclick="this.closest('[style*=absolute]').remove();_activeGame=null;${isKidsMode?`document.getElementById('kids-game-overlay')?.remove();renderKidsPageForKid()`:`renderGamesPage(document.getElementById('main'))`}"
+          style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--text2);font:700 13px/1 var(--font-ui);cursor:pointer;">
+          Lobby
+        </button>
+      </div>
+    </div>`;
+  wrap.appendChild(overlay);
+}
+
+// ── "Game not deployed yet" fallback ─────────────────────────────────────────
+function _gameNotDeployedHTML(gameId, g){
+  const sources = {
+    snake:      'https://github.com/jakesgordon/javascript-snake',
+    tetris:     'https://github.com/dionyziz/canvas-tetris',
+    breakout:   'https://github.com/bigjocker/bricks',
+    clumsy:     'https://github.com/ellisonleao/clumsy-bird',
+    '2048':     'https://github.com/gabrielecirulli/2048',
+    skifree:    'https://github.com/basicallydan/skifree.js',
+    wordle:     'https://github.com/jakerella/guessle',
+    hangman:    'https://github.com/nickarocho/hangman-game',
+    mathblitz:  'https://github.com/kecav/math-quiz',
+    scramble:   'https://github.com/Dhruil/Word-Scramble-Game',
+    wordsearch: 'https://github.com/bunkat/wordfind',
+    numpuzzle:  'https://github.com/kecav/math-quiz',
+    runner:     'https://github.com/ellisonleao/clumsy-bird',
+  };
+  const src = sources[gameId] || 'https://github.com/topics/breakout-game?l=javascript';
+  return `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:32px;text-align:center;gap:12px;">
+      <div style="font-size:48px;">${g.emoji}</div>
+      <div style="font:800 16px/1.3 var(--font-ui);color:var(--text);">${g.name} not deployed yet</div>
+      <div style="font:500 12px/1.5 var(--font-ui);color:var(--text3);max-width:280px;">
+        Drop the game files in <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px;">/games/${gameId}/</code>
+        and add the score bridge snippet.
+      </div>
+      <a href="${src}" target="_blank" rel="noopener"
+        style="padding:10px 20px;border-radius:20px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font:700 12px/1 var(--font-ui);cursor:pointer;text-decoration:none;">
+        Get source →
+      </a>
+    </div>`;
+}
+
+// ── Canvas game launcher (built-in engines, unchanged) ───────────────────────
+function _launchCanvasGame(wrap, gameId){
+  wrap.innerHTML = `<canvas id="game-canvas" style="border-radius:12px;touch-action:none;display:block;max-width:100%;height:auto;"></canvas>`;
+  const canvas = document.getElementById('game-canvas');
+  if(!canvas) return;
+  canvas.dispatchEvent(new Event('remove'));
+  let availW = wrap.clientWidth  || (window.innerWidth  - 32);
+  let availH = wrap.clientHeight || (window.innerHeight - 200);
+  const w = Math.max(200, Math.min(availW - 16, 400));
+  const h = Math.max(200, Math.min(availH - 16, 540));
+  canvas.width  = w;
+  canvas.height = h;
+  const engine = GAME_ENGINES[gameId];
+  if(!engine){
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font:600 14px/1.4 var(--font-ui);">Game engine not found.</div>`;
+    return;
+  }
+  try{
+    engine(canvas,
+      (score) => { const el=document.getElementById('game-score-display'); if(el) el.textContent=score.toLocaleString(); },
+      async (finalScore) => {
+        const pb2 = getPersonalBest(gameId);
+        const isNew = finalScore > (pb2||0);
+        await saveArcadeScore(gameId, finalScore);
+        showGameOver(gameId, finalScore, isNew);
+      }
+    );
+  } catch(e){
+    console.error('Game engine error:', e);
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--red);font:600 13px/1.4 var(--font-ui);">Error: ${e.message}</div>`;
+  }
 }
 function showGameOver(gameId, score, isNewBest){
   const top = getTopScores(gameId, 4);
@@ -34918,246 +35822,178 @@ async function requestNotifPermission(){
   return result === 'granted';
 }
 // Notification action definitions per tag
+// ── Notification action definitions ──────────────────────────
+// Used by fireNotif (in-app fallback) and test buttons.
 const NOTIF_ACTIONS = {
-  morning: [
-    { action: 'open',   title: 'Start ☀' },
-    { action: 'skip',   title: 'Skip ✕'  }
-  ],
-  overdue: [
-    { action: 'focus',  title: 'Focus Now ⚡' },
-    { action: 'later',  title: 'Later →'      }
-  ],
-  eod: [
-    { action: 'close',  title: 'Close Day 🌙' },
-    { action: 'done',   title: 'Done ✓'       }
-  ],
-  nudge: [
-    { action: 'open',   title: 'See contacts 👥' },
-    { action: 'later',  title: 'Later →'          }
-  ]
+  morning:    [{action:'open',  title:'Start ☀'},          {action:'skip',  title:'Skip'}],
+  nudge:      [{action:'open',  title:'See Contacts 👥'},   {action:'later', title:'Later'}],
+  overdue:    [{action:'open',  title:'See Overdue ⚡'},    {action:'later', title:'Later'}],
+  midday:     [{action:'open',  title:'See Today ⚡'},      {action:'later', title:'Later'}],
+  delegation: [{action:'open',  title:'Review 📋'},         {action:'later', title:'Later'}],
+  eod:        [{action:'close', title:'Close Day 🌙'},      {action:'done',  title:'Done ✓'}],
+  'kids-prizes': [{action:'open', title:"Let's celebrate 🎉"}, {action:'later', title:'Later'}],
 };
-function testNotif(tag){
-  if(Notification.permission !== 'granted'){
-    showToast('Enable notifications first →  🔔');
-    return;
-  }
-  const od = getOverdueCount();
-  const map = {
-    'morning':     { title:'☀ Ready to focus?',           body:'Tap to set your one thing — takes 60 seconds.' },
-    'overdue':     { title:'⚠ ' + od + ' task'+(od!==1?'s':'')+' need you', body:'Due today and overdue — tap to see them.' },
-    'eod':         { title:'🌙 Almost there',              body:'Quick close before you log off?' },
-    'kids-prizes': { title: kidsUnclaimedTitle(),          body: kidsUnclaimedBody() },
-    'nudge': (()=>{ const n=getPeopleNudges(); return { title:`👥 ${n.length||0} contact${(n.length||0)!==1?'s':''} to reach out to`, body:n.length?n.slice(0,3).map(p=>p.name).join(', '):'No overdue contacts right now' }; })()
-  };
-  const n = map[tag];
-  if(!n) return;
-  fireNotif(n.title, n.body, tag);
-  showToast('Test sent — check your notifications');
-}
-function fireNotif(title, body, tag){
-  const actions = NOTIF_ACTIONS[tag] || [];
-  // Prefer SW showNotification (works even when app loses focus on mobile)
-  if(_swReg && Notification.permission === 'granted'){
-    _swReg.showNotification(title, {
-      body, tag, actions,
-      icon:    '/icon-192.svg',
-      badge:   '/icon-192.svg',
-      vibrate: [150, 80, 150],
-      data:    { tag, url: '/' }
-    }).catch(()=>{});
-    return;
-  }
-  // Fallback to basic Notification API
+
+// ── fireNotif — in-app fallback ────────────────────────────────
+// Primary path is the Edge Function → SW push.
+// This fires when the app is open and push hasn't arrived yet,
+// or when testing from Settings.
+function fireNotif(title, body, tag, opts={}){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
-  try{ new Notification(title, {body, tag}); }catch(e){}
+  const actions = NOTIF_ACTIONS[tag] || [];
+  const notifOpts = {
+    body, tag,
+    icon:    '/icon-192.svg',
+    badge:   '/icon-192.svg',
+    vibrate: [150, 80, 150],
+    actions,
+    data:    { tag, url: opts.url || '/' },
+    requireInteraction: opts.requireInteraction || false,
+  };
+  // Use SW registration for richer notifications (required for actions on mobile)
+  if(_swReg){
+    _swReg.showNotification(title, notifOpts).catch(()=>{});
+    return;
+  }
+  try { new Notification(title, notifOpts); } catch(e){}
 }
+
+// ── scheduleAlarmsWithSW — send live alarm data to SW fallback ─
+// Called once on boot and after each sync so the SW alarm loop
+// has current counts. This is the IN-APP fallback only —
+// the Edge Function + pg_cron is the primary delivery path.
 function scheduleAlarmsWithSW(){
-  // Send alarm schedule to the SW so it can fire even when app is backgrounded
   if(!_swReg?.active) return;
-  const od = getOverdueCount();
+  const od    = getOverdueCount();
+  const nudges = getPeopleNudges();
+  const dels   = (delegations||[]).filter(d=>d.status==='active');
+  const cutoff = new Date(Date.now()-7*86400000).toLocaleDateString('en-CA');
+  const staleDels = dels.filter(d=>!d.updatedAt||d.updatedAt<cutoff);
+
   _swReg.active.postMessage({
     type: 'SCHEDULE_ALARMS',
     alarms: [
-      {
-        tag:'morning', hour:8,
-        title:'☀ Ready to focus?',
-        body:'Tap to set your one thing — takes 60 seconds.',
-        actions:[{action:'open',title:'Start ☀'},{action:'skip',title:'Skip ✕'}]
-      },
-      {
-        tag:'overdue', hour:10,
-        title:'⚠ ' + od + ' task'+(od!==1?'s':'')+' need you',
-        body:'Due today and overdue — tap to see them.',
-        overdueCount:od,
-        actions:[{action:'focus',title:'Focus Now ⚡'},{action:'later',title:'Later →'}]
-      },
-      {
-        tag:'eod', hour:17,
-        title:'🌙 Almost there',
-        body:'Quick close before you log off?',
-        actions:[{action:'close',title:'Close Day 🌙'},{action:'done',title:'Done ✓'}]
-      },
-      {
-        tag:'kids-prizes', hour:18, day:5,
+      // ☀ 8am — morning brief
+      { tag:'morning', hour:8, url:'/?action=morning',
+        title:'☀️ Morning, Jason',
+        body:'Ready to set your one thing? Takes 60 seconds.',
+        actions:NOTIF_ACTIONS.morning },
+
+      // 👥 9am — contact nudges (only if any due)
+      ...(nudges.length > 0 ? [{
+        tag:'nudge', hour:9, url:'/?tab=people',
+        title:`👥 ${nudges.length} contact${nudges.length!==1?'s':''} to reach out to`,
+        body: nudges.slice(0,3).map(p=>p.name).join(', ')+(nudges.length>3?` +${nudges.length-3} more`:''),
+        actions:NOTIF_ACTIONS.nudge,
+      }] : []),
+
+      // ⚠ 10am — overdue tasks (only if any)
+      ...(od > 0 ? [{
+        tag:'overdue', hour:10, url:'/?tab=commitments',
+        title:`⚠️ ${od} item${od!==1?'s':''} overdue`,
+        body:'These need your attention today.',
+        requireInteraction:true,
+        actions:NOTIF_ACTIONS.overdue,
+      }] : []),
+
+      // 📋 11am weekdays — delegation check-in (only if any stale)
+      ...(staleDels.length > 0 ? [{
+        tag:'delegation', hour:11, url:'/?tab=commitments',
+        title:`📋 ${staleDels.length} delegation${staleDels.length!==1?'s':''} need a check-in`,
+        body: staleDels[0]?.what ? `"${staleDels[0].what.slice(0,50)}" and ${staleDels.length-1} more` : `${staleDels.length} items with no update in 7+ days`,
+        actions:NOTIF_ACTIONS.delegation,
+      }] : []),
+
+      // ⚡ 1pm — midday accountability
+      { tag:'midday', hour:13, url:'/?tab=today',
+        title:'⚡ Afternoon check-in',
+        body: od > 0 ? `${od} item${od!==1?'s':''} still open — afternoon push?` : "How's the day going?",
+        actions:NOTIF_ACTIONS.midday },
+
+      // 🌙 5pm — EOD
+      { tag:'eod', hour:17, url:'/?action=eod',
+        title:'🌙 Time to close the day',
+        body: od > 0 ? `${od} item${od!==1?'s':''} still open — log them or roll to tomorrow.` : 'Quick 30-second close before you log off?',
+        requireInteraction:true,
+        actions:NOTIF_ACTIONS.eod },
+
+      // 🎁 Friday 6pm — kids prizes
+      { tag:'kids-prizes', hour:18, day:5, url:'/?tab=kids',
         title: kidsUnclaimedTitle(),
         body:  kidsUnclaimedBody(),
-        unclaimedCount: kidsUnclaimedCount(),
-        actions:[{action:'open',title:'Let\u2019s celebrate 🎉'},{action:'later',title:'Later →'}]
-      },
-      {
-        tag:'nudge', hour:9,
-        title: (()=>{ const n=getPeopleNudges(); return n.length>0?`👥 ${n.length} contact${n.length>1?'s':''} to reach out to`:''; })(),
-        body:  (()=>{ const n=getPeopleNudges(); return n.length>0?n.slice(0,3).map(p=>p.name).join(', ')+(n.length>3?` +${n.length-3} more`:''):''; })(),
-        nudgeCount: getPeopleNudges().length,
-        actions:[{action:'open',title:'See contacts 👥'},{action:'later',title:'Later →'}]
-      }
-    ]
+        actions:NOTIF_ACTIONS['kids-prizes'] },
+    ].filter(a => a.title) // skip empty titles (conditional alarms with no data)
   });
 }
-// ── Kids prize notification helpers ─────────────────────────────
-// "Unused" = spun and won a prize but haven't redeemed it in real life yet
-function kidsUnusedPrizes(){
-  if(!kidsGame?.players) return [];
-  return kidsGame.players.flatMap(p =>
-    (p.prizeLog||[])
-      .filter(pr => !pr.used)
-      .map(pr => ({ name: p.name, prize: pr.prize }))
-  );
-}
-function kidsUnclaimedCount(){
-  return kidsUnusedPrizes().length;
-}
-function kidsUnclaimedTitle(){
-  const n = kidsUnclaimedCount();
-  if(n === 0) return '⭐ Kids prize check-in';
-  return '🎁 ' + n + ' prize'+(n!==1?'s':'')+' not used yet!';
-}
-function kidsUnclaimedBody(){
-  const prizes = kidsUnusedPrizes();
-  if(prizes.length === 0) return 'No unused prizes — keep earning!';
-  // Group by kid name
-  const byName = {};
-  prizes.forEach(({name, prize}) => {
-    byName[name] = byName[name] || [];
-    byName[name].push(prize);
-  });
-  const parts = Object.entries(byName).map(([name, ps]) =>
-    name + ': ' + ps.slice(0,2).map(p=>'"'+p+'"').join(', ') + (ps.length>2?' +'+( ps.length-2)+' more':'')
-  );
-  return parts.join(' · ');
-}
+
 function updateAppBadge(){
-  // Badge shows total overdue count — clears when 0
   const od = getOverdueCount();
   if('setAppBadge' in navigator){
-    if(od > 0){ navigator.setAppBadge(od).catch(()=>{}); }
-    else { navigator.clearAppBadge().catch(()=>{}); }
+    if(od>0) navigator.setAppBadge(od).catch(()=>{});
+    else     navigator.clearAppBadge().catch(()=>{});
   }
-  // Also push count to SW for badge API from service worker context
   if(_swReg?.active){
-    _swReg.active.postMessage({ type: od>0 ? 'UPDATE_BADGE' : 'CLEAR_BADGE', count: od });
+    _swReg.active.postMessage({ type: od>0 ? 'UPDATE_BADGE' : 'CLEAR_BADGE', count:od });
   }
 }
+
 function scheduleNotifChecks(){
-  // In-app polling for when app is actively open (belt-and-suspenders with SW)
+  // Belt-and-suspenders: fires in-app notifications if the Edge Function
+  // hasn't arrived yet (e.g. first minute of the hour, or push permission
+  // just granted mid-day). Does NOT re-fire if already fired today.
+  const _notifFired = {};
   setInterval(()=>{
-    const now = new Date();
-    const h = now.getHours();
-    const m = now.getMinutes();
+    const now = new Date(), h=now.getHours(), m=now.getMinutes();
     const todayStr = today();
-    if(h===8 && m<10){
-      const morningDone = localStorage.getItem('hub-morning-done') === todayStr;
-      const lastMorningNotif = localStorage.getItem('hub-notif-morning');
-      if(!morningDone && lastMorningNotif !== todayStr){
-        fireNotif('☀ Ready to focus?', 'Tap to set your one thing — takes 60 seconds.', 'morning');
-        localStorage.setItem('hub-notif-morning', todayStr);
-      }
-    }
-    if(h===10 && m<10){
-      const lastOverdueNotif = localStorage.getItem('hub-notif-overdue');
-      if(lastOverdueNotif !== todayStr){
-        const od = getOverdueCount();
-        if(od>0){
-          fireNotif('⚠ '+od+' task'+(od!==1?'s':'')+' need you', 'Due today and overdue — tap to see them.', 'overdue');
-          localStorage.setItem('hub-notif-overdue', todayStr);
-        }
-      }
-    }
-    if(h===17 && m<10){
-      const eodDone = localStorage.getItem('hub-eod-done') === todayStr;
-      const lastEodNotif = localStorage.getItem('hub-notif-eod');
-      if(!eodDone && lastEodNotif !== todayStr){
-        fireNotif('🌙 Almost there', 'Quick close before you log off?', 'eod');
-        localStorage.setItem('hub-notif-eod', todayStr);
-      }
-    }
-    updateAppBadge();
-    // Contact nudges — 9am daily
-    if(h===9 && m<10){
-      const lastNudgeNotif = localStorage.getItem('hub-notif-nudge');
-      if(lastNudgeNotif !== todayStr){
-        const nudges = getPeopleNudges();
-        if(nudges.length > 0){
-          const names = nudges.slice(0,3).map(p=>p.name).join(', ');
-          const more = nudges.length > 3 ? ` +${nudges.length-3} more` : '';
-          fireNotif(
-            `👥 ${nudges.length} contact${nudges.length>1?'s':''} to reach out to`,
-            names + more,
-            'nudge'
-          );
-          localStorage.setItem('hub-notif-nudge', todayStr);
-        }
-      }
-    }
-    // Kids prizes — Friday 6pm
+
+    const _once = (key, fn) => {
+      const storeKey = 'hub-notif-'+key;
+      if(localStorage.getItem(storeKey)===todayStr) return;
+      if(_notifFired[key]) return;
+      _notifFired[key] = true;
+      fn();
+      localStorage.setItem(storeKey, todayStr);
+    };
+
+    if(h===8  && m<10) _once('morning',    ()=>{ if(localStorage.getItem('hub-morning-done')!==todayStr) fireNotif('☀️ Morning, Jason','Ready to set your one thing?','morning',{url:'/?action=morning'}); });
+    if(h===9  && m<10) _once('nudge',      ()=>{ const n=getPeopleNudges(); if(n.length>0) fireNotif(`👥 ${n.length} contact${n.length!==1?'s':''} to reach out to`,n.slice(0,3).map(p=>p.name).join(', '),'nudge',{url:'/?tab=people'}); });
+    if(h===10 && m<10) _once('overdue',    ()=>{ const od=getOverdueCount(); if(od>0) fireNotif(`⚠️ ${od} item${od!==1?'s':''} overdue`,'These need your attention today.','overdue',{url:'/?tab=commitments',requireInteraction:true}); });
+    if(h===11 && m<10) _once('delegation', ()=>{ const cutoff=new Date(Date.now()-7*86400000).toLocaleDateString('en-CA'); const d=(delegations||[]).filter(x=>x.status==='active'&&(!x.updatedAt||x.updatedAt<cutoff)); if(d.length>0) fireNotif(`📋 ${d.length} delegation${d.length!==1?'s':''} need a check-in`,`${d.length} items with no update in 7+ days`,'delegation',{url:'/?tab=commitments'}); });
+    if(h===13 && m<10) _once('midday',     ()=>{ const od=getOverdueCount(); fireNotif('⚡ Afternoon check-in', od>0?`${od} item${od!==1?'s':''} still open — afternoon push?`:"How's the day going?",'midday',{url:'/?tab=today'}); });
+    if(h===17 && m<10) _once('eod',        ()=>{ if(localStorage.getItem('hub-eod-done')!==todayStr){ const od=getOverdueCount(); fireNotif('🌙 Time to close the day',od>0?`${od} items still open`:'Quick close before you log off?','eod',{url:'/?action=eod',requireInteraction:true}); } });
     if(now.getDay()===5 && h===18 && m<10){
-      const thisWeek = dateStr.slice(0,7) + '-W' + getISOWeek(now);
-      const lastKidsNotif = localStorage.getItem('hub-notif-kids');
-      if(lastKidsNotif !== thisWeek){
-        const n = kidsUnclaimedCount();
-        if(n > 0){
-          fireNotif(kidsUnclaimedTitle(), kidsUnclaimedBody(), 'kids-prizes');
-          localStorage.setItem('hub-notif-kids', thisWeek);
-        }
-      }
+      const weekKey=now.toISOString().slice(0,7)+'-W'+getISOWeek(now);
+      if(localStorage.getItem('hub-notif-kids')!==weekKey){ const n=kidsUnclaimedCount(); if(n>0){ fireNotif(kidsUnclaimedTitle(),kidsUnclaimedBody(),'kids-prizes',{url:'/?tab=kids'}); localStorage.setItem('hub-notif-kids',weekKey); } }
     }
-    scheduleAlarmsWithSW();
-  }, 60 * 1000); // check every minute
-  // Proactive checks — run once shortly after app loads
-  setTimeout(()=>{
-    checkStaleInitiatives();
-    checkMeetingFollowThrough();
-    checkTaskAccumulation();
-  }, 3000);
-  // DEBUG: log key state so we can diagnose on-device
-  setTimeout(async ()=>{
-    console.log('=== REEVES HQ DEBUG ===');
-    console.log('[notif] permission:', 'Notification' in window ? Notification.permission : 'not supported');
-    console.log('[notif] hub-notif-accumulation:', localStorage.getItem('hub-notif-accumulation'));
-    console.log('[notif] hub-notif-stale:', localStorage.getItem('hub-notif-stale'));
-    console.log('[notif] hub-notif-followthrough:', localStorage.getItem('hub-notif-followthrough'));
-    console.log('[tasks] active count:', tasks.filter(t=>t.status!=="done"&&t.status!=="blocked").length);
-    console.log('[sw] registration:', _swReg ? 'registered (active:'+!!_swReg.active+')' : 'NONE');
-    console.log('[supabase] userId:', _sbUserId || 'NOT SIGNED IN');
-    try {
-      if(_swReg) {
-        const sub = await _swReg.pushManager.getSubscription();
-        console.log('[push] subscription:', sub ? 'EXISTS endpoint='+sub.endpoint.slice(0,60)+'…' : 'NONE — not subscribed');
-      } else {
-        console.log('[push] no SW registration');
-      }
-    } catch(e) {
-      console.log('[push] error checking subscription:', e.message);
-    }
-    // Check Supabase for stored subscriptions
-    if(_sbUserId) {
-      const { data, error } = await _sb.from('push_subscriptions').select('endpoint,created_at').eq('owner_id',_sbUserId);
-      console.log('[push] supabase rows:', error ? 'ERROR: '+error.message : JSON.stringify(data?.map(r=>({ep:r.endpoint.slice(0,40),at:r.created_at}))));
-      const { data: logData, error: logErr } = await _sb.from('notification_log').select('tag,sent_at').order('sent_at',{ascending:false}).limit(5);
-      console.log('[push] notification_log (last 5):', logErr ? 'ERROR: '+logErr.message : JSON.stringify(logData));
-    }
-    console.log('=== END DEBUG ===');
-  }, 5000);
+
+    updateAppBadge();
+    scheduleAlarmsWithSW(); // refresh SW alarm config with current data every minute
+  }, 60 * 1000);
+
+  // Run proactive checks once on load
+  setTimeout(()=>{ checkStaleInitiatives(); checkMeetingFollowThrough(); checkTaskAccumulation(); }, 3000);
+}
+function testNotif(tag){
+  if(Notification.permission !== 'granted'){
+    showToast('Enable notifications first — tap 🔔 Enable above');
+    return;
+  }
+  const od     = getOverdueCount();
+  const nudges = getPeopleNudges();
+  const dels   = (delegations||[]).filter(d=>d.status==='active');
+  const map = {
+    'morning':    { title:'☀️ Morning, Jason',          body:'Ready to set your one thing? Takes 60 seconds.',   url:'/?action=morning' },
+    'nudge':      { title:`👥 ${nudges.length||0} contact${(nudges.length||0)!==1?'s':''} to reach out to`, body:nudges.length?nudges.slice(0,3).map(p=>p.name).join(', '):'(no overdue contacts right now)', url:'/?tab=people' },
+    'overdue':    { title:`⚠️ ${od} item${od!==1?'s':''} overdue`, body:'These need your attention today.', url:'/?tab=commitments', requireInteraction:true },
+    'midday':     { title:'⚡ Afternoon check-in', body:od>0?`${od} items still open — afternoon push?`:"How's the day going?", url:'/?tab=today' },
+    'delegation': { title:`📋 ${dels.length} delegation${dels.length!==1?'s':''} to check in on`, body:dels.length?`"${(dels[0]?.what||'...').slice(0,40)}" and ${dels.length-1} more`:'No active delegations', url:'/?tab=commitments' },
+    'eod':        { title:'🌙 Time to close the day', body:od>0?`${od} items still open`:'Quick 30-second close.', url:'/?action=eod', requireInteraction:true },
+    'kids-prizes':{ title:kidsUnclaimedTitle(), body:kidsUnclaimedBody(), url:'/?tab=kids' },
+  };
+  const n = map[tag];
+  if(!n){ showToast('Unknown slot: '+tag); return; }
+  fireNotif(n.title, n.body, tag, { url:n.url, requireInteraction:n.requireInteraction });
+  showToast('📲 Test sent — check your notification banner');
 }
 function getISOWeek(date){
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
