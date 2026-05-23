@@ -30988,8 +30988,7 @@ Return ONLY a JSON array, one object per item, in the same order as the input:
 Reason should be 5-8 words max. If unsure, use "action".
 Return ONLY valid JSON, no preamble, no markdown.`,
       `Classify these ${lines.length} items:
-${lines.map((l,i)=>`${i+1}. ${l}`).join('
-')}`,
+${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`,
       Math.min(lines.length * 60 + 200, 1500)
     );
 
