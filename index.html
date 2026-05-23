@@ -30937,6 +30937,33 @@ function _bulkCycleType(i){
   }
 }
 
+// ── Kids prize notification helpers ──────────────────────────
+// Used by scheduleAlarmsWithSW, testNotif, and scheduleNotifChecks
+function kidsUnclaimedCount(){
+  try {
+    const d = JSON.parse(localStorage.getItem('hub-kids-game')||'{}');
+    return (d.players||[]).reduce((sum, p) => {
+      return sum + (p.prizeLog||[]).filter(pr=>!pr.used).length;
+    }, 0);
+  } catch(e){ return 0; }
+}
+function kidsUnclaimedTitle(){
+  const n = kidsUnclaimedCount();
+  if(n === 0) return '';
+  return n === 1 ? '🎁 A prize is waiting to be claimed!' : `🎁 ${n} prizes waiting to be claimed!`;
+}
+function kidsUnclaimedBody(){
+  try {
+    const d = JSON.parse(localStorage.getItem('hub-kids-game')||'{}');
+    const names = (d.players||[])
+      .filter(p => (p.prizeLog||[]).some(pr=>!pr.used))
+      .map(p => p.name);
+    if(!names.length) return '';
+    const n = kidsUnclaimedCount();
+    return names.join(' & ') + (n > 1 ? ` have ${n} prizes to redeem` : ' has a prize to redeem');
+  } catch(e){ return ''; }
+}
+
 // ── Main parse + AI classify function ─────────────────────────
 async function _bulkParseAndPreview(){
   const raw      = document.getElementById('bulk-paste-input')?.value || '';
