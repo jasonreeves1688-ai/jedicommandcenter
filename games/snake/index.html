@@ -1,0 +1,175 @@
+<!DOCTYPE html> 
+<html>
+<head>
+  <title>Javascript Snakes</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <link href="snakes.min.css" media="screen, print" rel="stylesheet" type="text/css" /> 
+<script src="reeves-bridge.js"></script>
+</head> 
+ 
+<body> 
+
+  <div id="snakes">
+
+    <img src='s.gif' class='watermark top'>
+    <img src='s.gif' class='watermark left'>
+    <img src='s.gif' class='watermark right'>
+
+    <div id='sound' class='on' title='toggle music and fx' style='display:none;'></div>
+
+    <div id="score">
+      <span class="current"><span class='label'>Score: </span><span class="value">000000</span></span>
+      <span class="high"><span class='label'>High: </span><span class="value">000000</span></span>
+    </div>
+
+    <canvas id="canvas">
+      <div class='unsupported'>
+        Sorry, this example cannot be run because your browser does not support the &lt;canvas&gt; element
+      </div>
+    </canvas>
+
+    <div id="overlay">
+
+      <img id="logo" src="images/logo.png">
+
+      <div id="loading" class='menu' style='display:none;'>
+        <h1>Loading...</h1>
+      </div>
+
+      <div id="highscores" class='menu' style='display:none;'>
+        <h1>High Scores</h1>
+        <ul></ul>
+      </div>
+
+      <div id="credits" class='menu' style='display:none;'>
+        <ul>
+          <li class='author'>Created by <a target="_credits" href="https://jakesgordon.com/writing/starting-snakes/">Jake Gordon</a></li>
+          <li><span class='key'>            Logo </span> <a class='value' target="_credits" href="https://jakesgordon.com/writing/quest-for-indy-font/">Jake Gordon</a></li>
+          <li><span class='key'>           Fonts </span> <a class='value' target="_credits" href="http://www.dafont.com/sf-fedora.font">SF Fedora</a></li>
+          <li><span class='key'>       Watermark </span> <a class='value' target="_credits" href="http://www.istockphoto.com/file_closeup.php?id=4788598">VichanChairat</a></li>
+          <li><span class='key'>           Music </span> <a class='value' target="_credits" href="http://luckylionstudios.com/royalty-free-video-game-music-library/">Lucky Lion Studios</a></li>
+          <li><span class='key'>        Sound FX </span> <a class='value' target="_credits" href="http://www.premiumbeat.com/">Premium Beat</a></li>
+          <li><span class='key'>JS state machine </span> <a class='value' target="_credits" href="https://github.com/jakesgordon/javascript-state-machine">Jake Gordon</a></li>
+          <li><span class='key'>     JS selector </span> <a class='value' target="_credits" href="http://sizzlejs.com/">Sizzle</a></li>
+          <li><span class='key'>        JS audio </span> <a class='value' target="_credits" href="https://github.com/jakesgordon/javascript-audio-fx">Jake Gordon</a></li>
+          <li><span class='key'>    JS animation </span> <a class='value' target="_credits" href="http://berniesumption.com/software/animator/">Bernie Sumption</a></li>
+          <li><span class='key'>      JS counter </span> <a class='value' target="_credits" href="https://github.com/mrdoob/stats.js">Mr.Doob</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="help">
+      ( use the arrow and enter keys for control )
+    </div>
+
+  </div>
+
+  <script src="snakes.min.js"></script>
+  <script>
+  Game.ready(function() {
+    game = Snakes();
+  });
+  </script>
+
+
+<!-- Mobile touch controls for Snake -->
+<style>
+#snake-dpad {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 100;
+}
+.dpad-row { display: flex; gap: 4px; }
+.dpad-btn {
+  width: 64px; height: 64px;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  font-size: 24px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.dpad-btn:active { background: rgba(255,255,255,0.35); }
+</style>
+<div id="snake-dpad">
+  <div class="dpad-row">
+    <div class="dpad-btn" id="btn-up">▲</div>
+  </div>
+  <div class="dpad-row">
+    <div class="dpad-btn" id="btn-left">◀</div>
+    <div class="dpad-btn" id="btn-down">▼</div>
+    <div class="dpad-btn" id="btn-right">▶</div>
+  </div>
+</div>
+<script>
+(function(){
+  // Show D-pad on touch devices
+  if('ontouchstart' in window){
+    document.getElementById('snake-dpad').style.display = 'flex';
+  }
+
+  // Map button taps to key events
+  var keyMap = { 'btn-up':38, 'btn-down':40, 'btn-left':37, 'btn-right':39 };
+  Object.keys(keyMap).forEach(function(id){
+    var btn = document.getElementById(id);
+    if(!btn) return;
+    btn.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      var evt = new KeyboardEvent('keydown', { keyCode: keyMap[id], which: keyMap[id], bubbles: true });
+      document.dispatchEvent(evt);
+    }, { passive: false });
+  });
+
+  // Also support swipe gestures
+  var sx, sy, st;
+  document.addEventListener('touchstart', function(e){
+    if(e.target.closest && e.target.closest('#snake-dpad')) return;
+    var t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; st = Date.now();
+  }, { passive: true });
+  document.addEventListener('touchend', function(e){
+    if(!sx || (e.target.closest && e.target.closest('#snake-dpad'))) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    if(Date.now() - st > 400 || Math.max(Math.abs(dx),Math.abs(dy)) < 20) return;
+    var keyCode = Math.abs(dx) > Math.abs(dy)
+      ? (dx > 0 ? 39 : 37)
+      : (dy > 0 ? 40 : 38);
+    document.dispatchEvent(new KeyboardEvent('keydown',{keyCode:keyCode,which:keyCode,bubbles:true}));
+    sx = sy = null;
+  }, { passive: true });
+})();
+</script>
+
+</body> 
+</html>
+<script>
+// Reeves HQ score bridge - polls the score display and game over state
+(function(){
+  var lastScore = 0;
+  var gameOver = false;
+  var interval = setInterval(function(){
+    // Score is shown in the high-score element or score counter
+    var scoreEl = document.querySelector('.score, #score, .high-score, [class*="score"]');
+    if(scoreEl){
+      var s = parseInt(scoreEl.textContent.replace(/[^0-9]/g,''))||0;
+      if(s !== lastScore){ lastScore=s; if(window.ReevesScore) window.ReevesScore(s); }
+    }
+    // Detect game over by looking for game-over overlay visibility
+    var goEl = document.querySelector('.game-over, #game-over, [class*="over"]');
+    if(goEl && goEl.offsetParent !== null && !gameOver){
+      gameOver = true;
+      if(window.ReevesGameOver) window.ReevesGameOver(lastScore);
+    }
+    if(goEl && goEl.offsetParent === null) gameOver = false;
+  }, 500);
+})();
+</script>
