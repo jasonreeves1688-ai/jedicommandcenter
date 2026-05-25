@@ -17831,8 +17831,8 @@ function renderTodayView(container){
         </div>`;
       }).join('')}
       ${(()=>{
-        // Dedup home tasks by title to remove orphan injection duplicates
-        const _seenHomeTitles = new Set([...focusTasks,...focusCommits,..._dedupedCommits].map(x=>x.title));
+        // Dedup home tasks by title — focusTasks+focusCommits are in scope here
+        const _seenHomeTitles = new Set([...focusTasks,...focusCommits,...dueTodayCommits].map(x=>x.title));
         return dueHomeTasksUnpinned.filter(t=>!_seenHomeTitles.has(t.title));
       })().map(t=>{
         const isOv = t.dueDate&&t.dueDate<todayStr;
