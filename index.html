@@ -5451,13 +5451,21 @@ function toggleHomeTask(id, arrName, saveFnName){
   if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
   else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
   else if(saveFnName === 'saveFamilyTasks'){
-    // Log history event for family tasks
     const author = _commentAuthor();
     logFamilyTaskHistory(id, t.done
       ? author + ' marked this complete'
       : author + ' reopened this task');
     saveFamilyTasks();
   } else saveFamilyTasks();
+  // Sync completion status to matching commitment (same ID)
+  const _tc = commitments.find(x=>x.id===id);
+  if(_tc){
+    updateCommitment(id, {
+      status: t.done ? 'done' : 'todo',
+      completedAt: t.done ? String(Date.now()) : '',
+      lastActedAt: today(),
+    });
+  }
   // Partial re-render: update just the task row checkbox in-place
   const row = document.querySelector(`[data-home-task-id="${id}"]`);
   if(row){
@@ -5481,6 +5489,9 @@ function deleteHomeTask(id, arrName, saveFnName){
   if(saveFnName === 'saveJasonHomeTasks') saveJasonHomeTasks();
   else if(saveFnName === 'saveWifeHomeTasks') saveWifeHomeTasks();
   else if(saveFnName === 'saveFamilyTasks') saveFamilyTasks();
+  // Remove matching commitment
+  commitments = commitments.filter(x=>x.id!==id);
+  saveCommitments();
   renderAll();
 }
 function moveHomeTask(id, fromArr, fromSave){
@@ -6120,6 +6131,8 @@ function toggleFamilyTask(id){
 function deleteFamilyTask(id){
   familyTasks = familyTasks.filter(x=>x.id!==id);
   saveFamilyTasks();
+  commitments = commitments.filter(x=>x.id!==id);
+  saveCommitments();
   renderAll();
 }
 const _FAMILY_ASSIGNEES = ['anyone','jason','wife','ridley','connor'];
@@ -7992,7 +8005,12 @@ function saveFamilyTaskModal(){
     const save = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
     if(m.editId){
       const t = arr.find(x=>x.id===m.editId);
-      if(t){ t.title=title; t.notes=notes; t.dueDate=dueDate; }
+      if(t){
+        t.title=title; t.notes=notes; t.dueDate=dueDate;
+        // Keep commitment in sync
+        const ec = commitments.find(x=>x.id===m.editId);
+        if(ec){ updateCommitment(m.editId,{title,notes,dueDate,lastActedAt:today()}); }
+      }
     } else {
       const newId = 'ht'+Date.now();
       arr.unshift({id:newId, title, notes, done:false, dueDate,
@@ -8002,13 +8020,11 @@ function saveFamilyTaskModal(){
         todayPinned.add(newId);
         savePinned();
       }
-      // Also add to commitments so it appears on Work page under Personal type
-      if(isJason){
-        commitments.unshift({ id:newId, type:'home', title, status:'todo',
-          dueDate, personIds:'', source:'personal-task',
-          notes:'', createdAt:today(), createdBy:'jason', visibility:'private' });
-        saveCommitments();
-      }
+      // Upsert to commitments for both Jason and Jenny (private → visibility:'private')
+      createCommitment({ id:newId, type:'home', title, notes, status:'todo',
+        dueDate, personIds:'', source:'personal-task',
+        priority:'medium', visibility:'private',
+        createdBy: isJason?'jason':'jenny', ownedBy:'me' });
     }
     save();
   } else {
@@ -8076,6 +8092,14 @@ function saveFamilyTaskModal(){
         const prevAssign = taskAssignees(t).map(k=>_LABEL[k]||k).join(', ');
         const newAssign  = assignedTo.map(k=>_LABEL[k]||k).join(', ');
         t.title=title; t.notes=notes; t.dueDate=dueDate; t.assignedTo=assignedTo;
+        // Keep commitment in sync
+        const _assignIds = assignedTo.map(k=>{
+          const p = unifiedPeople.find(x=>(x.name||'').toLowerCase()===k)||
+                    unifiedPeople.find(x=>x.id===k);
+          return p?.id||k;
+        }).join(',');
+        const _ec = commitments.find(x=>x.id===m.editId);
+        if(_ec){ updateCommitment(m.editId,{title,notes,dueDate,personIds:_assignIds,lastActedAt:today()}); }
         if(kidsChoreId) t.kidsChoreId = kidsChoreId;
         else delete t.kidsChoreId;
         const author = _commentAuthor();
@@ -8094,6 +8118,11 @@ function saveFamilyTaskModal(){
       const assignLabel = assignedTo.map(k=>_LABEL[k]||k).join(', ');
       logFamilyTaskHistory(newId, _commentAuthor() + ' created this task' +
         (assignLabel && assignLabel!=='Anyone' ? ' · assigned to ' + assignLabel : ''));
+      // Create matching commitment so it appears in enrich, What's Next, and sync
+      createCommitment({ id:newId, type:'family', title, notes, status:'todo',
+        dueDate, personIds:'', source:'family-task',
+        priority:'medium', visibility:'family',
+        createdBy: isJason?'jason':'jenny', ownedBy:'me' });
     }
     saveFamilyTasks();
   }
@@ -8108,6 +8137,8 @@ function deleteFamilyTaskFromModal(){
     if(isJason) jasonHomeTasks = jasonHomeTasks.filter(x=>x.id!==m.editId);
     else wifeHomeTasks = wifeHomeTasks.filter(x=>x.id!==m.editId);
     (isJason ? saveJasonHomeTasks : saveWifeHomeTasks)();
+    commitments = commitments.filter(x=>x.id!==m.editId);
+    saveCommitments();
   } else {
     const t = familyTasks.find(x=>x.id===m.editId);
     // Remove linked kids chore if exists
@@ -16869,6 +16900,32 @@ function _syncTaskToCommitment(task){
 // to Supabase. This function runs once per device on first boot with v105+ and
 // force-flushes every delegation and commsOwed entry to Supabase so no data is
 // lost across devices.
+// ── One-time migration: create commitment rows for existing home/family tasks ──
+// Runs once per device alongside the v105 legacy flush.
+function _migrateHomeTasksToCommitments(){
+  const FLAG = 'hub-home-tasks-migrated-v123';
+  if(localStorage.getItem(FLAG) === '1') return;
+  const existingIds = new Set(commitments.map(c=>c.id));
+  let added = 0;
+  jasonHomeTasks.filter(t=>!t.done && !existingIds.has(t.id)).forEach(t=>{
+    createCommitment({ id:t.id, type:'home', title:t.title, notes:t.notes||'',
+      status:'todo', dueDate:t.dueDate||'', personIds:'', source:'personal-task',
+      priority:'medium', visibility:'private', createdBy:'jason', ownedBy:'me' });
+    added++;
+  });
+  familyTasks.filter(t=>!t.done && !existingIds.has(t.id)).forEach(t=>{
+    createCommitment({ id:t.id, type:'family', title:t.title, notes:t.notes||'',
+      status:'todo', dueDate:t.dueDate||'', personIds:'', source:'family-task',
+      priority:'medium', visibility:'family', createdBy:'jason', ownedBy:'me' });
+    added++;
+  });
+  if(added > 0){
+    saveCommitments();
+    console.log('[v123] Migrated', added, 'home/family tasks to commitments');
+  }
+  localStorage.setItem(FLAG, '1');
+}
+
 async function _flushLegacyToSupabase(){
   const FLAG = 'hub-legacy-flush-v105';
   if(localStorage.getItem(FLAG) === '1') return;   // already done on this device
@@ -18989,26 +19046,35 @@ function openEnrichTriage(){
   const _missingFor = (c) => {
     const m = [];
     const type = c.type || 'action';
-    // Priority — always needed, but only flag if still default 'medium'
+    const isHomeFamily = type === 'home' || type === 'family';
+
+    // Priority — always needed (all types)
     if(!c.priority || c.priority === 'medium') m.push('priority');
-    // Due date — always useful
+
+    // Due date — always useful (all types)
     if(!c.dueDate) m.push('dueDate');
-    // Size/estimate — useful for planning
-    if(!c.estimate) m.push('estimate');
-    // Energy — useful for ADHD context switching
+
+    // Energy — useful for ADHD context switching (all types)
     if(!c.energy) m.push('energy');
+
+    // Size/estimate — work types only (not home/family — doesn't make sense there)
+    if(!isHomeFamily && !c.estimate) m.push('estimate');
+
+    // Project — action type only, not home/family
+    if(type === 'action' && !c.projectId) m.push('projectId');
+
     // Person — critical for delegation, waiting, comms, follow_up
     if(['delegation','waiting','comms','follow_up'].includes(type) && !c.personIds && !c.assignedTo)
       m.push('person');
-    // Follow-up date — important for waiting + follow_up
+
+    // Follow-up date — waiting + follow_up only
     if(['waiting','follow_up'].includes(type) && !c.followUpDate)
       m.push('followUpDate');
-    // Check-in cadence — important for delegation
+
+    // Check-in cadence — delegation only
     if(type === 'delegation' && !c.checkInDays)
       m.push('checkInDays');
-    // Project — useful for actions
-    if(type === 'action' && !c.projectId)
-      m.push('projectId');
+
     return m;
   };
 
@@ -34103,6 +34169,7 @@ async function bootApp(){
   // Guards with a localStorage flag so it only runs once per device.
   // Runs 2s after boot so _loadTeamData has had time to finish.
   setTimeout(_flushLegacyToSupabase, 2000);
+  setTimeout(_migrateHomeTasksToCommitments, 3000); // migrate existing home/family tasks
   // Inject any already-imported work meetings immediately (before first fetch)
   injectImportedMeetings();
   // Schedule prep notifications for today's meeting blocks
