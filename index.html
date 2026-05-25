@@ -5249,6 +5249,7 @@ async function renderHomeTodayView(container){
       + '</div>';
   }
   // ── Contacts due for outreach (Jason only — his personal contacts) ──
+  // Contacts due for outreach — getPeopleNudges() already filters to personal/external only
   const nudges = isJason ? getPeopleNudges() : [];
   if(nudges.length > 0){
     const todayStr2 = today();
@@ -5980,13 +5981,17 @@ function renderFamilyPage(container){
     if(myOpen.length === 0){
       html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">Nothing on your plate!</div></div>';
     } else {
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;">';
       myOpen.forEach(t=>{ html += homeTaskRow(t, 'private'); });
+      html += '</div>';
     }
     if(myDone.length){
-      html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + myDone.length + ' recently done</div>';
+      html += '<div style="padding:4px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + myDone.length + ' recently done</div>';
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;opacity:0.5;">';
       myDone.forEach(t=>{
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;opacity:0.4;">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
       });
+      html += '</div>';
     }
     // ── Someday (home context) ──────────────────────────────────
     const _homeSd = somedayList.filter(s => s.context === 'home');
@@ -6043,11 +6048,13 @@ function renderFamilyPage(container){
     if(open.length === 0){
       html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
     } else {
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;">';
       open.forEach(t=>{
         const _taskAsgns = taskAssignees(t);
         const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
         html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">'          + '<button onclick="toggleFamilyTask(&quot;' + t.id + '&quot;)" style="width:24px;height:24px;border-radius:50%;flex-shrink:0;cursor:pointer;border:2px solid var(--border);background:transparent;color:transparent;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;">✓</button>'          + '<div style="flex:1;min-width:0;" onclick="event.stopPropagation();openFamilyTaskModal(&quot;' + t.id + '&quot;)">'          + '<div style="font:600 14px/1.3 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;">' + esc(t.title) + '</div>'          + (t.dueDate ? '<div style="font:500 10px/1 var(--font-ui);color:' + (t.dueDate<today()?'var(--red)':t.dueDate===today()?'var(--accent)':'var(--text4)') + ';margin-top:3px;">' + (t.dueDate<today()?'⚠ ':' 📅 ') + (t.dueDate===today()?'Today':t.dueDate.slice(5)) + '</div>' : '')          + '</div>'          + '<div onclick="openFamilyTaskModal(&quot;' + t.id + '&quot;)" style="display:flex;gap:3px;flex-wrap:wrap;cursor:pointer;flex-shrink:0;">'          + _asgnLabels.map(a=>'<span style="padding:3px 8px;border-radius:20px;border:1.5px solid ' + a.color + ';color:' + a.color + ';font:700 10px/1 var(--font-ui);white-space:nowrap;">' + a.label + '</span>').join('')          + '</div>'          + '<button onclick="deleteFamilyTask(&quot;' + t.id + '&quot;)" style="padding:2px 6px;border:none;background:transparent;color:var(--text4);font-size:14px;cursor:pointer;opacity:0.5;">✕</button>'          + '</div>';
       });
+      html += '</div>';
     }
     if(done.length){
       html += '<div style="padding:10px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + done.length + ' recently completed</div>';
@@ -13026,7 +13033,9 @@ function renderCommitmentsPage(container){
         lastActedAt:today(), source:'migrated' });
       added = true;
     });
-    if(added) saveCommitments(); // persist so they survive next reload
+    // Don't saveCommitments() here - the v105 legacy flush handles permanent migration.
+    // Saving here causes duplicates on next load when the item appears in both
+    // commitments[] (from localStorage) and the legacy array injection.
   })();
 
   // ── Get visible items ──────────────────────────────────────
@@ -17775,19 +17784,31 @@ function renderTodayView(container){
         const isToday=t.dueDate===todayStr;
         const isPinned=todayPinned.has(t.id);
         const badge=isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`
-          :isToday?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">\U0001f4c5 today</span>`
-          :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 ${t.dueDate.slice(5)}</span>`:'';
+          :isToday?`<span style="font:700 10px/1 var(--font-ui);color:var(--accent);">📅 today</span>`
+          :t.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${t.dueDate.slice(5)}</span>`:'';
         const pinBtn=isPinned
           ?`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Remove">\u2715</button>`
-          :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>`;
+          :`<button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>`;
         return tRow(t,'var(--accent)',badge,pinBtn);
       }).join('')}
       ${(()=>{
         // Dedup: focusCommits (pinned) take priority; dueTodayCommits fills the rest
+        // Also dedup by normalized ID (cm-co-X vs X) and by title+type to catch
+        // orphan injection duplicates
         const _seenCmIds = new Set(focusCommits.map(c=>c.id));
+        const _seenNorm  = new Set(focusCommits.map(c=>c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'')));
+        const _seenTitle = new Set(focusCommits.map(c=>c.type+'|'+c.title));
         const _dedupedCommits = [
           ...focusCommits,
-          ...dueTodayCommits.filter(c => !_seenCmIds.has(c.id))
+          ...dueTodayCommits.filter(c => {
+            if(_seenCmIds.has(c.id)) return false;
+            const norm = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
+            if(_seenNorm.has(norm)) return false;
+            const tk = c.type+'|'+c.title;
+            if(_seenTitle.has(tk)) return false;
+            _seenCmIds.add(c.id); _seenNorm.add(norm); _seenTitle.add(tk);
+            return true;
+          })
         ];
         return _dedupedCommits;
       })().map(c=>{
@@ -17802,14 +17823,18 @@ function renderTodayView(container){
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
               <span style="font:700 9px/1 var(--font-ui);color:${ct.color};background:${ct.color}14;padding:2px 6px;border-radius:5px;">${ct.emoji} ${ct.label}</span>
-              ${person?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">\U0001f464 ${esc(person.name.split(' ')[0])}</span>`:''}
-              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:c.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 ${c.dueDate.slice(5)}</span>`:''}
+              ${person?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">👤 ${esc(person.name.split(' ')[0])}</span>`:''}
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:c.dueDate?`<span style="font:var(--type-caption);color:var(--text4);">📅 ${c.dueDate.slice(5)}</span>`:''}
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${c.id}')" title="${isPinned?'Unpin':'Pin'}">${isPinned?'\u2715':'\U0001f4cc'}</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${c.id}')" title="${isPinned?'Unpin':'Pin'}">${isPinned?'\u2715':'📌'}</button>
         </div>`;
       }).join('')}
-      ${dueHomeTasksUnpinned.map(t=>{
+      ${(()=>{
+        // Dedup home tasks by title to remove orphan injection duplicates
+        const _seenHomeTitles = new Set([...focusTasks,...focusCommits,..._dedupedCommits].map(x=>x.title));
+        return dueHomeTasksUnpinned.filter(t=>!_seenHomeTitles.has(t.title));
+      })().map(t=>{
         const isOv = t.dueDate&&t.dueDate<todayStr;
         return `<div class="today-card-row" onclick="openPrivateTaskModal('${t.id}')">
           <button class="today-check-btn" style="color:#FF8A65;"
@@ -17817,11 +17842,11 @@ function renderTodayView(container){
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">\U0001f3e0 Personal</span>
-              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 today</span>`}
+              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">🏠 Personal</span>
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">📅 today</span>`}
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>
         </div>`;
       }).join('')}
       ${dueFamilyTasksUnpinned.map(t=>{
@@ -17832,11 +17857,11 @@ function renderTodayView(container){
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">\U0001f46a\u200d\U0001f467\u200d\U0001f466 Family</span>
-              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">\U0001f4c5 today</span>`}
+              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">👪\u200d👧\u200d👦 Family</span>
+              ${isOv?`<span style="font:700 10px/1 var(--font-ui);color:var(--red);">\u26a0 overdue</span>`:`<span style="font:var(--type-caption);color:var(--text4);">📅 today</span>`}
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>
         </div>`;
       }).join('')}
       ${plannedHomeBlocks.map(r=>{
@@ -17847,11 +17872,11 @@ function renderTodayView(container){
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">\U0001f3e0 Personal</span>
+              <span style="font:700 9px/1 var(--font-ui);color:#FF8A65;background:rgba(255,138,101,0.12);padding:2px 6px;border-radius:5px;">🏠 Personal</span>
               <span style="font:700 9px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);padding:2px 6px;border-radius:5px;">planned</span>
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>
         </div>`;
       }).join('')}
       ${plannedFamilyBlocks.map(r=>{
@@ -17862,11 +17887,11 @@ function renderTodayView(container){
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.title)}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">\U0001f46a\u200d\U0001f467\u200d\U0001f466 Family</span>
+              <span style="font:700 9px/1 var(--font-ui);color:#81C784;background:rgba(129,199,132,0.12);padding:2px 6px;border-radius:5px;">👪\u200d👧\u200d👦 Family</span>
               <span style="font:700 9px/1 var(--font-ui);color:var(--accent);background:rgba(232,168,56,0.1);padding:2px 6px;border-radius:5px;">planned</span>
             </div>
           </div>
-          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">\U0001f4cc</button>
+          <button class="today-icon-btn" onclick="event.stopPropagation();toggleTodayPin('${t.id}')" title="Pin">📌</button>
         </div>`;
       }).join('')}
       ${plannedFreeBlocks.map(r=>{
@@ -17878,7 +17903,7 @@ function renderTodayView(container){
           <div style="flex:1;min-width:0;">
             <div style="font:600 14px/1.35 var(--font-ui);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.title||'')}</div>
             <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">
-              <span style="font:700 9px/1 var(--font-ui);color:${b.color||'var(--accent)'};background:${b.color||'var(--accent)'}14;padding:2px 6px;border-radius:5px;">\U0001f4c5 Timebox</span>
+              <span style="font:700 9px/1 var(--font-ui);color:${b.color||'var(--accent)'};background:${b.color||'var(--accent)'}14;padding:2px 6px;border-radius:5px;">📅 Timebox</span>
               ${b.durMin?`<span style="font:var(--type-caption);color:var(--text4);">\u23f1 ${b.durMin}m</span>`:''}
             </div>
           </div>
@@ -26337,7 +26362,10 @@ function _upSave(){
   if(!name){showToast('Name required');return;}
   const rt=document.getElementById('up-rt')?.value||'colleague'  ;
   const orgId=document.getElementById('up-org')?.value||''  ;
-  const nudge=parseInt(document.getElementById('up-nudge')?.value)||0;
+  // Check relationship type — only personal/external get nudges
+  const _upRt = document.getElementById('up-rt')?.value || (unifiedPeople.find(p=>p.id===editId)||{}).relationshipType || '';
+  const _upIsPersonal = _upRt === 'personal' || _upRt === 'external' || !_upRt;
+  const nudge = _upIsPersonal ? (parseInt(document.getElementById('up-nudge')?.value)||null) : null;
   const notes=document.getElementById('up-notes')?.value.trim()||''  ;
   const idx=unifiedPeople.findIndex(p=>p.id===id);
   if(idx>=0){unifiedPeople[idx]={...unifiedPeople[idx],name,relationshipType:rt,orgId,nudgeDays:nudge||null,notes,updatedAt:today()};saveUnifiedPeople();}
@@ -26437,11 +26465,13 @@ function submitLogContact(){
 }
 // Backward-compat alias — called from Today nudge rows and push action
 function getPeopleNudges(){
-  // Now reads from unifiedPeople (primary) — falls back to contactsList during migration
+  // Only personal/external contacts get nudges — work contacts use commitments
   const source = unifiedPeople.length > 0
-    ? unifiedPeople.filter(p=>p.nudgeDays)
-    : contactsList;
-  return source.filter(p=>personNudgeDue(p));
+    ? unifiedPeople.filter(p => p.nudgeDays &&
+        (p.relationshipType === 'personal' || p.relationshipType === 'external' ||
+         !p.relationshipType))  // legacy contacts with no type set keep nudges
+    : contactsList;             // legacy contacts list is all personal
+  return source.filter(p => personNudgeDue(p));
 }
 function renderPeopleSection(){
   const nudges = getPeopleNudges();
@@ -26715,10 +26745,7 @@ function _apRenderFields(rt, existing){
         </div>
       </label>`);
     }
-    rows.push(`<div>
-      ${lbl('Nudge (days)')}
-      <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="0 = off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
-    </div>`);
+    // No nudge for work contacts — use commitments/delegations instead
   } else if(isClient){
     rows.push(`<div style="display:flex;gap:10px;">
       <div style="flex:2;">
@@ -26728,11 +26755,8 @@ function _apRenderFields(rt, existing){
           ${clientOrgs.map(o=>`<option value="${o.id}" ${(p.orgId||''===o.id)?'selected':''}>${esc(o.name)}</option>`).join('')}
         </select>
       </div>
-      <div style="flex:1;">
-        ${lbl('Nudge (days)')}
-        <input type="number" id="ap-nudge" min="0" max="365" value="${p.nudgeDays||''}" placeholder="off" class="field-input" style="margin:0;text-align:center;font-size:16px;"/>
-      </div>
     </div>`);
+    // No nudge for client contacts — use commitments instead
     rows.push(`<div>
       ${lbl('Notes')}
       <textarea id="ap-notes" class="field-input" rows="2" style="margin:0;resize:none;">${esc(p.notes||'')}</textarea>
@@ -26785,7 +26809,9 @@ function submitAddPerson(){
   const priority = document.getElementById('ap-priority')?.value||'Medium';
   const photo    = document.getElementById('ap-photo')?.value||'';
   const isDirectReport = document.getElementById('ap-direct-report')?.checked || rt==='direct_report';
-  const nudge    = parseInt(document.getElementById('ap-nudge')?.value)||0;
+  // Nudge only applies to personal/external — null it out for work/client contacts
+  const _isPersonalRt = rt === 'personal' || rt === 'external';
+  const nudge = _isPersonalRt ? (parseInt(document.getElementById('ap-nudge')?.value)||null) : null;
   const notes    = document.getElementById('ap-notes')?.value.trim()||'';
   const orgId    = document.getElementById('ap-org')?.value||'';
   const editId   = document.getElementById('ap-edit-id')?.value||'';
