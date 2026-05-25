@@ -13211,6 +13211,21 @@ function renderCommitmentsPage(container){
       </div>
       <button onclick="_cvOpenAdd()" class="page-hero-action">+ Add</button>
     </div>
+    <!-- Enrich banner — shown when commitments are missing priority/date/size -->
+    ${(()=>{
+      const ep = commitments.filter(c=>c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)).length;
+      return ep > 0 ? `<div style="padding:6px 14px 4px;flex-shrink:0;">
+        <button onclick="openEnrichTriage()"
+          style="width:100%;padding:9px 14px;border-radius:10px;display:flex;align-items:center;
+            justify-content:space-between;gap:8px;
+            border:1.5px solid rgba(186,104,200,0.45);background:rgba(186,104,200,0.07);
+            color:#BA68C8;font:700 11px/1 var(--font-ui);cursor:pointer;">
+          <span>✦ Enrich — fill in missing priority, dates &amp; size</span>
+          <span style="background:rgba(186,104,200,0.2);color:#BA68C8;
+            font:700 10px/1 var(--font-ui);padding:2px 8px;border-radius:8px;flex-shrink:0;">${ep}</span>
+        </button>
+      </div>` : '';
+    })()}
     <!-- Primary sub-tabs — always-visible types + conditional tabs for comms/follow_up/issue -->
     <div id="cv-subtabs" style="display:flex;border-bottom:2px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
       ${[
@@ -13770,6 +13785,20 @@ function renderTaskList(container){
     <span style="background:rgba(129,199,132,0.2);color:#81C784;
       font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">${_triagePool.length}</span>
   </button>` : '';
+  // Enrich button — count commitments+tasks missing priority/date/size
+  const _enrichPool = [
+    ...commitments.filter(c => c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)),
+    ...tasks.filter(t => t.status!=='done'&&t.status!=='cancelled'&&(!t.priority||t.priority==='medium'||!t.dueDate||!t.estimate))
+  ].filter((x,i,arr) => arr.findIndex(y=>y.id===x.id)===i); // dedup
+  const _enrichBtn = _enrichPool.length > 0 ? `<button onclick="openEnrichTriage()"
+    title="Fill in missing priority, due dates, and size for all commitments"
+    style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+      font-family:var(--font-ui);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+      border:1px solid rgba(186,104,200,0.45);background:rgba(186,104,200,0.08);color:#BA68C8;">
+    ✦ Enrich
+    <span style="background:rgba(186,104,200,0.2);color:#BA68C8;
+      font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">${_enrichPool.length}</span>
+  </button>` : '';
   // Two-row strip: row 1 = view modes, row 2 = action controls
   html += `<div style="border-bottom:1px solid var(--border);flex-shrink:0;">
     <!-- Row 1: View modes -->
@@ -13788,6 +13817,7 @@ function renderTaskList(container){
       ${_plBtn}
       ${_agBtn}
       ${_triageBtn}
+      ${_enrichBtn}
     </div>
   </div>`;
   if(visibleTasks.length===0 && !triageMode){
@@ -17713,14 +17743,32 @@ function renderTodayView(container){
   if(focusTasks.length > 0 || pinnedDone.length > 0 || focusCommits.length > 0 || pinnedCommitsDone.length > 0 || dueTodayCommits.length > 0 || dueHomeTasksUnpinned.length > 0 || dueFamilyTasksUnpinned.length > 0 || plannedHomeBlocks.length > 0 || plannedFamilyBlocks.length > 0 || plannedFreeBlocks.length > 0){
     const totalActive = focusTasks.length + focusCommits.length + dueTodayCommits.length + dueHomeTasksUnpinned.length + dueFamilyTasksUnpinned.length + plannedHomeBlocks.length + plannedFamilyBlocks.length + plannedFreeBlocks.length;
     const totalDone   = pinnedDone.length + pinnedCommitsDone.length;
-    html += `<div class="today-card" style="border-color:rgba(232,168,56,0.25);">
+    // Overcommit flag: totalActive (includes auto due-today) vs TODAY_MAX
+    // Pins-only limit: activePinCount() blocks adding more pins
+    const _ap         = activePinCount();
+    const _atPinLim   = _ap >= TODAY_MAX;
+    // Due-today items that aren't pinned inflate the total beyond the pin limit
+    const _dueTodayExtra = dueTodayCommits.length; // auto-surfaced, not pinned
+    const _totalWork  = focusTasks.length + focusCommits.length + _dueTodayExtra;
+    const _overcommit = _totalWork > TODAY_MAX; // flag only, not a block
+    html += `<div class="today-card" style="border-color:${_overcommit ? 'rgba(239,83,80,0.35)' : 'rgba(232,168,56,0.25)'};">
+      ${_overcommit ? `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px 0;font:600 11px/1.4 var(--font-ui);color:#EF5350;">
+        <span style="font-size:14px;">⚠️</span>
+        <span>Overcommitted — ${_totalWork} work items today, limit is ${TODAY_MAX}. Consider parking some.</span>
+      </div>` : ''}
       <div class="today-card-header">
         <div class="today-card-label">
-          <div class="today-card-accent" style="background:var(--accent);"></div>
-          <span class="today-card-title" style="color:var(--accent);">Today\u2019s Focus</span>
+          <div class="today-card-accent" style="background:${_overcommit ? '#EF5350' : 'var(--accent)'};"></div>
+          <span class="today-card-title" style="color:${_overcommit ? '#EF5350' : 'var(--accent)'};">Today\u2019s Focus</span>
           <span class="today-card-count">${totalActive} active${totalDone>0?' · '+totalDone+' done':''}</span>
         </div>
-        <button onclick="openTodayPicker()" class="today-card-action">+ Add</button>
+        ${(()=>{
+          return _atPinLim
+            ? `<span style="font:700 10px/1 var(--font-ui);color:var(--text4);padding:4px 10px;
+                border-radius:20px;border:1px solid var(--border);">🎯 ${_ap}/${TODAY_MAX}</span>`
+            : `<button onclick="openTodayPicker()" class="today-card-action">+ Add (${_ap}/${TODAY_MAX})</button>`;
+        })()}
       </div>
       ${focusTasks.map(t=>{
         const isOv=t.dueDate&&t.dueDate<todayStr;
@@ -18868,6 +18916,484 @@ function renderTriageCard(){
 // delegations, client follow-ups, comms owed.
 // Items surface by: overdue date OR aging (no date, 14d+ old).
 // ════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// ENRICH TRIAGE — card-by-card pass to add missing priority,
+// due date, and size to all commitment types at once.
+// ═══════════════════════════════════════════════════════════════
+let _enrichQueue = [];
+let _enrichIndex = 0;
+let _enrichStats = { enriched: 0, skipped: 0 };
+
+function openEnrichTriage(){
+  const queue = [];
+
+  // ── What fields matter per type ──────────────────────────────
+  // Returns array of field keys that are missing / need attention
+  const _missingFor = (c) => {
+    const m = [];
+    const type = c.type || 'action';
+    // Priority — always needed, but only flag if still default 'medium'
+    if(!c.priority || c.priority === 'medium') m.push('priority');
+    // Due date — always useful
+    if(!c.dueDate) m.push('dueDate');
+    // Size/estimate — useful for planning
+    if(!c.estimate) m.push('estimate');
+    // Energy — useful for ADHD context switching
+    if(!c.energy) m.push('energy');
+    // Person — critical for delegation, waiting, comms, follow_up
+    if(['delegation','waiting','comms','follow_up'].includes(type) && !c.personIds && !c.assignedTo)
+      m.push('person');
+    // Follow-up date — important for waiting + follow_up
+    if(['waiting','follow_up'].includes(type) && !c.followUpDate)
+      m.push('followUpDate');
+    // Check-in cadence — important for delegation
+    if(type === 'delegation' && !c.checkInDays)
+      m.push('checkInDays');
+    // Project — useful for actions
+    if(type === 'action' && !c.projectId)
+      m.push('projectId');
+    return m;
+  };
+
+  // ── Commitments (all 8 types) ────────────────────────────────
+  commitments.filter(c =>
+    c.status !== 'done' && c.status !== 'resolved' && c.status !== 'cancelled' &&
+    _commitVisible(c)
+  ).forEach(c => {
+    const missing = _missingFor(c);
+    if(missing.length === 0) return;
+    const proj = projects.find(p => p.id === c.projectId);
+    queue.push({
+      id:           c.id,
+      source:       'commitment',
+      type:         c.type,
+      title:        c.title,
+      notes:        c.notes        || '',
+      priority:     c.priority     || 'medium',
+      dueDate:      c.dueDate      || '',
+      followUpDate: c.followUpDate || '',
+      estimate:     c.estimate     || '',
+      energy:       c.energy       || '',
+      assignedTo:   c.assignedTo   || '',
+      personIds:    c.personIds    || '',
+      checkInDays:  c.checkInDays  || null,
+      projectId:    c.projectId    || '',
+      projectName:  proj?.name     || '',
+      missing,
+    });
+  });
+
+  // ── Tasks (action type) ──────────────────────────────────────
+  tasks.filter(t =>
+    t.status !== 'done' && t.status !== 'cancelled'
+  ).forEach(t => {
+    const asCmt = { type:'action', priority:t.priority, dueDate:t.dueDate, estimate:t.estimate,
+      energy:t.energy, personIds:t.personIds, projectId:t.projectId };
+    const missing = _missingFor(asCmt);
+    if(missing.length === 0) return;
+    const proj = projects.find(p => p.id === t.projectId);
+    queue.push({
+      id:          t.id,
+      source:      'task',
+      type:        'action',
+      title:       t.title,
+      notes:       t.notes    || '',
+      priority:    t.priority || 'medium',
+      dueDate:     t.dueDate  || '',
+      estimate:    t.estimate || '',
+      energy:      t.energy   || '',
+      personIds:   t.personIds|| '',
+      projectId:   t.projectId|| '',
+      projectName: proj?.name || '',
+      missing,
+    });
+  });
+
+  if(queue.length === 0){
+    showToast('✨ All commitments are fully enriched!');
+    return;
+  }
+
+  _enrichQueue = queue;
+  _enrichIndex = 0;
+  _enrichStats = { enriched: 0, skipped: 0 };
+  _showEnrichModal();
+}
+
+function _showEnrichModal(){
+  const old = document.getElementById('modal-enrich'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'modal-enrich';
+  m.style.cssText = 'position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.7);display:flex;flex-direction:column;justify-content:flex-end;';
+  m.innerHTML = '<div id="enrich-card-wrap" style="background:var(--surface);border-radius:20px 20px 0 0;max-height:92dvh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0);"></div>';
+  document.body.appendChild(m);
+  _renderEnrichCard();
+}
+
+function _renderEnrichCard(){
+  const wrap = document.getElementById('enrich-card-wrap');
+  if(!wrap) return;
+
+  const item = _enrichQueue[_enrichIndex];
+  const remaining = _enrichQueue.length - _enrichIndex;
+  const total = _enrichQueue.length;
+  const pct = Math.round((_enrichIndex / total) * 100);
+
+  if(!item || remaining === 0){
+    // Done screen
+    wrap.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;padding:48px 24px;text-align:center;">
+        <div style="font-size:52px;margin-bottom:16px;">✅</div>
+        <div style="font:900 24px/1.2 var(--font-ui);color:var(--text);margin-bottom:8px;">All enriched!</div>
+        <div style="font:500 13px/1.5 var(--font-ui);color:var(--text3);margin-bottom:28px;">
+          ${_enrichStats.enriched} updated · ${_enrichStats.skipped} skipped
+        </div>
+        <button onclick="document.getElementById('modal-enrich')?.remove();renderAll();"
+          style="padding:14px 36px;border-radius:50px;border:none;background:var(--accent);
+            color:var(--bg);font:800 15px/1 var(--font-ui);cursor:pointer;">
+          Done ✓
+        </button>
+      </div>`;
+    return;
+  }
+
+  const ct = COMMIT_TYPES[item.type] || COMMIT_TYPES.action;
+  const SIZES      = ['XS','S','M','L','XL'];
+  const PRIORITIES = ['low','medium','high','critical'];
+  const P_COLORS   = { critical:'#EF5350', high:'#FF8A65', medium:'var(--accent)', low:'var(--text4)' };
+  const P_LABELS   = { critical:'🔴 Critical', high:'🟠 High', medium:'🟡 Medium', low:'⚪ Low' };
+  const ENERGIES   = [['low','🔋 Low'],['medium','⚡ Med'],['high','🔥 High']];
+  const has = (f) => item.missing.includes(f);
+  const asterisk = (f) => has(f) ? '<span style="color:#EF5350;">*</span>' : '';
+  const fieldLabel = (txt, key) =>
+    `<div style="font:700 10px/1 var(--font-ui);color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${txt} ${asterisk(key)}</div>`;
+
+  // Date helpers
+  const nd = new Date();
+  const fmt = (dt) => dt.toISOString().slice(0,10);
+  const addDays = (n) => { const x = new Date(nd); x.setDate(x.getDate()+n); return fmt(x); };
+  const nextFriday = () => addDays((5 - nd.getDay() + 7) % 7 || 7);
+  const endOfMonth = () => fmt(new Date(nd.getFullYear(), nd.getMonth()+1, 0));
+
+  // People list for person picker (unified + legacy)
+  const _allPeople = unifiedPeople.length ? unifiedPeople : peopleList;
+  const _currentPersonIds = (item.personIds||item.assignedTo||'').split(',').filter(Boolean);
+  const _currentPersonNames = _currentPersonIds.map(id => {
+    const p = _allPeople.find(x=>x.id===id);
+    return p ? (p.name||p.fullName||'') : '';
+  }).filter(Boolean).join(', ');
+
+  // Project list
+  const _activeProjects = projects.filter(p => p.status !== 'archived' && p.status !== 'paused');
+
+  // Missing field badges
+  const FIELD_LABELS = {
+    priority:'priority', dueDate:'due date', estimate:'size', energy:'energy',
+    person:'person', followUpDate:'follow-up date', checkInDays:'check-in', projectId:'project'
+  };
+  const missingBadges = item.missing.map(f =>
+    `<span style="font:700 9px/1 var(--font-ui);padding:2px 7px;border-radius:8px;
+      background:rgba(239,83,80,0.15);color:#EF5350;border:1px solid rgba(239,83,80,0.3);">
+      missing ${FIELD_LABELS[f]||f}
+    </span>`
+  ).join('');
+
+  // ── Section builder helpers ───────────────────────────────────────────────
+  const prioritySection = () => `
+    <div>
+      ${fieldLabel('Priority','priority')}
+      <div style="display:flex;gap:6px;">
+        ${PRIORITIES.map(p => `
+          <button onclick="_enrichSetField('priority','${p}')"
+            style="flex:1;padding:8px 4px;border-radius:10px;
+              border:2px solid ${item.priority===p ? P_COLORS[p] : 'var(--border)'};
+              background:${item.priority===p ? P_COLORS[p]+'22' : 'transparent'};
+              color:${item.priority===p ? P_COLORS[p] : 'var(--text4)'};
+              font:${item.priority===p?800:600} 10px/1.3 var(--font-ui);cursor:pointer;text-align:center;">
+            ${P_LABELS[p]}
+          </button>`).join('')}
+      </div>
+    </div>`;
+
+  const dateSection = (fieldKey, label) => {
+    const val = item[fieldKey] || '';
+    const dates = [
+      ['Today', fmt(nd)], ['This Fri', nextFriday()],
+      ['EOM', endOfMonth()], ['+2 wks', addDays(14)], ['No date',''],
+    ];
+    return `<div>
+      ${fieldLabel(label, fieldKey)}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;">
+        ${dates.map(([lbl, dv]) => `
+          <button onclick="_enrichSetField('${fieldKey}','${dv}')"
+            style="padding:7px 10px;border-radius:10px;flex-shrink:0;
+              border:1.5px solid ${val===dv&&dv ? 'var(--accent)' : val===''&&dv==='' ? '#64B5F6' : 'var(--border)'};
+              background:${val===dv&&dv ? 'rgba(232,168,56,0.12)' : val===''&&dv==='' ? 'rgba(100,181,246,0.1)' : 'transparent'};
+              color:${val===dv&&dv ? 'var(--accent)' : val===''&&dv==='' ? '#64B5F6' : 'var(--text3)'};
+              font:700 11px/1 var(--font-ui);cursor:pointer;">
+            ${lbl}${dv ? '<br><span style="font:500 9px/1 var(--font-ui);opacity:0.7;">'+dv.slice(5)+'</span>' : ''}
+          </button>`).join('')}
+        <input type="date" value="${val}" onchange="_enrichSetField('${fieldKey}',this.value)"
+          style="padding:7px 8px;border-radius:10px;border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text3);font:700 10px/1 var(--font-ui);width:100px;flex-shrink:0;">
+      </div>
+    </div>`;
+  };
+
+  const sizeSection = () => `
+    <div>
+      ${fieldLabel('Size / Effort','estimate')}
+      <div style="display:flex;gap:6px;">
+        ${SIZES.map(s => `
+          <button onclick="_enrichSetField('estimate','${s}')"
+            style="flex:1;padding:9px 4px;border-radius:10px;
+              border:2px solid ${item.estimate===s ? 'var(--accent)' : 'var(--border)'};
+              background:${item.estimate===s ? 'rgba(232,168,56,0.12)' : 'transparent'};
+              color:${item.estimate===s ? 'var(--accent)' : 'var(--text4)'};
+              font:${item.estimate===s?800:600} 11px/1 var(--font-ui);cursor:pointer;">
+            ${s}
+          </button>`).join('')}
+        <button onclick="_enrichSetField('estimate','')"
+          style="flex:1;padding:9px 4px;border-radius:10px;
+            border:2px solid ${!item.estimate ? '#64B5F6' : 'var(--border)'};
+            background:${!item.estimate ? 'rgba(100,181,246,0.1)' : 'transparent'};
+            color:${!item.estimate ? '#64B5F6' : 'var(--text4)'};
+            font:${!item.estimate?800:600} 10px/1 var(--font-ui);cursor:pointer;">
+          Skip
+        </button>
+      </div>
+    </div>`;
+
+  const energySection = () => `
+    <div>
+      ${fieldLabel('Energy needed','energy')}
+      <div style="display:flex;gap:6px;">
+        ${ENERGIES.map(([ev,el]) => `
+          <button onclick="_enrichSetField('energy','${ev}')"
+            style="flex:1;padding:9px 4px;border-radius:10px;
+              border:2px solid ${item.energy===ev ? 'var(--accent)' : 'var(--border)'};
+              background:${item.energy===ev ? 'rgba(232,168,56,0.12)' : 'transparent'};
+              color:${item.energy===ev ? 'var(--accent)' : 'var(--text4)'};
+              font:${item.energy===ev?800:600} 11px/1 var(--font-ui);cursor:pointer;">
+            ${el}
+          </button>`).join('')}
+        <button onclick="_enrichSetField('energy','')"
+          style="flex:1;padding:9px 4px;border-radius:10px;
+            border:2px solid ${!item.energy ? '#64B5F6' : 'var(--border)'};
+            background:${!item.energy ? 'rgba(100,181,246,0.1)' : 'transparent'};
+            color:${!item.energy ? '#64B5F6' : 'var(--text4)'};
+            font:${!item.energy?800:600} 10px/1 var(--font-ui);cursor:pointer;">
+          Skip
+        </button>
+      </div>
+    </div>`;
+
+  const personSection = (label) => {
+    const topPeople = _allPeople
+      .filter(p => p.relationshipType === 'direct_report' || p.isDirectReport)
+      .slice(0,6);
+    const otherPeople = _allPeople
+      .filter(p => !topPeople.find(tp=>tp.id===p.id))
+      .slice(0,10);
+    const renderPersonBtn = (p) => {
+      const sel = _currentPersonIds.includes(p.id);
+      return `<button onclick="_enrichTogglePerson('${p.id}')"
+        style="padding:6px 10px;border-radius:10px;flex-shrink:0;
+          border:1.5px solid ${sel ? ct.color : 'var(--border)'};
+          background:${sel ? ct.color+'18' : 'transparent'};
+          color:${sel ? ct.color : 'var(--text3)'};
+          font:${sel?700:500} 11px/1 var(--font-ui);cursor:pointer;">
+        ${esc(p.name||p.fullName||'')}
+      </button>`;
+    };
+    return `<div>
+      ${fieldLabel(label,'person')}
+      ${_currentPersonNames ? `<div style="font:600 11px/1 var(--font-ui);color:${ct.color};margin-bottom:8px;">
+        Currently: ${esc(_currentPersonNames)}
+      </div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+        ${topPeople.map(renderPersonBtn).join('')}
+      </div>
+      ${otherPeople.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${otherPeople.map(renderPersonBtn).join('')}
+      </div>` : ''}
+    </div>`;
+  };
+
+  const checkInSection = () => {
+    const opts = [[null,'None'],[3,'3d'],[7,'1 wk'],[14,'2 wks'],[30,'Monthly']];
+    return `<div>
+      ${fieldLabel('Check-in cadence','checkInDays')}
+      <div style="display:flex;gap:6px;">
+        ${opts.map(([v,l]) => `
+          <button onclick="_enrichSetField('checkInDays',${v===null?'null':v})"
+            style="flex:1;padding:9px 4px;border-radius:10px;
+              border:2px solid ${String(item.checkInDays)===String(v) ? ct.color : 'var(--border)'};
+              background:${String(item.checkInDays)===String(v) ? ct.color+'18' : 'transparent'};
+              color:${String(item.checkInDays)===String(v) ? ct.color : 'var(--text4)'};
+              font:${String(item.checkInDays)===String(v)?800:600} 11px/1 var(--font-ui);cursor:pointer;">
+            ${l}
+          </button>`).join('')}
+      </div>
+    </div>`;
+  };
+
+  const projectSection = () => `
+    <div>
+      ${fieldLabel('Project','projectId')}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${_activeProjects.slice(0,8).map(p => `
+          <button onclick="_enrichSetField('projectId','${p.id}')"
+            style="padding:6px 10px;border-radius:10px;flex-shrink:0;
+              border:1.5px solid ${item.projectId===p.id ? (p.color||'var(--accent)') : 'var(--border)'};
+              background:${item.projectId===p.id ? (p.color||'var(--accent)')+'18' : 'transparent'};
+              color:${item.projectId===p.id ? (p.color||'var(--accent)') : 'var(--text3)'};
+              font:${item.projectId===p.id?700:500} 11px/1 var(--font-ui);cursor:pointer;">
+            ${esc(p.name)}
+          </button>`).join('')}
+        <button onclick="_enrichSetField('projectId','')"
+          style="padding:6px 10px;border-radius:10px;flex-shrink:0;
+            border:1.5px solid ${!item.projectId ? '#64B5F6' : 'var(--border)'};
+            background:${!item.projectId ? 'rgba(100,181,246,0.1)' : 'transparent'};
+            color:${!item.projectId ? '#64B5F6' : 'var(--text4)'};
+            font:${!item.projectId?700:500} 11px/1 var(--font-ui);cursor:pointer;">
+          None
+        </button>
+      </div>
+    </div>`;
+
+  // ── Build type-specific section order ────────────────────────
+  // Only show sections for fields that are actually missing
+  const sections = [];
+  if(has('priority'))     sections.push(prioritySection());
+  if(has('person'))       sections.push(personSection(
+    item.type==='delegation' ? 'Delegated to' :
+    item.type==='waiting'    ? 'Waiting on' :
+    item.type==='comms'      ? 'Send to' :
+    item.type==='follow_up'  ? 'Follow up with' : 'Person'
+  ));
+  if(has('dueDate'))      sections.push(dateSection('dueDate', 'Due date'));
+  if(has('checkInDays'))  sections.push(checkInSection());
+  if(has('followUpDate')) sections.push(dateSection('followUpDate', 'Follow-up date'));
+  if(has('estimate'))     sections.push(sizeSection());
+  if(has('energy'))       sections.push(energySection());
+  if(has('projectId'))    sections.push(projectSection());
+
+  wrap.innerHTML = `
+    <!-- Progress bar -->
+    <div style="height:3px;background:var(--border);">
+      <div style="height:3px;background:var(--accent);width:${pct}%;transition:width 0.3s;"></div>
+    </div>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;">
+      <div style="font:700 11px/1 var(--font-ui);color:var(--text4);">${_enrichIndex+1} of ${total} · ${remaining} remaining</div>
+      <button onclick="document.getElementById('modal-enrich')?.remove();renderAll();"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);
+          background:transparent;color:var(--text3);font-size:16px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <!-- Type + title -->
+    <div style="padding:0 16px 14px;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <span style="font:800 11px/1 var(--font-ui);padding:3px 8px;border-radius:8px;
+          background:${ct.color}18;border:1px solid ${ct.color}44;color:${ct.color};">
+          ${ct.emoji} ${ct.label}
+        </span>
+        ${missingBadges}
+        ${item.projectName ? `<span style="font:600 10px/1 var(--font-ui);color:var(--text4);">◈ ${esc(item.projectName)}</span>` : ''}
+      </div>
+      <div style="font:700 16px/1.35 var(--font-ui);color:var(--text);margin-bottom:4px;">${esc(item.title)}</div>
+      ${item.notes ? `<div style="font:400 12px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;">${esc(item.notes.slice(0,100))}${item.notes.length>100?'…':''}</div>` : ''}
+    </div>
+    <!-- Type-specific fields -->
+    <div style="padding:0 16px;display:flex;flex-direction:column;gap:14px;">
+      ${sections.join('')}
+    </div>
+    <!-- Action row -->
+    <div style="display:flex;gap:8px;padding:16px;margin-top:4px;">
+      <button onclick="_enrichSkip()"
+        style="flex:1;padding:13px;border-radius:12px;
+          border:1.5px solid var(--border);background:transparent;
+          color:var(--text3);font:700 13px/1 var(--font-ui);cursor:pointer;">
+        Skip →
+      </button>
+      <button onclick="_enrichSave()"
+        style="flex:2;padding:13px;border-radius:12px;border:none;
+          background:var(--accent);color:var(--bg);
+          font:800 13px/1 var(--font-ui);cursor:pointer;">
+        Save & Next ✓
+      </button>
+    </div>`;
+
+// ── Inline setters (update the in-memory item, re-render card) ──
+function _enrichSetField(key, val){
+  _enrichQueue[_enrichIndex][key] = val === 'null' ? null : val;
+  _renderEnrichCard();
+}
+// Toggle a person in/out of personIds for delegation/waiting/comms/follow_up
+function _enrichTogglePerson(personId){
+  const item = _enrichQueue[_enrichIndex];
+  const cur = new Set((item.personIds||item.assignedTo||'').split(',').filter(Boolean));
+  // For delegation/comms — single person only
+  const singlePerson = ['delegation','comms'].includes(item.type);
+  if(singlePerson){
+    if(cur.has(personId)){ cur.clear(); }
+    else { cur.clear(); cur.add(personId); }
+  } else {
+    if(cur.has(personId)) cur.delete(personId);
+    else cur.add(personId);
+  }
+  const ids = [...cur].join(',');
+  item.personIds  = ids;
+  item.assignedTo = [...cur][0] || '';
+  _renderEnrichCard();
+}
+// Keep old names for backward compat (called by any lingering onclick)
+function _enrichSetPriority(p){ _enrichSetField('priority', p); }
+function _enrichSetDate(d){ _enrichSetField('dueDate', d); }
+function _enrichSetSize(s){ _enrichSetField('estimate', s); }
+
+function _enrichSave(){
+  const item = _enrichQueue[_enrichIndex];
+  if(!item) return;
+
+  if(item.source === 'commitment'){
+    updateCommitment(item.id, {
+      priority:     item.priority,
+      dueDate:      item.dueDate,
+      followUpDate: item.followUpDate || '',
+      estimate:     item.estimate,
+      energy:       item.energy       || '',
+      assignedTo:   item.assignedTo   || '',
+      personIds:    item.personIds    || '',
+      checkInDays:  item.checkInDays  || null,
+      projectId:    item.projectId    || '',
+      lastActedAt:  today(),
+    });
+  } else if(item.source === 'task'){
+    const t = tasks.find(x => x.id === item.id);
+    if(t){
+      t.priority  = item.priority;
+      t.dueDate   = item.dueDate;
+      t.estimate  = item.estimate;
+      t.energy    = item.energy    || t.energy    || '';
+      t.personIds = item.personIds || t.personIds || '';
+      t.projectId = item.projectId || t.projectId || '';
+      saveAllDebounced();
+    }
+  }
+
+  _enrichStats.enriched++;
+  _enrichIndex++;
+  _renderEnrichCard();
+}
+
+function _enrichSkip(){
+  _enrichStats.skipped++;
+  _enrichIndex++;
+  _renderEnrichCard();
+}
+
 let _uTriageQueue  = [];   // [{type, id, ...display data}]
 let _uTriageIndex  = 0;
 let _uTriageStats  = {today:0, kept:0, dropped:0, snoozed:0};
@@ -27490,6 +28016,36 @@ async function deleteMeetingBlock(){
   }
 }
 // ── Today picker — fluid task selector for Today screen ─────────
+// ── Today pin limit ──────────────────────────────────────────────────────────
+const TODAY_MAX = 5;
+
+// Count pinned items that are NOT yet done
+function activePinCount(){
+  const todayStr = today();
+  let count = 0;
+  for(const id of todayPinned){
+    const t = tasks.find(x=>x.id===id);
+    if(t && t.status !== 'done') { count++; continue; }
+    const c = commitments.find(x=>x.id===id);
+    if(c && c.status !== 'done' && c.status !== 'resolved') count++;
+  }
+  return count;
+}
+
+// Friendly message shown when limit is hit
+function _pinLimitMsg(){
+  const done = [...todayPinned].filter(id=>{
+    const t = tasks.find(x=>x.id===id);
+    if(t) return t.status==='done';
+    const c = commitments.find(x=>x.id===id);
+    return c && (c.status==='done'||c.status==='resolved');
+  }).length;
+  if(done > 0)
+    showToast(`✅ Finish your ${TODAY_MAX} for today first — ${done} already done!`);
+  else
+    showToast(`🎯 ${TODAY_MAX}-item limit — finish one before adding more`);
+}
+
 function openTodayPicker(){
   const todayStr = today();
   // Sort: overdue first, then today-due, then high priority, then rest
@@ -27502,6 +28058,8 @@ function openTodayPicker(){
       const pOrd = {high:0,medium:1,low:2};
       return (pOrd[a.priority]??1) - (pOrd[b.priority]??1);
     });
+  const atLimit = activePinCount() >= TODAY_MAX;
+
   const listHtml = available.map(t => {
     const proj = projects.find(p => p.id === t.projectId);
     const pinned = todayPinned.has(t.id);
@@ -27509,9 +28067,10 @@ function openTodayPicker(){
     const isToday   = t.dueDate && t.dueDate === todayStr;
     const duePill   = isOverdue ? `<span style="font-size:10px;color:#ff6060;font-family:var(--font-ui);">⚠ overdue</span>`
                     : isToday   ? `<span style="font-size:10px;color:var(--accent);font-family:var(--font-ui);">today</span>` : '';
-    return `<div onclick="toggleTodayPin('${t.id}');renderTodayPickerList();"
-      style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--border);cursor:pointer;background:${pinned?'rgba(232,168,56,0.08)':'transparent'};">
-      <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${pinned?'var(--accent)':'var(--border2)'};background:${pinned?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    const canPin = pinned || !atLimit;
+    return `<div onclick="${canPin||pinned ? `toggleTodayPin('${t.id}');renderTodayPickerList();` : `_pinLimitMsg();`}"
+      style="display:flex;align-items:center;gap:var(--sp2);padding:var(--sp3) var(--sp4);border-bottom:1px solid var(--border);cursor:${canPin||pinned?'pointer':'default'};background:${pinned?'rgba(232,168,56,0.08)':'transparent'};${!canPin&&!pinned?'opacity:0.45;':''}">
+      <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${pinned?'var(--accent)':canPin?'var(--border2)':'var(--border)'};background:${pinned?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
         ${pinned?`<span style="font-size:11px;color:#1a1f2e;">✓</span>`:''}
       </div>
       <div style="flex:1;min-width:0;">
@@ -27524,6 +28083,14 @@ function openTodayPicker(){
     </div>`;
   }).join('');
   const modal = document.getElementById('modal-today-picker');
+  // Banner shown inside picker when at limit
+  const limitBanner = atLimit ? `
+    <div style="padding:10px 16px;background:rgba(232,168,56,0.1);border-bottom:1px solid rgba(232,168,56,0.2);
+      font:600 12px/1.4 var(--font-ui);color:var(--accent);display:flex;align-items:center;gap:8px;">
+      🎯 You've hit your ${TODAY_MAX}-item daily limit.
+      Complete something first to add more.
+    </div>` : '';
+
   if(!modal){
     // Create modal on first use
     const m = document.createElement('div');
@@ -27535,7 +28102,7 @@ function openTodayPicker(){
         <button class="modal-close" onclick="closeModal('modal-today-picker')">✕</button>
       </div>
       <div style="padding:8px 14px 4px;font:var(--type-caption);color:var(--text3);">Tap to add or remove. Overdue and high-priority float to the top.</div>
-      <div id="today-picker-list" style="overflow-y:auto;flex:1;">${listHtml}</div>
+      <div id="today-picker-list" style="overflow-y:auto;flex:1;">${(atLimit?limitBanner:'')+listHtml}</div>
       <div style="padding:var(--sp3) var(--sp4);">
         <button onclick="closeModal('modal-today-picker');renderAll();" style="width:100%;padding:11px;border-radius:var(--r2);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:13px;font-weight:800;cursor:pointer;">Done →</button>
       </div>
@@ -27582,8 +28149,15 @@ function renderTodayPickerList(){
   }).join('') || `<div style="padding:20px;text-align:center;color:var(--text3);font-family:var(--font-ui);font-size:12px;">No active tasks available.</div>`;
 }
 function toggleTodayPin(taskId){
-  if(todayPinned.has(taskId)) todayPinned.delete(taskId);
-  else todayPinned.add(taskId);
+  if(todayPinned.has(taskId)){
+    todayPinned.delete(taskId);
+  } else {
+    if(activePinCount() >= TODAY_MAX){
+      _pinLimitMsg();
+      return; // block adding
+    }
+    todayPinned.add(taskId);
+  }
   savePinned();
   // Partial re-render: only re-render the Today view
   const main = document.getElementById('main');
@@ -32835,6 +33409,10 @@ function _wnpStartFocus(id) {
 
 // ── Pin an item for today (works for tasks and commitments) ───
 function pinForToday(id) {
+  if(!todayPinned.has(id) && activePinCount() >= TODAY_MAX){
+    _pinLimitMsg();
+    return;
+  }
   todayPinned.add(id);
   savePinned();
   // If it's a commitment update its lastActedAt
