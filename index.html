@@ -19325,6 +19325,7 @@ function _renderEnrichCard(){
       </button>
     </div>`;
 
+}
 // ── Inline setters (update the in-memory item, re-render card) ──
 function _enrichSetField(key, val){
   _enrichQueue[_enrichIndex][key] = val === 'null' ? null : val;
