@@ -5960,7 +5960,14 @@ function renderFamilyPage(container){
   const open = familyTasks.filter(t=>!t.done);
   const done = familyTasks.filter(t=>t.done).slice(0,10);
   const isJason2 = currentUser === 'parent';
-  const myFamilyTasks = isJason2 ? jasonHomeTasks : wifeHomeTasks;
+  // Dedup jasonHomeTasks/wifeHomeTasks by id — orphan injection can create duplicates
+  const _rawMyTasks = isJason2 ? jasonHomeTasks : wifeHomeTasks;
+  const _myTaskIds = new Set();
+  const myFamilyTasks = _rawMyTasks.filter(t => {
+    if(_myTaskIds.has(t.id)) return false;
+    _myTaskIds.add(t.id);
+    return true;
+  });
   function ftab(idx, label){
     const a = _familyTab === idx;
     return '<button onclick="_familyTab=' + idx + ';renderAll()" style="flex:1;padding:10px 16px;border:none;background:transparent;font:700 12px/1 var(--font-ui);cursor:pointer;color:' + (a?'var(--accent)':'var(--text3)') + ';border-bottom:2px solid ' + (a?'var(--accent)':'transparent') + ';margin-bottom:-2px;">' + label + '</button>';
@@ -5975,19 +5982,26 @@ function renderFamilyPage(container){
     + '</div>';
   // Tab 0 = My Tasks (private home tasks), Tab 1 = Family Tasks
   if(_familyTab === 0){
-    const myOpen = myFamilyTasks.filter(t=>!t.done);
+    // Dedup by title — legacy items may appear twice if also in commitments[]
+    const _mySeenTitles = new Set();
+    const myOpen = myFamilyTasks.filter(t=>{
+      if(t.done) return false;
+      if(_mySeenTitles.has(t.title)) return false;
+      _mySeenTitles.add(t.title);
+      return true;
+    });
     const myDone = myFamilyTasks.filter(t=>t.done).slice(0,5);
     html += '<div style="padding:0 16px 12px;">'      + '<button onclick="openPrivateTaskModal(null)" style="width:100%;padding:12px;border-radius:var(--r3);border:2px dashed var(--border);background:transparent;color:var(--text3);font:600 13px/1 var(--font-ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">+ Add My Task</button>'      + '</div>';
     if(myOpen.length === 0){
       html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">Nothing on your plate!</div></div>';
     } else {
-      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;">';
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
       myOpen.forEach(t=>{ html += homeTaskRow(t, 'private'); });
       html += '</div>';
     }
     if(myDone.length){
       html += '<div style="padding:4px 16px 4px;font:500 11px/1 var(--font-ui);color:var(--text4);">✓ ' + myDone.length + ' recently done</div>';
-      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;opacity:0.5;">';
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);opacity:0.5;">';
       myDone.forEach(t=>{
         html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);">'          + '<div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;">✓</div>'          + '<div style="flex:1;font:500 13px/1 var(--font-ui);color:var(--text);text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(t.title) + '</div>'          + '</div>';
       });
@@ -6048,7 +6062,7 @@ function renderFamilyPage(container){
     if(open.length === 0){
       html += '<div style="text-align:center;padding:32px 20px;"><div style="font-size:36px;margin-bottom:8px;">✅</div><div style="font:600 15px/1.4 var(--font-ui);color:var(--text3);">All family tasks done!</div></div>';
     } else {
-      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;">';
+      html += '<div style="background:var(--surface);border-radius:var(--r3);margin:0 16px 12px;border:1px solid var(--border);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">';
       open.forEach(t=>{
         const _taskAsgns = taskAssignees(t);
         const _asgnLabels = _taskAsgns.map(k=>{ const a=ASSIGNEES.find(x=>x.key===k)||ASSIGNEES[0]; return {label:a.label,color:a.color}; });
