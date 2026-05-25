@@ -5052,7 +5052,7 @@ async function renderHomeTodayView(container){
     if(t.done || !t.dueDate || t.dueDate > todayStr) return false;
     const a = taskAssignees(t);
     if(isJason)  return a.includes('anyone') || a.includes('jason');
-    if(isJenny)  return a.includes('anyone') || a.includes('wife') || a.includes('jenny');
+    if(isJenny)  return a.includes('anyone') || a.includes('wife') || a.includes('jenny'); // 'wife' = legacy key
     return a.includes('anyone');
   });
   // ── Kids chores due today ─────────────────────────────────────
@@ -5966,7 +5966,8 @@ function renderFamilyPage(container){
   const ASSIGNEES = [
     {key:'anyone', label:'Anyone', color:'var(--text3)'},
     {key:'jason',  label:'Jason',  color:'var(--accent)'},
-    {key:'wife',   label:'Jenny',  color:'#E91E8C'},
+    {key:'wife',   label:'Jenny',  color:'#E91E8C'},  // legacy key
+    {key:'jenny',  label:'Jenny',  color:'#E91E8C'},  // current key
     {key:'ridley', label:'Ridley', color:playerColor(0)},
     {key:'connor', label:'Connor', color:playerColor(1)},
   ];
@@ -6139,7 +6140,9 @@ const _FAMILY_ASSIGNEES = ['anyone','jason','wife','ridley','connor'];
 // Normalise assignedTo — always returns an array regardless of stored format
 function taskAssignees(t){
   if(!t.assignedTo) return ['anyone'];
-  return Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+  const arr = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo];
+  // Normalise legacy 'wife' key to 'jenny' for consistency
+  return arr.map(k => k === 'wife' ? 'jenny' : k);
 }
 // Check if a task is assigned to a given key (or to 'anyone')
 function taskAssignedTo(t, key){
@@ -7740,7 +7743,8 @@ function openFamilyTaskModal(editId){
   if(editId){
     const t = familyTasks.find(x=>x.id===editId);
     if(!t) return;
-    const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo||'anyone'];
+    const assignees = (Array.isArray(t.assignedTo) ? t.assignedTo : [t.assignedTo||'anyone'])
+      .map(k => k === 'wife' ? 'jenny' : k);
     // Load linked kids chore data if exists
     const linkedCat = t.kidsChoreId ? (() => { const d = kidsData(); return d.cats.find(c=>c.id===t.kidsChoreId); })() : null;
     _familyTaskModal = {
