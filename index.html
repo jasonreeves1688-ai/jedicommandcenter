@@ -5391,6 +5391,8 @@ function homeTaskRow(t, type){
         data-task-title="1"
         onclick="event.stopPropagation();${type==='private'?`openPrivateTaskModal('${t.id}')`:`openFamilyTaskModal('${t.id}')`}"
         >${esc(t.title)}</div>
+      ${t.notes ? `<div style="font:400 11px/1.4 var(--font-ui);color:var(--text4);margin-top:2px;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(t.notes.slice(0,80))}${t.notes.length>80?'…':''}</div>` : ''}
       <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
         ${assigneeLabel}${dueLabel}
       </div>
@@ -7716,7 +7718,7 @@ const FAMILY_ASSIGNEES = [
 ];
 let _familyTaskModal = {
   open: false, editId: null,
-  title:'', dueDate:'', assignees:['anyone'], isPrivate: false,
+  title:'', notes:'', dueDate:'', assignees:['anyone'], isPrivate: false,
   // Kids chore fields — populated when Ridley/Connor is selected
   isKidsChore: false, kidsFreq:'daily', kidsPts:2, kidsEmoji:'🧹', kidsDays:[]
 };
@@ -7731,6 +7733,7 @@ function openFamilyTaskModal(editId){
     _familyTaskModal = {
       open:true, editId,
       title:    t.title,
+      notes:    t.notes||'',
       dueDate:  t.dueDate||'',
       assignees,
       isPrivate: false,
@@ -7741,7 +7744,7 @@ function openFamilyTaskModal(editId){
       kidsDays:  linkedCat?.days  || [],
     };
   } else {
-    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:['anyone'], isPrivate:false,
+    _familyTaskModal = {open:true, editId:null, title:'', notes:'', dueDate:'', assignees:['anyone'], isPrivate:false,
       isKidsChore:false, kidsFreq:'daily', kidsPts:2, kidsEmoji:'🧹', kidsDays:[]};
   }
   renderFamilyTaskModal();
@@ -7752,9 +7755,9 @@ function openPrivateTaskModal(editId){
     const arr = isJason ? jasonHomeTasks : wifeHomeTasks;
     const t = arr.find(x=>x.id===editId);
     if(!t) return;
-    _familyTaskModal = {open:true, editId, title:t.title, dueDate:t.dueDate||'', assignees:[], isPrivate:true};
+    _familyTaskModal = {open:true, editId, title:t.title, notes:t.notes||'', dueDate:t.dueDate||'', assignees:[], isPrivate:true};
   } else {
-    _familyTaskModal = {open:true, editId:null, title:'', dueDate:'', assignees:[], isPrivate:true};
+    _familyTaskModal = {open:true, editId:null, title:'', notes:'', dueDate:'', assignees:[], isPrivate:true};
   }
   renderFamilyTaskModal();
 }
@@ -7881,6 +7884,17 @@ function renderFamilyTaskModal(){
         onkeydown="if(event.key==='Enter')saveFamilyTaskModal()"/>
       <div>
         <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
+          letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Notes / Links (optional)</div>
+        <textarea id="ftm-notes" rows="3"
+          style="width:100%;padding:11px 14px;border-radius:var(--r3);border:1.5px solid var(--border);
+            background:var(--surface2);color:var(--text);font:500 14px/1.5 var(--font-ui);
+            outline:none;resize:vertical;box-sizing:border-box;"
+          placeholder="Add details, links, phone numbers, context…"
+          oninput="_familyTaskModal.notes=this.value"
+          >${esc(m.notes||'')}</textarea>
+      </div>
+      <div>
+        <div style="font:700 11px/1 var(--font-ui);color:var(--text3);
           letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">Due date (optional)</div>
         <input type="date" id="ftm-date" value="${m.dueDate}"
           style="width:100%;padding:11px 14px;border-radius:var(--r3);
@@ -7970,6 +7984,7 @@ function saveFamilyTaskModal(){
   const m = _familyTaskModal;
   const title = document.getElementById('ftm-title')?.value.trim() || m.title.trim();
   if(!title) return;
+  const notes   = document.getElementById('ftm-notes')?.value || m.notes || '';
   const dueDate = document.getElementById('ftm-date')?.value || m.dueDate;
   const isJason = currentUser === 'parent';
   if(m.isPrivate){
@@ -7977,10 +7992,10 @@ function saveFamilyTaskModal(){
     const save = isJason ? saveJasonHomeTasks : saveWifeHomeTasks;
     if(m.editId){
       const t = arr.find(x=>x.id===m.editId);
-      if(t){ t.title=title; t.dueDate=dueDate; }
+      if(t){ t.title=title; t.notes=notes; t.dueDate=dueDate; }
     } else {
       const newId = 'ht'+Date.now();
-      arr.unshift({id:newId, title, done:false, dueDate,
+      arr.unshift({id:newId, title, notes, done:false, dueDate,
         createdAt:today(), createdBy: isJason?'jason':'jenny'});
       // Auto-pin to today if due today — makes it show on Work Today view
       if(dueDate === today()){
@@ -8060,7 +8075,7 @@ function saveFamilyTaskModal(){
       if(t){
         const prevAssign = taskAssignees(t).map(k=>_LABEL[k]||k).join(', ');
         const newAssign  = assignedTo.map(k=>_LABEL[k]||k).join(', ');
-        t.title=title; t.dueDate=dueDate; t.assignedTo=assignedTo;
+        t.title=title; t.notes=notes; t.dueDate=dueDate; t.assignedTo=assignedTo;
         if(kidsChoreId) t.kidsChoreId = kidsChoreId;
         else delete t.kidsChoreId;
         const author = _commentAuthor();
@@ -8071,7 +8086,7 @@ function saveFamilyTaskModal(){
       }
     } else {
       const newId = 'ft'+Date.now();
-      const newTask = {id:newId, title, done:false,
+      const newTask = {id:newId, title, notes, done:false,
         assignedTo, dueDate, createdAt:today(),
         createdBy: isJason?'jason':'jenny', comments:[]};
       if(kidsChoreId) newTask.kidsChoreId = kidsChoreId;
