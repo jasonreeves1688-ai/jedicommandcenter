@@ -3501,42 +3501,20 @@ async function loadAll(){
     if(cloudCalm && !localStorage.getItem('hub-calm')) localStorage.setItem('hub-calm', cloudCalm);
     // ── Commitments (boot load — merge with localStorage) ────────────────────
     if(bootCommitRows?.length){
-      const _cloudCIds    = new Set(bootCommitRows.map(r=>r.id));
-      // Also build normalised-ID set (strips cm-co-, cm-del-, cm-wf- prefixes)
-      const _cloudNormIds = new Set(bootCommitRows.map(r=>r.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'')));
-      // Also build title+type set to catch semantic duplicates
-      const _cloudTitleTypes = new Set(bootCommitRows.map(r=>(r.type||'action')+'|'+(r.title||'').trim().toLowerCase()));
-      const _localOnlyC = commitments.filter(c => {
-        if(_cloudCIds.has(c.id)) return false;
-        const norm = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
-        if(_cloudNormIds.has(norm)) return false;
-        if(_cloudNormIds.has(c.id)) return false;
-        // Skip local item if cloud has same title+type (semantic duplicate)
-        const tk = (c.type||'action')+'|'+(c.title||'').trim().toLowerCase();
-        if(_cloudTitleTypes.has(tk)) return false;
-        return true;
-      });
+      // Cloud is source of truth — replace local entirely with cloud data
+      // Only preserve items created THIS SESSION (not yet saved to cloud)
+      // identified by having a c- prefix ID (created locally this session)
+      const _cloudIds = new Set(bootCommitRows.map(r=>r.id));
+      const _sessionItems = commitments.filter(c =>
+        c.id.startsWith('c-') && !_cloudIds.has(c.id)
+      );
       commitments = [
-        ...bootCommitRows.map(r=>({
-          id:r.id, type:r.type||'action', title:r.title||'', notes:r.notes||'',
-          status:r.status||'todo', priority:r.priority||'medium',
-          visibility:r.visibility||'work', createdBy:r.created_by||'jason',
-          ownedBy:r.owned_by||'me', assignedTo:r.assigned_to||'',
-          personIds:r.person_ids||'', orgId:r.org_id||'',
-          interactionId:r.interaction_id||'', projectId:r.project_id||'',
-          dueDate:r.due_date||'', followUpDate:r.follow_up_date||'',
-          checkInDays:r.check_in_days||null, recur:r.recur||'none',
-          estimate:r.estimate||'', energy:r.energy||'', audience:r.audience||'',
-          source:r.source||'', lastActedAt:r.last_acted_at||r.created_at||'',
-          createdAt:r.created_at||'', completedAt:r.completed_at||'',
-          subtasks:(()=>{ try{ return JSON.parse(r.subtasks||'[]'); }catch(e){ return []; } })(),
-          linkedCallDates:(()=>{ try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
-          comments:[]
-        })),
-        ..._localOnlyC
+        ...bootCommitRows.map(_mapCommitRow),
+        ..._sessionItems
       ];
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
-      console.log('[Boot] Commitments loaded:', commitments.length);
+      console.log('[Boot] Commitments loaded from cloud:', bootCommitRows.length,
+        _sessionItems.length ? `+ ${_sessionItems.length} session items` : '');
     }
     // ── Unified People (boot load) ─────────────────────────────────────────
     if(bootUpRows?.length){
@@ -3552,9 +3530,6 @@ async function loadAll(){
       }));
       localStorage.setItem('hub-unified-people', JSON.stringify(unifiedPeople));
     }
-    // Run comprehensive dedup AFTER all data is merged (cloud + local)
-    _dedupeCommitments();
-    localStorage.setItem('hub-commitments', JSON.stringify(commitments));
     setSyncStatus('ok','Loaded ✓');
     kidsCloudLoaded = true;
   } catch(e){
@@ -3972,46 +3947,17 @@ async function _loadClientData(){
       localStorage.setItem('hub-client-issues', JSON.stringify(clientIssues));
     }
     if(commitRows?.length){
-      // Merge cloud commitments — cloud wins for any ID that exists there
-      const cloudIds = new Set(commitRows.map(r=>r.id));
-      const localOnly = commitments.filter(c=>!cloudIds.has(c.id));
+      // Cloud is source of truth — replace local entirely
+      // Preserve session items (c- prefix, not yet in cloud)
+      const _cIds = new Set(commitRows.map(r=>r.id));
+      const _sessionC = commitments.filter(c => c.id.startsWith('c-') && !_cIds.has(c.id));
       commitments = [
-        ...commitRows.map(r=>({
-          id:            r.id,
-          type:          r.type          || 'action',
-          title:         r.title         || '',
-          notes:         r.notes         || '',
-          status:        r.status        || 'todo',
-          priority:      r.priority      || 'medium',
-          visibility:    r.visibility    || 'work',
-          createdBy:     r.created_by    || 'jason',
-          ownedBy:       r.owned_by      || 'me',
-          assignedTo:    r.assigned_to   || '',
-          personIds:     r.person_ids    || '',
-          orgId:         r.org_id        || '',
-          interactionId: r.interaction_id|| '',
-          projectId:     r.project_id    || '',
-          initiativeId:  r.initiative_id || '',
-          dueDate:       r.due_date      || '',
-          followUpDate:  r.follow_up_date|| '',
-          checkInDays:   r.check_in_days || null,
-          recur:         r.recur         || 'none',
-          estimate:      r.estimate      || '',
-          energy:        r.energy        || '',
-          audience:      r.audience      || '',
-          source:        r.source        || '',
-          subtasks:      (() => { try{ return JSON.parse(r.subtasks||'[]'); }catch(e){ return []; } })(),
-          linkedCallDates: (() => { try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
-          lastActedAt:   r.last_acted_at || r.created_at || '',
-          createdAt:     r.created_at    || '',
-          completedAt:   r.completed_at  || '',
-        })),
-        ...localOnly
+        ...commitRows.map(_mapCommitRow),
+        ..._sessionC
       ];
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
       _commitMigrated = true;
       localStorage.setItem('hub-commit-migrated-v1','1');
-      _dedupeCommitments();
     }
   }catch(e){ console.warn('[Client] Load failed:',e); }
 }
@@ -16491,45 +16437,23 @@ let _commitMigrated = localStorage.getItem('hub-commit-migrated-v1') === '1';
 // ── Deduplication — remove duplicate commitments by ID ────────
 // Runs once after migration or cloud load to ensure no duplicates exist.
 function _dedupeCommitments(){
-  const seenIds    = new Set();
-  const seenNorm   = new Set();
-  const seenTK     = new Set(); // title+type semantic dedup
-  const before     = commitments.length;
-
-  // Sort: prefer items WITH a real (non-cm-prefixed) ID, then by newest createdAt
-  // This ensures we keep the "real" commitment over the orphan-injected mirror
-  const sorted = [...commitments].sort((a,b) => {
-    const aIsCm = /^cm-(co|del|wf|ci|ft|jh|wh)-/.test(a.id) ? 1 : 0;
-    const bIsCm = /^cm-(co|del|wf|ci|ft|jh|wh)-/.test(b.id) ? 1 : 0;
-    if(aIsCm !== bIsCm) return aIsCm - bIsCm; // real IDs first
-    return 0;
-  });
-
-  const kept = sorted.filter(c => {
-    const normId = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
-    const tk     = (c.type||'action') + '|' + (c.title||'').trim().toLowerCase();
-
-    if(seenIds.has(c.id))   return false;
-    if(seenNorm.has(normId)) return false;
-    if(seenIds.has(normId)) return false;
-    if(seenTK.has(tk))      return false;
-
-    seenIds.add(c.id);
-    seenNorm.add(normId);
-    seenTK.add(tk);
+  // Simple ID-only dedup. Cloud-wins strategy means semantic duplication
+  // is prevented at the merge stage, not here. Title+type dedup here
+  // was causing legitimate same-title items to be dropped.
+  const seen   = new Set();
+  const before = commitments.length;
+  commitments  = commitments.filter(c => {
+    if(seen.has(c.id)) return false;
+    // Catch cm-prefix variants: cm-co-abc and abc are the same commitment
+    const norm = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
+    if(norm !== c.id && seen.has(norm)) return false;
+    seen.add(c.id);
+    if(norm !== c.id) seen.add(norm);
     return true;
   });
-
-  // Restore original order (newest first by createdAt)
-  commitments = kept.sort((a,b) => {
-    const at = typeof a.createdAt==='number' ? a.createdAt : new Date(a.createdAt||0).getTime();
-    const bt = typeof b.createdAt==='number' ? b.createdAt : new Date(b.createdAt||0).getTime();
-    return bt - at;
-  });
-
   const removed = before - commitments.length;
   if(removed > 0){
-    console.log(`[Commitments] Deduped ${removed} duplicate entries (${before} → ${commitments.length})`);
+    console.log(`[Commitments] Deduped ${removed} entries`);
     saveCommitments();
   }
 }
@@ -16774,7 +16698,42 @@ function createCommitment(fields){
     createdAt:    fields.createdAt    || String(Date.now()),
     completedAt:  fields.completedAt  || '',
   };
-  // Guard: if an entry with this ID already exists, merge instead of inserting a duplicate
+  // ── Shared row mapper — Supabase row → JS commitment object ─────────────────
+function _mapCommitRow(r){
+  return {
+    id:            r.id,
+    type:          r.type           || 'action',
+    title:         r.title          || '',
+    notes:         r.notes          || '',
+    status:        r.status         || 'todo',
+    priority:      r.priority       || 'medium',
+    visibility:    r.visibility     || 'work',
+    createdBy:     r.created_by     || 'jason',
+    ownedBy:       r.owned_by       || 'me',
+    assignedTo:    r.assigned_to    || '',
+    personIds:     r.person_ids     || '',
+    orgId:         r.org_id         || '',
+    interactionId: r.interaction_id || '',
+    projectId:     r.project_id     || '',
+    dueDate:       r.due_date       || '',
+    followUpDate:  r.follow_up_date || '',
+    checkInDays:   r.check_in_days  || null,
+    recur:         r.recur          || 'none',
+    estimate:      r.estimate       || '',
+    energy:        r.energy         || '',
+    audience:      r.audience       || '',
+    source:        r.source         || '',
+    lastActedAt:   r.last_acted_at  || r.created_at || '',
+    createdAt:     r.created_at     || '',
+    completedAt:   r.completed_at   || '',
+    lastEnrichedAt:r.last_enriched_at|| '',
+    subtasks:      (()=>{ try{ return JSON.parse(r.subtasks||'[]'); }catch(e){ return []; } })(),
+    linkedCallDates:(()=>{ try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
+    comments:      []
+  };
+}
+
+// Guard: if an entry with this ID already exists, merge instead of inserting a duplicate
   const _existIdx = commitments.findIndex(x => x.id === c.id);
   if(_existIdx >= 0){
     commitments[_existIdx] = { ...commitments[_existIdx], ...c };
