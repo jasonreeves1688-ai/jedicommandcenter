@@ -790,6 +790,7 @@ body.calm-mode .sync-dot{ display:none; }
 #main::-webkit-scrollbar{ width:3px; }
 #main::-webkit-scrollbar-track{ background:transparent; }
 #main::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:2px; }
+#cv-subtabs::-webkit-scrollbar{ display:none; }
 /* ── Header ─────────────────────────────────────────────────── */
 #header{
   background:var(--surface);
@@ -13149,6 +13150,27 @@ function renderCommitmentsPage(container){
   } else if(_cvSort === 'type'){
     const typeOrd = ['action','delegation','waiting','comms','follow_up','issue','home','family'];
     items.sort((a,b) => typeOrd.indexOf(a.type) - typeOrd.indexOf(b.type));
+  } else if(_cvSort === 'priority'){
+    // Critical → High → Medium → Low → none
+    // Secondary: due date soonest first within same priority
+    const _pOrd = {critical:0, high:1, medium:2, low:3};
+    items.sort((a,b) => {
+      const pa = _pOrd[a.priority] ?? 2;
+      const pb = _pOrd[b.priority] ?? 2;
+      if(pa !== pb) return pa - pb;
+      // Same priority — sort by due date
+      if(!a.dueDate && !b.dueDate) return 0;
+      if(!a.dueDate) return 1;
+      if(!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+  } else if(_cvSort === 'created'){
+    // Newest first — most recently created at the top
+    items.sort((a,b) => {
+      const aT = typeof a.createdAt === 'number' ? a.createdAt : new Date(a.createdAt||0).getTime();
+      const bT = typeof b.createdAt === 'number' ? b.createdAt : new Date(b.createdAt||0).getTime();
+      return bT - aT; // descending — newest first
+    });
   }
   // ── Count by type ──────────────────────────────────────────
   const allVisible  = getCommitments({ active: true });
@@ -13288,7 +13310,8 @@ function renderCommitmentsPage(container){
     </div>
     <!-- Enrich banner — shown when commitments are missing priority/date/size -->
     ${(()=>{
-      const ep = commitments.filter(c=>c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)).length;
+      const _todayB = today();
+      const ep = commitments.filter(c=>c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)&&!(c.lastEnrichedAt&&c.lastEnrichedAt>=_todayB)).length;
       return ep > 0 ? `<div style="padding:6px 14px 4px;flex-shrink:0;">
         <button onclick="openEnrichTriage()"
           style="width:100%;padding:9px 14px;border-radius:10px;display:flex;align-items:center;
@@ -13302,7 +13325,7 @@ function renderCommitmentsPage(container){
       </div>` : '';
     })()}
     <!-- Primary sub-tabs — always-visible types + conditional tabs for comms/follow_up/issue -->
-    <div id="cv-subtabs" style="display:flex;border-bottom:2px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+    <div id="cv-subtabs" style="display:flex;border-bottom:2px solid var(--border);background:var(--surface);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 4px;">
       ${[
         {key:'all',        label:'All',        emoji:'⊞',  always:true},
         {key:'action',     label:'Tasks',      emoji:'☑',  always:true},
@@ -13318,11 +13341,11 @@ function renderCommitmentsPage(container){
         const cnt = t.key==='all' ? totalActive : (typeCounts[t.key]||0);
         const badge = cnt > 0 ? ` <span style="font:700 10px/1 var(--font-ui);background:${sel?'rgba(21,101,192,0.15)':'var(--surface3)'};color:${sel?'var(--accent)':'var(--text4)'};padding:1px 5px;border-radius:8px;">${cnt}</span>` : '';
         return `<button data-cvkey="${t.key}" onclick="_cvFilter=this.dataset.cvkey;renderAll();"
-          style="flex:1;min-width:55px;padding:10px 4px 9px;border:none;background:transparent;
+          style="flex:0 0 auto;padding:10px 10px 9px;border:none;background:transparent;
             font:${sel?'700':'500'} 11px/1 var(--font-ui);color:${sel?'var(--accent)':'var(--text3)'};
             border-bottom:${sel?'2px solid var(--accent)':'2px solid transparent'};
             margin-bottom:-2px;cursor:pointer;white-space:nowrap;transition:all var(--t-fast);">
-          ${t.emoji} ${t.label}${badge}
+          ${t.label}${badge}
         </button>`;
       }).join('')}
     </div>
@@ -13346,9 +13369,11 @@ function renderCommitmentsPage(container){
         style="padding:7px 10px;border-radius:var(--r2);border:1.5px solid var(--border);
           background:var(--surface2);color:var(--text3);font:500 12px/1 var(--font-ui);
           outline:none;cursor:pointer;">
-        <option value="smart" ${_cvSort==='smart'?'selected':''}>Smart</option>
-        <option value="due"   ${_cvSort==='due'?'selected':''}>By due date</option>
-        <option value="type"  ${_cvSort==='type'?'selected':''}>By type</option>
+        <option value="smart"    ${_cvSort==='smart'?'selected':''}>Smart</option>
+        <option value="due"      ${_cvSort==='due'?'selected':''}>Due date</option>
+        <option value="priority" ${_cvSort==='priority'?'selected':''}>Priority</option>
+        <option value="created"  ${_cvSort==='created'?'selected':''}>Newest first</option>
+        <option value="type"     ${_cvSort==='type'?'selected':''}>By type</option>
       </select>
     </div>
     <!-- List -->
@@ -13861,9 +13886,10 @@ function renderTaskList(container){
       font:700 9px/1 var(--font-ui);padding:1px 5px;border-radius:8px;">${_triagePool.length}</span>
   </button>` : '';
   // Enrich button — count commitments+tasks missing priority/date/size
+  const _todayEnrich = today();
   const _enrichPool = [
-    ...commitments.filter(c => c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)),
-    ...tasks.filter(t => t.status!=='done'&&t.status!=='cancelled'&&(!t.priority||t.priority==='medium'||!t.dueDate||!t.estimate))
+    ...commitments.filter(c => c.status!=='done'&&c.status!=='resolved'&&c.status!=='cancelled'&&_commitVisible(c)&&(!c.priority||c.priority==='medium'||!c.dueDate||!c.estimate)&&!(c.lastEnrichedAt&&c.lastEnrichedAt>=_todayEnrich)),
+    ...tasks.filter(t => t.status!=='done'&&t.status!=='cancelled'&&(!t.priority||t.priority==='medium'||!t.dueDate||!t.estimate)&&!(t.lastEnrichedAt&&t.lastEnrichedAt>=_todayEnrich))
   ].filter((x,i,arr) => arr.findIndex(y=>y.id===x.id)===i); // dedup
   const _enrichBtn = _enrichPool.length > 0 ? `<button onclick="openEnrichTriage()"
     title="Fill in missing priority, due dates, and size for all commitments"
@@ -19083,9 +19109,15 @@ function openEnrichTriage(){
   };
 
   // ── Commitments (all 8 types) ────────────────────────────────
+  const _todayStr = today();
+  const _recentlyReviewed = (c) => {
+    if(!c.lastEnrichedAt) return false;
+    return c.lastEnrichedAt >= _todayStr; // stamp is 30 days in future, so >= today means still suppressed
+  };
+
   commitments.filter(c =>
     c.status !== 'done' && c.status !== 'resolved' && c.status !== 'cancelled' &&
-    _commitVisible(c)
+    _commitVisible(c) && !_recentlyReviewed(c)
   ).forEach(c => {
     const missing = _missingFor(c);
     if(missing.length === 0) return;
@@ -19112,7 +19144,8 @@ function openEnrichTriage(){
 
   // ── Tasks (action type) ──────────────────────────────────────
   tasks.filter(t =>
-    t.status !== 'done' && t.status !== 'cancelled'
+    t.status !== 'done' && t.status !== 'cancelled' &&
+    !(t.lastEnrichedAt && t.lastEnrichedAt >= _todayStr)
   ).forEach(t => {
     const asCmt = { type:'action', priority:t.priority, dueDate:t.dueDate, estimate:t.estimate,
       energy:t.energy, personIds:t.personIds, projectId:t.projectId };
@@ -19516,6 +19549,18 @@ function _enrichSave(){
 }
 
 function _enrichSkip(){
+  // Stamp lastEnrichedAt so this item is excluded for 30 days
+  const item = _enrichQueue[_enrichIndex];
+  if(item){
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() + 30);
+    if(item.source === 'commitment'){
+      updateCommitment(item.id, { lastEnrichedAt: cutoff.toISOString().slice(0,10) });
+    } else if(item.source === 'task'){
+      const t = tasks.find(x => x.id === item.id);
+      if(t){ t.lastEnrichedAt = cutoff.toISOString().slice(0,10); saveAllDebounced(); }
+    }
+  }
   _enrichStats.skipped++;
   _enrichIndex++;
   _renderEnrichCard();
