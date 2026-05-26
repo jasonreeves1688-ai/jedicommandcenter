@@ -3524,6 +3524,7 @@ async function loadAll(){
       ];
       _dedupeCommitments();
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
+      console.log('[Boot] Commitments loaded:', commitments.length);
     }
     // ── Unified People (boot load) ─────────────────────────────────────────
     if(bootUpRows?.length){
@@ -3539,6 +3540,7 @@ async function loadAll(){
       }));
       localStorage.setItem('hub-unified-people', JSON.stringify(unifiedPeople));
     }
+    _dedupeCommitments(); // final dedup after all boot loading
     setSyncStatus('ok','Loaded ✓');
     kidsCloudLoaded = true;
   } catch(e){
@@ -13073,7 +13075,7 @@ function renderCommitmentsPage(container){
     );
     let added = false;
     (commsOwed||[]).filter(c=>!c.done && !existingIds.has(c.id) && !existingIds.has('cm-co-'+c.id)).forEach(c=>{
-      commitments.unshift({ id:'cm-co-'+c.id, type:'comms', title:c.what||'',
+      createCommitment({ id:'cm-co-'+c.id, type:'comms', title:c.what||'',
         notes:c.context||'', status:'todo', priority:'medium',
         visibility:'work', createdBy:'jason', ownedBy:'me',
         assignedTo:c.recipient||'', personIds:c.personId||'',
@@ -13082,7 +13084,7 @@ function renderCommitmentsPage(container){
       added = true;
     });
     (delegations||[]).filter(d=>d.status!=='done' && !existingIds.has(d.id) && !existingIds.has('cm-del-'+d.id)).forEach(d=>{
-      commitments.unshift({ id:'cm-del-'+d.id, type:'delegation', title:d.what||'',
+      createCommitment({ id:'cm-del-'+d.id, type:'delegation', title:d.what||'',
         notes:d.notes||'', status:'todo', priority:'medium',
         visibility:'work', createdBy:'jason', ownedBy:'me',
         assignedTo:d.personId||'', personIds:d.personId||'',
@@ -13092,7 +13094,7 @@ function renderCommitmentsPage(container){
       added = true;
     });
     (waitingFor||[]).filter(w=>!w.done && !existingIds.has(w.id) && !existingIds.has('cm-wf-'+w.id)).forEach(w=>{
-      commitments.unshift({ id:'cm-wf-'+w.id, type:'waiting', title:w.what||'',
+      createCommitment({ id:'cm-wf-'+w.id, type:'waiting', title:w.what||'',
         notes:w.notes||'', status:'todo', priority:'medium',
         visibility:'work', createdBy:'jason', ownedBy:'me',
         personIds:w.personIds||w.personId||'', orgId:w.orgId||'',
@@ -13218,8 +13220,10 @@ function renderCommitmentsPage(container){
     const ageShow = stale > 7 && !isDone;
     // Person names
     const pNames = (c.personIds||'').split(',').filter(Boolean).map(id => {
-      const p = peopleList.find(x=>x.id===id) || contactsList.find(x=>x.id===id);
-      return p ? p.name.split(' ')[0] : null;
+      const p = unifiedPeople.find(x=>x.id===id) ||
+                peopleList.find(x=>x.id===id) ||
+                contactsList.find(x=>x.id===id);
+      return p ? (p.name||p.fullName||'').split(' ')[0] : null;
     }).filter(Boolean).slice(0,2).join(', ');
     // Org name
     const org = c.orgId ? clientOrgs.find(o=>o.id===c.orgId) : null;
@@ -13249,27 +13253,57 @@ function renderCommitmentsPage(container){
         onmouseout="if(!${isDone}){this.style.borderColor='var(--border)';this.style.background='transparent';}">✓</button>
       <!-- Content -->
       <div style="flex:1;min-width:0;cursor:pointer;" onclick="_cvOpenEdit('${c.id}')">
-        <div style="font:${isDone?'500':'600'} 14px/1.35 var(--font-ui);
-          color:${isDone?'var(--text3)':'var(--text)'};
-          ${isDone?'text-decoration:line-through;':''}
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          ${esc(c.title)}
-        </div>
-        <!-- Meta row -->
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
-          <!-- Type chip -->
-          <span style="font:700 9px/1 var(--font-ui);color:${t.color};
-            background:${t.color}14;padding:2px 6px;border-radius:6px;
-            border:1px solid ${t.color}30;flex-shrink:0;">
-            ${t.emoji} ${t.label}
-          </span>
-          ${pNames ? `<span style="font:500 11px/1 var(--font-ui);color:var(--text4);">👤 ${esc(pNames)}</span>` : ''}
-          ${org ? `<span style="font:500 11px/1 var(--font-ui);color:#81C784;">🏢 ${esc(org.name)}</span>` : ''}
-          ${proj ? `<span style="font:500 11px/1 var(--font-ui);color:var(--accent);">◈ ${esc(proj.name)}</span>` : ''}
-          ${dueBadge}
-          ${ageShow ? `<span style="font:600 10px/1 var(--font-ui);color:${ageCol};">
-            ${stale}d since action</span>` : ''}
-        </div>
+        ${(()=>{
+          // ── Delegation / Waiting For — person leads, then title ────────────
+          const isDelegation = c.type === 'delegation';
+          const isWaiting    = c.type === 'waiting';
+          const personPrefix = isDelegation ? 'Delegated to' : isWaiting ? 'Waiting on' : null;
+
+          // Staleness messaging — type-aware
+          let ageLabel = '';
+          if(ageShow){
+            if(isDelegation && pNames)
+              ageLabel = `Check in with ${pNames} — ${stale}d ago`;
+            else if(isWaiting && pNames)
+              ageLabel = `Waiting on ${pNames} — ${stale}d`;
+            else
+              ageLabel = `${stale}d since action`;
+          }
+          // Overdue messaging — type-aware
+          let overdueLabel = '';
+          if(isOv){
+            if(isDelegation && pNames) overdueLabel = `Check in with ${pNames}`;
+            else if(isWaiting && pNames) overdueLabel = `Follow up with ${pNames}`;
+          }
+
+          return `
+          ${personPrefix && pNames ? `
+          <div style="font:700 11px/1 var(--font-ui);color:${t.color};margin-bottom:3px;
+            display:flex;align-items:center;gap:5px;">
+            <span style="font:500 10px/1 var(--font-ui);opacity:0.8;">${personPrefix}</span>
+            <span>${esc(pNames)}</span>
+            ${isDelegation && c.checkInDays ? `<span style="font:400 10px/1 var(--font-ui);color:var(--text4);">· check in ${c.checkInDays}d</span>` : ''}
+          </div>` : ''}
+          <div style="font:${isDone?'500':'600'} 14px/1.35 var(--font-ui);
+            color:${isDone?'var(--text3)':'var(--text)'};
+            ${isDone?'text-decoration:line-through;':''}
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${esc(c.title)}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">
+            <span style="font:700 9px/1 var(--font-ui);color:${t.color};
+              background:${t.color}14;padding:2px 6px;border-radius:6px;
+              border:1px solid ${t.color}30;flex-shrink:0;">
+              ${t.emoji} ${t.label}
+            </span>
+            ${!personPrefix && pNames ? `<span style="font:500 11px/1 var(--font-ui);color:var(--text4);">👤 ${esc(pNames)}</span>` : ''}
+            ${org  ? `<span style="font:500 11px/1 var(--font-ui);color:#81C784;">🏢 ${esc(org.name)}</span>`  : ''}
+            ${proj ? `<span style="font:500 11px/1 var(--font-ui);color:var(--accent);">◈ ${esc(proj.name)}</span>` : ''}
+            ${dueBadge}
+            ${overdueLabel ? `<span style="font:600 10px/1 var(--font-ui);color:#EF5350;">${esc(overdueLabel)}</span>` : ''}
+            ${ageShow ? `<span style="font:600 10px/1 var(--font-ui);color:${ageCol};">${esc(ageLabel)}</span>` : ''}
+          </div>`;
+        })()}
       </div>
       <!-- Pin to Today -->
       <button onclick="event.stopPropagation();toggleTodayPin('${c.id}')"
@@ -16700,6 +16734,15 @@ function createCommitment(fields){
     createdAt:    fields.createdAt    || String(Date.now()),
     completedAt:  fields.completedAt  || '',
   };
+  // Guard: if an entry with this ID already exists, merge instead of inserting a duplicate
+  const _existIdx = commitments.findIndex(x => x.id === c.id);
+  if(_existIdx >= 0){
+    commitments[_existIdx] = { ...commitments[_existIdx], ...c };
+    saveCommitments();
+    if(c.type === 'action') _syncCommitmentToTask(commitments[_existIdx]);
+    else _syncCommitmentToLegacy(commitments[_existIdx]);
+    return commitments[_existIdx];
+  }
   commitments.unshift(c);
   saveCommitments();
   if(c.type === 'action') _syncCommitmentToTask(c);
@@ -16937,17 +16980,25 @@ function _migrateHomeTasksToCommitments(){
   if(localStorage.getItem(FLAG) === '1') return;
   const existingIds = new Set(commitments.map(c=>c.id));
   let added = 0;
-  jasonHomeTasks.filter(t=>!t.done && !existingIds.has(t.id)).forEach(t=>{
-    createCommitment({ id:t.id, type:'home', title:t.title, notes:t.notes||'',
-      status:'todo', dueDate:t.dueDate||'', personIds:'', source:'personal-task',
-      priority:'medium', visibility:'private', createdBy:'jason', ownedBy:'me' });
-    added++;
+  // createCommitment now guards against duplicates — safe to call even if
+  // a commitment with this ID already exists (it merges rather than duplicates)
+  jasonHomeTasks.filter(t=>!t.done).forEach(t=>{
+    const existing = commitments.find(x=>x.id===t.id);
+    if(!existing){
+      createCommitment({ id:t.id, type:'home', title:t.title, notes:t.notes||'',
+        status:'todo', dueDate:t.dueDate||'', personIds:'', source:'personal-task',
+        priority:'medium', visibility:'private', createdBy:'jason', ownedBy:'me' });
+      added++;
+    }
   });
-  familyTasks.filter(t=>!t.done && !existingIds.has(t.id)).forEach(t=>{
-    createCommitment({ id:t.id, type:'family', title:t.title, notes:t.notes||'',
-      status:'todo', dueDate:t.dueDate||'', personIds:'', source:'family-task',
-      priority:'medium', visibility:'family', createdBy:'jason', ownedBy:'me' });
-    added++;
+  familyTasks.filter(t=>!t.done).forEach(t=>{
+    const existing = commitments.find(x=>x.id===t.id);
+    if(!existing){
+      createCommitment({ id:t.id, type:'family', title:t.title, notes:t.notes||'',
+        status:'todo', dueDate:t.dueDate||'', personIds:'', source:'family-task',
+        priority:'medium', visibility:'family', createdBy:'jason', ownedBy:'me' });
+      added++;
+    }
   });
   if(added > 0){
     saveCommitments();
@@ -26320,6 +26371,32 @@ function getPersonNamesByIds(ids){
   if(!ids) return '';
   return ids.split(',').filter(Boolean).map(id=>getPersonNameById(id)).join(', ');
 }
+// ── Person detail in-place complete ─────────────────────────────────────────
+// Completes a commitment and re-renders the person detail WITHOUT closing it
+function _pdComplete(commitId, personId){
+  const c = commitments.find(x=>x.id===commitId);
+  if(!c){ showToast('Item not found'); return; }
+
+  // Animate the row out
+  const row = document.querySelector(`[data-pd-cid="${commitId}"]`);
+  if(row){
+    row.style.transition = 'all 0.3s';
+    row.style.opacity = '0';
+    row.style.maxHeight = row.offsetHeight + 'px';
+    setTimeout(()=>{ row.style.maxHeight = '0'; row.style.padding = '0'; }, 50);
+  }
+
+  // Mark done
+  completeCommitment(commitId);
+
+  // Re-open person detail after animation
+  setTimeout(()=>{
+    closeModal('modal-person-detail');
+    openPersonDetail(personId);
+    renderAll();
+  }, 350);
+}
+
 function openPersonDetail(id, type){
   const record = findPerson(id);
   if(!record) return;
@@ -26370,17 +26447,23 @@ function openPersonDetail(id, type){
         text-transform:uppercase;margin-bottom:6px;">${t.emoji} ${t.label} (${items.length})</div>
       ${items.map(c=>{
         const isOv=c.dueDate&&c.dueDate<todayStr;
-        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
-          <button onclick="completeCommitment('${c.id}');renderAll();"
-            style="width:18px;height:18px;border-radius:50%;border:2px solid ${t.color};
-              background:transparent;cursor:pointer;flex-shrink:0;"></button>
+        return `<div data-pd-cid="${c.id}" style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);overflow:hidden;transition:all 0.3s;">
+          <button onclick="event.stopPropagation();_pdComplete('${c.id}','${id}');"
+            title="Mark done"
+            style="width:26px;height:26px;border-radius:50%;border:2px solid ${t.color};
+              background:transparent;cursor:pointer;flex-shrink:0;
+              display:flex;align-items:center;justify-content:center;
+              transition:all 0.15s;font-size:13px;color:transparent;"
+            onmouseover="this.style.background='${t.color}20';this.style.color='${t.color}';"
+            onmouseout="this.style.background='transparent';this.style.color='transparent';">✓</button>
           <div style="flex:1;min-width:0;">
             <div style="font:500 13px/1.3 var(--font-ui);color:var(--text);overflow:hidden;
               text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</div>
             ${c.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">${isOv?'\u26a0 ':''  }${c.dueDate.slice(5)}</div>`:''}
           </div>
-          <button onclick="_cvOpenEdit('${c.id}')"
-            style="border:none;background:transparent;color:var(--text4);font-size:13px;cursor:pointer;">\u203a</button>
+          <button onclick="event.stopPropagation();_cvOpenEdit(\'${c.id}\');closeModal(\'modal-person-detail\');"
+            title="Edit"
+            style="border:none;background:transparent;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">\\u203a</button>
         </div>`;
       }).join('')}
     </div>`;
