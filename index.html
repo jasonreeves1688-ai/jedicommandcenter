@@ -3501,8 +3501,21 @@ async function loadAll(){
     if(cloudCalm && !localStorage.getItem('hub-calm')) localStorage.setItem('hub-calm', cloudCalm);
     // ── Commitments (boot load — merge with localStorage) ────────────────────
     if(bootCommitRows?.length){
-      const _cloudCIds = new Set(bootCommitRows.map(r=>r.id));
-      const _localOnlyC = commitments.filter(c=>!_cloudCIds.has(c.id));
+      const _cloudCIds    = new Set(bootCommitRows.map(r=>r.id));
+      // Also build normalised-ID set (strips cm-co-, cm-del-, cm-wf- prefixes)
+      const _cloudNormIds = new Set(bootCommitRows.map(r=>r.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'')));
+      // Also build title+type set to catch semantic duplicates
+      const _cloudTitleTypes = new Set(bootCommitRows.map(r=>(r.type||'action')+'|'+(r.title||'').trim().toLowerCase()));
+      const _localOnlyC = commitments.filter(c => {
+        if(_cloudCIds.has(c.id)) return false;
+        const norm = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
+        if(_cloudNormIds.has(norm)) return false;
+        if(_cloudNormIds.has(c.id)) return false;
+        // Skip local item if cloud has same title+type (semantic duplicate)
+        const tk = (c.type||'action')+'|'+(c.title||'').trim().toLowerCase();
+        if(_cloudTitleTypes.has(tk)) return false;
+        return true;
+      });
       commitments = [
         ...bootCommitRows.map(r=>({
           id:r.id, type:r.type||'action', title:r.title||'', notes:r.notes||'',
@@ -3522,7 +3535,6 @@ async function loadAll(){
         })),
         ..._localOnlyC
       ];
-      _dedupeCommitments();
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
       console.log('[Boot] Commitments loaded:', commitments.length);
     }
@@ -3540,7 +3552,9 @@ async function loadAll(){
       }));
       localStorage.setItem('hub-unified-people', JSON.stringify(unifiedPeople));
     }
-    _dedupeCommitments(); // final dedup after all boot loading
+    // Run comprehensive dedup AFTER all data is merged (cloud + local)
+    _dedupeCommitments();
+    localStorage.setItem('hub-commitments', JSON.stringify(commitments));
     setSyncStatus('ok','Loaded ✓');
     kidsCloudLoaded = true;
   } catch(e){
@@ -16477,19 +16491,45 @@ let _commitMigrated = localStorage.getItem('hub-commit-migrated-v1') === '1';
 // ── Deduplication — remove duplicate commitments by ID ────────
 // Runs once after migration or cloud load to ensure no duplicates exist.
 function _dedupeCommitments(){
-  const seen = new Set();
-  const before = commitments.length;
-  commitments = commitments.filter(c => {
-    if(seen.has(c.id)) return false;
-    // Also catch cm-co-X vs X, cm-del-X vs X duplicates from migration
+  const seenIds    = new Set();
+  const seenNorm   = new Set();
+  const seenTK     = new Set(); // title+type semantic dedup
+  const before     = commitments.length;
+
+  // Sort: prefer items WITH a real (non-cm-prefixed) ID, then by newest createdAt
+  // This ensures we keep the "real" commitment over the orphan-injected mirror
+  const sorted = [...commitments].sort((a,b) => {
+    const aIsCm = /^cm-(co|del|wf|ci|ft|jh|wh)-/.test(a.id) ? 1 : 0;
+    const bIsCm = /^cm-(co|del|wf|ci|ft|jh|wh)-/.test(b.id) ? 1 : 0;
+    if(aIsCm !== bIsCm) return aIsCm - bIsCm; // real IDs first
+    return 0;
+  });
+
+  const kept = sorted.filter(c => {
     const normId = c.id.replace(/^cm-(co|del|wf|ci|ft|jh|wh)-/,'');
-    if(normId !== c.id && seen.has(normId)) return false;
-    seen.add(c.id);
-    if(normId !== c.id) seen.add(normId);
+    const tk     = (c.type||'action') + '|' + (c.title||'').trim().toLowerCase();
+
+    if(seenIds.has(c.id))   return false;
+    if(seenNorm.has(normId)) return false;
+    if(seenIds.has(normId)) return false;
+    if(seenTK.has(tk))      return false;
+
+    seenIds.add(c.id);
+    seenNorm.add(normId);
+    seenTK.add(tk);
     return true;
   });
-  if(commitments.length < before){
-    console.log(`[Commitments] Deduped ${before - commitments.length} duplicate entries`);
+
+  // Restore original order (newest first by createdAt)
+  commitments = kept.sort((a,b) => {
+    const at = typeof a.createdAt==='number' ? a.createdAt : new Date(a.createdAt||0).getTime();
+    const bt = typeof b.createdAt==='number' ? b.createdAt : new Date(b.createdAt||0).getTime();
+    return bt - at;
+  });
+
+  const removed = before - commitments.length;
+  if(removed > 0){
+    console.log(`[Commitments] Deduped ${removed} duplicate entries (${before} → ${commitments.length})`);
     saveCommitments();
   }
 }
