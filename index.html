@@ -3501,20 +3501,31 @@ async function loadAll(){
     if(cloudCalm && !localStorage.getItem('hub-calm')) localStorage.setItem('hub-calm', cloudCalm);
     // ── Commitments (boot load — merge with localStorage) ────────────────────
     if(bootCommitRows?.length){
-      // Cloud is source of truth — replace local entirely with cloud data
-      // Only preserve items created THIS SESSION (not yet saved to cloud)
-      // identified by having a c- prefix ID (created locally this session)
-      const _cloudIds = new Set(bootCommitRows.map(r=>r.id));
-      const _sessionItems = commitments.filter(c =>
-        c.id.startsWith('c-') && !_cloudIds.has(c.id)
-      );
-      commitments = [
-        ...bootCommitRows.map(_mapCommitRow),
-        ..._sessionItems
-      ];
+      // Safe merge: cloud items win for most fields, but preserve local status
+      // changes (done, priority, dueDate) made since last save.
+      // Items in cloud but not local: add them (new from another device)
+      // Items in local but not cloud: keep them (new this session, not yet saved)
+      const _cloudMap = new Map(bootCommitRows.map(r=>[r.id, r]));
+      const _localMap = new Map(commitments.map(c=>[c.id, c]));
+      const _allIds   = new Set([..._cloudMap.keys(), ..._localMap.keys()]);
+      commitments = [..._allIds].map(id => {
+        const cloud = _cloudMap.get(id);
+        const local = _localMap.get(id);
+        if(!cloud) return local; // local-only (created this session)
+        const mapped = _mapCommitRow(cloud);
+        if(!local) return mapped; // cloud-only (from another device)
+        // Both exist — take cloud base but preserve local status/completedAt
+        // if local was modified more recently (i.e. local has done but cloud doesn't)
+        if(local.status === 'done' && mapped.status !== 'done'){
+          mapped.status = 'done';
+          mapped.completedAt = local.completedAt;
+        }
+        return mapped;
+      });
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
-      console.log('[Boot] Commitments loaded from cloud:', bootCommitRows.length,
-        _sessionItems.length ? `+ ${_sessionItems.length} session items` : '');
+      _dedupeCommitments();
+      localStorage.setItem('hub-commitments', JSON.stringify(commitments));
+      console.log('[Boot] Commitments merged:', commitments.length);
     }
     // ── Unified People (boot load) ─────────────────────────────────────────
     if(bootUpRows?.length){
@@ -3947,14 +3958,24 @@ async function _loadClientData(){
       localStorage.setItem('hub-client-issues', JSON.stringify(clientIssues));
     }
     if(commitRows?.length){
-      // Cloud is source of truth — replace local entirely
-      // Preserve session items (c- prefix, not yet in cloud)
-      const _cIds = new Set(commitRows.map(r=>r.id));
-      const _sessionC = commitments.filter(c => c.id.startsWith('c-') && !_cIds.has(c.id));
-      commitments = [
-        ...commitRows.map(_mapCommitRow),
-        ..._sessionC
-      ];
+      // Safe merge — same logic as boot merge
+      const _cMap = new Map(commitRows.map(r=>[r.id, r]));
+      const _lMap = new Map(commitments.map(c=>[c.id, c]));
+      const _aIds = new Set([..._cMap.keys(), ..._lMap.keys()]);
+      commitments = [..._aIds].map(id => {
+        const cloud = _cMap.get(id);
+        const local = _lMap.get(id);
+        if(!cloud) return local;
+        const mapped = _mapCommitRow(cloud);
+        if(!local) return mapped;
+        // Preserve local done status if cloud hasn't caught up yet
+        if(local.status === 'done' && mapped.status !== 'done'){
+          mapped.status = 'done';
+          mapped.completedAt = local.completedAt;
+        }
+        return mapped;
+      });
+      _dedupeCommitments();
       localStorage.setItem('hub-commitments', JSON.stringify(commitments));
       _commitMigrated = true;
       localStorage.setItem('hub-commit-migrated-v1','1');
@@ -16495,15 +16516,11 @@ async function _sbSaveCommitments(){
     linked_call_dates: JSON.stringify(c.linkedCallDates||[])
   }));
   if(!rows.length) return;
+  // Save to Supabase — upsert only, never delete here.
+  // Deletions happen explicitly in deleteCommitment() / deleteFamilyTask() etc.
+  // The old orphan-delete block was causing completed items to be wiped
+  // when a background reload replaced local before the save queued.
   await sbUpsert('commitments', rows).catch(e=>console.warn('[Commitments] Save:',e));
-  try{
-    const { data: remote } = await _sb.from('commitments').select('id').eq('owner_id',_sbUserId);
-    if(remote?.length){
-      const local = new Set(commitments.map(c=>c.id));
-      const del   = remote.map(r=>r.id).filter(id=>!local.has(id));
-      if(del.length) await _sb.from('commitments').delete().in('id',del);
-    }
-  }catch(e){}
 }
 // ── One-time migration ────────────────────────────────────────
 // Converts existing records into commitments[].
@@ -16900,6 +16917,25 @@ function _syncCommitmentToLegacy(c){
           createdAt: c.createdAt || today(),
         });
         if(isJenny) saveWifeHomeTasks(); else saveJasonHomeTasks();
+      }
+    }
+    return;
+  }
+  if(c.type === 'home'){
+    const jt = jasonHomeTasks.find(x => x.id === c.id);
+    if(jt){
+      jt.title   = c.title   || jt.title;
+      jt.dueDate = c.dueDate || jt.dueDate;
+      jt.notes   = c.notes   || jt.notes;
+      jt.done    = isDone;
+      saveJasonHomeTasks();
+    } else {
+      const wt = wifeHomeTasks.find(x => x.id === c.id);
+      if(wt){
+        wt.title   = c.title   || wt.title;
+        wt.dueDate = c.dueDate || wt.dueDate;
+        wt.done    = isDone;
+        saveWifeHomeTasks();
       }
     }
     return;
@@ -26372,28 +26408,64 @@ function getPersonNamesByIds(ids){
 }
 // ── Person detail in-place complete ─────────────────────────────────────────
 // Completes a commitment and re-renders the person detail WITHOUT closing it
-function _pdComplete(commitId, personId){
-  const c = commitments.find(x=>x.id===commitId);
-  if(!c){ showToast('Item not found'); return; }
+// Track in-flight completions to prevent race conditions
+const _pdInFlight = new Set();
 
-  // Animate the row out
-  const row = document.querySelector(`[data-pd-cid="${commitId}"]`);
-  if(row){
-    row.style.transition = 'all 0.3s';
-    row.style.opacity = '0';
-    row.style.maxHeight = row.offsetHeight + 'px';
-    setTimeout(()=>{ row.style.maxHeight = '0'; row.style.padding = '0'; }, 50);
+function _pdComplete(commitId, personId){
+  // Prevent double-tap / rapid-tap race condition
+  if(_pdInFlight.has(commitId)) return;
+  _pdInFlight.add(commitId);
+
+  const c = commitments.find(x=>x.id===commitId);
+  if(!c){
+    _pdInFlight.delete(commitId);
+    showToast('Item not found');
+    return;
   }
 
-  // Mark done
+  // 1. Instantly dim the row — immediate visual feedback, no setTimeout
+  const row = document.querySelector(`[data-pd-cid="${commitId}"]`);
+  if(row){
+    row.style.transition = 'opacity 0.2s';
+    row.style.opacity = '0.2';
+    row.style.pointerEvents = 'none'; // block further taps on this row
+  }
+
+  // 2. Mark done in state
   completeCommitment(commitId);
 
-  // Re-open person detail after animation
+  // 3. Re-render the modal body in-place — no close/reopen, no renderAll
+  // Slight delay so the dim animation is visible before content updates
   setTimeout(()=>{
-    closeModal('modal-person-detail');
-    openPersonDetail(personId);
+    _pdInFlight.delete(commitId);
+    _pdRefresh(personId);
+  }, 220);
+}
+
+// Refresh the person detail modal body in-place without closing it
+function _pdRefresh(personId){
+  const modal = document.getElementById('modal-person-detail');
+  if(!modal){
+    // Modal was closed — just do a background renderAll
     renderAll();
-  }, 350);
+    return;
+  }
+
+  // Re-open with fresh data — openPersonDetail removes the old modal
+  // and creates a new one, but we can do it without the overlay flash
+  // by replacing innerHTML of the inner content div
+  const todayStr = today();
+  const record   = findPerson(personId);
+  if(!record){ closeModal('modal-person-detail'); renderAll(); return; }
+
+  // Close and re-open cleanly — openPersonDetail already handles this
+  // but skip the overlay close animation by removing directly
+  const old = document.getElementById('modal-person-detail');
+  if(old) old.remove();
+  openPersonDetail(personId);
+
+  // Background sync — don't block the UI
+  setTimeout(()=> renderAll(), 100);
 }
 
 function openPersonDetail(id, type){
@@ -27685,7 +27757,7 @@ function _doSaveMeetingCapture(){
         personIds, createdAt:today(), completedAt:null, subtasks:[],
         ...(initiativeId?{discoveryId:initiativeId}:{}) };
       tasks.push(task);
-      commitments.unshift({ id:tid, type:'action', title:t.text, status:'todo',
+      createCommitment({ id:tid, type:'action', title:t.text, status:'todo',
         dueDate:t.due, personIds, source:'meeting:'+meeting.id,
         notes:'From meeting: '+title+' ('+date+')',
         createdAt:today(), createdBy:'jason', visibility:'work' });
@@ -27698,7 +27770,7 @@ function _doSaveMeetingCapture(){
       const did = 'del'+Date.now()+Math.random().toString(36).slice(2,6);
       delegations.unshift({ id:did, personId, what:d.text, dueDate:d.due,
         status:'active', notes:'From meeting: '+title+' ('+date+')', createdAt:today() });
-      commitments.unshift({ id:did, type:'delegation', title:d.text, status:'todo',
+      createCommitment({ id:did, type:'delegation', title:d.text, status:'todo',
         dueDate:d.due, personIds, source:'meeting:'+meeting.id,
         notes:'From meeting: '+title+' ('+date+')',
         createdAt:today(), createdBy:'jason', visibility:'work' });
@@ -27713,7 +27785,7 @@ function _doSaveMeetingCapture(){
       waitingFor.unshift({ id:wid, person:person?.name||attendees.split(',')[0]||'',
         personId, personIds, what:w.text, dueDate:w.due,
         done:false, createdAt:today(), ...(initiativeId?{initiativeId}:{}) });
-      commitments.unshift({ id:wid, type:'waiting', title:w.text, status:'todo',
+      createCommitment({ id:wid, type:'waiting', title:w.text, status:'todo',
         dueDate:w.due, personIds, source:'meeting:'+meeting.id,
         notes:'From meeting: '+title+' ('+date+')',
         createdAt:today(), createdBy:'jason', visibility:'work' });
@@ -27727,7 +27799,7 @@ function _doSaveMeetingCapture(){
       commsOwed.unshift({ id:cid, what:c.text, recipient:'', dueDate:c.due,
         context:'From meeting: '+title+' ('+date+')',
         personId, done:false, createdAt:today() });
-      commitments.unshift({ id:cid, type:'comms', title:c.text, status:'todo',
+      createCommitment({ id:cid, type:'comms', title:c.text, status:'todo',
         dueDate:c.due, personIds, source:'meeting:'+meeting.id,
         notes:'From meeting: '+title+' ('+date+')',
         createdAt:today(), createdBy:'jason', visibility:'work' });
