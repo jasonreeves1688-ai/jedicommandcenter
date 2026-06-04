@@ -3240,6 +3240,42 @@ async function apiCall(action, data={}){
   console.warn('apiCall fallback for action:', action);
   return {};
 }
+
+// ── Shared row mapper: Supabase row → JS commitment object ───────────────────
+function _mapCommitRow(r){
+  return {
+    id:            r.id,
+    type:          r.type            || 'action',
+    title:         r.title           || '',
+    notes:         r.notes           || '',
+    status:        r.status          || 'todo',
+    priority:      r.priority        || 'medium',
+    visibility:    r.visibility      || 'work',
+    createdBy:     r.created_by      || 'jason',
+    ownedBy:       r.owned_by        || 'me',
+    assignedTo:    r.assigned_to     || '',
+    personIds:     r.person_ids      || '',
+    orgId:         r.org_id          || '',
+    interactionId: r.interaction_id  || '',
+    projectId:     r.project_id      || '',
+    dueDate:       r.due_date        || '',
+    followUpDate:  r.follow_up_date  || '',
+    checkInDays:   r.check_in_days   || null,
+    recur:         r.recur           || 'none',
+    estimate:      r.estimate        || '',
+    energy:        r.energy          || '',
+    audience:      r.audience        || '',
+    source:        r.source          || '',
+    lastActedAt:   r.last_acted_at   || r.created_at || '',
+    createdAt:     r.created_at      || '',
+    completedAt:   r.completed_at    || '',
+    lastEnrichedAt:r.last_enriched_at|| '',
+    subtasks:       (()=>{ try{ return JSON.parse(r.subtasks       ||'[]'); }catch(e){ return []; } })(),
+    linkedCallDates:(()=>{ try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
+    comments:      []
+  };
+}
+
 async function loadAll(){
   if(!_sbSession){ console.warn('loadAll called before sign-in'); return; }
   setSyncStatus('syncing','Loading…');
@@ -3318,20 +3354,27 @@ async function loadAll(){
     });
     // Sort each task's comments by timestamp
     Object.values(commentMap).forEach(arr=>arr.sort((a,b)=>a.ts-b.ts));
-    familyTasks = familyTaskRows.map(t=>({
-      id:t.id, title:t.title, done:t.done,
-      assignedTo:t.assigned_to, createdBy:t.created_by,
-      dueDate:t.due_date, attachments:t.attachments||[],
-      createdAt:t.created_at, completedAt:t.completed_at,
-      comments: commentMap[t.id] || []
-    }));
+    { const _ftL=new Map(familyTasks.map(t=>[t.id,t]));
+    familyTasks = familyTaskRows.map(t=>{
+      const c={id:t.id,title:t.title,done:t.done,notes:t.notes||'',
+        assignedTo:t.assigned_to,createdBy:t.created_by,dueDate:t.due_date,
+        attachments:t.attachments||[],createdAt:t.created_at,
+        completedAt:t.completed_at,comments:commentMap[t.id]||[]};
+      const l=_ftL.get(t.id);
+      if(l&&l.done&&!c.done){c.done=true;c.completedAt=l.completedAt;}
+      return c;
+    }); }
     localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
     // ── Jason / Jenny home tasks ──────────────────────────────
-    jasonHomeTasks = jasonHomeRows.map(t=>({
-      id:t.id, title:t.title, done:t.done,
-      dueDate:t.due_date, createdBy:t.created_by, createdAt:t.created_at,
-      completedAt:t.completed_at
-    }));
+    const _jLMap = new Map(jasonHomeTasks.map(t=>[t.id,t]));
+    jasonHomeTasks = jasonHomeRows.map(t=>{
+      const cloud = { id:t.id, title:t.title, done:t.done,
+        dueDate:t.due_date, notes:t.notes||'', createdBy:t.created_by,
+        createdAt:t.created_at, completedAt:t.completed_at };
+      const local = _jLMap.get(t.id);
+      if(local && local.done && !cloud.done){ cloud.done=true; cloud.completedAt=local.completedAt; }
+      return cloud;
+    });
     localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
     wifeHomeTasks = jennyHomeRows.map(t=>({
       id:t.id, title:t.title, done:t.done,
@@ -3713,36 +3756,22 @@ async function _sbSaveFamilyTasks(){
     id:t.id, title:t.title||'', done:!!t.done,
     assigned_to:Array.isArray(t.assignedTo)?t.assignedTo:[t.assignedTo||'anyone'],
     created_by:t.createdBy||'', due_date:t.dueDate||'',
+    notes:t.notes||'',
     attachments:t.attachments||[], created_at:String(t.createdAt||''),
     completed_at:t.completedAt||null
   }));
+  // Upsert only — deletions happen explicitly via deleteFamilyTask()
   if(rows.length) await sbUpsert('family_tasks', rows);
-  // Delete orphaned rows — tasks deleted locally should not come back
-  try{
-    const { data: _remoteFT } = await _sb.from('family_tasks').select('id');
-    if(_remoteFT && _remoteFT.length){
-      const _localFTIds = new Set(familyTasks.map(t=>t.id));
-      const _delFT = _remoteFT.map(r=>r.id).filter(id=>!_localFTIds.has(id));
-      if(_delFT.length) await _sb.from('family_tasks').delete().in('id', _delFT);
-    }
-  }catch(e){ console.warn('[FamilyTasks] Cleanup failed:', e); }
 }
 async function _sbSaveJasonHome(){
   if(!_sbUserId) return;
   const rows = jasonHomeTasks.map(t=>({
     id:t.id, owner_id:_sbUserId, title:t.title||'', done:!!t.done,
-    due_date:t.dueDate||'', created_by:t.createdBy||'',
+    due_date:t.dueDate||'', notes:t.notes||'', created_by:t.createdBy||'',
     created_at:String(t.createdAt||''), completed_at:t.completedAt||null
   }));
   if(rows.length) await sbUpsert('jason_home_tasks', rows);
-  try{
-    const { data: _remoteJH } = await _sb.from('jason_home_tasks').select('id').eq('owner_id',_sbUserId);
-    if(_remoteJH && _remoteJH.length){
-      const _localJHIds = new Set(jasonHomeTasks.map(t=>t.id));
-      const _delJH = _remoteJH.map(r=>r.id).filter(id=>!_localJHIds.has(id));
-      if(_delJH.length) await _sb.from('jason_home_tasks').delete().in('id', _delJH);
-    }
-  }catch(e){ console.warn('[JasonHome] Cleanup failed:', e); }
+  // Upsert only — deletions happen explicitly via deleteHomeTask()
 }
 async function _sbSaveJennyHome(){
   const rows = wifeHomeTasks.map(t=>({
@@ -3751,14 +3780,7 @@ async function _sbSaveJennyHome(){
     created_at:String(t.createdAt||''), completed_at:t.completedAt||null
   }));
   if(rows.length) await sbUpsert('jenny_home_tasks', rows);
-  try{
-    const { data: _remoteJY } = await _sb.from('jenny_home_tasks').select('id').eq('owner_id',JENNY_UID);
-    if(_remoteJY && _remoteJY.length){
-      const _localJYIds = new Set(wifeHomeTasks.map(t=>t.id));
-      const _delJY = _remoteJY.map(r=>r.id).filter(id=>!_localJYIds.has(id));
-      if(_delJY.length) await _sb.from('jenny_home_tasks').delete().in('id', _delJY);
-    }
-  }catch(e){ console.warn('[JennyHome] Cleanup failed:', e); }
+  // Upsert only — deletions happen explicitly via deleteHomeTask()
 }
 async function _sbSaveGrocery(){
   const rows = groceryList.map(g=>({
@@ -6106,11 +6128,19 @@ function toggleFamilyTask(id){
   t.done = !t.done;
   t.completedAt = t.done ? Date.now() : null;
   if(t.done){
-    // Mark as self-completed so realtime echo doesn't fire a notification on our own device
     _selfCompletedTasks.add(id);
     setTimeout(()=>_selfCompletedTasks.delete(id), 5000);
   }
   saveFamilyTasks();
+  // Sync completion to matching commitment so it doesn't come back from cloud
+  const _fc = commitments.find(x=>x.id===id);
+  if(_fc){
+    updateCommitment(id, {
+      status:      t.done ? 'done' : 'todo',
+      completedAt: t.done ? String(Date.now()) : '',
+      lastActedAt: today(),
+    });
+  }
   renderAll();
 }
 function deleteFamilyTask(id){
@@ -16716,39 +16746,7 @@ function createCommitment(fields){
     completedAt:  fields.completedAt  || '',
   };
   // ── Shared row mapper — Supabase row → JS commitment object ─────────────────
-function _mapCommitRow(r){
-  return {
-    id:            r.id,
-    type:          r.type           || 'action',
-    title:         r.title          || '',
-    notes:         r.notes          || '',
-    status:        r.status         || 'todo',
-    priority:      r.priority       || 'medium',
-    visibility:    r.visibility     || 'work',
-    createdBy:     r.created_by     || 'jason',
-    ownedBy:       r.owned_by       || 'me',
-    assignedTo:    r.assigned_to    || '',
-    personIds:     r.person_ids     || '',
-    orgId:         r.org_id         || '',
-    interactionId: r.interaction_id || '',
-    projectId:     r.project_id     || '',
-    dueDate:       r.due_date       || '',
-    followUpDate:  r.follow_up_date || '',
-    checkInDays:   r.check_in_days  || null,
-    recur:         r.recur          || 'none',
-    estimate:      r.estimate       || '',
-    energy:        r.energy         || '',
-    audience:      r.audience       || '',
-    source:        r.source         || '',
-    lastActedAt:   r.last_acted_at  || r.created_at || '',
-    createdAt:     r.created_at     || '',
-    completedAt:   r.completed_at   || '',
-    lastEnrichedAt:r.last_enriched_at|| '',
-    subtasks:      (()=>{ try{ return JSON.parse(r.subtasks||'[]'); }catch(e){ return []; } })(),
-    linkedCallDates:(()=>{ try{ return JSON.parse(r.linked_call_dates||'[]'); }catch(e){ return []; } })(),
-    comments:      []
-  };
-}
+
 
 // Guard: if an entry with this ID already exists, merge instead of inserting a duplicate
   const _existIdx = commitments.findIndex(x => x.id === c.id);
@@ -16789,161 +16787,12 @@ function completeCommitment(id){
   if(c) showWhatsNext(c.title);
   return result;
 }
-// ── Sync ANY commitment type to its legacy array (create/update) ─────────────
-// This is what gets delegations[], commsOwed[], waitingFor[], familyTasks[],
-// and jasonHomeTasks[] into Supabase — those tables read from legacy arrays,
-// not from commitments[].
 function _syncCommitmentToLegacy(c){
-  if(!c) return;
-  const isDone = c.status === 'done' || c.status === 'cancelled';
-
-  if(c.type === 'delegation'){
-    const existing = delegations.find(x => x.id === c.id);
-    if(existing){
-      existing.what        = c.title        || existing.what;
-      existing.dueDate     = c.dueDate      || existing.dueDate;
-      existing.notes       = c.notes        || existing.notes;
-      existing.status      = isDone ? 'done' : 'active';
-      existing.personId    = (c.personIds||'').split(',').filter(Boolean)[0] || existing.personId;
-      existing.checkInDays = c.checkInDays  != null ? c.checkInDays : existing.checkInDays;
-    } else {
-      delegations.push({
-        id:          c.id,
-        personId:    (c.personIds||'').split(',').filter(Boolean)[0] || '',
-        what:        c.title        || '',
-        dueDate:     c.dueDate      || '',
-        status:      isDone ? 'done' : 'active',
-        notes:       c.notes        || '',
-        createdAt:   c.createdAt    || today(),
-        checkInDays: c.checkInDays  || null,
-      });
-    }
-    saveDelegations();
-    return;
-  }
-
-  if(c.type === 'comms'){
-    const existing = commsOwed.find(x => x.id === c.id);
-    if(existing){
-      existing.what     = c.title   || existing.what;
-      existing.dueDate  = c.dueDate || existing.dueDate;
-      existing.context  = c.notes   || existing.context;
-      existing.done     = isDone;
-      existing.recipient = (c.personIds||'').split(',').filter(Boolean)[0]
-                          || c.assignedTo || existing.recipient || '';
-    } else {
-      commsOwed.push({
-        id:        c.id,
-        recipient: (c.personIds||'').split(',').filter(Boolean)[0] || c.assignedTo || '',
-        what:      c.title   || '',
-        dueDate:   c.dueDate || '',
-        context:   c.notes   || '',
-        done:      isDone,
-        createdAt: c.createdAt || today(),
-      });
-    }
-    saveCommsOwed();
-    return;
-  }
-
-  if(c.type === 'waiting'){
-    const existing = waitingFor.find(x => x.id === c.id);
-    if(existing){
-      existing.what     = c.title   || existing.what;
-      existing.dueDate  = c.dueDate || existing.dueDate;
-      existing.notes    = c.notes   || existing.notes;
-      existing.done     = isDone;
-      existing.personId = (c.personIds||'').split(',').filter(Boolean)[0] || existing.personId;
-    } else {
-      waitingFor.push({
-        id:        c.id,
-        personId:  (c.personIds||'').split(',').filter(Boolean)[0] || '',
-        what:      c.title   || '',
-        dueDate:   c.dueDate || '',
-        notes:     c.notes   || '',
-        done:      isDone,
-        createdAt: c.createdAt || today(),
-      });
-    }
-    saveWaiting();
-    return;
-  }
-
-  if(c.type === 'family'){
-    const existing = familyTasks.find(x => x.id === c.id);
-    if(existing){
-      existing.title   = c.title   || existing.title;
-      existing.dueDate = c.dueDate || existing.dueDate;
-      existing.notes   = c.notes   || existing.notes;
-      existing.done    = isDone;
-    } else {
-      familyTasks.push({
-        id:        c.id,
-        title:     c.title   || '',
-        dueDate:   c.dueDate || '',
-        notes:     c.notes   || '',
-        done:      isDone,
-        assignee:  c.assignedTo || 'anyone',
-        createdAt: c.createdAt || today(),
-      });
-    }
-    saveFamilyTasks();
-    return;
-  }
-
-  if(c.type === 'home'){
-    const jt = jasonHomeTasks.find(x => x.id === c.id);
-    if(jt){
-      jt.title   = c.title   || jt.title;
-      jt.dueDate = c.dueDate || jt.dueDate;
-      jt.done    = isDone;
-      saveJasonHomeTasks();
-    } else {
-      const wt = wifeHomeTasks.find(x => x.id === c.id);
-      if(wt){
-        wt.title   = c.title   || wt.title;
-        wt.dueDate = c.dueDate || wt.dueDate;
-        wt.done    = isDone;
-        saveWifeHomeTasks();
-      } else {
-        // New home task — assign to the creator
-        const isJenny = c.createdBy === 'jenny';
-        const arr = isJenny ? wifeHomeTasks : jasonHomeTasks;
-        arr.push({
-          id:        c.id,
-          title:     c.title   || '',
-          dueDate:   c.dueDate || '',
-          done:      isDone,
-          createdAt: c.createdAt || today(),
-        });
-        if(isJenny) saveWifeHomeTasks(); else saveJasonHomeTasks();
-      }
-    }
-    return;
-  }
-  if(c.type === 'home'){
-    const jt = jasonHomeTasks.find(x => x.id === c.id);
-    if(jt){
-      jt.title   = c.title   || jt.title;
-      jt.dueDate = c.dueDate || jt.dueDate;
-      jt.notes   = c.notes   || jt.notes;
-      jt.done    = isDone;
-      saveJasonHomeTasks();
-    } else {
-      const wt = wifeHomeTasks.find(x => x.id === c.id);
-      if(wt){
-        wt.title   = c.title   || wt.title;
-        wt.dueDate = c.dueDate || wt.dueDate;
-        wt.done    = isDone;
-        saveWifeHomeTasks();
-      }
-    }
-    return;
-  }
-  // action type is handled by _syncCommitmentToTask — no-op here
+  // DEPRECATED — no longer writes to legacy arrays.
+  // commitments[] is the single source of truth saved to Supabase directly.
+  return;
 }
 
-// ── Sync an action commitment to tasks[] ─────────────────────
 function _syncCommitmentToTask(c){
   if(!c||c.type!=='action') return;
   const origId = c.id.startsWith('cm-') ? c.id.replace(/^cm-[a-z]+-/,'') : c.id;
@@ -25645,7 +25494,7 @@ function saveNutritionGoals(){
 }
 function saveJasonHomeTasks(){
   localStorage.setItem('hub-jason-home', JSON.stringify(jasonHomeTasks));
-  _queueSave('jasonHome',_sbSaveJasonHome);
+  _sbSaveJasonHome().catch(e=>console.warn('[JasonHome] Save failed:',e));
 }
 function saveWifeHomeTasks(){
   localStorage.setItem('hub-wife-home', JSON.stringify(wifeHomeTasks));
@@ -25690,7 +25539,7 @@ function saveMealPlan(){
 let _mealPlanSyncTimer = null;
 function saveFamilyTasks(){
   localStorage.setItem('hub-family-tasks', JSON.stringify(familyTasks));
-  _queueSave('familyTasks',_sbSaveFamilyTasks);
+  _sbSaveFamilyTasks().catch(e=>console.warn('[FamilyTasks] Save failed:',e));
 }
 function saveWeeklyPlan(){
   localStorage.setItem('hub-weekly-plan', JSON.stringify(weeklyPlan));
@@ -26431,11 +26280,19 @@ function _pdComplete(commitId, personId){
     row.style.pointerEvents = 'none'; // block further taps on this row
   }
 
-  // 2. Mark done in state
-  completeCommitment(commitId);
+  // 2. Mark done in state — try commitment first, then legacy arrays
+  const result = completeCommitment(commitId);
+  if(!result){
+    // Item may be a legacy orphan not in commitments[] — mark done directly
+    const del = (delegations||[]).find(x=>x.id===commitId||x.id===commitId.replace(/^cm-(del|wf|co|ci)-/,''));
+    if(del){ del.status='done'; saveDelegations(); }
+    const wf = (waitingFor||[]).find(x=>x.id===commitId||x.id===commitId.replace(/^cm-(del|wf|co|ci)-/,''));
+    if(wf){ wf.done=true; saveWaiting(); }
+    const co = (commsOwed||[]).find(x=>x.id===commitId||x.id===commitId.replace(/^cm-(del|wf|co|ci)-/,''));
+    if(co){ co.done=true; saveCommsOwed(); }
+  }
 
-  // 3. Re-render the modal body in-place — no close/reopen, no renderAll
-  // Slight delay so the dim animation is visible before content updates
+  // 3. Re-render the modal body in-place
   setTimeout(()=>{
     _pdInFlight.delete(commitId);
     _pdRefresh(personId);
@@ -26445,27 +26302,21 @@ function _pdComplete(commitId, personId){
 // Refresh the person detail modal body in-place without closing it
 function _pdRefresh(personId){
   const modal = document.getElementById('modal-person-detail');
-  if(!modal){
-    // Modal was closed — just do a background renderAll
-    renderAll();
-    return;
-  }
+  if(!modal){ renderAll(); return; }
 
-  // Re-open with fresh data — openPersonDetail removes the old modal
-  // and creates a new one, but we can do it without the overlay flash
-  // by replacing innerHTML of the inner content div
-  const todayStr = today();
-  const record   = findPerson(personId);
+  // Re-render in-place — rebuild the person detail HTML and swap it into
+  // the existing modal container so there is NO close/reopen flash.
+  // We do this by temporarily detaching the modal, rebuilding, re-attaching.
+  const record = findPerson(personId);
   if(!record){ closeModal('modal-person-detail'); renderAll(); return; }
 
-  // Close and re-open cleanly — openPersonDetail already handles this
-  // but skip the overlay close animation by removing directly
-  const old = document.getElementById('modal-person-detail');
-  if(old) old.remove();
+  // Remove old and rebuild without animation
+  modal.remove();
   openPersonDetail(personId);
 
-  // Background sync — don't block the UI
-  setTimeout(()=> renderAll(), 100);
+  // Do NOT call renderAll() here — it causes a full page re-render
+  // which is what creates the background flash. The person detail is
+  // already showing the updated data.
 }
 
 function openPersonDetail(id, type){
@@ -26533,8 +26384,8 @@ function openPersonDetail(id, type){
             ${c.dueDate?`<div style="font:500 10px/1 var(--font-ui);color:${isOv?'#EF5350':'var(--text4)'};">${isOv?'\u26a0 ':''  }${c.dueDate.slice(5)}</div>`:''}
           </div>
           <button onclick="event.stopPropagation();_cvOpenEdit(\'${c.id}\');closeModal(\'modal-person-detail\');"
-            title="Edit"
-            style="border:none;background:transparent;color:var(--text4);font-size:16px;cursor:pointer;padding:2px 6px;">\\u203a</button>
+            title="Edit commitment"
+            style="border:none;background:var(--surface2);color:var(--text3);font:600 10px/1 var(--font-ui);cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid var(--border);flex-shrink:0;">Edit</button>
         </div>`;
       }).join('')}
     </div>`;
@@ -26564,11 +26415,17 @@ function openPersonDetail(id, type){
           ${daysSince!==null?`<span style="font:500 10px/1 var(--font-ui);color:var(--text4);">${daysSince===0?'Today':daysSince+'d ago'}</span>`:''}
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
-        <button onclick="closeModal('modal-person-detail')"
-          style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:16px;cursor:pointer;line-height:1;">x</button>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
         <button onclick="openUnifiedPersonEdit('${id}')"
-          style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:13px;cursor:pointer;line-height:1;">e</button>
+          title="Edit person"
+          style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font:600 11px/1 var(--font-ui);
+            cursor:pointer;white-space:nowrap;">Edit person</button>
+        <button onclick="closeModal('modal-person-detail')"
+          title="Close"
+          style="width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+            background:transparent;color:var(--text3);font-size:18px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
       </div>
     </div>
     <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface2);">
